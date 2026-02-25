@@ -1046,7 +1046,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           onDragEnd={() => setScrollEnabled(true)}
         />
 
-        {/* ── Add Activity Button (opens inline panel) ── */}
+        {/* ── Add Activity Button (opens full-screen search) ── */}
         <TouchableOpacity
           style={styles.addActivityBtn}
           onPress={() => handleOpenAddPanel()}
@@ -1055,113 +1055,6 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           <Ionicons name="add-circle-outline" size={20} color={colors.primary[500]} />
           <Text style={styles.addActivityText}>Add Activity</Text>
         </TouchableOpacity>
-
-        {/* ── Inline Add Activity Panel ── */}
-        {showAddPanel && (
-          <View style={styles.inlineAddPanel}>
-            {/* Panel Header */}
-            <View style={styles.inlineAddHeader}>
-              <Text style={styles.inlineAddTitle}>Add Activity</Text>
-              <TouchableOpacity onPress={() => setShowAddPanel(false)}>
-                <Ionicons name="close" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Time Slot Picker (icon-only) */}
-            <View style={styles.inlineSlotPicker}>
-              {TIME_SLOTS.map((slot) => (
-                <TouchableOpacity
-                  key={slot.key}
-                  style={[
-                    styles.inlineSlotBtn,
-                    { backgroundColor: slot.bgColor },
-                    activeSlot === slot.key && { borderColor: slot.color, borderWidth: 2 },
-                  ]}
-                  onPress={() => setActiveSlot(slot.key)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={{ fontSize: 16 }}>{slot.emoji}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Search Input */}
-            <View style={styles.inlineSearchRow}>
-              <View style={styles.inlineSearchInput}>
-                <Ionicons name="search" size={16} color={colors.textTertiary} />
-                <TextInput
-                  style={styles.inlineSearchTextInput}
-                  placeholder={`Search in ${currentDestination?.name || 'destination'}...`}
-                  placeholderTextColor={colors.textTertiary}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  returnKeyType="search"
-                  onSubmitEditing={handleSearch}
-                />
-              </View>
-              <TouchableOpacity style={styles.inlineSearchBtn} onPress={handleSearch} activeOpacity={0.7}>
-                <Ionicons name="search" size={16} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
-
-            {/* Results */}
-            {isSearching ? (
-              <View style={styles.inlineLoading}>
-                <ActivityIndicator size="small" color={colors.primary[500]} />
-                <Text style={styles.inlineLoadingText}>Searching...</Text>
-              </View>
-            ) : searchResults.length > 0 ? (
-              <ScrollView style={styles.inlineResults} nestedScrollEnabled>
-                {!searchQuery.trim() && (
-                  <View style={styles.inlinePopularHeader}>
-                    <Ionicons name="trending-up" size={14} color={colors.primary[500]} />
-                    <Text style={styles.inlinePopularText}>
-                      Popular in {currentDestination?.name}
-                    </Text>
-                  </View>
-                )}
-                {searchResults.map((item, ridx) => (
-                  <TouchableOpacity
-                    key={`${item.name}-${ridx}`}
-                    style={styles.inlineResultCard}
-                    onPress={() => {
-                      handleAddActivity({ ...item, timeSlot: activeSlot });
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <ActivityImage
-                      activity={item}
-                      destinationName={currentDestination?.name}
-                      size={40}
-                      borderRadius={borderRadius.md}
-                      fallbackColor={colors.gray[100]}
-                      fallbackIconColor={colors.gray[400]}
-                    />
-                    <View style={styles.inlineResultContent}>
-                      <Text style={styles.inlineResultName} numberOfLines={1}>{item.name}</Text>
-                      <View style={styles.inlineResultMeta}>
-                        <Text style={styles.inlineResultMetaText}>
-                          {'\u2605'} {item.rating.toFixed(1)}
-                        </Text>
-                        <Text style={styles.inlineResultMetaText}>{item.duration}h</Text>
-                        {item.category ? (
-                          <Text style={styles.inlineResultMetaText}>{item.category}</Text>
-                        ) : null}
-                      </View>
-                    </View>
-                    <Ionicons name="add-circle" size={24} color={colors.primary[500]} />
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            ) : (
-              <View style={styles.inlineEmpty}>
-                <Text style={styles.inlineEmptyText}>
-                  Search or browse popular places above
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
 
         {/* ── Budget Tracker (below activities, full width) ── */}
         <TouchableOpacity
@@ -1255,6 +1148,170 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
               height={Dimensions.get('window').height - 160}
             />
           </View>
+        </SafeAreaView>
+      </Modal>
+
+      {/* ── Full-Screen Search Modal ── */}
+      <Modal
+        visible={showAddPanel}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowAddPanel(false)}
+        statusBarTranslucent
+      >
+        <SafeAreaView style={styles.searchModalSafe} edges={['top', 'bottom']}>
+          {/* Header */}
+          <View style={styles.searchModalHeader}>
+            <TouchableOpacity
+              onPress={() => setShowAddPanel(false)}
+              style={styles.searchModalBackBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
+            </TouchableOpacity>
+            <View style={styles.searchModalHeaderCenter}>
+              <Text style={styles.searchModalTitle}>Add Activity</Text>
+              {currentDestination?.name ? (
+                <Text style={styles.searchModalSubtitle}>{currentDestination.name}</Text>
+              ) : null}
+            </View>
+            <View style={{ width: 32 }} />
+          </View>
+
+          {/* Time Slot Picker */}
+          <View style={styles.searchModalSlotPicker}>
+            {TIME_SLOTS.map((slot) => (
+              <TouchableOpacity
+                key={slot.key}
+                style={[
+                  styles.searchModalSlotBtn,
+                  { backgroundColor: slot.bgColor },
+                  activeSlot === slot.key && { borderColor: slot.color, borderWidth: 2 },
+                ]}
+                onPress={() => setActiveSlot(slot.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 16 }}>{slot.emoji}</Text>
+                <Text style={[
+                  styles.searchModalSlotLabel,
+                  { color: activeSlot === slot.key ? slot.color : colors.textTertiary },
+                ]}>
+                  {slot.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* Search Input */}
+          <View style={styles.searchModalSearchRow}>
+            <View style={styles.searchModalSearchInput}>
+              <Ionicons name="search" size={18} color={colors.textTertiary} />
+              <TextInput
+                style={styles.searchModalSearchText}
+                placeholder={`Search places in ${currentDestination?.name || 'destination'}...`}
+                placeholderTextColor={colors.textTertiary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+                onSubmitEditing={handleSearch}
+                autoFocus
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')}>
+                  <Ionicons name="close-circle" size={18} color={colors.gray[400]} />
+                </TouchableOpacity>
+              )}
+            </View>
+            <TouchableOpacity style={styles.searchModalSearchBtn} onPress={handleSearch} activeOpacity={0.7}>
+              <Ionicons name="search" size={18} color="#ffffff" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Results */}
+          {isSearching ? (
+            <View style={styles.searchModalLoading}>
+              <ActivityIndicator size="large" color={colors.primary[500]} />
+              <Text style={styles.searchModalLoadingText}>Searching...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <ScrollView
+              style={styles.searchModalResults}
+              contentContainerStyle={styles.searchModalResultsContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {!searchQuery.trim() && (
+                <View style={styles.searchModalPopularHeader}>
+                  <Ionicons name="trending-up" size={16} color={colors.primary[500]} />
+                  <Text style={styles.searchModalPopularText}>
+                    Popular in {currentDestination?.name}
+                  </Text>
+                </View>
+              )}
+              {searchResults.map((item, ridx) => (
+                <TouchableOpacity
+                  key={`${item.name}-${ridx}`}
+                  style={styles.searchModalResultCard}
+                  onPress={() => {
+                    handleAddActivity({ ...item, timeSlot: activeSlot });
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <ActivityImage
+                    activity={item}
+                    destinationName={currentDestination?.name}
+                    size={52}
+                    borderRadius={borderRadius.lg}
+                    fallbackColor={colors.gray[100]}
+                    fallbackIconColor={colors.gray[400]}
+                  />
+                  <View style={styles.searchModalResultContent}>
+                    <Text style={styles.searchModalResultName} numberOfLines={1}>{item.name}</Text>
+                    {item.description ? (
+                      <Text style={styles.searchModalResultDesc} numberOfLines={2}>{item.description}</Text>
+                    ) : null}
+                    <View style={styles.searchModalResultMeta}>
+                      <View style={styles.searchModalMetaBadge}>
+                        <Ionicons name="star" size={10} color="#f59e0b" />
+                        <Text style={styles.searchModalMetaText}>{item.rating.toFixed(1)}</Text>
+                      </View>
+                      <View style={styles.searchModalMetaBadge}>
+                        <Ionicons name="time-outline" size={10} color={colors.textTertiary} />
+                        <Text style={styles.searchModalMetaText}>{item.duration}h</Text>
+                      </View>
+                      {item.category ? (
+                        <View style={[styles.searchModalCatBadge, {
+                          backgroundColor: TIME_SLOTS.find(s => s.key === activeSlot)?.bgColor || colors.gray[100],
+                        }]}>
+                          <Text style={[styles.searchModalCatText, {
+                            color: TIME_SLOTS.find(s => s.key === activeSlot)?.color || colors.textSecondary,
+                          }]}>{item.category}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.searchModalAddBtn}
+                    onPress={() => handleAddActivity({ ...item, timeSlot: activeSlot })}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="add" size={20} color="#ffffff" />
+                  </TouchableOpacity>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.searchModalEmpty}>
+              <Ionicons name="search-outline" size={48} color={colors.gray[300]} />
+              <Text style={styles.searchModalEmptyTitle}>
+                {searchQuery.trim() ? 'No results found' : 'Search for places'}
+              </Text>
+              <Text style={styles.searchModalEmptySubtitle}>
+                {searchQuery.trim()
+                  ? `Try a different search term for ${currentDestination?.name || 'this destination'}`
+                  : `Type to search or browse popular spots in ${currentDestination?.name || 'this destination'}`}
+              </Text>
+            </View>
+          )}
         </SafeAreaView>
       </Modal>
 
@@ -2452,6 +2509,210 @@ const styles = StyleSheet.create({
   editDetailText: {
     fontSize: fontSize.sm,
     color: colors.textSecondary,
+    lineHeight: 20,
+  },
+
+  // ── Full-Screen Search Modal ──
+  searchModalSafe: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  searchModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  searchModalBackBtn: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchModalHeaderCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  searchModalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
+  searchModalSubtitle: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    marginTop: 1,
+  },
+  searchModalSlotPicker: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.gray[50],
+  },
+  searchModalSlotBtn: {
+    flex: 1,
+    height: 42,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  searchModalSlotLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+  },
+  searchModalSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.background,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  searchModalSearchInput: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.gray[50],
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.xl,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    height: 44,
+  },
+  searchModalSearchText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    paddingVertical: 0,
+  },
+  searchModalSearchBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.primary[500],
+  },
+  searchModalLoading: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  searchModalLoadingText: {
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
+    marginTop: spacing.xs,
+  },
+  searchModalResults: {
+    flex: 1,
+  },
+  searchModalResultsContent: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing['3xl'],
+  },
+  searchModalPopularHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  searchModalPopularText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary[600],
+  },
+  searchModalResultCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    gap: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.gray[100],
+  },
+  searchModalResultContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+  searchModalResultName: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  searchModalResultDesc: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  searchModalResultMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  searchModalMetaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.gray[50],
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  searchModalMetaText: {
+    fontSize: 10,
+    fontWeight: fontWeight.medium,
+    color: colors.textSecondary,
+  },
+  searchModalCatBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  searchModalCatText: {
+    fontSize: 10,
+    fontWeight: fontWeight.semibold,
+  },
+  searchModalAddBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary[500],
+    ...shadow.sm,
+  },
+  searchModalEmpty: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing['3xl'],
+    gap: spacing.md,
+  },
+  searchModalEmptyTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.semibold,
+    color: colors.textSecondary,
+    marginTop: spacing.md,
+  },
+  searchModalEmptySubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
+    textAlign: 'center',
     lineHeight: 20,
   },
 });
