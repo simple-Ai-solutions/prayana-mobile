@@ -12,6 +12,7 @@ export default function TripLayout() {
       <Stack.Screen name="setup" />
       <Stack.Screen name="destinations" />
       <Stack.Screen name="planner" />
+      <Stack.Screen name="search-activity" options={{ animation: 'slide_from_right' }} />
       <Stack.Screen name="review" />
       <Stack.Screen name="itinerary" options={{ animation: 'slide_from_right' }} />
     </Stack>
