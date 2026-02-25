@@ -1151,169 +1151,165 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         </SafeAreaView>
       </Modal>
 
-      {/* ── Full-Screen Search Modal ── */}
-      <Modal
-        visible={showAddPanel}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setShowAddPanel(false)}
-        statusBarTranslucent
-      >
-        <SafeAreaView style={styles.searchModalSafe} edges={['top', 'bottom']}>
-          {/* Header */}
-          <View style={styles.searchModalHeader}>
-            <TouchableOpacity
-              onPress={() => setShowAddPanel(false)}
-              style={styles.searchModalBackBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </TouchableOpacity>
-            <View style={styles.searchModalHeaderCenter}>
-              <Text style={styles.searchModalTitle}>Add Activity</Text>
-              {currentDestination?.name ? (
-                <Text style={styles.searchModalSubtitle}>{currentDestination.name}</Text>
-              ) : null}
-            </View>
-            <View style={{ width: 32 }} />
-          </View>
-
-          {/* Time Slot Picker */}
-          <View style={styles.searchModalSlotPicker}>
-            {TIME_SLOTS.map((slot) => (
+      {/* ── Full-Screen Search Overlay (no Modal — true fullscreen) ── */}
+      {showAddPanel && (
+        <View style={styles.searchOverlay}>
+          <SafeAreaView style={styles.searchModalSafe} edges={['top', 'bottom']}>
+            {/* Header */}
+            <View style={styles.searchModalHeader}>
               <TouchableOpacity
-                key={slot.key}
-                style={[
-                  styles.searchModalSlotBtn,
-                  { backgroundColor: slot.bgColor },
-                  activeSlot === slot.key && { borderColor: slot.color, borderWidth: 2 },
-                ]}
-                onPress={() => setActiveSlot(slot.key)}
-                activeOpacity={0.7}
+                onPress={() => setShowAddPanel(false)}
+                style={styles.searchModalBackBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={{ fontSize: 16 }}>{slot.emoji}</Text>
-                <Text style={[
-                  styles.searchModalSlotLabel,
-                  { color: activeSlot === slot.key ? slot.color : colors.textTertiary },
-                ]}>
-                  {slot.label}
-                </Text>
+                <Ionicons name="arrow-back" size={24} color={colors.text} />
               </TouchableOpacity>
-            ))}
-          </View>
-
-          {/* Search Input */}
-          <View style={styles.searchModalSearchRow}>
-            <View style={styles.searchModalSearchInput}>
-              <Ionicons name="search" size={18} color={colors.textTertiary} />
-              <TextInput
-                style={styles.searchModalSearchText}
-                placeholder={`Search places in ${currentDestination?.name || 'destination'}...`}
-                placeholderTextColor={colors.textTertiary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                returnKeyType="search"
-                onSubmitEditing={handleSearch}
-                autoFocus
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={18} color={colors.gray[400]} />
-                </TouchableOpacity>
-              )}
+              <View style={styles.searchModalHeaderCenter}>
+                <Text style={styles.searchModalTitle}>Add Activity</Text>
+                {currentDestination?.name ? (
+                  <Text style={styles.searchModalSubtitle}>{currentDestination.name}</Text>
+                ) : null}
+              </View>
+              <View style={{ width: 32 }} />
             </View>
-            <TouchableOpacity style={styles.searchModalSearchBtn} onPress={handleSearch} activeOpacity={0.7}>
-              <Ionicons name="search" size={18} color="#ffffff" />
-            </TouchableOpacity>
-          </View>
 
-          {/* Results */}
-          {isSearching ? (
-            <View style={styles.searchModalLoading}>
-              <ActivityIndicator size="large" color={colors.primary[500]} />
-              <Text style={styles.searchModalLoadingText}>Searching...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <ScrollView
-              style={styles.searchModalResults}
-              contentContainerStyle={styles.searchModalResultsContent}
-              keyboardShouldPersistTaps="handled"
-            >
-              {!searchQuery.trim() && (
-                <View style={styles.searchModalPopularHeader}>
-                  <Ionicons name="trending-up" size={16} color={colors.primary[500]} />
-                  <Text style={styles.searchModalPopularText}>
-                    Popular in {currentDestination?.name}
-                  </Text>
-                </View>
-              )}
-              {searchResults.map((item, ridx) => (
+            {/* Time Slot Picker */}
+            <View style={styles.searchModalSlotPicker}>
+              {TIME_SLOTS.map((slot) => (
                 <TouchableOpacity
-                  key={`${item.name}-${ridx}`}
-                  style={styles.searchModalResultCard}
-                  onPress={() => {
-                    handleAddActivity({ ...item, timeSlot: activeSlot });
-                  }}
+                  key={slot.key}
+                  style={[
+                    styles.searchModalSlotBtn,
+                    { backgroundColor: slot.bgColor },
+                    activeSlot === slot.key && { borderColor: slot.color, borderWidth: 2 },
+                  ]}
+                  onPress={() => setActiveSlot(slot.key)}
                   activeOpacity={0.7}
                 >
-                  <ActivityImage
-                    activity={item}
-                    destinationName={currentDestination?.name}
-                    size={52}
-                    borderRadius={borderRadius.lg}
-                    fallbackColor={colors.gray[100]}
-                    fallbackIconColor={colors.gray[400]}
-                  />
-                  <View style={styles.searchModalResultContent}>
-                    <Text style={styles.searchModalResultName} numberOfLines={1}>{item.name}</Text>
-                    {item.description ? (
-                      <Text style={styles.searchModalResultDesc} numberOfLines={2}>{item.description}</Text>
-                    ) : null}
-                    <View style={styles.searchModalResultMeta}>
-                      <View style={styles.searchModalMetaBadge}>
-                        <Ionicons name="star" size={10} color="#f59e0b" />
-                        <Text style={styles.searchModalMetaText}>{item.rating.toFixed(1)}</Text>
-                      </View>
-                      <View style={styles.searchModalMetaBadge}>
-                        <Ionicons name="time-outline" size={10} color={colors.textTertiary} />
-                        <Text style={styles.searchModalMetaText}>{item.duration}h</Text>
-                      </View>
-                      {item.category ? (
-                        <View style={[styles.searchModalCatBadge, {
-                          backgroundColor: TIME_SLOTS.find(s => s.key === activeSlot)?.bgColor || colors.gray[100],
-                        }]}>
-                          <Text style={[styles.searchModalCatText, {
-                            color: TIME_SLOTS.find(s => s.key === activeSlot)?.color || colors.textSecondary,
-                          }]}>{item.category}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    style={styles.searchModalAddBtn}
-                    onPress={() => handleAddActivity({ ...item, timeSlot: activeSlot })}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="add" size={20} color="#ffffff" />
-                  </TouchableOpacity>
+                  <Text style={{ fontSize: 16 }}>{slot.emoji}</Text>
+                  <Text style={[
+                    styles.searchModalSlotLabel,
+                    { color: activeSlot === slot.key ? slot.color : colors.textTertiary },
+                  ]}>
+                    {slot.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-          ) : (
-            <View style={styles.searchModalEmpty}>
-              <Ionicons name="search-outline" size={48} color={colors.gray[300]} />
-              <Text style={styles.searchModalEmptyTitle}>
-                {searchQuery.trim() ? 'No results found' : 'Search for places'}
-              </Text>
-              <Text style={styles.searchModalEmptySubtitle}>
-                {searchQuery.trim()
-                  ? `Try a different search term for ${currentDestination?.name || 'this destination'}`
-                  : `Type to search or browse popular spots in ${currentDestination?.name || 'this destination'}`}
-              </Text>
             </View>
-          )}
-        </SafeAreaView>
-      </Modal>
+
+            {/* Search Input */}
+            <View style={styles.searchModalSearchRow}>
+              <View style={styles.searchModalSearchInput}>
+                <Ionicons name="search" size={18} color={colors.textTertiary} />
+                <TextInput
+                  style={styles.searchModalSearchText}
+                  placeholder={`Search places in ${currentDestination?.name || 'destination'}...`}
+                  placeholderTextColor={colors.textTertiary}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  returnKeyType="search"
+                  onSubmitEditing={handleSearch}
+                  autoFocus
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color={colors.gray[400]} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <TouchableOpacity style={styles.searchModalSearchBtn} onPress={handleSearch} activeOpacity={0.7}>
+                <Ionicons name="search" size={18} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Results */}
+            {isSearching ? (
+              <View style={styles.searchModalLoading}>
+                <ActivityIndicator size="large" color={colors.primary[500]} />
+                <Text style={styles.searchModalLoadingText}>Searching...</Text>
+              </View>
+            ) : searchResults.length > 0 ? (
+              <ScrollView
+                style={styles.searchModalResults}
+                contentContainerStyle={styles.searchModalResultsContent}
+                keyboardShouldPersistTaps="handled"
+              >
+                {!searchQuery.trim() && (
+                  <View style={styles.searchModalPopularHeader}>
+                    <Ionicons name="trending-up" size={16} color={colors.primary[500]} />
+                    <Text style={styles.searchModalPopularText}>
+                      Popular in {currentDestination?.name}
+                    </Text>
+                  </View>
+                )}
+                {searchResults.map((item, ridx) => (
+                  <TouchableOpacity
+                    key={`${item.name}-${ridx}`}
+                    style={styles.searchModalResultCard}
+                    onPress={() => {
+                      handleAddActivity({ ...item, timeSlot: activeSlot });
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <ActivityImage
+                      activity={item}
+                      destinationName={currentDestination?.name}
+                      size={52}
+                      borderRadius={borderRadius.lg}
+                      fallbackColor={colors.gray[100]}
+                      fallbackIconColor={colors.gray[400]}
+                    />
+                    <View style={styles.searchModalResultContent}>
+                      <Text style={styles.searchModalResultName} numberOfLines={1}>{item.name}</Text>
+                      {item.description ? (
+                        <Text style={styles.searchModalResultDesc} numberOfLines={2}>{item.description}</Text>
+                      ) : null}
+                      <View style={styles.searchModalResultMeta}>
+                        <View style={styles.searchModalMetaBadge}>
+                          <Ionicons name="star" size={10} color="#f59e0b" />
+                          <Text style={styles.searchModalMetaText}>{item.rating.toFixed(1)}</Text>
+                        </View>
+                        <View style={styles.searchModalMetaBadge}>
+                          <Ionicons name="time-outline" size={10} color={colors.textTertiary} />
+                          <Text style={styles.searchModalMetaText}>{item.duration}h</Text>
+                        </View>
+                        {item.category ? (
+                          <View style={[styles.searchModalCatBadge, {
+                            backgroundColor: TIME_SLOTS.find(s => s.key === activeSlot)?.bgColor || colors.gray[100],
+                          }]}>
+                            <Text style={[styles.searchModalCatText, {
+                              color: TIME_SLOTS.find(s => s.key === activeSlot)?.color || colors.textSecondary,
+                            }]}>{item.category}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.searchModalAddBtn}
+                      onPress={() => handleAddActivity({ ...item, timeSlot: activeSlot })}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="add" size={20} color="#ffffff" />
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : (
+              <View style={styles.searchModalEmpty}>
+                <Ionicons name="search-outline" size={48} color={colors.gray[300]} />
+                <Text style={styles.searchModalEmptyTitle}>
+                  {searchQuery.trim() ? 'No results found' : 'Search for places'}
+                </Text>
+                <Text style={styles.searchModalEmptySubtitle}>
+                  {searchQuery.trim()
+                    ? `Try a different search term for ${currentDestination?.name || 'this destination'}`
+                    : `Type to search or browse popular spots in ${currentDestination?.name || 'this destination'}`}
+                </Text>
+              </View>
+            )}
+          </SafeAreaView>
+        </View>
+      )}
 
       {/* ── Schedule Modal ── */}
       <Modal
@@ -2512,7 +2508,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // ── Full-Screen Search Modal ──
+  // ── Full-Screen Search Overlay ──
+  searchOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+    backgroundColor: colors.background,
+  },
   searchModalSafe: {
     flex: 1,
     backgroundColor: colors.background,
