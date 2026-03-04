@@ -3,13 +3,12 @@ import {
   View,
   Text,
   TextInput,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';

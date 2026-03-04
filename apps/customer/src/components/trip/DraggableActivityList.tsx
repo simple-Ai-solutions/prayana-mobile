@@ -14,12 +14,12 @@ import React, { useCallback, useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Animated,
   PanResponder,
   Linking,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { colors, fontSize, fontWeight, spacing, borderRadius } from '@prayana/shared-ui';
@@ -257,7 +257,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
             </Text>
             {isAISuggested && (
               <View style={styles.aiBadge}>
-                <Ionicons name="sparkles" size={8} color="#06b6d4" />
+                <Ionicons name="sparkles" size={8} color="#06B6D4" />
                 <Text style={styles.aiBadgeText}>AI</Text>
               </View>
             )}
@@ -389,7 +389,7 @@ const DraggableCard: React.FC<DraggableCardProps> = ({
           </View>
           {distanceInfo && (
             <View style={styles.distanceBadge}>
-              <Ionicons name="navigate" size={8} color="#f97316" />
+              <Ionicons name="navigate" size={8} color="#06B6D4" />
               <Text style={styles.distanceText}>{distanceInfo.distance}</Text>
               <Text style={styles.distanceSep}>·</Text>
               <Text style={styles.distanceTimeText}>{distanceInfo.time}</Text>
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 14,
     elevation: 12,
-    borderColor: '#06b6d4',
+    borderColor: '#06B6D4',
   },
 
   // Order Badge (top-left corner, PWA-style cyan gradient)
@@ -526,11 +526,11 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#06b6d4',
+    backgroundColor: '#06B6D4',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 10,
-    shadowColor: '#06b6d4',
+    shadowColor: '#06B6D4',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.3,
     shadowRadius: 2,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[300],
   },
   dragDotActive: {
-    backgroundColor: '#06b6d4',
+    backgroundColor: '#06B6D4',
   },
 
   // Content
@@ -586,17 +586,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#ecfeff',
+    backgroundColor: '#f0fdfc',
     paddingHorizontal: 5,
     paddingVertical: 1,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#a5f3fc',
+    borderColor: '#99f6ef',
   },
   aiBadgeText: {
     fontSize: 8,
     fontWeight: fontWeight.bold,
-    color: '#06b6d4',
+    color: '#06B6D4',
   },
   badgeRow: {
     flexDirection: 'row',
@@ -770,21 +770,21 @@ const styles = StyleSheet.create({
   routeGradientTop: {
     width: 2,
     height: 6,
-    backgroundColor: '#fdba74',
+    backgroundColor: '#5eead4',
     borderRadius: 1,
   },
   routeDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
     borderWidth: 1.5,
-    borderColor: '#fed7aa',
+    borderColor: '#99f6ef',
   },
   routeGradientBottom: {
     width: 2,
     height: 6,
-    backgroundColor: '#fdba74',
+    backgroundColor: '#5eead4',
     borderRadius: 1,
   },
   distanceBadge: {

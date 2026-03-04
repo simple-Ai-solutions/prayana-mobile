@@ -2,11 +2,11 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { borderRadius, shadow } from '@prayana/shared-ui';
 import { optimizeRoute } from '@prayana/shared-services';

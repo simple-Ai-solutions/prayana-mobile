@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ScrollView,
   FlatList,
   StyleSheet,
@@ -12,6 +11,8 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -574,9 +575,26 @@ export default function DestinationsScreen() {
             destinations.map((dest, index) => (
               <View key={`${dest.name}-${index}`} style={styles.destCard}>
                 <View style={styles.destCardHeader}>
-                  <View style={styles.destOrderBadge}>
-                    <Text style={styles.destOrderText}>{index + 1}</Text>
+                  {/* Destination image thumbnail with order badge overlay */}
+                  <View style={styles.destImageContainer}>
+                    {dest.image ? (
+                      <Image
+                        source={{ uri: dest.image }}
+                        style={styles.destImage}
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <View style={[styles.destImage, styles.destImagePlaceholder]}>
+                        <Ionicons name="location" size={22} color={colors.primary[400]} />
+                      </View>
+                    )}
+                    <View style={styles.destOrderBadge}>
+                      <Text style={styles.destOrderText}>{index + 1}</Text>
+                    </View>
                   </View>
+
                   <View style={styles.destInfo}>
                     <Text style={styles.destName} numberOfLines={1}>
                       {dest.name}
@@ -792,10 +810,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[200],
   },
   stepDotCompleted: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
   },
   stepDotCurrent: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
     width: 26,
     height: 26,
     borderRadius: 13,
@@ -816,7 +834,7 @@ const styles = StyleSheet.create({
     maxWidth: 50,
   },
   stepConnectorActive: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
   },
 
   // Search
@@ -976,16 +994,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
+  destImageContainer: {
+    position: 'relative',
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  destImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 10,
+  },
+  destImagePlaceholder: {
+    backgroundColor: colors.primary[50] || '#e0f7f4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   destOrderBadge: {
-    width: 30,
-    height: 30,
-    borderRadius: borderRadius.full,
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
   destOrderText: {
-    fontSize: fontSize.sm,
+    fontSize: 10,
     fontWeight: fontWeight.bold,
     color: '#ffffff',
   },

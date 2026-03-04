@@ -244,10 +244,10 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#f97316',
+    shadowColor: '#06B6D4',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -294,6 +294,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f97316',
+    color: '#06B6D4',
   },
 });

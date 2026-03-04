@@ -428,7 +428,7 @@ const styles = StyleSheet.create({
   backButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#f97316',
+    color: '#06B6D4',
   },
 
   // Header
@@ -440,12 +440,12 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0fdfc',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: '#fed7aa',
+    borderColor: '#99f6ef',
   },
   iconText: {
     fontSize: 28,
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f3f4f6',
   },
   countryItemSelected: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f0fdfc',
   },
   countryItemFlag: {
     fontSize: 18,
@@ -590,8 +590,8 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
   },
   otpInputFilled: {
-    borderColor: '#f97316',
-    backgroundColor: '#fff7ed',
+    borderColor: '#06B6D4',
+    backgroundColor: '#f0fdfc',
   },
 
   // Verify Button
@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
   resendLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f97316',
+    color: '#06B6D4',
   },
 
   // Dev note

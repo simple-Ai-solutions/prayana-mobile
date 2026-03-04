@@ -2,11 +2,11 @@ import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
-  Image,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontWeight, shadow, useTheme } from '@prayana/shared-ui';
@@ -83,16 +83,18 @@ export const HiddenGems: React.FC<HiddenGemsProps> = ({
           return (
             <TouchableOpacity
               key={`${gem.name}-${index}`}
-              style={[styles.card, shadow.md]}
-              activeOpacity={0.7}
+              activeOpacity={0.85}
               onPress={() => onPlacePress(gem)}
+              style={[styles.card, shadow.md]}
             >
               {/* Image */}
               {imageUrl ? (
                 <Image
                   source={{ uri: imageUrl }}
                   style={styles.cardImage}
-                  resizeMode="cover"
+                  contentFit="cover"
+                  transition={200}
+                  cachePolicy="memory-disk"
                 />
               ) : (
                 <View
@@ -117,13 +119,13 @@ export const HiddenGems: React.FC<HiddenGemsProps> = ({
               />
 
               {/* Gem Badge - Top Left */}
-              <View style={styles.gemBadge}>
+              <View style={styles.gemBadge} pointerEvents="none">
                 <Text style={styles.gemBadgeText}>{'\uD83D\uDC8E'}</Text>
               </View>
 
               {/* Rating Badge - Top Right */}
               {rating && (
-                <View style={styles.ratingBadge}>
+                <View style={styles.ratingBadge} pointerEvents="none">
                   <Ionicons name="star" size={10} color="#EAB308" />
                   <Text style={styles.ratingText}>
                     {typeof rating === 'number' ? rating.toFixed(1) : rating}
@@ -132,7 +134,7 @@ export const HiddenGems: React.FC<HiddenGemsProps> = ({
               )}
 
               {/* Bottom Content */}
-              <View style={styles.cardContent}>
+              <View style={styles.cardContent} pointerEvents="none">
                 <Text style={styles.cardName} numberOfLines={2}>
                   {gem.name}
                 </Text>

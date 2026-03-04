@@ -37,6 +37,7 @@ interface UserStats {
   totalTrips: number;
   totalBookings: number;
   memberSince: string;
+  loyaltyPoints: number;
 }
 
 interface MenuItem {
@@ -155,6 +156,7 @@ export default function ProfileScreen() {
     totalTrips: 0,
     totalBookings: 0,
     memberSince: '',
+    loyaltyPoints: 0,
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -164,7 +166,7 @@ export default function ProfileScreen() {
   // FETCH USER STATS
   // ============================================================
   const loadUserStats = useCallback(async () => {
-    if (!user?.uid) {
+    if (!user?.uid || user.uid === 'guest-user') {
       setLoading(false);
       return;
     }
@@ -180,6 +182,7 @@ export default function ProfileScreen() {
             profile.createdAt ??
             user.metadata?.creationTime ??
             '',
+          loyaltyPoints: profile.membership?.loyaltyPoints ?? 0,
         });
       }
     } catch (err: any) {
@@ -260,17 +263,25 @@ export default function ProfileScreen() {
           iconBg: colors.primary[50],
         },
         {
+          label: 'Travel Preferences',
+          subtitle: 'Interests, travel style & budget',
+          icon: 'options-outline',
+          route: '/profile/travel-preferences',
+          iconColor: '#8b5cf6',
+          iconBg: '#f3f0ff',
+        },
+        {
           label: 'Notification Preferences',
           subtitle: 'Manage push and email notifications',
           icon: 'notifications-outline',
           route: '/settings/notifications',
-          iconColor: '#8b5cf6',
-          iconBg: '#f3f0ff',
+          iconColor: '#f59e0b',
+          iconBg: '#fffbeb',
         },
       ],
     },
     {
-      title: 'Trip Planning',
+      title: 'Travel',
       items: [
         {
           label: 'My Trips',
@@ -281,12 +292,25 @@ export default function ProfileScreen() {
           iconBg: '#ecfdf5',
         },
         {
-          label: 'Saved Places',
-          subtitle: 'Your favorite destinations',
+          label: 'My Favorites',
+          subtitle: 'Saved destinations & places',
           icon: 'heart-outline',
-          route: '/settings/saved-places',
+          route: '/profile/favorites',
           iconColor: '#ef4444',
           iconBg: '#fef2f2',
+        },
+      ],
+    },
+    {
+      title: 'Membership',
+      items: [
+        {
+          label: 'Membership & Rewards',
+          subtitle: `${stats.loyaltyPoints.toLocaleString()} points · Premium Member`,
+          icon: 'ribbon-outline',
+          route: '/profile/membership',
+          iconColor: '#f97316',
+          iconBg: '#fff7ed',
         },
       ],
     },
@@ -294,12 +318,20 @@ export default function ProfileScreen() {
       title: 'Support',
       items: [
         {
+          label: 'Send Feedback',
+          subtitle: 'Share your experience with us',
+          icon: 'chatbubble-ellipses-outline',
+          route: '/profile/feedback',
+          iconColor: '#0ea5e9',
+          iconBg: '#f0f9ff',
+        },
+        {
           label: 'Help Center',
           subtitle: 'FAQs and customer support',
           icon: 'help-circle-outline',
           route: '/settings/help',
-          iconColor: '#0ea5e9',
-          iconBg: '#f0f9ff',
+          iconColor: '#6366f1',
+          iconBg: '#eef2ff',
         },
         {
           label: 'About',
@@ -385,14 +417,25 @@ export default function ProfileScreen() {
                 <Text style={styles.profileEmail} numberOfLines={1}>
                   {displayEmail}
                 </Text>
-                <TouchableOpacity
-                  style={styles.editProfileBadge}
-                  onPress={() => router.push('/settings/edit-profile' as any)}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="pencil-outline" size={12} color="#ffffff" />
-                  <Text style={styles.editProfileBadgeText}>Edit Profile</Text>
-                </TouchableOpacity>
+                {stats.memberSince ? (
+                  <Text style={styles.profileMemberSince}>
+                    Member since {formatMemberSince(stats.memberSince)}
+                  </Text>
+                ) : null}
+                <View style={styles.profileBadgeRow}>
+                  <View style={styles.memberBadge}>
+                    <Ionicons name="star" size={10} color="#92400E" />
+                    <Text style={styles.memberBadgeText}>Premium</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.editProfileBadge}
+                    onPress={() => router.push('/settings/edit-profile' as any)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons name="pencil-outline" size={12} color="#ffffff" />
+                    <Text style={styles.editProfileBadgeText}>Edit</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           </LinearGradient>
@@ -420,9 +463,9 @@ export default function ProfileScreen() {
               />
               <View style={[styles.statDivider, { backgroundColor: themeColors.border }]} />
               <StatItem
-                value={formatMemberSince(stats.memberSince)}
-                label="Member since"
-                icon="calendar-outline"
+                value={stats.loyaltyPoints.toLocaleString()}
+                label="Points"
+                icon="star-outline"
               />
             </View>
           )}
@@ -460,7 +503,7 @@ export default function ProfileScreen() {
               <Switch
                 value={isDarkMode}
                 onValueChange={toggleTheme}
-                trackColor={{ false: '#d4d4d4', true: '#f97316' }}
+                trackColor={{ false: '#d4d4d4', true: '#06B6D4' }}
                 thumbColor={isDarkMode ? '#ffffff' : '#fafafa'}
                 ios_backgroundColor="#d4d4d4"
               />
@@ -609,11 +652,34 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     marginTop: 2,
   },
+  profileMemberSince: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 3,
+  },
+  profileBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    gap: 8,
+  },
+  memberBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#f59e0b',
+    gap: 4,
+  },
+  memberBadgeText: {
+    fontSize: 10,
+    fontWeight: '700' as any,
+    color: '#92400E',
+  },
   editProfileBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs + 1,
     borderRadius: borderRadius.full,

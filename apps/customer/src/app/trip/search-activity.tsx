@@ -3,15 +3,14 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
   ActivityIndicator,
-  Image,
   Dimensions,
   Alert,
   Animated,
 } from 'react-native';
+import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -473,7 +472,7 @@ export default function SearchActivityScreen() {
                       onPress={() => handleAddPlace(place)}
                     >
                       {imageUrl ? (
-                        <Image source={{ uri: imageUrl }} style={styles.morePlaceImage} resizeMode="cover" />
+                        <Image source={{ uri: imageUrl }} style={styles.morePlaceImage} contentFit="cover" cachePolicy="memory-disk" transition={200} />
                       ) : (
                         <View style={[styles.morePlaceImage, styles.morePlacePlaceholder, { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' }]}>
                           <Ionicons name="image-outline" size={24} color={themeColors.textTertiary} />
@@ -555,7 +554,7 @@ export default function SearchActivityScreen() {
                     <Image
                       source={{ uri: getPlaceImageUrl(filteredCrownJewels[0])! }}
                       style={styles.bentoLargeImage}
-                      resizeMode="cover"
+                      contentFit="cover" cachePolicy="memory-disk" transition={200}
                     />
                   ) : (
                     <LinearGradient
@@ -620,7 +619,7 @@ export default function SearchActivityScreen() {
                             <Image
                               source={{ uri: imageUrl }}
                               style={styles.bentoSmallImage}
-                              resizeMode="cover"
+                              contentFit="cover" cachePolicy="memory-disk" transition={200}
                             />
                           ) : (
                             <LinearGradient
@@ -690,7 +689,7 @@ export default function SearchActivityScreen() {
                           <Image
                             source={{ uri: imageUrl }}
                             style={styles.morePlaceImage}
-                            resizeMode="cover"
+                            contentFit="cover" cachePolicy="memory-disk" transition={200}
                           />
                         ) : (
                           <View

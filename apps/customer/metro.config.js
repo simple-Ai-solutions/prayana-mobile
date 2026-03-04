@@ -18,4 +18,7 @@ config.resolver.nodeModulesPaths = [
   path.resolve(monorepoRoot, 'node_modules'),
 ];
 
+// Follow symlinks so workspace packages resolve correctly
+config.resolver.unstable_enableSymlinks = true;
+
 module.exports = config;

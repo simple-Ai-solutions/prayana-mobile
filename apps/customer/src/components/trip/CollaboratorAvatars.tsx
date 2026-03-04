@@ -2,9 +2,9 @@ import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { colors, fontSize, fontWeight, spacing, shadow } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 

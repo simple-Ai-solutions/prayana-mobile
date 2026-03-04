@@ -128,6 +128,15 @@ export {
   assignCustomTimes,
 } from './generatePlaceTimes';
 
+// guestUsage
+export {
+  GUEST_LIMITS,
+  getGuestUsageCount,
+  incrementGuestUsage,
+  canGuestUse,
+  resetGuestUsage,
+} from './guestUsage';
+
 // luxuryDataTransformer
 export {
   transformToLuxuryLayout,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,19 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  TextInput as RNTextInput,
+  ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { Button, TextInput } from '@prayana/shared-ui';
+import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@prayana/shared-hooks';
+import { resetGuestUsage } from '@prayana/shared-utils';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -21,184 +28,127 @@ import {
 } from 'firebase/auth';
 import { auth } from '@prayana/shared-services/src/firebase';
 
-// Required for auth redirect to complete properly in Expo Go
 WebBrowser.maybeCompleteAuthSession();
 
-/**
- * Google Sign-In Setup Instructions:
- *
- * 1. Go to Firebase Console > Authentication > Sign-in method > Google > Enable
- * 2. Note the "Web client ID" shown there (auto-created by Firebase)
- * 3. Go to Google Cloud Console > APIs & Credentials > OAuth 2.0 Client IDs
- * 4. Create an iOS OAuth Client with bundle ID: com.prayanaai.customer
- * 5. Set both env vars:
- *    EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<web-client-id>
- *    EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=<ios-client-id>
- *
- * Until configured, Google Sign-In will show an info alert.
- */
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
 
-// Check if Google auth can work (needs at least iOS client ID on iOS)
-const isGoogleConfigured = Platform.select({
-  ios: !!GOOGLE_IOS_CLIENT_ID,
-  android: !!GOOGLE_WEB_CLIENT_ID,
-  default: !!GOOGLE_WEB_CLIENT_ID,
-});
+// Google SVG-style colored "G" button logo
+function GoogleG() {
+  return (
+    <View style={styles.googleGWrap}>
+      <Text style={styles.googleG}>G</Text>
+    </View>
+  );
+}
+
+// Apple logo (text-based for React Native)
+function AppleA() {
+  return (
+    <View style={styles.appleWrap}>
+      <Text style={styles.appleIcon}></Text>
+    </View>
+  );
+}
 
 export default function LoginScreen() {
   const { setUser, setIsAuthenticated, syncWithBackend } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const signInWithGoogleToken = async (idToken: string) => {
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_WEB_CLIENT_ID || undefined,
+    iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+    redirectUri: makeRedirectUri({ scheme: 'prayana' }),
+    scopes: ['openid', 'profile', 'email'],
+  });
+
+  useEffect(() => {
+    if (!response) return;
+    if (response.type === 'success') {
+      const idToken = response.params?.id_token;
+      const accessToken = response.authentication?.accessToken;
+      if (idToken) handleGoogleToken(idToken, null);
+      else if (accessToken) handleGoogleToken(null, accessToken);
+      else {
+        setIsGoogleLoading(false);
+        setError('No token received from Google. Please try again.');
+      }
+    } else if (response.type === 'error') {
+      setIsGoogleLoading(false);
+      setError(response.error?.message || 'Google sign-in failed.');
+    } else if (response.type === 'dismiss' || response.type === 'cancel') {
+      setIsGoogleLoading(false);
+    }
+  }, [response]);
+
+  const handleGoogleToken = async (idToken: string | null, accessToken: string | null) => {
     try {
-      const credential = GoogleAuthProvider.credential(idToken);
+      const credential = idToken
+        ? GoogleAuthProvider.credential(idToken)
+        : GoogleAuthProvider.credential(null, accessToken);
       const userCredential = await signInWithCredential(auth, credential);
-      const firebaseUser = userCredential.user;
-
-      setUser(firebaseUser);
+      setUser(userCredential.user);
       setIsAuthenticated(true);
-
-      try {
-        await syncWithBackend(firebaseUser, 'google');
-      } catch (syncErr: any) {
-        console.warn('[Login] Backend sync failed (non-fatal):', syncErr.message);
-      }
-
+      try { await syncWithBackend(userCredential.user, 'google'); } catch {}
+      await resetGuestUsage();
       router.replace('/(tabs)');
-    } catch (error: any) {
-      console.error('[Login] Google Firebase auth error:', error);
-      let message = 'Google Sign-In failed. Please try again.';
-      if (error.code === 'auth/account-exists-with-different-credential') {
-        message = 'An account already exists with this email using a different sign-in method.';
-      } else if (error.code === 'auth/invalid-credential') {
-        message = 'Invalid credential. Please try again.';
-      } else if (error.code === 'auth/user-disabled') {
-        message = 'This account has been disabled.';
-      }
-      Alert.alert('Sign-In Failed', message);
+    } catch (err: any) {
+      let msg = 'Google Sign-In failed. Please try again.';
+      if (err.code === 'auth/account-exists-with-different-credential') msg = 'An account already exists with this email using a different sign-in method.';
+      else if (err.code === 'auth/invalid-credential') msg = 'Invalid credential. Please try again.';
+      setError(msg);
     } finally {
       setIsGoogleLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    if (!isGoogleConfigured) {
-      Alert.alert(
-        'Google Sign-In Not Configured',
-        'To enable Google Sign-In:\n\n' +
-        '1. Go to Firebase Console > Auth > Google\n' +
-        '2. Get your Web Client ID\n' +
-        '3. Create an iOS OAuth Client ID\n' +
-        '4. Add to .env:\n' +
-        '   EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...\n' +
-        '   EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=...\n\n' +
-        'Use email or phone login for now.',
-      );
+    setError('');
+    if (!GOOGLE_WEB_CLIENT_ID && !GOOGLE_IOS_CLIENT_ID) {
+      Alert.alert('Not Configured', 'Google Sign-In is not set up yet. Use email or phone login.');
       return;
     }
-
-    setIsGoogleLoading(true);
-    try {
-      // Dynamic import to avoid hook crash when IDs are missing
-      const Google = await import('expo-auth-session/providers/google');
-      const AuthSession = await import('expo-auth-session');
-
-      const config: any = {};
-      if (GOOGLE_WEB_CLIENT_ID) config.clientId = GOOGLE_WEB_CLIENT_ID;
-      if (GOOGLE_IOS_CLIENT_ID) config.iosClientId = GOOGLE_IOS_CLIENT_ID;
-
-      // Use AuthSession.makeRedirectUri for proper redirect
-      const redirectUri = AuthSession.makeRedirectUri({ scheme: 'prayana' });
-
-      const discovery = Google.discovery;
-      const request = new AuthSession.AuthRequest({
-        clientId: GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
-        redirectUri,
-        scopes: ['openid', 'profile', 'email'],
-        responseType: AuthSession.ResponseType.IdToken,
-      });
-
-      const result = await request.promptAsync(discovery);
-
-      if (result.type === 'success' && result.params?.id_token) {
-        await signInWithGoogleToken(result.params.id_token);
-      } else if (result.type === 'error') {
-        Alert.alert('Google Sign-In Failed', result.error?.message || 'An error occurred.');
-        setIsGoogleLoading(false);
-      } else {
-        // dismissed/cancelled
-        setIsGoogleLoading(false);
-      }
-    } catch (error: any) {
-      console.error('[Login] Google Sign-In error:', error);
-      setIsGoogleLoading(false);
-      Alert.alert('Error', error.message || 'Could not open Google Sign-In.');
+    if (!request) {
+      Alert.alert('Not Ready', 'Google Sign-In is loading. Please try again.');
+      return;
     }
+    setIsGoogleLoading(true);
+    await promptAsync();
   };
 
   const handleEmailLogin = async () => {
-    if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email address.');
-      return;
-    }
-    if (!password.trim()) {
-      Alert.alert('Error', 'Please enter your password.');
-      return;
-    }
-
+    setError('');
+    if (!email.trim()) { setError('Please enter your email address.'); return; }
+    if (!password.trim()) { setError('Please enter your password.'); return; }
     setIsLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       setUser(userCredential.user);
       setIsAuthenticated(true);
-
-      try {
-        await syncWithBackend(userCredential.user, 'email');
-      } catch (syncErr: any) {
-        console.warn('[Login] Backend sync failed (non-fatal):', syncErr.message);
-      }
-
+      try { await syncWithBackend(userCredential.user, 'email'); } catch {}
+      await resetGuestUsage();
       router.replace('/(tabs)');
-    } catch (error: any) {
-      let message = 'An unexpected error occurred. Please try again.';
-      switch (error.code) {
-        case 'auth/invalid-email':
-          message = 'Please enter a valid email address.';
-          break;
-        case 'auth/user-disabled':
-          message = 'This account has been disabled.';
-          break;
-        case 'auth/user-not-found':
-          message = 'No account found with this email. Try signing up first.';
-          break;
-        case 'auth/wrong-password':
-          message = 'Incorrect password. Please try again.';
-          break;
-        case 'auth/invalid-credential':
-          message = 'Invalid email or password. Please try again.';
-          break;
-        case 'auth/too-many-requests':
-          message = 'Too many failed attempts. Please try again later.';
-          break;
+    } catch (err: any) {
+      let msg = 'An unexpected error occurred. Please try again.';
+      switch (err.code) {
+        case 'auth/invalid-email': msg = 'Please enter a valid email address.'; break;
+        case 'auth/user-not-found': msg = 'No account found with this email.'; break;
+        case 'auth/wrong-password': msg = 'Incorrect password. Please try again.'; break;
+        case 'auth/invalid-credential': msg = 'Invalid email or password.'; break;
+        case 'auth/too-many-requests': msg = 'Too many attempts. Try again later.'; break;
+        case 'auth/user-disabled': msg = 'This account has been disabled.'; break;
       }
-      Alert.alert('Sign In Failed', message);
+      setError(msg);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handlePhoneLogin = () => {
-    router.push('/(auth)/phone-login');
-  };
-
-  const handleSignUp = () => {
-    router.push('/(auth)/signup');
   };
 
   const handleGuestLogin = () => {
@@ -209,243 +159,430 @@ export default function LoginScreen() {
       photoURL: null,
       phoneNumber: null,
       getIdToken: async () => 'guest-token',
-    });
+    } as any);
     setIsAuthenticated(true);
     router.replace('/(tabs)');
   };
 
+  const isSubmitting = isLoading || isGoogleLoading;
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Brand Header */}
-          <View style={styles.headerSection}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoCircle}>
-                <Text style={styles.logoIcon}>P</Text>
-              </View>
+          {/* ── Modal card ──────────────────────────────────── */}
+          <View style={styles.card}>
+            {/* Rainbow top accent (matching web) */}
+            <LinearGradient
+              colors={['#2EC4B6', '#FFE66D', '#FFE66D', '#FF6B6B']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.topAccent}
+            />
+
+            {/* Logo */}
+            <View style={styles.logoWrap}>
+              <LinearGradient
+                colors={['#2EC4B6', '#0FA697']}
+                style={styles.logoGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <Ionicons name="sparkles" size={28} color="#ffffff" />
+              </LinearGradient>
             </View>
-            <Text style={styles.brandName}>Prayana AI</Text>
-            <Text style={styles.brandSubtitle}>Your Intelligent Journey Companion</Text>
-          </View>
 
-          {/* Social Login Options */}
-          <View style={styles.formSection}>
-            <Button
-              title="Continue with Google"
-              onPress={handleGoogleLogin}
-              variant="outline"
-              size="lg"
-              fullWidth
-              loading={isGoogleLoading}
-              icon={<Text style={styles.googleIcon}>G</Text>}
-              style={styles.socialButton}
-              textStyle={styles.socialButtonText}
-            />
+            {/* Title */}
+            <Text style={styles.title}>Welcome to Prayana</Text>
+            <Text style={styles.subtitle}>Your AI-powered travel companion</Text>
 
-            <Button
-              title="Continue with Phone"
-              onPress={handlePhoneLogin}
-              variant="outline"
-              size="lg"
-              fullWidth
-              icon={<Text style={styles.phoneIcon}>📱</Text>}
-              style={styles.socialButton}
-              textStyle={styles.socialButtonText}
-            />
+            {/* ── Buttons ──────────────────────────────────── */}
+            <View style={styles.buttonsSection}>
+              {/* Apple */}
+              <TouchableOpacity
+                style={styles.appleBtn}
+                onPress={() => Alert.alert('Coming Soon', 'Apple Sign-In coming soon.')}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+              >
+                <AppleA />
+                <Text style={styles.appleBtnText}>Continue with Apple</Text>
+              </TouchableOpacity>
+
+              {/* Google */}
+              <TouchableOpacity
+                style={styles.googleBtn}
+                onPress={handleGoogleLogin}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+              >
+                {isGoogleLoading ? (
+                  <ActivityIndicator size="small" color="#374151" />
+                ) : (
+                  <GoogleG />
+                )}
+                <Text style={styles.googleBtnText}>
+                  {isGoogleLoading ? 'Connecting...' : 'Continue with Google'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Phone */}
+              <TouchableOpacity
+                style={styles.phoneBtn}
+                onPress={() => router.push('/(auth)/phone-login')}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+              >
+                <Ionicons name="phone-portrait-outline" size={20} color="#374151" />
+                <Text style={styles.phoneBtnText}>Continue with Phone</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Error */}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Ionicons name="alert-circle-outline" size={16} color="#ef4444" />
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
 
             {/* Divider */}
-            <View style={styles.dividerContainer}>
+            <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerLabel}>or sign in with email</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Email Login Form */}
-            <TextInput
-              label="Email"
-              placeholder="you@example.com"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              textContentType="emailAddress"
-            />
+            {/* Email input */}
+            <View style={styles.inputWrap}>
+              <Ionicons name="mail-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+              <RNTextInput
+                style={styles.input}
+                placeholder="Email address"
+                placeholderTextColor="#9ca3af"
+                value={email}
+                onChangeText={(t) => { setEmail(t); setError(''); }}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoComplete="email"
+                editable={!isSubmitting}
+              />
+            </View>
 
-            <TextInput
-              label="Password"
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoComplete="password"
-              textContentType="password"
-            />
+            {/* Password input */}
+            <View style={styles.inputWrap}>
+              <Ionicons name="lock-closed-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+              <RNTextInput
+                style={[styles.input, { flex: 1 }]}
+                placeholder="Password"
+                placeholderTextColor="#9ca3af"
+                value={password}
+                onChangeText={(t) => { setPassword(t); setError(''); }}
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                editable={!isSubmitting}
+              />
+              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#9ca3af" />
+              </TouchableOpacity>
+            </View>
 
-            <Button
-              title="Sign In"
+            {/* Sign In button */}
+            <TouchableOpacity
+              style={[styles.signInBtn, isSubmitting && { opacity: 0.6 }]}
               onPress={handleEmailLogin}
-              variant="primary"
-              size="lg"
-              fullWidth
-              loading={isLoading}
-              style={styles.signInButton}
-            />
-
-            {/* Guest Login for Testing */}
-            <TouchableOpacity style={styles.guestButton} onPress={handleGuestLogin} activeOpacity={0.7}>
-              <Text style={styles.guestButtonText}>Continue as Guest</Text>
+              activeOpacity={0.85}
+              disabled={isSubmitting}
+            >
+              <LinearGradient
+                colors={['#2EC4B6', '#0FA697']}
+                style={styles.signInBtnGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <Text style={styles.signInBtnText}>Sign In</Text>
+                    <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+                  </>
+                )}
+              </LinearGradient>
             </TouchableOpacity>
+
+            {/* Sign Up link */}
+            <View style={styles.signUpRow}>
+              <Text style={styles.signUpLabel}>Don't have an account? </Text>
+              <TouchableOpacity onPress={() => router.push('/(auth)/signup')} activeOpacity={0.7}>
+                <Text style={styles.signUpLink}>Sign Up</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Divider secure */}
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerLabel}>Secure & Private</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            {/* Trust indicators (matching web) */}
+            <View style={styles.trustRow}>
+              <View style={styles.trustItem}>
+                <Ionicons name="shield-checkmark-outline" size={16} color="#2EC4B6" />
+                <Text style={styles.trustLabel}>Encrypted</Text>
+              </View>
+              <View style={styles.trustItem}>
+                <Ionicons name="globe-outline" size={16} color="#d4a017" />
+                <Text style={styles.trustLabel}>Global Access</Text>
+              </View>
+              <View style={styles.trustItem}>
+                <Ionicons name="sparkles-outline" size={16} color="#FF6B6B" />
+                <Text style={styles.trustLabel}>AI Powered</Text>
+              </View>
+            </View>
+
+            {/* Terms */}
+            <Text style={styles.terms}>
+              By continuing, you agree to our{' '}
+              <Text style={styles.termsLink}>Terms</Text>,{' '}
+              <Text style={styles.termsLink}>Privacy Policy</Text> &{' '}
+              <Text style={styles.termsLink}>User Agreement</Text>
+            </Text>
           </View>
 
-          {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={handleSignUp}>
-              <Text style={styles.footerLink}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Guest option (below the card) */}
+          <TouchableOpacity
+            style={styles.guestBtn}
+            onPress={handleGuestLogin}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.guestBtnText}>Continue as Guest</Text>
+          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
+// ── Styles ─────────────────────────────────────────────────────
+const CARD_MAX = Math.min(SCREEN_WIDTH - 32, 420);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f9fafb',
-  },
-  flex: {
-    flex: 1,
-  },
-  scrollContent: {
+  safeArea: { flex: 1, backgroundColor: '#f3f4f6' },
+  flex: { flex: 1 },
+  scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 32,
+    paddingHorizontal: 16,
   },
 
-  // Header
-  headerSection: {
-    alignItems: 'center',
-    marginBottom: 40,
+  // Card
+  card: {
+    width: CARD_MAX,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 12,
+    borderWidth: 1,
+    borderColor: '#f3f4f6',
   },
-  logoContainer: {
-    marginBottom: 16,
-  },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: '#f97316',
+  topAccent: { height: 4, width: '100%' },
+
+  // Logo
+  logoWrap: { alignItems: 'center', marginTop: 36, marginBottom: 16 },
+  logoGrad: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#f97316',
+    shadowColor: '#2EC4B6',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
-  logoIcon: {
-    fontSize: 32,
+
+  // Title
+  title: {
+    fontSize: 24,
     fontWeight: '700',
-    color: '#ffffff',
+    color: '#111827',
+    textAlign: 'center',
+    letterSpacing: -0.3,
   },
-  brandName: {
-    fontSize: 30,
-    fontWeight: '700',
-    color: '#1a1a1a',
-    marginBottom: 6,
-  },
-  brandSubtitle: {
-    fontSize: 15,
-    fontWeight: '400',
+  subtitle: {
+    fontSize: 14,
     color: '#6b7280',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 0,
   },
 
-  // Form Section
-  formSection: {
-    marginBottom: 32,
-  },
-  socialButton: {
-    marginBottom: 12,
-    borderColor: '#d1d5db',
-    backgroundColor: '#ffffff',
-  },
-  socialButtonText: {
-    color: '#1a1a1a',
-  },
-  googleIcon: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#4285F4',
-    marginRight: 4,
-  },
-  phoneIcon: {
-    fontSize: 18,
-    marginRight: 4,
-  },
+  // Buttons section
+  buttonsSection: { paddingHorizontal: 28, marginTop: 28, gap: 12 },
 
-  // Divider
-  dividerContainer: {
+  // Apple button (black)
+  appleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 10,
   },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#e5e7eb',
+  appleWrap: { width: 22, alignItems: 'center' },
+  appleIcon: { fontSize: 18, color: '#ffffff' },
+  appleBtnText: { fontSize: 15, fontWeight: '600', color: '#ffffff' },
+
+  // Google button (outlined)
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 10,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
   },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 13,
-    fontWeight: '500',
+  googleGWrap: { width: 22, alignItems: 'center' },
+  googleG: { fontSize: 17, fontWeight: '700', color: '#4285F4' },
+  googleBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+
+  // Phone button (outlined)
+  phoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 10,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+  },
+  phoneBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+
+  // Error
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fee2e2',
+    borderRadius: 12,
+    marginHorizontal: 28,
+    marginTop: 14,
+    padding: 12,
+    gap: 8,
+  },
+  errorText: { flex: 1, fontSize: 13, color: '#ef4444', lineHeight: 18 },
+
+  // Divider
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+    marginVertical: 20,
+    gap: 12,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#e5e7eb' },
+  dividerLabel: {
+    fontSize: 11,
+    fontWeight: '600',
     color: '#9ca3af',
-    textTransform: 'lowercase',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
-  // Sign In Button
-  signInButton: {
+  // Input
+  inputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    marginHorizontal: 28,
+    marginBottom: 12,
+    paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'ios' ? 14 : 10,
+  },
+  inputIcon: { marginRight: 8 },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    paddingVertical: 0,
+  },
+
+  // Sign In button
+  signInBtn: {
+    marginHorizontal: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
     marginTop: 4,
   },
-
-  // Guest Button
-  guestButton: {
-    marginTop: 16,
+  signInBtnGrad: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    justifyContent: 'center',
+    paddingVertical: 15,
+    gap: 8,
   },
-  guestButtonText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#9ca3af',
-    textDecorationLine: 'underline',
-  },
+  signInBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
 
-  // Footer
-  footer: {
+  // Sign Up
+  signUpRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 24,
+    marginTop: 16,
   },
-  footerText: {
-    fontSize: 14,
-    color: '#6b7280',
+  signUpLabel: { fontSize: 14, color: '#6b7280' },
+  signUpLink: { fontSize: 14, fontWeight: '600', color: '#2EC4B6' },
+
+  // Trust row
+  trustRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    marginBottom: 4,
   },
-  footerLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#f97316',
+  trustItem: { alignItems: 'center', gap: 4, flex: 1, paddingVertical: 10, backgroundColor: '#f9fafb', borderRadius: 12, marginHorizontal: 4 },
+  trustLabel: { fontSize: 10, fontWeight: '600', color: '#6b7280', textAlign: 'center' },
+
+  // Terms
+  terms: {
+    fontSize: 11,
+    color: '#9ca3af',
+    textAlign: 'center',
+    paddingHorizontal: 28,
+    paddingBottom: 28,
+    marginTop: 12,
+    lineHeight: 17,
   },
+  termsLink: { color: '#2EC4B6' },
+
+  // Guest
+  guestBtn: { marginTop: 20, paddingVertical: 12, alignItems: 'center' },
+  guestBtnText: { fontSize: 14, fontWeight: '500', color: '#9ca3af', textDecorationLine: 'underline' },
 });

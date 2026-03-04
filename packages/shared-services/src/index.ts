@@ -26,6 +26,9 @@ export {
   fetchUserProfile,
   updateUserProfile,
   saveEmailPreference,
+  saveNotificationPreferences,
+  saveFcmToken,
+  deleteFcmToken,
 } from './authAPI';
 
 // ===== Socket Service =====

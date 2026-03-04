@@ -2,13 +2,13 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   TextInput,
   StyleSheet,
   FlatList,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomModal, { BottomModalRef } from '../common/BottomModal';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';

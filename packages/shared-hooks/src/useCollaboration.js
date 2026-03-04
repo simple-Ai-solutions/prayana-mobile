@@ -135,7 +135,8 @@ export function useCollaboration(tripId) {
     // - No trip ID
     // - No user (not authenticated)
     // - Auth still loading
-    if (!tripId || !user || authLoading) {
+    // - Guest user (no real Firebase token)
+    if (!tripId || !user || authLoading || user.uid === 'guest-user') {
       return;
     }
 

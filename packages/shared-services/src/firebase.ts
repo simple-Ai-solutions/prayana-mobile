@@ -9,15 +9,15 @@ import {
 } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Firebase configuration - same project as the web app (prayanaai-b0c73)
+// Firebase configuration - same project as the web app (prayanaai-d52cc)
 const firebaseConfig = {
-  apiKey: 'AIzaSyAa4KIws7SWD5wWOzA5vBQjAz7NytyJtT0',
-  authDomain: 'prayanaai-b0c73.firebaseapp.com',
-  projectId: 'prayanaai-b0c73',
-  storageBucket: 'prayanaai-b0c73.firebasestorage.app',
-  messagingSenderId: '629033939569',
-  appId: '1:629033939569:web:2230021e5f3503e27461d0',
-  measurementId: 'G-Z6C7GKF46K',
+  apiKey: 'AIzaSyCd1UZ-OnKVAF58Hv78-pefICnxUDWkTKE',
+  authDomain: 'prayanaai-d52cc.firebaseapp.com',
+  projectId: 'prayanaai-d52cc',
+  storageBucket: 'prayanaai-d52cc.firebasestorage.app',
+  messagingSenderId: '926782873134',
+  // appId is platform-specific but Firebase JS SDK works with either; using web app ID
+  appId: '1:926782873134:web:77b2ea63b46c90425549bf',
 };
 
 // Initialize Firebase app (singleton - prevent re-initialization on hot reload)

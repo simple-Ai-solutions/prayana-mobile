@@ -535,7 +535,7 @@ export default function BookingDetailScreen() {
             />
           ) : (
             <LinearGradient
-              colors={['#f97316', '#fb923c']}
+              colors={['#06B6D4', '#2dd4bf']}
               style={styles.activityImage}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}

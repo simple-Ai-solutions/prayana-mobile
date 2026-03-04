@@ -2,14 +2,13 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Platform,
   ActivityIndicator,
   Share,
   Alert,
 } from 'react-native';
+import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -603,10 +602,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[200],
   },
   stepDotCompleted: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
   },
   stepDotCurrent: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
     width: 26,
     height: 26,
     borderRadius: 13,
@@ -627,7 +626,7 @@ const styles = StyleSheet.create({
     maxWidth: 50,
   },
   stepConnectorActive: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
   },
 
   // Scroll Content

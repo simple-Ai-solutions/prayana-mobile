@@ -5,12 +5,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Dimensions,
   Modal,
   FlatList,
   StatusBar,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, fontWeight, spacing, useTheme } from '@prayana/shared-ui';
@@ -130,7 +130,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ placeName, location, ini
               <Image
                 source={{ uri: url }}
                 style={[styles.masonryImage, { height: getImageHeight(idx) }]}
-                resizeMode="cover"
+                contentFit="cover" transition={200} cachePolicy="memory-disk"
               />
             </TouchableOpacity>
           ))}
@@ -146,7 +146,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ placeName, location, ini
               <Image
                 source={{ uri: url }}
                 style={[styles.masonryImage, { height: getImageHeight(idx + 1) }]}
-                resizeMode="cover"
+                contentFit="cover" transition={200} cachePolicy="memory-disk"
               />
             </TouchableOpacity>
           ))}
@@ -200,7 +200,7 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ placeName, location, ini
                 <Image
                   source={{ uri: item }}
                   style={styles.viewerImage}
-                  resizeMode="contain"
+                  contentFit="contain" transition={200} cachePolicy="memory-disk"
                 />
               </View>
             )}

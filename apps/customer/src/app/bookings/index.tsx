@@ -98,7 +98,7 @@ const STATUS_TABS = [
 type TabKey = typeof STATUS_TABS[number]['key'];
 
 const GRADIENT_PLACEHOLDERS = [
-  ['#f97316', '#fb923c'] as const,
+  ['#06B6D4', '#2dd4bf'] as const,
   ['#3b82f6', '#60a5fa'] as const,
   ['#22c55e', '#4ade80'] as const,
   ['#a855f7', '#c084fc'] as const,

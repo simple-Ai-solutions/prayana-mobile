@@ -23,7 +23,7 @@ function getInitials(name?: string): string {
 const avatarColors = [
   colors.primary[500],
   '#8b5cf6',
-  '#06b6d4',
+  '#06B6D4',
   '#ec4899',
   '#10b981',
   '#6366f1',

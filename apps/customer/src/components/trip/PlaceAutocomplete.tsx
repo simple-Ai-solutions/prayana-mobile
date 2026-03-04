@@ -3,12 +3,12 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
   FlatList,
   Keyboard,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontWeight, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';

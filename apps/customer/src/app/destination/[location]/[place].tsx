@@ -8,10 +8,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Dimensions,
   Linking,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,7 +24,7 @@ import {
   borderRadius,
   useTheme,
 } from '@prayana/shared-ui';
-import { makeAPICall } from '@prayana/shared-services';
+import { makeAPICall, getBaseURL } from '@prayana/shared-services';
 import { resolveImageUrl } from '@prayana/shared-utils';
 
 import { OverviewTab } from '../../../components/place-detail/OverviewTab';
@@ -141,10 +141,13 @@ function PlaceDetailContent() {
 
   const isFetchingRef = useRef(false);
 
+  // Track which tiers have loaded for per-tab skeleton display
+  const [tiersLoaded, setTiersLoaded] = useState<Set<string>>(new Set());
+
   console.log('[PlaceDetail] Rendering — placeName:', placeName, 'location:', location, 'hasPreview:', !!previewData);
 
   const fetchPlaceDetails = useCallback(async () => {
-    if (isFetchingRef.current) return; // Prevent duplicate fetches
+    if (isFetchingRef.current) return;
     if (!placeName) {
       console.warn('[PlaceDetail] Missing placeName');
       setError('Missing place name');
@@ -153,48 +156,123 @@ function PlaceDetailContent() {
       return;
     }
     isFetchingRef.current = true;
-    // Don't reset loading if we already have preview data
     if (!previewData) setLoading(true);
     setError(null);
 
     const loc = location || placeName;
+    const baseURL = getBaseURL(); // e.g. "http://192.168.31.185:5000/api"
 
     try {
-      console.log('[PlaceDetail] Fetching unified data for:', placeName, 'in', loc);
+      console.log('[PlaceDetail] Starting progressive stream for:', placeName, 'in', loc);
 
-      const response = await makeAPICall('/destinations/unified-place-data', {
+      const response = await fetch(`${baseURL}/destinations/unified-place-data-progressive`, {
         method: 'POST',
-        body: JSON.stringify({
-          placeName: placeName.trim(),
-          location: loc.trim(),
-        }),
-        timeout: 60000,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson, application/json' },
+        body: JSON.stringify({ placeName: placeName.trim(), location: loc.trim() }),
+        signal: AbortSignal.timeout(90000),
       });
 
-      const data = response?.data || response;
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-      if (data && typeof data === 'object' && (data.name || data.description)) {
-        setPlaceData(data);
-        console.log('[PlaceDetail] Full data loaded — name:', data.name, 'hasDetailedInfo:', !!data.detailedInfo);
+      // Always try to stream the body — server uses res.write() with newline-delimited JSON
+      // even when Content-Type is application/json
+      if (response.body) {
+        // --- STREAMING PATH: read line-delimited JSON tiers ---
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+
+          // Process complete lines
+          const lines = buffer.split('\n');
+          buffer = lines.pop() ?? ''; // keep incomplete line in buffer
+
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            try {
+              const envelope = JSON.parse(trimmed);
+              // Server wraps each tier as: { success, data, metadata: { type, tier } }
+              const tierData = envelope.data || envelope;
+              const tierType: string = envelope.metadata?.type || envelope.metadata?.tier || envelope.tier || 'unknown';
+
+              if (!envelope.success && envelope.error) {
+                console.warn('[PlaceDetail] Server error tier:', envelope.message);
+                continue;
+              }
+
+              console.log('[PlaceDetail] Tier received:', tierType);
+
+              setPlaceData((prev: any) => {
+                const base = prev || { name: placeName };
+                // Deep merge: newer tier data wins, but don't wipe non-empty existing fields with empty values
+                const merged = { ...base };
+                Object.keys(tierData).forEach((k) => {
+                  const val = tierData[k];
+                  if (val === null || val === undefined || val === '') return;
+                  if (Array.isArray(val) && val.length === 0) return;
+                  if (typeof val === 'object' && !Array.isArray(val) && typeof merged[k] === 'object' && merged[k] && !Array.isArray(merged[k])) {
+                    merged[k] = { ...merged[k], ...val };
+                  } else {
+                    merged[k] = val;
+                  }
+                });
+                return merged;
+              });
+
+              setTiersLoaded((prev) => new Set([...prev, tierType]));
+              // Unlock UI from loading state as soon as first tier arrives
+              setLoading(false);
+            } catch (parseErr) {
+              console.warn('[PlaceDetail] Failed to parse tier line:', parseErr);
+            }
+          }
+        }
+
+        // Process remaining buffer
+        if (buffer.trim()) {
+          try {
+            const envelope = JSON.parse(buffer.trim());
+            const tierData = envelope.data || envelope;
+            const tierType: string = envelope.metadata?.type || envelope.metadata?.tier || 'final';
+            setPlaceData((prev: any) => {
+              const merged = { ...(prev || { name: placeName }) };
+              Object.keys(tierData).forEach((k) => {
+                const val = tierData[k];
+                if (val !== null && val !== undefined && val !== '') merged[k] = val;
+              });
+              return merged;
+            });
+            setTiersLoaded((prev) => new Set([...prev, tierType]));
+          } catch {}
+        }
+
       } else {
-        // Fallback to legacy ai-details endpoint
-        console.warn('[PlaceDetail] Unified endpoint returned empty, trying ai-details fallback');
-        const fallback = await makeAPICall('/destinations/ai-details', {
+        // response.body unavailable — shouldn't happen in React Native but handle gracefully
+        throw new Error('Response body not available for streaming');
+      }
+    } catch (err: any) {
+      console.warn('[PlaceDetail] Progressive stream failed, falling back to unified endpoint:', err?.message);
+      // Fallback to non-streaming unified endpoint
+      try {
+        const response = await makeAPICall('/destinations/unified-place-data', {
           method: 'POST',
-          body: JSON.stringify({ placeName: placeName.trim(), location: loc.trim() }),
-          timeout: 45000,
+          body: JSON.stringify({ placeName: placeName.trim(), location: (location || placeName).trim() }),
+          timeout: 60000,
         });
-        const fbData = fallback?.data || fallback;
-        if (fbData && typeof fbData === 'object' && (fbData.name || fbData.description)) {
-          setPlaceData(fbData);
+        const data = response?.data || response;
+        if (data && typeof data === 'object' && (data.name || data.description)) {
+          setPlaceData(data);
         } else if (!previewData) {
           setError('Could not load place details. Please try again.');
         }
-      }
-    } catch (err: any) {
-      console.error('[PlaceDetail] Fetch error:', err?.message || err);
-      if (!previewData) {
-        setError(err?.message || 'Failed to load details');
+      } catch (fallbackErr: any) {
+        console.error('[PlaceDetail] All endpoints failed:', fallbackErr?.message);
+        if (!previewData) setError(fallbackErr?.message || 'Failed to load details');
       }
     } finally {
       setLoading(false);
@@ -313,15 +391,43 @@ function PlaceDetailContent() {
   const resolvedLocation = location || placeData?.city || locationStr || '';
 
   // ============================================================
+  // TAB SKELETON — shown while enriching and tab has no data yet
+  // ============================================================
+  const TabSkeleton = () => {
+    const skeletonColor = isDarkMode ? '#1F2937' : '#E5E7EB';
+    const rows = [
+      { w: '100%', h: 16 }, { w: '80%', h: 16 }, { w: '90%', h: 16 },
+      { w: '60%', h: 16 }, { w: '100%', h: 16 }, { w: '70%', h: 16 },
+    ];
+    return (
+      <View style={{ padding: spacing.xl, gap: spacing.md }}>
+        {/* Section title skeleton */}
+        <View style={{ width: 140, height: 18, borderRadius: 8, backgroundColor: skeletonColor, marginBottom: 4 }} />
+        {rows.map((r, i) => (
+          <View key={i} style={{ width: r.w as any, height: r.h, borderRadius: 6, backgroundColor: skeletonColor }} />
+        ))}
+        <View style={{ width: 140, height: 18, borderRadius: 8, backgroundColor: skeletonColor, marginTop: spacing.lg, marginBottom: 4 }} />
+        {[{ w: '100%' }, { w: '75%' }, { w: '85%' }].map((r, i) => (
+          <View key={i} style={{ width: r.w as any, height: 16, borderRadius: 6, backgroundColor: skeletonColor }} />
+        ))}
+      </View>
+    );
+  };
+
+  // ============================================================
   // RENDER TAB CONTENT
   // ============================================================
   const renderTab = () => {
+    // Show skeleton while data is still streaming AND the tab truly has no content yet
+    const hasDetailedInfo = !!(placeData?.detailedInfo || placeData?.visitingInfo || placeData?.description);
+    const showSkeleton = enriching && !hasDetailedInfo;
+
     try {
       switch (activeTab) {
         case 'overview':
-          return <OverviewTab placeData={placeData} />;
+          return showSkeleton ? <TabSkeleton /> : <OverviewTab placeData={placeData} />;
         case 'visit':
-          return <VisitInfoTab placeData={placeData} />;
+          return showSkeleton ? <TabSkeleton /> : <VisitInfoTab placeData={placeData} />;
         case 'reach':
           return (
             <HowToReachTab
@@ -379,7 +485,7 @@ function PlaceDetailContent() {
                 }}
               >
                 {allImages.slice(0, 5).map((img, idx) => (
-                  <Image key={idx} source={{ uri: img }} style={styles.heroImage} resizeMode="cover" />
+                  <Image key={idx} source={{ uri: img }} style={styles.heroImage} contentFit="cover" transition={200} cachePolicy="memory-disk" priority="high" />
                 ))}
               </ScrollView>
               {allImages.length > 1 && (
@@ -480,12 +586,18 @@ function PlaceDetailContent() {
           </ScrollView>
         </View>
 
-        {/* ======== ENRICHMENT INDICATOR ======== */}
+        {/* ======== PROGRESSIVE LOADING INDICATOR ======== */}
         {enriching && (
           <View style={[styles.enrichingBar, { backgroundColor: isDarkMode ? '#1F2937' : '#FFF7ED' }]}>
             <ActivityIndicator size="small" color={colors.primary[500]} />
             <Text style={[styles.enrichingText, { color: themeColors.textSecondary }]}>
-              Loading detailed info...
+              {tiersLoaded.size === 0
+                ? 'Discovering details...'
+                : tiersLoaded.size < 2
+                ? 'Loading visit info...'
+                : tiersLoaded.size < 3
+                ? 'Finding experiences...'
+                : 'Almost ready...'}
             </Text>
           </View>
         )}

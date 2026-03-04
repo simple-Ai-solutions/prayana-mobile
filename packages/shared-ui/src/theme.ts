@@ -1,19 +1,19 @@
 // Design tokens for Prayana AI mobile apps
-// Orange-based theme matching web app (#f97316)
+// Cyan-based theme (#06B6D4)
 
 export const colors = {
-  // Primary - Orange (Prayana brand)
+  // Primary - Cyan (Prayana brand)
   primary: {
-    50: '#fff7ed',
-    100: '#ffedd5',
-    200: '#fed7aa',
-    300: '#fdba74',
-    400: '#fb923c',
-    500: '#f97316', // Main brand color
-    600: '#ea580c',
-    700: '#c2410c',
-    800: '#9a3412',
-    900: '#7c2d12',
+    50: '#ecfeff',
+    100: '#cffafe',
+    200: '#a5f3fc',
+    300: '#67e8f9',
+    400: '#22d3ee',
+    500: '#06B6D4', // Main brand color
+    600: '#0891b2',
+    700: '#0e7490',
+    800: '#155e75',
+    900: '#164e63',
   },
 
   // Neutral / Gray
@@ -54,7 +54,7 @@ export const colors = {
 
   // Border
   border: '#e5e5e5',
-  borderFocused: '#f97316',
+  borderFocused: '#06B6D4',
 
   // Overlay
   overlay: 'rgba(0, 0, 0, 0.5)',

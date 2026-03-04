@@ -60,3 +60,46 @@ export async function saveEmailPreference(data) {
     body: JSON.stringify(data),
   });
 }
+
+/**
+ * Save/update notification preferences (push, email, per-event toggles).
+ *
+ * @param {Object} preferences - Preferences matching User.preferences.notifications schema
+ * @returns {Promise<Object>} Backend response
+ */
+export async function saveNotificationPreferences(preferences) {
+  return makeAPICall('/auth/profile', {
+    method: 'PUT',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ preferences: { notifications: preferences } }),
+  });
+}
+
+/**
+ * Register an Expo/FCM push token for the current device.
+ *
+ * @param {string} token - The push token (Expo or FCM)
+ * @param {string} device - 'ios' | 'android' | 'web'
+ * @returns {Promise<Object>} Backend response
+ */
+export async function saveFcmToken(token, device) {
+  return makeAPICall('/auth/fcm-token', {
+    method: 'POST',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ token, device }),
+  });
+}
+
+/**
+ * Remove push token(s) from the current user.
+ *
+ * @param {string|null} token - Specific token to remove, or null to clear all
+ * @returns {Promise<Object>} Backend response
+ */
+export async function deleteFcmToken(token = null) {
+  return makeAPICall('/auth/fcm-token', {
+    method: 'DELETE',
+    headers: await getAuthHeaders(),
+    body: JSON.stringify({ token }),
+  });
+}

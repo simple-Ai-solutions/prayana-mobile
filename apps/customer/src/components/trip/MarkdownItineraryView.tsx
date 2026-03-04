@@ -4,10 +4,10 @@ import {
   Text,
   Image,
   ScrollView,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';

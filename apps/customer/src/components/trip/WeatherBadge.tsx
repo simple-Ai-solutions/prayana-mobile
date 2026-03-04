@@ -2,10 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
 

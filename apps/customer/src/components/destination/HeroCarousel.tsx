@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  Image,
   StyleSheet,
   Dimensions,
-  TouchableOpacity,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontWeight, shadow, useTheme } from '@prayana/shared-ui';
@@ -73,16 +73,19 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
     <View style={styles.container}>
       {/* Slide Image */}
       <TouchableOpacity
-        style={styles.slideContainer}
-        activeOpacity={onPlacePress ? 0.8 : 1}
+        activeOpacity={0.9}
         onPress={() => onPlacePress && currentPlace && onPlacePress(currentPlace)}
-        disabled={!onPlacePress}
+        disabled={!onPlacePress || !currentPlace}
+        style={styles.slideContainer}
       >
         {imageUrl ? (
           <Image
             source={{ uri: imageUrl }}
             style={styles.slideImage}
-            resizeMode="cover"
+            contentFit="cover"
+            transition={200}
+            cachePolicy="memory-disk"
+            priority="high"
           />
         ) : (
           <View style={[styles.slideImage, styles.placeholderImage]}>
@@ -97,7 +100,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
         />
 
         {/* Content Overlay */}
-        <View style={styles.contentOverlay}>
+        <View style={styles.contentOverlay} pointerEvents="none">
           <Text style={styles.collectionTitle} numberOfLines={2}>
             {hero.collectionTitle}
           </Text>
@@ -117,7 +120,7 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
 
         {/* Place name indicator */}
         {currentPlace?.name && (
-          <View style={styles.placeNameContainer}>
+          <View style={styles.placeNameContainer} pointerEvents="none">
             <Ionicons name="location" size={12} color={colors.primary[400]} />
             <Text style={styles.placeName} numberOfLines={1}>
               {currentPlace.name}
@@ -125,9 +128,9 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
           </View>
         )}
 
-        {/* Add badge (shown when onPlacePress is provided) */}
+        {/* Add badge */}
         {onPlacePress && currentPlace && (
-          <View style={styles.addBadge}>
+          <View style={styles.addBadge} pointerEvents="none">
             <Ionicons name="add" size={20} color="#ffffff" />
           </View>
         )}

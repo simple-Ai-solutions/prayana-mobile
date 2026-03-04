@@ -2,11 +2,11 @@ import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
-  Image,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontWeight, shadow, useTheme } from '@prayana/shared-ui';
 import { getPlaceImageUrl } from '@prayana/shared-utils';
@@ -199,9 +199,9 @@ export const HeritageCircuits: React.FC<HeritageCircuitsProps> = ({
                 return (
                   <TouchableOpacity
                     key={`${place.name}-${placeIndex}`}
-                    style={styles.placeCard}
-                    activeOpacity={0.7}
+                    activeOpacity={0.85}
                     onPress={() => onPlacePress(place)}
+                    style={styles.placeCard}
                   >
                     {/* Place Image */}
                     <View style={styles.placeImageContainer}>
@@ -209,7 +209,9 @@ export const HeritageCircuits: React.FC<HeritageCircuitsProps> = ({
                         <Image
                           source={{ uri: imageUrl }}
                           style={styles.placeImage}
-                          resizeMode="cover"
+                          contentFit="cover"
+                          transition={200}
+                          cachePolicy="memory-disk"
                         />
                       ) : (
                         <View
@@ -229,7 +231,7 @@ export const HeritageCircuits: React.FC<HeritageCircuitsProps> = ({
 
                       {/* Rating Badge */}
                       {rating && (
-                        <View style={styles.ratingBadge}>
+                        <View style={styles.ratingBadge} pointerEvents="none">
                           <Ionicons
                             name="star"
                             size={10}

@@ -2,10 +2,10 @@ import React, { useCallback } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';

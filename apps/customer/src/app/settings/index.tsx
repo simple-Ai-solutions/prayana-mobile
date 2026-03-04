@@ -227,7 +227,7 @@ export default function AboutScreen() {
             style={styles.aiBadgeGradient}
           >
             <Ionicons name="sparkles" size={14} color="#ffffff" />
-            <Text style={styles.aiBadgeText}>Made with AI</Text>
+            <Text style={styles.aiBadgeText}>Simple AI Solutions</Text>
           </LinearGradient>
         </View>
         <Text style={styles.copyrightText}>

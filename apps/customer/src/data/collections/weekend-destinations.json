@@ -1,0 +1,1183 @@
+{
+  "category": {
+    "id": "weekend",
+    "slug": "weekend",
+    "title": "Perfect Weekend Getaways",
+    "subtitle": "Quick escapes from city life",
+    "heroTitle": "Plan Your",
+    "heroHighlight": "Perfect Weekend",
+    "icon": "🚗",
+    "color": "green",
+    "gradient": "from-green-500 to-teal-600",
+    "description": "Discover the best weekend getaways near major Indian cities. Whether you're looking for hills, beaches, heritage sites, or nature retreats, these destinations are perfect for 2-3 day trips to refresh and recharge."
+  },
+  "hero": {
+    "featured": {
+      "id": "lonavala_featured",
+      "name": "Lonavala",
+      "location": "Maharashtra (Near Mumbai)",
+      "tagline": "Monsoon Paradise",
+      "image": "https://prayanaai.com/images/place-names/maharashtra/lonavala-waterfall-viewpoint/img-1_google_places_e5b37644.jpg",
+      "rating": 4.6,
+      "searchQuery": "Lonavala",
+      "highlights": [
+        "Waterfalls",
+        "Hill station",
+        "Caves",
+        "2-3 hours from Mumbai"
+      ]
+    },
+    "secondary": [
+      {
+        "id": "pondicherry_hero",
+        "name": "Pondicherry",
+        "location": "Tamil Nadu (Near Chennai)",
+        "tagline": "French Riviera of the East",
+        "image": "https://prayanaai.com/images/place-names/pondicherry/pondicherry-french-quarter/img-1_google_places_b9edc7b7.jpg",
+        "rating": 4.7,
+        "searchQuery": "Pondicherry"
+      },
+      {
+        "id": "nainital_hero",
+        "name": "Nainital",
+        "location": "Uttarakhand (Near Delhi)",
+        "tagline": "Lake District",
+        "image": "https://prayanaai.com/images/place-names/uttarakhand/naini-lake-nainital/img-1_google_places_e924eab3.jpg",
+        "rating": 4.6,
+        "searchQuery": "Nainital"
+      },
+      {
+        "id": "hampi_hero",
+        "name": "Hampi",
+        "location": "Karnataka (Near Bangalore)",
+        "tagline": "Ruins & Boulders",
+        "image": "https://prayanaai.com/images/place-names/karnataka/hampi-ruins-temples/img-1_google_places_39570625.jpg",
+        "rating": 4.7,
+        "searchQuery": "Hampi"
+      },
+      {
+        "id": "rishikesh_hero",
+        "name": "Rishikesh",
+        "location": "Uttarakhand (Near Delhi)",
+        "tagline": "Yoga Capital",
+        "image": "https://prayanaai.com/images/place-names/uttarakhand/rishikesh-laxman-jhula-ganga/img-1_google_places_3225d454.jpg",
+        "rating": 4.7,
+        "searchQuery": "Rishikesh"
+      }
+    ]
+  },
+  "whyVisit": {
+    "title": "Why Weekend Getaways?",
+    "subtitle": "Short breaks, big refreshment",
+    "reasons": [
+      {
+        "icon": "⏰",
+        "title": "Quick Escape",
+        "description": "Perfect for 2-3 day trips without taking long leaves"
+      },
+      {
+        "icon": "🚗",
+        "title": "Easy Access",
+        "description": "Short drives from metro cities, ideal for road trips"
+      },
+      {
+        "icon": "💰",
+        "title": "Budget-Friendly",
+        "description": "Affordable destinations without international travel costs"
+      },
+      {
+        "icon": "🔄",
+        "title": "Regular Breaks",
+        "description": "Recharge frequently with nearby weekend escapes"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "mumbai-weekend",
+      "title": "Weekend Getaways from Mumbai/Pune",
+      "subtitle": "Hill stations, beaches, and heritage sites within 300km",
+      "searchQuery": "Lonavala Alibaug",
+      "viewAllText": "Explore All Mumbai Getaways",
+      "places": [
+        {
+          "id": "lonavala",
+          "name": "Lonavala-Khandala",
+          "location": "Maharashtra",
+          "description": "Monsoon paradise with waterfalls, caves, and viewpoints",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/lonavala-waterfall-viewpoint/img-1_google_places_e5b37644.jpg",
+          "rating": 4.6,
+          "searchQuery": "Lonavala-Khandala",
+          "stats": {
+            "distance": "83km from Mumbai",
+            "driveTime": "2-3 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Bhushi Dam",
+            "Tiger Point",
+            "Karla Caves",
+            "Monsoon waterfalls"
+          ]
+        },
+        {
+          "id": "alibaug",
+          "name": "Alibaug",
+          "location": "Maharashtra",
+          "description": "Beach town with forts and water sports",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/alibaug-beach-maharashtra/img-1_google_places_1a150a1c.jpg",
+          "rating": 4.5,
+          "searchQuery": "Alibaug",
+          "stats": {
+            "distance": "95km from Mumbai",
+            "driveTime": "2-3 hours + ferry",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Alibaug Beach",
+            "Kolaba Fort",
+            "Nagaon Beach",
+            "Water sports"
+          ]
+        },
+        {
+          "id": "matheran",
+          "name": "Matheran",
+          "location": "Maharashtra",
+          "description": "Asia's only automobile-free hill station",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/matheran-hill-station/img-1_google_places_653dc052.png",
+          "rating": 4.5,
+          "searchQuery": "Matheran",
+          "stats": {
+            "distance": "90km from Mumbai",
+            "driveTime": "2.5 hours + toy train",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Echo Point",
+            "Panorama Point",
+            "Toy train",
+            "Vehicle-free zone"
+          ]
+        },
+        {
+          "id": "mahabaleshwar",
+          "name": "Mahabaleshwar",
+          "location": "Maharashtra",
+          "description": "Strawberry capital with viewpoints and lakes",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/mahabaleshwar-viewpoint/img-1_google_places_f9d54a81.jpg",
+          "rating": 4.6,
+          "searchQuery": "Mahabaleshwar",
+          "stats": {
+            "distance": "120km from Pune",
+            "driveTime": "3 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Strawberries",
+            "Venna Lake",
+            "Arthur's Seat",
+            "Pratapgarh Fort"
+          ]
+        },
+        {
+          "id": "kashid",
+          "name": "Kashid",
+          "location": "Maharashtra",
+          "description": "White sand beach with clean shores",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/kashid-beach-maharashtra/img-1_google_places_87c5d1d6.jpg",
+          "rating": 4.5,
+          "searchQuery": "Kashid",
+          "stats": {
+            "distance": "135km from Mumbai",
+            "driveTime": "3-4 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "White sand beach",
+            "Casuarina trees",
+            "Water sports",
+            "Resorts"
+          ]
+        },
+        {
+          "id": "igatpuri",
+          "name": "Igatpuri",
+          "location": "Maharashtra",
+          "description": "Hill station with waterfalls and meditation centers",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/igatpuri-hills-maharashtra/img-1_google_places_6e395a1b.jpg",
+          "rating": 4.4,
+          "searchQuery": "Igatpuri",
+          "stats": {
+            "distance": "120km from Mumbai",
+            "driveTime": "2.5 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Bhatsa River Valley",
+            "Vipassana Center",
+            "Waterfalls",
+            "Trekking"
+          ]
+        },
+        {
+          "id": "lavasa",
+          "name": "Lavasa",
+          "location": "Maharashtra",
+          "description": "Planned hill city inspired by Italian town",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/lavasa-hill-city-maharashtra/img-1_google_places_84f0d55b.jpg",
+          "rating": 4.3,
+          "searchQuery": "Lavasa",
+          "stats": {
+            "distance": "65km from Pune",
+            "driveTime": "2 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Italian architecture",
+            "Lakeside promenade",
+            "Water sports",
+            "Resorts"
+          ]
+        },
+        {
+          "id": "pawna_lake",
+          "name": "Pawna Lake",
+          "location": "Maharashtra",
+          "description": "Lakeside camping and scenic views",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/pawna-lake-camping-maharashtra/img-1_google_places_8ad2b7e6.jpg",
+          "rating": 4.5,
+          "searchQuery": "Pawna Lake",
+          "stats": {
+            "distance": "60km from Pune",
+            "driveTime": "1.5 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Lakeside camping",
+            "Sunrise views",
+            "Forts nearby",
+            "Stargazing"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "delhi-weekend",
+      "title": "Weekend Getaways from Delhi/NCR",
+      "subtitle": "Hills, heritage, and spiritual retreats within 350km",
+      "searchQuery": "Rishikesh Mussoorie",
+      "viewAllText": "Explore All Delhi Getaways",
+      "places": [
+        {
+          "id": "rishikesh",
+          "name": "Rishikesh",
+          "location": "Uttarakhand",
+          "description": "Yoga capital with river rafting and spiritual vibes",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/rishikesh-laxman-jhula-ganga/img-1_google_places_3225d454.jpg",
+          "rating": 4.7,
+          "searchQuery": "Rishikesh",
+          "stats": {
+            "distance": "240km from Delhi",
+            "driveTime": "5-6 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "River rafting",
+            "Laxman Jhula",
+            "Yoga ashrams",
+            "Beatles Ashram"
+          ]
+        },
+        {
+          "id": "mussoorie",
+          "name": "Mussoorie",
+          "location": "Uttarakhand",
+          "description": "Queen of Hills with Mall Road and waterfalls",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/mussoorie-mall-road/img-1_google_places_62aa9dd9.jpg",
+          "rating": 4.6,
+          "searchQuery": "Mussoorie",
+          "stats": {
+            "distance": "290km from Delhi",
+            "driveTime": "6-7 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Kempty Falls",
+            "Gun Hill",
+            "Mall Road",
+            "Lal Tibba"
+          ]
+        },
+        {
+          "id": "nainital",
+          "name": "Nainital",
+          "location": "Uttarakhand",
+          "description": "Lake district with colonial charm and boat rides",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/naini-lake-nainital/img-1_google_places_e924eab3.jpg",
+          "rating": 4.6,
+          "searchQuery": "Nainital",
+          "stats": {
+            "distance": "320km from Delhi",
+            "driveTime": "7-8 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Naini Lake",
+            "Mall Road",
+            "Naina Devi Temple",
+            "Cable car"
+          ]
+        },
+        {
+          "id": "jaipur",
+          "name": "Jaipur",
+          "location": "Rajasthan",
+          "description": "Pink City with forts, palaces, and culture",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/hawa-mahal-jaipur/img-1_google_places_a9b36d94.jpg",
+          "rating": 4.7,
+          "searchQuery": "Jaipur",
+          "stats": {
+            "distance": "280km from Delhi",
+            "driveTime": "5-6 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Amber Fort",
+            "Hawa Mahal",
+            "City Palace",
+            "Local bazaars"
+          ]
+        },
+        {
+          "id": "agra",
+          "name": "Agra",
+          "location": "Uttar Pradesh",
+          "description": "Taj Mahal and Mughal heritage",
+          "image": "https://prayanaai.com/images/place-names/uttar-pradesh/taj-mahal-agra/img-1_google_places_33609d61.jpg",
+          "rating": 4.8,
+          "searchQuery": "Agra",
+          "stats": {
+            "distance": "230km from Delhi",
+            "driveTime": "4-5 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Taj Mahal",
+            "Agra Fort",
+            "Fatehpur Sikri",
+            "Mehtab Bagh"
+          ]
+        },
+        {
+          "id": "neemrana",
+          "name": "Neemrana",
+          "location": "Rajasthan",
+          "description": "Heritage fort hotel and zip-lining",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/neemrana-fort-palace-rajasthan/img-1_google_places_60436afe.jpg",
+          "rating": 4.5,
+          "searchQuery": "Neemrana",
+          "stats": {
+            "distance": "122km from Delhi",
+            "driveTime": "2.5 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Fort palace hotel",
+            "Zip-lining",
+            "Heritage walks",
+            "Baori stepwell"
+          ]
+        },
+        {
+          "id": "jim_corbett",
+          "name": "Jim Corbett",
+          "location": "Uttarakhand",
+          "description": "Wildlife safari and jungle resorts",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/jim-corbett-tiger-reserve/img-1_google_places_47027053.jpg",
+          "rating": 4.6,
+          "searchQuery": "Jim Corbett",
+          "stats": {
+            "distance": "250km from Delhi",
+            "driveTime": "5-6 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Tiger safari",
+            "Jungle resorts",
+            "Corbett Falls",
+            "Bird watching"
+          ]
+        },
+        {
+          "id": "lansdowne",
+          "name": "Lansdowne",
+          "location": "Uttarakhand",
+          "description": "Quiet hill station with colonial charm",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/lansdowne-hill-station-uttarakhand/img-1_google_places_fcec935e.jpg",
+          "rating": 4.4,
+          "searchQuery": "Lansdowne",
+          "stats": {
+            "distance": "250km from Delhi",
+            "driveTime": "5-6 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Bhulla Lake",
+            "Tip-n-Top",
+            "Quiet retreat",
+            "Oak forests"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bangalore-weekend",
+      "title": "Weekend Getaways from Bangalore",
+      "subtitle": "Coffee estates, beaches, and heritage within 350km",
+      "searchQuery": "Coorg Ooty",
+      "viewAllText": "Explore All Bangalore Getaways",
+      "places": [
+        {
+          "id": "coorg",
+          "name": "Coorg",
+          "location": "Karnataka",
+          "description": "Coffee plantations with waterfalls and homestays",
+          "image": "https://prayanaai.com/images/place-names/karnataka/coorg/img-1_google_places_e2a66a53.jpg",
+          "rating": 4.7,
+          "searchQuery": "Coorg",
+          "stats": {
+            "distance": "265km from Bangalore",
+            "driveTime": "5-6 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Coffee estates",
+            "Abbey Falls",
+            "Raja's Seat",
+            "Homestays"
+          ]
+        },
+        {
+          "id": "ooty",
+          "name": "Ooty",
+          "location": "Tamil Nadu",
+          "description": "Queen of Nilgiris with toy train and gardens",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/ooty-botanical-garden/img-1_google_places_f5f70017.jpg",
+          "rating": 4.6,
+          "searchQuery": "Ooty",
+          "stats": {
+            "distance": "270km from Bangalore",
+            "driveTime": "6 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Botanical Gardens",
+            "Ooty Lake",
+            "Toy train",
+            "Tea estates"
+          ]
+        },
+        {
+          "id": "chikmagalur",
+          "name": "Chikmagalur",
+          "location": "Karnataka",
+          "description": "Coffee land with trekking and scenic drives",
+          "image": "https://prayanaai.com/images/place-names/karnataka/chikmagalur-coffee-estates/img-1_google_places_937b164d.jpg",
+          "rating": 4.6,
+          "searchQuery": "Chikmagalur",
+          "stats": {
+            "distance": "245km from Bangalore",
+            "driveTime": "5 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Mullayanagiri peak",
+            "Coffee estates",
+            "Hebbe Falls",
+            "Baba Budangiri"
+          ]
+        },
+        {
+          "id": "hampi",
+          "name": "Hampi",
+          "location": "Karnataka",
+          "description": "UNESCO ruins with boulder landscapes",
+          "image": "https://prayanaai.com/images/place-names/karnataka/hampi-ruins-temples/img-1_google_places_39570625.jpg",
+          "rating": 4.7,
+          "searchQuery": "Hampi",
+          "stats": {
+            "distance": "340km from Bangalore",
+            "driveTime": "7 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Virupaksha Temple",
+            "Stone Chariot",
+            "Coracle rides",
+            "Boulder climbing"
+          ]
+        },
+        {
+          "id": "pondicherry_blr",
+          "name": "Pondicherry",
+          "location": "Tamil Nadu",
+          "description": "French colonial charm with beaches and cafes",
+          "image": "https://prayanaai.com/images/place-names/pondicherry/pondicherry-french-quarter/img-1_google_places_b9edc7b7.jpg",
+          "rating": 4.7,
+          "searchQuery": "Pondicherry",
+          "stats": {
+            "distance": "310km from Bangalore",
+            "driveTime": "6 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "French Quarter",
+            "Auroville",
+            "Beach promenade",
+            "Cafes"
+          ]
+        },
+        {
+          "id": "kabini",
+          "name": "Kabini",
+          "location": "Karnataka",
+          "description": "Wildlife sanctuary with jungle safari",
+          "image": "https://prayanaai.com/images/place-names/karnataka/kabini-wildlife-karnataka/img-1_google_places_290cb135.jpg",
+          "rating": 4.6,
+          "searchQuery": "Kabini",
+          "stats": {
+            "distance": "205km from Bangalore",
+            "driveTime": "4-5 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Elephant safari",
+            "Boat safari",
+            "Jungle resorts",
+            "Bird watching"
+          ]
+        },
+        {
+          "id": "wayanad_blr",
+          "name": "Wayanad",
+          "location": "Kerala",
+          "description": "Misty hills with waterfalls and plantations",
+          "image": "https://prayanaai.com/images/place-names/kerala/wayanad-chembra-peak/img-1_google_places_9509388e.jpg",
+          "rating": 4.6,
+          "searchQuery": "Wayanad",
+          "stats": {
+            "distance": "270km from Bangalore",
+            "driveTime": "5-6 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Chembra Peak",
+            "Edakkal Caves",
+            "Soochipara Falls",
+            "Tree houses"
+          ]
+        },
+        {
+          "id": "yercaud",
+          "name": "Yercaud",
+          "location": "Tamil Nadu",
+          "description": "Peaceful hill station with lake and coffee",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/yercaud/img-1_google_places_13f8a2d5.jpg",
+          "rating": 4.4,
+          "searchQuery": "Yercaud",
+          "stats": {
+            "distance": "230km from Bangalore",
+            "driveTime": "4-5 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Emerald Lake",
+            "Lady's Seat",
+            "Coffee estates",
+            "Shevaroy Hills"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "chennai-weekend",
+      "title": "Weekend Getaways from Chennai",
+      "subtitle": "Temples, beaches, and hill stations within 350km",
+      "searchQuery": "Pondicherry Mahabalipuram",
+      "viewAllText": "Explore All Chennai Getaways",
+      "places": [
+        {
+          "id": "pondicherry",
+          "name": "Pondicherry",
+          "location": "Tamil Nadu",
+          "description": "French heritage with beaches and spiritual vibe",
+          "image": "https://prayanaai.com/images/place-names/pondicherry/pondicherry-french-quarter/img-1_google_places_b9edc7b7.jpg",
+          "rating": 4.7,
+          "searchQuery": "Pondicherry",
+          "stats": {
+            "distance": "160km from Chennai",
+            "driveTime": "3-4 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "French Quarter",
+            "Rock Beach",
+            "Auroville",
+            "Cafes"
+          ]
+        },
+        {
+          "id": "mahabalipuram",
+          "name": "Mahabalipuram",
+          "location": "Tamil Nadu",
+          "description": "UNESCO shore temples and rock carvings",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/mahabalipuram-shore-temple/img-1_google_places_d6df9beb.jpg",
+          "rating": 4.6,
+          "searchQuery": "Mahabalipuram",
+          "stats": {
+            "distance": "55km from Chennai",
+            "driveTime": "1.5 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Shore Temple",
+            "Arjuna's Penance",
+            "Beach",
+            "Rock sculptures"
+          ]
+        },
+        {
+          "id": "yelagiri",
+          "name": "Yelagiri",
+          "location": "Tamil Nadu",
+          "description": "Lesser-known hill station with trekking",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/yelagiri-hills-tamil-nadu/img-1_google_places_51b61d19.jpg",
+          "rating": 4.3,
+          "searchQuery": "Yelagiri",
+          "stats": {
+            "distance": "230km from Chennai",
+            "driveTime": "4-5 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Swamimalai Hill",
+            "Punganur Lake",
+            "Paragliding",
+            "Nature park"
+          ]
+        },
+        {
+          "id": "kodaikanal_chennai",
+          "name": "Kodaikanal",
+          "location": "Tamil Nadu",
+          "description": "Princess of Hills with star-shaped lake",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/kodaikanal-lake/img-1_google_places_2f6a463c.jpg",
+          "rating": 4.6,
+          "searchQuery": "Kodaikanal",
+          "stats": {
+            "distance": "460km from Chennai",
+            "driveTime": "8-9 hours",
+            "idealDays": "3 days"
+          },
+          "highlights": [
+            "Kodai Lake",
+            "Coaker's Walk",
+            "Bryant Park",
+            "Pillar Rocks"
+          ]
+        },
+        {
+          "id": "kanchipuram",
+          "name": "Kanchipuram",
+          "location": "Tamil Nadu",
+          "description": "Temple city famous for silk sarees",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/kanchipuram-temple/img-1_google_places_115a419e.jpg",
+          "rating": 4.5,
+          "searchQuery": "Kanchipuram",
+          "stats": {
+            "distance": "75km from Chennai",
+            "driveTime": "2 hours",
+            "idealDays": "1 day"
+          },
+          "highlights": [
+            "Kailasanathar Temple",
+            "Silk sarees",
+            "Ekambareswarar Temple",
+            "Heritage"
+          ]
+        },
+        {
+          "id": "tranquebar",
+          "name": "Tranquebar",
+          "location": "Tamil Nadu",
+          "description": "Danish colonial town with fort and beach",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/tranquebar-danish-fort-tamil-nadu/img-1_google_places_919b6768.jpg",
+          "rating": 4.3,
+          "searchQuery": "Tranquebar",
+          "stats": {
+            "distance": "290km from Chennai",
+            "driveTime": "5-6 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Dansborg Fort",
+            "Danish architecture",
+            "Beach",
+            "Heritage walks"
+          ]
+        },
+        {
+          "id": "vellore",
+          "name": "Vellore",
+          "location": "Tamil Nadu",
+          "description": "Historic fort and Jalakandeswarar Temple",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/vellore-fort-tamil-nadu/img-1_google_places_4b8ab1e7.jpg",
+          "rating": 4.4,
+          "searchQuery": "Vellore",
+          "stats": {
+            "distance": "140km from Chennai",
+            "driveTime": "3 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Vellore Fort",
+            "Golden Temple",
+            "Jalakandeswarar Temple",
+            "Architecture"
+          ]
+        },
+        {
+          "id": "hogenakkal",
+          "name": "Hogenakkal Falls",
+          "location": "Tamil Nadu",
+          "description": "Niagara of India with coracle rides",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/hogenakkal-falls-karnataka-border/img-1_google_places_c03ef5ba.jpg",
+          "rating": 4.5,
+          "searchQuery": "Hogenakkal Falls",
+          "stats": {
+            "distance": "180km from Chennai",
+            "driveTime": "4 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Waterfalls",
+            "Coracle rides",
+            "Oil massage",
+            "Cauvery River"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hyderabad-weekend",
+      "title": "Weekend Getaways from Hyderabad",
+      "subtitle": "Forts, beaches, and nature within 350km",
+      "searchQuery": "Srisailam Nagarjunasagar",
+      "viewAllText": "Explore All Hyderabad Getaways",
+      "places": [
+        {
+          "id": "srisailam",
+          "name": "Srisailam",
+          "location": "Andhra Pradesh",
+          "description": "Jyotirlinga temple with wildlife sanctuary",
+          "image": "https://prayanaai.com/images/place-names/telangana/srisailam-temple-telangana/img-1_google_places_01f46e3b.jpg",
+          "rating": 4.5,
+          "searchQuery": "Srisailam",
+          "stats": {
+            "distance": "213km from Hyderabad",
+            "driveTime": "4-5 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Mallikarjuna Temple",
+            "Wildlife sanctuary",
+            "Dam view",
+            "Ropeway"
+          ]
+        },
+        {
+          "id": "nagarjunasagar",
+          "name": "Nagarjunasagar",
+          "location": "Telangana",
+          "description": "Buddhist heritage with world's largest masonry dam",
+          "image": "https://prayanaai.com/images/place-names/telangana/nagarjunasagar-dam-telangana/img-1_google_places_20eb306d.jpg",
+          "rating": 4.4,
+          "searchQuery": "Nagarjunasagar",
+          "stats": {
+            "distance": "165km from Hyderabad",
+            "driveTime": "3-4 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Nagarjuna Konda",
+            "Dam",
+            "Buddhist ruins",
+            "Boat ride"
+          ]
+        },
+        {
+          "id": "warangal",
+          "name": "Warangal",
+          "location": "Telangana",
+          "description": "Kakatiya heritage with temples and fort",
+          "image": "https://prayanaai.com/images/place-names/telangana/warangal-fort-telangana/img-1_google_places_62579f64.jpg",
+          "rating": 4.5,
+          "searchQuery": "Warangal",
+          "stats": {
+            "distance": "145km from Hyderabad",
+            "driveTime": "3 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Warangal Fort",
+            "Thousand Pillar Temple",
+            "Bhadrakali Temple",
+            "Ramappa Temple"
+          ]
+        },
+        {
+          "id": "ananthagiri",
+          "name": "Ananthagiri Hills",
+          "location": "Telangana",
+          "description": "Coffee plantations and trekking trails",
+          "image": "https://prayanaai.com/images/place-names/telangana/ananthagiri-hills-telangana/img-1_google_places_231ae9a6.jpg",
+          "rating": 4.3,
+          "searchQuery": "Ananthagiri Hills",
+          "stats": {
+            "distance": "80km from Hyderabad",
+            "driveTime": "2 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Coffee plantations",
+            "Trekking",
+            "Anantha Padmanabha Temple",
+            "Caves"
+          ]
+        },
+        {
+          "id": "bidar",
+          "name": "Bidar",
+          "location": "Karnataka",
+          "description": "Heritage fort town with Persian architecture",
+          "image": "https://prayanaai.com/images/place-names/karnataka/bidar-fort-karnataka/img-1_google_places_9c71f15b.jpg",
+          "rating": 4.4,
+          "searchQuery": "Bidar",
+          "stats": {
+            "distance": "145km from Hyderabad",
+            "driveTime": "3 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Bidar Fort",
+            "Bahmani Tombs",
+            "Gurudwara Nanak Jhira",
+            "Persian architecture"
+          ]
+        },
+        {
+          "id": "lepakshi",
+          "name": "Lepakshi",
+          "location": "Andhra Pradesh",
+          "description": "Hanging pillar temple with intricate carvings",
+          "image": "https://prayanaai.com/images/place-names/andhra-pradesh/lepakshi-veerabhadra-temple/img-1_google_places_ded8a8b2.jpg",
+          "rating": 4.5,
+          "searchQuery": "Lepakshi",
+          "stats": {
+            "distance": "120km from Hyderabad",
+            "driveTime": "2.5 hours",
+            "idealDays": "1 day"
+          },
+          "highlights": [
+            "Hanging pillar",
+            "Veerabhadra Temple",
+            "Nandi statue",
+            "Fresco paintings"
+          ]
+        },
+        {
+          "id": "alampur",
+          "name": "Alampur",
+          "location": "Telangana",
+          "description": "Navabrahma temples on river Krishna",
+          "image": "https://prayanaai.com/images/place-names/telangana/alampur-jogulamba-temple/img-1_google_places_68e7bb89.jpg",
+          "rating": 4.3,
+          "searchQuery": "Alampur",
+          "stats": {
+            "distance": "215km from Hyderabad",
+            "driveTime": "4 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Navabrahma temples",
+            "Jogulamba Temple",
+            "River Krishna",
+            "Chalukyan architecture"
+          ]
+        },
+        {
+          "id": "rachakonda",
+          "name": "Rachakonda Fort",
+          "location": "Telangana",
+          "description": "Historic hill fort with panoramic views",
+          "image": "https://prayanaai.com/images/place-names/telangana/rachakonda-fort-telangana/img-1_google_places_07f33219.jpg",
+          "rating": 4.2,
+          "searchQuery": "Rachakonda Fort",
+          "stats": {
+            "distance": "65km from Hyderabad",
+            "driveTime": "1.5 hours",
+            "idealDays": "1 day"
+          },
+          "highlights": [
+            "Hill fort",
+            "Trekking",
+            "Panoramic views",
+            "Ancient ruins"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "kolkata-weekend",
+      "title": "Weekend Getaways from Kolkata",
+      "subtitle": "Beaches, hills, and heritage within 350km",
+      "searchQuery": "Darjeeling Digha",
+      "viewAllText": "Explore All Kolkata Getaways",
+      "places": [
+        {
+          "id": "darjeeling_kol",
+          "name": "Darjeeling",
+          "location": "West Bengal",
+          "description": "Tea gardens with Himalayan sunrise views",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/darjeeling/img-1_google_places_f16453f8.jpg",
+          "rating": 4.7,
+          "searchQuery": "Darjeeling",
+          "stats": {
+            "distance": "650km from Kolkata",
+            "driveTime": "12-13 hours",
+            "idealDays": "3 days"
+          },
+          "highlights": [
+            "Tiger Hill",
+            "Tea gardens",
+            "Toy train",
+            "Kanchenjunga views"
+          ]
+        },
+        {
+          "id": "digha",
+          "name": "Digha",
+          "location": "West Bengal",
+          "description": "Popular beach destination with sea views",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/digha-beach-west-bengal/img-1_google_places_c9fcf9cb.jpg",
+          "rating": 4.3,
+          "searchQuery": "Digha",
+          "stats": {
+            "distance": "185km from Kolkata",
+            "driveTime": "4 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "New Digha Beach",
+            "Old Digha Beach",
+            "Amarabati Park",
+            "Marine aquarium"
+          ]
+        },
+        {
+          "id": "mandarmani",
+          "name": "Mandarmani",
+          "location": "West Bengal",
+          "description": "Longest drivable beach in India",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/mandarmani-beach-west-bengal/img-1_google_places_30136193.jpg",
+          "rating": 4.4,
+          "searchQuery": "Mandarmani",
+          "stats": {
+            "distance": "170km from Kolkata",
+            "driveTime": "3-4 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Drivable beach",
+            "Water sports",
+            "Red crabs",
+            "Beach resorts"
+          ]
+        },
+        {
+          "id": "shantiniketan",
+          "name": "Shantiniketan",
+          "location": "West Bengal",
+          "description": "Tagore's abode with cultural heritage",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/shantiniketan-visva-bharati/img-1_google_places_b90dd588.jpg",
+          "rating": 4.5,
+          "searchQuery": "Shantiniketan",
+          "stats": {
+            "distance": "165km from Kolkata",
+            "driveTime": "3-4 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Visva Bharati",
+            "Tagore's Ashram",
+            "Khoai region",
+            "Local handicrafts"
+          ]
+        },
+        {
+          "id": "sundarbans",
+          "name": "Sundarbans",
+          "location": "West Bengal",
+          "description": "Mangrove forests with Royal Bengal Tigers",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/sundarbans-mangroves-west-bengal/img-1_google_places_3ab18b14.jpg",
+          "rating": 4.6,
+          "searchQuery": "Sundarbans",
+          "stats": {
+            "distance": "110km from Kolkata",
+            "driveTime": "3 hours + boat",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Tiger reserve",
+            "Mangrove forests",
+            "Boat safari",
+            "Bird watching"
+          ]
+        },
+        {
+          "id": "bishnupur",
+          "name": "Bishnupur",
+          "location": "West Bengal",
+          "description": "Terracotta temples and Baluchari sarees",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/bishnupur-terracotta-temples/img-1_google_places_3647231e.jpg",
+          "rating": 4.4,
+          "searchQuery": "Bishnupur",
+          "stats": {
+            "distance": "145km from Kolkata",
+            "driveTime": "3-4 hours",
+            "idealDays": "1-2 days"
+          },
+          "highlights": [
+            "Terracotta temples",
+            "Rasmancha",
+            "Baluchari sarees",
+            "Malla dynasty heritage"
+          ]
+        },
+        {
+          "id": "bakkhali",
+          "name": "Bakkhali",
+          "location": "West Bengal",
+          "description": "Serene beach with virgin islands",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/bakkhali-beach-west-bengal/img-1_google_places_89e49db4.jpg",
+          "rating": 4.3,
+          "searchQuery": "Bakkhali",
+          "stats": {
+            "distance": "135km from Kolkata",
+            "driveTime": "3-4 hours",
+            "idealDays": "2 days"
+          },
+          "highlights": [
+            "Jambu Dwip",
+            "Henry Island",
+            "Frasergunj",
+            "Peaceful beaches"
+          ]
+        },
+        {
+          "id": "kurseong",
+          "name": "Kurseong",
+          "location": "West Bengal",
+          "description": "Land of white orchids near Darjeeling",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/kurseong-darjeeling-hills/img-1_google_places_48dc593e.jpg",
+          "rating": 4.4,
+          "searchQuery": "Kurseong",
+          "stats": {
+            "distance": "620km from Kolkata",
+            "driveTime": "11-12 hours",
+            "idealDays": "2-3 days"
+          },
+          "highlights": [
+            "Tea estates",
+            "Eagle's Craig",
+            "Giddapahar",
+            "Toy train"
+          ]
+        }
+      ]
+    }
+  ],
+  "travelTips": {
+    "title": "Essential Weekend Travel Tips",
+    "tips": [
+      {
+        "icon": "🚗",
+        "title": "Plan Early",
+        "description": "Book accommodations in advance, especially during peak weekends"
+      },
+      {
+        "icon": "🎒",
+        "title": "Pack Light",
+        "description": "Keep luggage minimal for easy weekend trips"
+      },
+      {
+        "icon": "⏰",
+        "title": "Leave Early",
+        "description": "Start early morning to avoid traffic and maximize time"
+      },
+      {
+        "icon": "🗺️",
+        "title": "Research Routes",
+        "description": "Check road conditions and plan pit stops in advance"
+      }
+    ]
+  },
+  "seasonGuide": {
+    "title": "Best Time for Weekend Getaways",
+    "seasons": [
+      {
+        "name": "Winter (Oct-Feb)",
+        "icon": "❄️",
+        "description": "Perfect weather for most destinations, especially hills and beaches",
+        "bestFor": [
+          "Hill stations",
+          "Beaches",
+          "Heritage sites",
+          "Wildlife"
+        ]
+      },
+      {
+        "name": "Summer (Mar-Jun)",
+        "icon": "☀️",
+        "description": "Hill stations are ideal, avoid hot plains",
+        "bestFor": [
+          "Hill stations",
+          "High altitude areas",
+          "Water activities"
+        ]
+      },
+      {
+        "name": "Monsoon (Jul-Sep)",
+        "icon": "🌧️",
+        "description": "Waterfalls and greenery, but roads can be tricky",
+        "bestFor": [
+          "Waterfalls",
+          "Western Ghats",
+          "Green landscapes"
+        ]
+      },
+      {
+        "name": "Year-Round",
+        "icon": "🔄",
+        "description": "Heritage and cultural destinations work all year",
+        "bestFor": [
+          "Temples",
+          "Forts",
+          "Museums",
+          "City breaks"
+        ]
+      }
+    ]
+  }
+}

@@ -19,7 +19,14 @@
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "We need your location to show nearby destinations and activities.",
         "NSCameraUsageDescription": "Take photos for your trip journal.",
-        "NSPhotoLibraryUsageDescription": "Select photos for your trip."
+        "NSPhotoLibraryUsageDescription": "Select photos for your trip.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.926782873134-ljojer8isfftfsbtbg93aiskel9p5t14"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -32,7 +39,10 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "USE_EXACT_ALARM"
       ]
     },
     "plugins": [
@@ -45,7 +55,16 @@
       "expo-secure-store",
       "expo-location",
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#2EC4B6",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ]
     ],
     "extra": {
       "router": {

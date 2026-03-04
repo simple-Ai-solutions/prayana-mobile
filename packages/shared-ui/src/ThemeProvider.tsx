@@ -20,7 +20,7 @@ const lightColors = {
   textTertiary: '#a3a3a3',
   textInverse: '#ffffff',
   border: '#e5e5e5',
-  borderFocused: '#f97316',
+  borderFocused: '#06B6D4',
   overlay: 'rgba(0, 0, 0, 0.5)',
   card: '#ffffff',
   cardBorder: '#e5e5e5',
@@ -28,7 +28,7 @@ const lightColors = {
   searchBarBorder: '#e5e5e5',
   tabBar: '#ffffff',
   tabBarBorder: '#e5e5e5',
-  headerGradient: ['#fff7ed', '#ffffff'] as const,
+  headerGradient: ['#f0fdfc', '#ffffff'] as const,
   inputBackground: '#f5f5f5',
 };
 
@@ -43,7 +43,7 @@ const darkColors = {
   textTertiary: '#737373',
   textInverse: '#171717',
   border: '#333333',
-  borderFocused: '#f97316',
+  borderFocused: '#06B6D4',
   overlay: 'rgba(0, 0, 0, 0.7)',
   card: '#1a1a1a',
   cardBorder: '#333333',

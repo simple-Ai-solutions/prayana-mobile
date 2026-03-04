@@ -42,7 +42,7 @@ export default function SettingsLayout() {
       />
       <Stack.Screen
         name="notifications"
-        options={{ title: 'Notifications' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="saved-places"

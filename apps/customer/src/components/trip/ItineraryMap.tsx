@@ -1,13 +1,14 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import {
   View,
   Text,
   Modal,
-  TouchableOpacity,
   StyleSheet,
   Dimensions,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontWeight, shadow } from '@prayana/shared-ui';
@@ -31,9 +32,21 @@ interface ItineraryMapProps {
   inline?: boolean;
   /** Height when inline (default 300) */
   height?: number;
+  /** Destination name for context display */
+  destinationName?: string;
 }
 
 const MARKER_COLORS = ['#FF6B6B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444'];
+
+function isValidCoord(p: Place) {
+  return (
+    p.coordinates &&
+    p.coordinates.lat !== 0 &&
+    p.coordinates.lng !== 0 &&
+    !isNaN(p.coordinates.lat) &&
+    !isNaN(p.coordinates.lng)
+  );
+}
 
 export const ItineraryMap: React.FC<ItineraryMapProps> = ({
   places,
@@ -42,13 +55,23 @@ export const ItineraryMap: React.FC<ItineraryMapProps> = ({
   dayTitle,
   inline = false,
   height = 300,
+  destinationName,
 }) => {
   const mapRef = useRef<MapView>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const validPlaces = useMemo(
-    () => places.filter((p) => p.coordinates?.lat && p.coordinates?.lng),
+    () => places.filter(isValidCoord),
     [places]
   );
+
+  const pendingPlaces = useMemo(
+    () => places.filter((p) => !isValidCoord(p)),
+    [places]
+  );
+
+  const hasAnyCoords = validPlaces.length > 0;
+  const allFetching = places.length > 0 && validPlaces.length === 0;
 
   const initialRegion = useMemo(() => {
     if (validPlaces.length === 0) {
@@ -71,6 +94,7 @@ export const ItineraryMap: React.FC<ItineraryMapProps> = ({
   }, [validPlaces]);
 
   useEffect(() => {
+    if (!mapReady) return;
     const shouldFit = inline ? validPlaces.length > 1 : visible && validPlaces.length > 1;
     if (shouldFit && mapRef.current) {
       const coords = validPlaces.map((p) => ({
@@ -84,47 +108,90 @@ export const ItineraryMap: React.FC<ItineraryMapProps> = ({
         });
       }, 500);
     }
-  }, [visible, validPlaces, inline]);
+  }, [visible, validPlaces, inline, mapReady]);
+
+  // ─── Pending Places Banner ───
+  const renderPendingBanner = () => {
+    if (pendingPlaces.length === 0) return null;
+    return (
+      <View style={styles.pendingBanner}>
+        <ActivityIndicator size="small" color={colors.primary[500]} style={{ marginRight: 6 }} />
+        <Text style={styles.pendingBannerText}>
+          Fetching coordinates for {pendingPlaces.length} place{pendingPlaces.length > 1 ? 's' : ''}…
+        </Text>
+      </View>
+    );
+  };
+
+  // ─── No Coordinates State (all places pending) ───
+  const renderFetchingState = () => (
+    <View style={styles.fetchingContainer}>
+      <ActivityIndicator size="large" color={colors.primary[500]} />
+      <Text style={styles.fetchingTitle}>Locating Places on Map</Text>
+      <Text style={styles.fetchingSubtitle}>
+        Fetching coordinates for {places.length} place{places.length > 1 ? 's' : ''}
+        {destinationName ? ` in ${destinationName}` : ''}…
+      </Text>
+      <View style={styles.fetchingList}>
+        {places.slice(0, 6).map((p, i) => (
+          <View key={i} style={styles.fetchingListItem}>
+            <View style={[styles.fetchingDot, { backgroundColor: MARKER_COLORS[i % MARKER_COLORS.length] }]} />
+            <Text style={styles.fetchingListText} numberOfLines={1}>{p.name}</Text>
+            <ActivityIndicator size="small" color={colors.textTertiary} style={{ marginLeft: 'auto' }} />
+          </View>
+        ))}
+        {places.length > 6 && (
+          <Text style={styles.fetchingMore}>+{places.length - 6} more</Text>
+        )}
+      </View>
+    </View>
+  );
 
   // ─── Inline Mode ───
   if (inline) {
     return (
       <View style={[styles.inlineContainer, { height }]}>
-        {validPlaces.length > 0 ? (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={initialRegion}
-            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-            showsUserLocation
-            showsCompass
-          >
-            {validPlaces.map((place, index) => (
-              <Marker
-                key={`marker-${index}`}
-                coordinate={{
-                  latitude: place.coordinates!.lat,
-                  longitude: place.coordinates!.lng,
-                }}
-              >
-                <View style={styles.markerContainer}>
-                  <View style={[styles.markerBadge, { backgroundColor: MARKER_COLORS[index % MARKER_COLORS.length] }]}>
-                    <Text style={styles.markerNumber}>{index + 1}</Text>
+        {allFetching ? (
+          renderFetchingState()
+        ) : hasAnyCoords ? (
+          <>
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              initialRegion={initialRegion}
+              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+              showsUserLocation
+              showsCompass
+              onMapReady={() => setMapReady(true)}
+            >
+              {validPlaces.map((place, index) => (
+                <Marker
+                  key={`marker-${index}`}
+                  coordinate={{
+                    latitude: place.coordinates!.lat,
+                    longitude: place.coordinates!.lng,
+                  }}
+                >
+                  <View style={styles.markerContainer}>
+                    <View style={[styles.markerBadge, { backgroundColor: MARKER_COLORS[index % MARKER_COLORS.length] }]}>
+                      <Text style={styles.markerNumber}>{index + 1}</Text>
+                    </View>
                   </View>
-                </View>
-                <Callout tooltip>
-                  <View style={[styles.calloutContainer, shadow.lg]}>
-                    <Text style={styles.calloutTitle}>{place.name}</Text>
-                    {place.description && (
-                      <Text style={styles.calloutDescription} numberOfLines={2}>
-                        {place.description}
-                      </Text>
-                    )}
-                  </View>
-                </Callout>
-              </Marker>
-            ))}
-          </MapView>
+                  <Callout tooltip>
+                    <View style={[styles.calloutContainer, shadow.lg]}>
+                      <Text style={styles.calloutTitle}>{place.name}</Text>
+                      {place.description && (
+                        <Text style={styles.calloutDescription} numberOfLines={2}>
+                          {place.description}
+                        </Text>
+                      )}
+                    </View>
+                  </Callout>
+                </Marker>
+              ))}
+            </MapView>
+            {renderPendingBanner()}
+          </>
         ) : (
           <View style={styles.inlineEmpty}>
             <Ionicons name="map-outline" size={32} color={colors.gray[300]} />
@@ -149,52 +216,77 @@ export const ItineraryMap: React.FC<ItineraryMapProps> = ({
               {dayTitle || 'Itinerary Map'}
             </Text>
             <Text style={styles.headerSubtitle}>
-              {validPlaces.length} {validPlaces.length === 1 ? 'place' : 'places'}
+              {validPlaces.length} of {places.length} {places.length === 1 ? 'place' : 'places'} located
             </Text>
           </View>
         </View>
 
-        {/* Map */}
-        {validPlaces.length > 0 ? (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            initialRegion={initialRegion}
-            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
-            showsUserLocation
-            showsMyLocationButton
-            showsCompass
-          >
-            {validPlaces.map((place, index) => (
-              <Marker
-                key={`marker-${index}`}
-                coordinate={{
-                  latitude: place.coordinates!.lat,
-                  longitude: place.coordinates!.lng,
-                }}
-                pinColor={MARKER_COLORS[index % MARKER_COLORS.length]}
-              >
-                <View style={styles.markerContainer}>
-                  <View style={[styles.markerBadge, { backgroundColor: MARKER_COLORS[index % MARKER_COLORS.length] }]}>
-                    <Text style={styles.markerNumber}>{index + 1}</Text>
+        {/* Map or Fetching State */}
+        {allFetching ? (
+          renderFetchingState()
+        ) : hasAnyCoords ? (
+          <>
+            <MapView
+              ref={mapRef}
+              style={styles.map}
+              initialRegion={initialRegion}
+              provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+              showsUserLocation
+              showsMyLocationButton
+              showsCompass
+              onMapReady={() => setMapReady(true)}
+            >
+              {validPlaces.map((place, index) => (
+                <Marker
+                  key={`marker-${index}`}
+                  coordinate={{
+                    latitude: place.coordinates!.lat,
+                    longitude: place.coordinates!.lng,
+                  }}
+                  pinColor={MARKER_COLORS[index % MARKER_COLORS.length]}
+                >
+                  <View style={styles.markerContainer}>
+                    <View style={[styles.markerBadge, { backgroundColor: MARKER_COLORS[index % MARKER_COLORS.length] }]}>
+                      <Text style={styles.markerNumber}>{index + 1}</Text>
+                    </View>
                   </View>
+                  <Callout tooltip>
+                    <View style={[styles.calloutContainer, shadow.lg]}>
+                      <Text style={styles.calloutTitle}>{place.name}</Text>
+                      {place.time && (
+                        <Text style={styles.calloutTime}>{place.time}</Text>
+                      )}
+                      {place.description && (
+                        <Text style={styles.calloutDescription} numberOfLines={2}>
+                          {place.description}
+                        </Text>
+                      )}
+                    </View>
+                  </Callout>
+                </Marker>
+              ))}
+            </MapView>
+
+            {/* Pending banner overlay */}
+            {renderPendingBanner()}
+
+            {/* Place Legend */}
+            <View style={[styles.legend, shadow.lg]}>
+              {validPlaces.slice(0, 6).map((place, index) => (
+                <View key={`legend-${index}`} style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: MARKER_COLORS[index % MARKER_COLORS.length] }]}>
+                    <Text style={styles.legendDotText}>{index + 1}</Text>
+                  </View>
+                  <Text style={styles.legendText} numberOfLines={1}>
+                    {place.name}
+                  </Text>
                 </View>
-                <Callout tooltip>
-                  <View style={[styles.calloutContainer, shadow.lg]}>
-                    <Text style={styles.calloutTitle}>{place.name}</Text>
-                    {place.time && (
-                      <Text style={styles.calloutTime}>{place.time}</Text>
-                    )}
-                    {place.description && (
-                      <Text style={styles.calloutDescription} numberOfLines={2}>
-                        {place.description}
-                      </Text>
-                    )}
-                  </View>
-                </Callout>
-              </Marker>
-            ))}
-          </MapView>
+              ))}
+              {validPlaces.length > 6 && (
+                <Text style={styles.legendMore}>+{validPlaces.length - 6} more</Text>
+              )}
+            </View>
+          </>
         ) : (
           <View style={styles.emptyContainer}>
             <Ionicons name="map-outline" size={64} color={colors.gray[300]} />
@@ -203,25 +295,6 @@ export const ItineraryMap: React.FC<ItineraryMapProps> = ({
               Places in this day don't have location data yet.
               Try generating the structured timeline first.
             </Text>
-          </View>
-        )}
-
-        {/* Place Legend */}
-        {validPlaces.length > 0 && (
-          <View style={[styles.legend, shadow.lg]}>
-            {validPlaces.slice(0, 6).map((place, index) => (
-              <View key={`legend-${index}`} style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: MARKER_COLORS[index % MARKER_COLORS.length] }]}>
-                  <Text style={styles.legendDotText}>{index + 1}</Text>
-                </View>
-                <Text style={styles.legendText} numberOfLines={1}>
-                  {place.name}
-                </Text>
-              </View>
-            ))}
-            {validPlaces.length > 6 && (
-              <Text style={styles.legendMore}>+{validPlaces.length - 6} more</Text>
-            )}
           </View>
         )}
       </View>
@@ -288,6 +361,80 @@ const styles = StyleSheet.create({
   // Map
   map: {
     flex: 1,
+  },
+
+  // Pending banner (overlays map bottom)
+  pendingBanner: {
+    position: 'absolute',
+    top: 12,
+    left: spacing.lg,
+    right: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.md,
+    ...shadow.sm,
+  },
+  pendingBannerText: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+
+  // Fetching state (full screen / full inline)
+  fetchingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing['2xl'],
+    backgroundColor: colors.gray[50],
+  },
+  fetchingTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
+  },
+  fetchingSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: spacing.xl,
+  },
+  fetchingList: {
+    width: '100%',
+    gap: spacing.sm,
+  },
+  fetchingListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  fetchingDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  fetchingListText: {
+    fontSize: fontSize.sm,
+    color: colors.text,
+    flex: 1,
+  },
+  fetchingMore: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
   },
 
   // Markers

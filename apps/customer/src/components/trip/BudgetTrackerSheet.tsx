@@ -2,13 +2,13 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   TextInput,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomModal, { BottomModalRef, BottomModalScrollView } from '../common/BottomModal';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
@@ -258,7 +258,7 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
   );
 
   return (
-    <BottomModal ref={sheetRef} maxHeightPercent={0.85}>
+    <BottomModal ref={sheetRef} maxHeightPercent={0.88} fillHeight>
       <View style={styles.header}>
         <Ionicons name="wallet-outline" size={20} color={colors.primary[500]} />
         <Text style={styles.headerTitle}>Budget Tracker</Text>

@@ -31,27 +31,38 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
 
-  // Track whether the auth token provider has been wired up
-  const tokenProviderSet = useRef(false);
+  // Keep a ref to the current user so the token provider always reads the latest value
+  const userRef = useRef(null);
 
   // -----------------------------------------------------------------------
   // Wire up the shared-services auth token provider once
+  // Always reads userRef so it works for both Firebase and guest users.
+  // Guest users have getIdToken() returning 'guest-token' — we skip those.
   // -----------------------------------------------------------------------
   useEffect(() => {
-    if (!tokenProviderSet.current) {
-      setAuthTokenProvider(async () => {
-        if (auth.currentUser) {
-          try {
-            return await auth.currentUser.getIdToken();
-          } catch (err) {
-            console.warn('[useAuth] Failed to get ID token:', err.message);
-            return null;
-          }
+    setAuthTokenProvider(async () => {
+      const currentUser = userRef.current;
+      if (!currentUser) return null;
+      // Skip guest users — they don't have a real Firebase token
+      if (currentUser.uid === 'guest-user') return null;
+      // Try Firebase's auth.currentUser first (most reliable)
+      if (auth.currentUser) {
+        try {
+          return await auth.currentUser.getIdToken();
+        } catch (err) {
+          console.warn('[useAuth] Failed to get ID token from auth.currentUser:', err.message);
         }
-        return null;
-      });
-      tokenProviderSet.current = true;
-    }
+      }
+      // Fallback: use the getIdToken on the user object itself
+      if (typeof currentUser.getIdToken === 'function') {
+        try {
+          return await currentUser.getIdToken();
+        } catch (err) {
+          console.warn('[useAuth] Failed to get ID token from user object:', err.message);
+        }
+      }
+      return null;
+    });
   }, []);
 
   // -----------------------------------------------------------------------
@@ -94,15 +105,20 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        userRef.current = firebaseUser;
         setUser(firebaseUser);
         setIsAuthenticated(true);
 
         // Sync with backend silently
         await syncWithBackend(firebaseUser);
       } else {
-        setUser(null);
-        setBackendUser(null);
-        setIsAuthenticated(false);
+        // Only clear if not a guest user (guest bypasses Firebase auth)
+        if (userRef.current?.uid !== 'guest-user') {
+          userRef.current = null;
+          setUser(null);
+          setBackendUser(null);
+          setIsAuthenticated(false);
+        }
       }
 
       setIsLoading(false);
@@ -330,7 +346,8 @@ export function AuthProvider({ children }) {
     clearError,
 
     // Expose setters for advanced use cases (e.g., Google sign-in at app level)
-    setUser,
+    // Wraps setUser to also keep userRef in sync
+    setUser: (u) => { userRef.current = u; setUser(u); },
     setIsAuthenticated,
     syncWithBackend,
   };

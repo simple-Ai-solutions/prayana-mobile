@@ -2,12 +2,12 @@ import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   Linking,
   Alert,
   Share,
 } from 'react-native';
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomModal, { BottomModalRef, BottomModalScrollView } from '../common/BottomModal';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';

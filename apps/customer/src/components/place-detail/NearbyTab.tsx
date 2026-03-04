@@ -5,8 +5,8 @@ import {
   StyleSheet,
   Pressable,
   ActivityIndicator,
-  Image,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -93,7 +93,7 @@ const NearbyPlaceImage: React.FC<{
       <Image
         source={{ uri: imageUrl }}
         style={style}
-        resizeMode="cover"
+        contentFit="cover" transition={200} cachePolicy="memory-disk"
         onError={() => setError(true)}
       />
     );

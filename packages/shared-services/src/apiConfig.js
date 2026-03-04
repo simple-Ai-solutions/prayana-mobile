@@ -254,10 +254,14 @@ export const makeAPICall = async (endpoint, options = {}) => {
     // Don't set Content-Type for FormData -- browser/RN sets it automatically
     // with the correct multipart boundary. Setting it manually breaks file uploads.
     const isFormData = restOptions.body instanceof FormData;
+    // Auto-inject auth token if not already provided by the caller
+    const authHeaders = callerHeaders?.Authorization ? {} : await getAuthHeaders();
+
     const config = {
       ...restOptions,
       headers: {
         ...(isFormData ? {} : { "Content-Type": "application/json" }),
+        ...authHeaders,
         ...callerHeaders,
       },
     };

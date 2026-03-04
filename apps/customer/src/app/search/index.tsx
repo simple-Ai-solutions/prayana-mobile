@@ -6,10 +6,10 @@ import {
   StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   TextInput,
   Keyboard,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -288,10 +288,24 @@ export default function SearchScreen() {
 
   const isNavigatingRef = useRef(false);
 
+  // Helper: dismiss search screen, then navigate to destination
+  const navigateFromSearch = useCallback((href: any) => {
+    // Pop search screen first, then push destination from the root stack
+    // Using setTimeout to ensure the search screen is fully removed before pushing
+    router.back();
+    setTimeout(() => {
+      if (typeof href === 'string') {
+        router.push(href as any);
+      } else {
+        router.push(href);
+      }
+    }, 50);
+  }, [router]);
+
   const handleSuggestionPress = useCallback((s: Suggestion) => {
     if (isNavigatingRef.current) return;
     isNavigatingRef.current = true;
-    setTimeout(() => { isNavigatingRef.current = false; }, 1000);
+    setTimeout(() => { isNavigatingRef.current = false; }, 1500);
 
     Keyboard.dismiss();
     const name = s.shortName || s.text;
@@ -299,7 +313,7 @@ export default function SearchScreen() {
 
     if (s.type === 'destination' || s.source === 'osm') {
       // City/region → AI search results page (list of places)
-      router.push(`/destination/${encodeURIComponent(name)}` as any);
+      navigateFromSearch(`/destination/${encodeURIComponent(name)}`);
     } else {
       // DB place → navigate directly to place detail page
       const locationPart = s.subtitle?.split(',')[0]?.trim() || name;
@@ -308,12 +322,12 @@ export default function SearchScreen() {
         rating: s.rating || null,
         image: s.image || '',
       });
-      router.push({
+      navigateFromSearch({
         pathname: '/destination/[location]/[place]',
         params: { location: locationPart, place: name, preview },
-      } as any);
+      });
     }
-  }, [router, saveRecent]);
+  }, [router, saveRecent, navigateFromSearch]);
 
   const handleSubmit = useCallback(() => {
     if (isNavigatingRef.current) return;
@@ -321,20 +335,20 @@ export default function SearchScreen() {
     const trimmed = query.trim();
     if (trimmed) {
       isNavigatingRef.current = true;
-      setTimeout(() => { isNavigatingRef.current = false; }, 1000);
+      setTimeout(() => { isNavigatingRef.current = false; }, 1500);
       Keyboard.dismiss();
       saveRecent(trimmed);
-      router.push(`/destination/${encodeURIComponent(trimmed)}` as any);
+      navigateFromSearch(`/destination/${encodeURIComponent(trimmed)}`);
     }
-  }, [query, router, saveRecent]);
+  }, [query, router, saveRecent, navigateFromSearch]);
 
   const handleQuickSearch = useCallback((term: string) => {
     if (isNavigatingRef.current) return;
     isNavigatingRef.current = true;
-    setTimeout(() => { isNavigatingRef.current = false; }, 1000);
+    setTimeout(() => { isNavigatingRef.current = false; }, 1500);
     saveRecent(term);
-    router.push(`/destination/${encodeURIComponent(term)}` as any);
-  }, [router, saveRecent]);
+    navigateFromSearch(`/destination/${encodeURIComponent(term)}`);
+  }, [router, saveRecent, navigateFromSearch]);
 
   const handleClear = useCallback(() => {
     setQuery('');
@@ -362,7 +376,7 @@ export default function SearchScreen() {
       >
         {/* Icon / Image */}
         {item.image ? (
-          <Image source={{ uri: item.image }} style={styles.suggestionImage} />
+          <Image source={{ uri: item.image }} style={styles.suggestionImage} contentFit="cover" transition={150} cachePolicy="memory-disk" />
         ) : (
           <View style={[styles.suggestionIcon, { backgroundColor: isOSM ? '#DBEAFE' : colors.primary[50] }]}>
             <Ionicons
@@ -531,7 +545,7 @@ export default function SearchScreen() {
           ListFooterComponent={
             query.trim() && suggestions.length > 0 ? (
               <TouchableOpacity
-                style={[styles.searchAllRow, { backgroundColor: isDarkMode ? 'rgba(249,115,22,0.1)' : colors.primary[50] }]}
+                style={[styles.searchAllRow, { backgroundColor: isDarkMode ? 'rgba(46,196,182,0.1)' : colors.primary[50] }]}
                 onPress={handleSubmit}
                 activeOpacity={0.8}
               >

@@ -2,15 +2,14 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
   View,
   Text,
-  ScrollView,
   StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
-  Image,
   Dimensions,
   RefreshControl,
   Animated,
 } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -49,8 +48,8 @@ const INITIAL_MORE_PLACES = 8;
 // Fetches images via backend /destinations/place-images (S3 → Google Places)
 // Progressive: updates UI after each batch for faster perceived loading
 // ============================================================
-const ENRICH_BATCH_SIZE = 3;
-const ENRICH_BATCH_DELAY = 500;
+const ENRICH_BATCH_SIZE = 5;
+const ENRICH_BATCH_DELAY = 200;
 
 function extractImageUrl(res: any): string | null {
   const images = res?.data || res?.images || (Array.isArray(res) ? res : []);
@@ -102,50 +101,29 @@ async function enrichPlacesWithImages(
 }
 
 // ============================================================
-// Shimmer Loading Skeleton
+// Skeleton Block — static, renders immediately (no JS thread dependency)
 // ============================================================
-const ShimmerBlock = ({
+const SkeletonBlock = ({
   width,
   height,
+  radius = 12,
   style,
 }: {
   width: number | string;
   height: number;
+  radius?: number;
   style?: any;
 }) => {
-  const animValue = React.useRef(new Animated.Value(0)).current;
   const { isDarkMode } = useTheme();
-
-  React.useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(animValue, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: false,
-        }),
-        Animated.timing(animValue, {
-          toValue: 0,
-          duration: 1000,
-          useNativeDriver: false,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [animValue]);
-
-  const bg = animValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: isDarkMode
-      ? ['#1F2937', '#374151']
-      : ['#E5E7EB', '#F3F4F6'],
-  });
-
   return (
-    <Animated.View
+    <View
       style={[
-        { width: width as any, height, borderRadius: 12, backgroundColor: bg },
+        {
+          width: width as any,
+          height,
+          borderRadius: radius,
+          backgroundColor: isDarkMode ? '#1F2937' : '#E5E7EB',
+        },
         style,
       ]}
     />
@@ -167,6 +145,14 @@ export default function LocationSearchResults() {
   const [refreshing, setRefreshing] = useState(false);
   const [filteredTag, setFilteredTag] = useState('all');
   const [showAllPlaces, setShowAllPlaces] = useState(false);
+
+  // Progressive section reveal — each section fades in after data arrives
+  const heroAnim = useRef(new Animated.Value(0)).current;
+  const filtersAnim = useRef(new Animated.Value(0)).current;
+  const topPlacesAnim = useRef(new Animated.Value(0)).current;
+  const morePlacesAnim = useRef(new Animated.Value(0)).current;
+  const circuitsAnim = useRef(new Animated.Value(0)).current;
+  const gemsAnim = useRef(new Animated.Value(0)).current;
 
   const locationName = location || '';
 
@@ -242,6 +228,24 @@ export default function LocationSearchResults() {
           setLoading(false);
           setRefreshing(false);
           startImageEnrichment(transformed);
+
+          // Staggered section reveal — each section fades in 100ms after previous
+          const stagger = (anim: Animated.Value, delay: number) =>
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 350,
+              delay,
+              useNativeDriver: true,
+            });
+
+          Animated.parallel([
+            stagger(heroAnim, 0),
+            stagger(filtersAnim, 80),
+            stagger(topPlacesAnim, 160),
+            stagger(morePlacesAnim, 280),
+            stagger(circuitsAnim, 380),
+            stagger(gemsAnim, 460),
+          ]).start();
         } else {
           setLuxuryData(null);
           setError('No places found. Try a different destination.');
@@ -257,7 +261,7 @@ export default function LocationSearchResults() {
         isFetchingRef.current = false;
       }
     },
-    [locationName, startImageEnrichment]
+    [locationName, startImageEnrichment, heroAnim, filtersAnim, topPlacesAnim, morePlacesAnim, circuitsAnim, gemsAnim]
   );
 
   useEffect(() => {
@@ -265,9 +269,13 @@ export default function LocationSearchResults() {
   }, [fetchPlaces]);
 
   const handleRefresh = useCallback(() => {
+    // Reset section animations for re-reveal on refresh
+    [heroAnim, filtersAnim, topPlacesAnim, morePlacesAnim, circuitsAnim, gemsAnim].forEach(
+      (anim) => anim.setValue(0)
+    );
     setRefreshing(true);
     fetchPlaces(true);
-  }, [fetchPlaces]);
+  }, [fetchPlaces, heroAnim, filtersAnim, topPlacesAnim, morePlacesAnim, circuitsAnim, gemsAnim]);
 
   // ----------------------------------------------------------
   // Navigation
@@ -276,27 +284,42 @@ export default function LocationSearchResults() {
 
   const handlePlacePress = useCallback(
     (place: any) => {
-      if (!place?.name) return;
-      if (isNavigatingRef.current) return; // Prevent rapid double-tap
+      console.log('[Nav] handlePlacePress called — place:', place?.name);
+      if (!place?.name) {
+        console.warn('[Nav] No place name, ignoring');
+        return;
+      }
+      if (isNavigatingRef.current) {
+        console.warn('[Nav] Already navigating, ignoring');
+        return;
+      }
       isNavigatingRef.current = true;
-      setTimeout(() => { isNavigatingRef.current = false; }, 1000);
+      setTimeout(() => { isNavigatingRef.current = false; }, 2000);
 
-      const pName = String(place.name).trim();
-      const loc = String(locationName).trim();
-      // Pass essential place data so the detail page can render instantly
-      const preview = JSON.stringify({
-        name: place.name,
-        category: place.category || '',
-        rating: place.rating || null,
-        shortDescription: place.shortDescription || place.description || '',
-        image: getPlaceImageUrl(place) || '',
-        duration: place.duration || '',
-      });
-      console.log('[Nav] Navigating to place:', pName, 'in', loc);
-      router.push({
-        pathname: '/destination/[location]/[place]',
-        params: { location: loc, place: pName, preview },
-      } as any);
+      try {
+        const pName = String(place.name).trim();
+        const loc = String(locationName || place.name).trim();
+
+        // Build preview payload — available immediately from hierarchical search result
+        const previewPayload = {
+          name: place.name,
+          image: place.imageUrl || place.image || place.thumbnail || '',
+          shortDescription: place.shortDescription || place.description || place.about || '',
+          rating: place.rating || place.averageRating || place.stars || null,
+          category: place.category || place.type || '',
+          duration: place.duration || place.idealDays || '',
+        };
+
+        const href = {
+          pathname: `/destination/${encodeURIComponent(loc)}/${encodeURIComponent(pName)}`,
+          params: { preview: JSON.stringify(previewPayload) },
+        };
+        console.log('[Nav] Pushing with preview:', pName);
+        router.push(href as any);
+      } catch (err: any) {
+        console.error('[Nav] Navigation error:', err?.message || err);
+        isNavigatingRef.current = false;
+      }
     },
     [router, locationName]
   );
@@ -343,92 +366,14 @@ export default function LocationSearchResults() {
   );
 
   // ----------------------------------------------------------
-  // LOADING STATE
-  // ----------------------------------------------------------
-  if (loading && !luxuryData) {
-    return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: themeColors.background }]}
-        edges={['top']}
-      >
-        {/* Header */}
-        <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-          </TouchableOpacity>
-          <View style={styles.headerCenter}>
-            <Text
-              style={[styles.headerTitle, { color: themeColors.text }]}
-              numberOfLines={1}
-            >
-              {locationName}
-            </Text>
-          </View>
-          <View style={{ width: 40 }} />
-        </View>
-
-        {/* Shimmer Skeleton */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ padding: spacing.xl, gap: spacing.lg }}
-        >
-          {/* Hero skeleton */}
-          <ShimmerBlock width="100%" height={280} />
-
-          {/* Filter bar skeleton */}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <ShimmerBlock width={80} height={36} />
-            <ShimmerBlock width={100} height={36} />
-            <ShimmerBlock width={90} height={36} />
-            <ShimmerBlock width={70} height={36} />
-          </View>
-
-          {/* Section title */}
-          <ShimmerBlock width={200} height={24} />
-
-          {/* Bento grid skeleton */}
-          <ShimmerBlock width="100%" height={220} />
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
-            <ShimmerBlock width={BENTO_SMALL_WIDTH} height={140} />
-            <ShimmerBlock width={BENTO_SMALL_WIDTH} height={140} />
-          </View>
-          <View style={{ flexDirection: 'row', gap: spacing.md }}>
-            <ShimmerBlock width={BENTO_SMALL_WIDTH} height={140} />
-            <ShimmerBlock width={BENTO_SMALL_WIDTH} height={140} />
-          </View>
-
-          {/* Chat skeleton */}
-          <ShimmerBlock width="100%" height={180} />
-
-          {/* Circuits skeleton */}
-          <ShimmerBlock width={180} height={24} />
-          <ShimmerBlock width="100%" height={200} />
-          <ShimmerBlock width="100%" height={200} />
-        </ScrollView>
-
-        {/* Bottom loading indicator */}
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingBadge}>
-            <ActivityIndicator size="small" color={colors.primary[500]} />
-            <Ionicons name="sparkles" size={16} color={colors.primary[500]} />
-            <Text style={[styles.loadingText, { color: themeColors.text }]}>
-              AI discovering {locationName}...
-            </Text>
-          </View>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ----------------------------------------------------------
-  // MAIN RENDER
+  // UNIFIED PROGRESSIVE RENDER
   // ----------------------------------------------------------
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: themeColors.background }]}
       edges={['top']}
     >
-      {/* Header */}
+      {/* Header — always visible immediately */}
       <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
@@ -440,19 +385,26 @@ export default function LocationSearchResults() {
           >
             {locationName}
           </Text>
-          <View style={styles.sourceTag}>
-            <Ionicons name="sparkles" size={10} color={colors.primary[500]} />
-            <Text style={styles.sourceTagText}>AI Powered</Text>
-          </View>
+          {loading ? (
+            <View style={styles.loadingPill}>
+              <ActivityIndicator size="small" color={colors.primary[500]} style={{ transform: [{ scale: 0.7 }] }} />
+              <Text style={styles.loadingPillText}>AI discovering...</Text>
+            </View>
+          ) : (
+            <View style={styles.sourceTag}>
+              <Ionicons name="sparkles" size={10} color={colors.primary[500]} />
+              <Text style={styles.sourceTagText}>AI Powered</Text>
+            </View>
+          )}
         </View>
         <Text style={[styles.resultCount, { color: themeColors.textSecondary }]}>
-          {luxuryData?.allPlaces.length || 0} places
+          {loading ? '' : `${luxuryData?.allPlaces.length || 0} places`}
         </Text>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -462,6 +414,72 @@ export default function LocationSearchResults() {
         }
         contentContainerStyle={styles.scrollContent}
       >
+        {/* ── LOADING SKELETON (inline, static — renders instantly) ── */}
+        {loading && !luxuryData && (
+          <>
+            {/* Hero placeholder with gradient + location name */}
+            <LinearGradient
+              colors={[colors.primary[700], colors.primary[900]]}
+              style={styles.skeletonHero}
+            >
+              <View style={styles.skeletonHeroContent}>
+                <View style={styles.skeletonHeroMeta}>
+                  <SkeletonBlock width={80} height={18} radius={999} style={{ backgroundColor: 'rgba(255,255,255,0.25)' }} />
+                  <SkeletonBlock width={60} height={18} radius={999} style={{ backgroundColor: 'rgba(255,255,255,0.25)' }} />
+                </View>
+                <Text style={styles.skeletonHeroTitle} numberOfLines={1}>
+                  {locationName}
+                </Text>
+                <SkeletonBlock width={200} height={14} radius={6} style={{ backgroundColor: 'rgba(255,255,255,0.2)', marginTop: 8 }} />
+              </View>
+              {/* Slide dots placeholder */}
+              <View style={styles.skeletonDots}>
+                {[0,1,2,3,4].map(i => (
+                  <View key={i} style={[styles.skeletonDot, i === 0 && styles.skeletonDotActive]} />
+                ))}
+              </View>
+            </LinearGradient>
+
+            {/* Filter pills skeleton */}
+            <View style={styles.skeletonFilters}>
+              {[80, 100, 80, 90, 70].map((w, i) => (
+                <SkeletonBlock key={i} width={w} height={34} radius={999} />
+              ))}
+            </View>
+
+            {/* Section: Top Places */}
+            <View style={styles.skeletonSection}>
+              <SkeletonBlock width={200} height={22} radius={6} />
+              <SkeletonBlock width={SCREEN_WIDTH - spacing.xl * 2} height={220} style={{ marginTop: spacing.md }} />
+              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
+                <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
+                <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
+              </View>
+              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
+                <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
+                <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
+              </View>
+            </View>
+
+            {/* Section: More Places */}
+            <View style={styles.skeletonSection}>
+              <SkeletonBlock width={160} height={22} radius={6} />
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md }}>
+                {[0,1,2,3].map(i => <SkeletonBlock key={i} width={CARD_WIDTH} height={160} />)}
+              </View>
+            </View>
+
+            {/* Section: Circuits */}
+            <View style={styles.skeletonSection}>
+              <SkeletonBlock width={180} height={22} radius={6} />
+              <SkeletonBlock width="100%" height={160} style={{ marginTop: spacing.md }} />
+              <SkeletonBlock width="100%" height={160} style={{ marginTop: spacing.md }} />
+            </View>
+
+            <View style={{ height: spacing['3xl'] }} />
+          </>
+        )}
+
         {/* Error */}
         {error && !luxuryData && (
           <View style={styles.errorContainer}>
@@ -483,26 +501,31 @@ export default function LocationSearchResults() {
             {/* ============================== */}
             {/* 0. HERO CAROUSEL               */}
             {/* ============================== */}
-            <HeroCarousel
-              places={filteredCrownJewels}
-              hero={luxuryData.hero}
-              locationName={locationName}
-            />
+            <Animated.View style={{ opacity: heroAnim }}>
+              <HeroCarousel
+                places={filteredCrownJewels}
+                hero={luxuryData.hero}
+                locationName={locationName}
+                onPlacePress={handlePlacePress}
+              />
+            </Animated.View>
 
             {/* ============================== */}
-            {/* 1. EXPERIENCE TAG FILTERS (STICKY) */}
+            {/* 1. EXPERIENCE TAG FILTERS      */}
             {/* ============================== */}
-            <ExperienceTagFilters
-              tags={luxuryData.experienceTags}
-              selectedTag={filteredTag}
-              onTagSelect={setFilteredTag}
-            />
+            <Animated.View style={{ opacity: filtersAnim }}>
+              <ExperienceTagFilters
+                tags={luxuryData.experienceTags}
+                selectedTag={filteredTag}
+                onTagSelect={setFilteredTag}
+              />
+            </Animated.View>
 
             {/* ============================== */}
             {/* 2. TOP PLACES — BENTO GRID     */}
             {/* ============================== */}
             {filteredCrownJewels.length > 0 && (
-              <View style={styles.section}>
+              <Animated.View style={[styles.section, { opacity: topPlacesAnim }]}>
                 <View style={styles.sectionHeader}>
                   <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
                     Top Places to Explore
@@ -519,15 +542,18 @@ export default function LocationSearchResults() {
 
                 {/* #1 - Large Hero Card */}
                 <TouchableOpacity
-                  style={[styles.bentoLarge, shadow.md]}
-                  activeOpacity={0.7}
+                  activeOpacity={0.85}
                   onPress={() => handlePlacePress(filteredCrownJewels[0])}
+                  style={[styles.bentoLarge, shadow.md]}
                 >
                   {getPlaceImageUrl(filteredCrownJewels[0]) ? (
                     <Image
                       source={{ uri: getPlaceImageUrl(filteredCrownJewels[0])! }}
                       style={styles.bentoLargeImage}
-                      resizeMode="cover"
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
+                      priority="high"
                     />
                   ) : (
                     <LinearGradient
@@ -593,15 +619,17 @@ export default function LocationSearchResults() {
                       return (
                         <TouchableOpacity
                           key={place.name + idx}
-                          style={[styles.bentoSmall, shadow.sm]}
-                          activeOpacity={0.7}
+                          activeOpacity={0.85}
                           onPress={() => handlePlacePress(place)}
+                          style={[styles.bentoSmall, shadow.sm]}
                         >
                           {imageUrl ? (
                             <Image
                               source={{ uri: imageUrl }}
                               style={styles.bentoSmallImage}
-                              resizeMode="cover"
+                              contentFit="cover"
+                              transition={200}
+                              cachePolicy="memory-disk"
                             />
                           ) : (
                             <LinearGradient
@@ -650,14 +678,14 @@ export default function LocationSearchResults() {
                     })}
                   </View>
                 )}
-              </View>
+              </Animated.View>
             )}
 
             {/* ============================== */}
             {/* 3. MORE AMAZING PLACES         */}
             {/* ============================== */}
             {morePlaces.length > 0 && (
-              <View style={styles.section}>
+              <Animated.View style={[styles.section, { opacity: morePlacesAnim }]}>
                 <View style={styles.sectionHeader}>
                   <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
                     More Amazing Places
@@ -678,19 +706,21 @@ export default function LocationSearchResults() {
                     return (
                       <TouchableOpacity
                         key={place.name + idx}
+                        activeOpacity={0.85}
+                        onPress={() => handlePlacePress(place)}
                         style={[
                           styles.morePlaceCard,
                           shadow.sm,
                           { backgroundColor: themeColors.card },
                         ]}
-                        activeOpacity={0.7}
-                        onPress={() => handlePlacePress(place)}
                       >
                         {imageUrl ? (
                           <Image
                             source={{ uri: imageUrl }}
                             style={styles.morePlaceImage}
-                            resizeMode="cover"
+                            contentFit="cover"
+                            transition={200}
+                            cachePolicy="memory-disk"
                           />
                         ) : (
                           <View
@@ -796,7 +826,7 @@ export default function LocationSearchResults() {
                     )}
                   </TouchableOpacity>
                 )}
-              </View>
+              </Animated.View>
             )}
 
             {/* ============================== */}
@@ -809,23 +839,27 @@ export default function LocationSearchResults() {
             {/* ============================== */}
             {(Object.keys(luxuryData.administrativeCircuits).length > 0 ||
               Object.keys(luxuryData.dynamicCircuits).length > 0) && (
-              <HeritageCircuits
-                administrativeCircuits={luxuryData.administrativeCircuits}
-                dynamicCircuits={luxuryData.dynamicCircuits}
-                onPlacePress={handlePlacePress}
-                filteredTag={filteredTag}
-              />
+              <Animated.View style={{ opacity: circuitsAnim }}>
+                <HeritageCircuits
+                  administrativeCircuits={luxuryData.administrativeCircuits}
+                  dynamicCircuits={luxuryData.dynamicCircuits}
+                  onPlacePress={handlePlacePress}
+                  filteredTag={filteredTag}
+                />
+              </Animated.View>
             )}
 
             {/* ============================== */}
             {/* 6. HIDDEN GEMS                 */}
             {/* ============================== */}
             {filteredHiddenGems.length > 0 && (
-              <HiddenGems
-                gems={filteredHiddenGems}
-                onPlacePress={handlePlacePress}
-                filteredTag={filteredTag}
-              />
+              <Animated.View style={{ opacity: gemsAnim }}>
+                <HiddenGems
+                  gems={filteredHiddenGems}
+                  onPlacePress={handlePlacePress}
+                  filteredTag={filteredTag}
+                />
+              </Animated.View>
             )}
 
             {/* Bottom Spacer */}
@@ -885,27 +919,69 @@ const styles = StyleSheet.create({
   },
   resultCount: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
-  // Loading Skeleton
-  loadingOverlay: {
-    position: 'absolute',
-    bottom: 40,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-  },
-  loadingBadge: {
+  // Inline loading pill in header
+  loadingPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 999,
+    gap: 4,
+    marginTop: 3,
   },
-  loadingText: {
-    fontSize: fontSize.sm,
+  loadingPillText: {
+    fontSize: 10,
+    color: colors.primary[500],
     fontWeight: fontWeight.medium,
+  },
+
+  // Skeleton styles
+  skeletonHero: {
+    width: SCREEN_WIDTH,
+    height: 280,
+    justifyContent: 'flex-end',
+  },
+  skeletonHeroContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+  },
+  skeletonHeroMeta: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  skeletonHeroTitle: {
+    fontSize: 28,
+    fontWeight: fontWeight.bold,
     color: '#ffffff',
+    opacity: 0.9,
+  },
+  skeletonDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  skeletonDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  skeletonDotActive: {
+    width: 20,
+    backgroundColor: 'rgba(255,255,255,0.8)',
+  },
+  skeletonFilters: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    flexWrap: 'nowrap',
+    overflow: 'hidden',
+  },
+  skeletonSection: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
   },
 
   // Error

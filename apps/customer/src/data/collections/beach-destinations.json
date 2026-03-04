@@ -1,0 +1,754 @@
+{
+  "category": {
+    "id": "beach",
+    "slug": "beach",
+    "title": "Best Beach Destinations",
+    "subtitle": "Sun, sand, and crystal-clear waters",
+    "heroTitle": "Escape to",
+    "heroHighlight": "Paradise Beaches",
+    "icon": "🏖️",
+    "color": "cyan",
+    "gradient": "from-cyan-500 to-blue-600",
+    "description": "Discover India's most stunning beach destinations, from pristine white sands to vibrant coastal culture. Whether you seek relaxation, water sports, or seaside adventures, these beach escapes offer unforgettable experiences.",
+    "emoji": "🏖️",
+    "quote": "Where golden sands meet endless blue horizons"
+  },
+  "hero": {
+    "featured": {
+      "id": "goa_featured",
+      "name": "Goa",
+      "location": "India",
+      "tagline": "India's beach paradise",
+      "image": "https://prayanaai.com/images/place-names/goa/palolem-beach/img-1_google_places_4703ce2d.jpg",
+      "rating": 4.8,
+      "searchQuery": "Goa",
+      "highlights": [
+        "Beach parties",
+        "Water sports",
+        "Portuguese heritage"
+      ]
+    },
+    "secondary": [
+      {
+        "id": "andaman_hero",
+        "name": "Andaman",
+        "location": "India",
+        "tagline": "Tropical island paradise",
+        "image": "https://prayanaai.com/images/place-names/andaman/havelock-island/img-1_google_places_28705b76.jpg",
+        "rating": 4.9,
+        "searchQuery": "Andaman"
+      },
+      {
+        "id": "varkala_hero",
+        "name": "Varkala",
+        "location": "Kerala",
+        "tagline": "Cliff beach beauty",
+        "image": "https://prayanaai.com/images/place-names/kerala/varkala/img-1_google_places_0d8d23f8.jpg",
+        "rating": 4.7,
+        "searchQuery": "Varkala"
+      },
+      {
+        "id": "lakshadweep_hero",
+        "name": "Lakshadweep",
+        "location": "India",
+        "tagline": "Coral paradise",
+        "image": "https://prayanaai.com/images/place-names/lakshadweep/agatti-island/img-1_google_places_d38cf079.jpg",
+        "rating": 4.8,
+        "searchQuery": "Lakshadweep"
+      },
+      {
+        "id": "neil_hero",
+        "name": "Neil Island",
+        "location": "Andaman",
+        "tagline": "Secluded beach haven",
+        "image": "https://prayanaai.com/images/place-names/andaman/neil-island/img-1_google_places_8b44edf3.jpg",
+        "rating": 4.7,
+        "searchQuery": "Neil Island"
+      }
+    ]
+  },
+  "whyVisit": {
+    "title": "Why Visit Beach Destinations?",
+    "subtitle": "Experience the magic of India's coastal wonders",
+    "reasons": [
+      {
+        "icon": "🌊",
+        "title": "Pristine Waters",
+        "description": "Crystal-clear turquoise waters perfect for swimming and diving"
+      },
+      {
+        "icon": "☀️",
+        "title": "Tropical Climate",
+        "description": "Warm sunshine and gentle sea breezes year-round"
+      },
+      {
+        "icon": "🏄",
+        "title": "Water Sports",
+        "description": "Surfing, snorkeling, scuba diving, and parasailing adventures"
+      },
+      {
+        "icon": "🥥",
+        "title": "Beach Culture",
+        "description": "Fresh seafood, vibrant nightlife, and coastal traditions"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "top-india",
+      "title": "Top 20 Beach Destinations in India",
+      "subtitle": "India's most stunning coastal getaways",
+      "searchQuery": "Palolem",
+      "viewAllText": "Explore All Indian Beaches",
+      "places": [
+        {
+          "id": "goa",
+          "name": "Goa",
+          "location": "India",
+          "description": "India's beach capital with vibrant nightlife and Portuguese heritage",
+          "image": "https://prayanaai.com/images/place-names/goa/palolem-beach/img-1_google_places_4703ce2d.jpg",
+          "rating": 4.8,
+          "searchQuery": "Goa",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Nov-Feb",
+            "coastline": "100+ km"
+          },
+          "highlights": [
+            "Baga Beach",
+            "Palolem",
+            "Fort Aguada",
+            "Beach shacks"
+          ]
+        },
+        {
+          "id": "andaman",
+          "name": "Andaman Islands",
+          "location": "India",
+          "description": "Tropical paradise with pristine beaches and coral reefs",
+          "image": "https://prayanaai.com/images/place-names/andaman/havelock-island/img-1_google_places_28705b76.jpg",
+          "rating": 4.9,
+          "searchQuery": "Andaman Islands",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Oct-May",
+            "islands": "300+"
+          },
+          "highlights": [
+            "Radhanagar Beach",
+            "Havelock",
+            "Neil Island",
+            "Scuba diving"
+          ]
+        },
+        {
+          "id": "varkala",
+          "name": "Varkala",
+          "location": "Kerala",
+          "description": "Dramatic cliff beach with spiritual vibes",
+          "image": "https://prayanaai.com/images/place-names/kerala/varkala/img-1_google_places_0d8d23f8.jpg",
+          "rating": 4.7,
+          "searchQuery": "Varkala",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-Mar",
+            "cliffHeight": "15m"
+          },
+          "highlights": [
+            "Papanasam Beach",
+            "Cliff views",
+            "Ayurveda",
+            "Janardhana Temple"
+          ]
+        },
+        {
+          "id": "lakshadweep",
+          "name": "Lakshadweep",
+          "location": "India",
+          "description": "Coral islands with turquoise lagoons",
+          "image": "https://prayanaai.com/images/place-names/lakshadweep/agatti-island/img-1_google_places_d38cf079.jpg",
+          "rating": 4.8,
+          "searchQuery": "Lakshadweep",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Oct-May",
+            "islands": "36"
+          },
+          "highlights": [
+            "Agatti Island",
+            "Bangaram",
+            "Coral reefs",
+            "Water sports"
+          ]
+        },
+        {
+          "id": "pondicherry",
+          "name": "Pondicherry",
+          "location": "Tamil Nadu",
+          "description": "French colonial charm meets Indian beaches",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/pondicherry/img-1_google_places_e810225b.jpg",
+          "rating": 4.6,
+          "searchQuery": "Pondicherry",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Mar",
+            "beaches": "10+"
+          },
+          "highlights": [
+            "Paradise Beach",
+            "Auroville",
+            "French Quarter",
+            "Rock Beach"
+          ]
+        },
+        {
+          "id": "kovalam",
+          "name": "Kovalam",
+          "location": "Kerala",
+          "description": "Crescent beaches with lighthouse views",
+          "image": "https://prayanaai.com/images/place-names/kerala/kovalam/img-1_google_places_7ffe0f15.jpg",
+          "rating": 4.6,
+          "searchQuery": "Kovalam",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-Mar",
+            "beaches": "3 crescents"
+          },
+          "highlights": [
+            "Lighthouse Beach",
+            "Hawa Beach",
+            "Ayurveda spas",
+            "Surfing"
+          ]
+        },
+        {
+          "id": "alibaug",
+          "name": "Alibaug",
+          "location": "Maharashtra",
+          "description": "Weekend beach escape from Mumbai",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/alibaug/img-1_google_places_c8457270.jpg",
+          "rating": 4.4,
+          "searchQuery": "Alibaug",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "distance": "95km from Mumbai"
+          },
+          "highlights": [
+            "Alibaug Beach",
+            "Nagaon Beach",
+            "Forts",
+            "Water sports"
+          ]
+        },
+        {
+          "id": "gokarna",
+          "name": "Gokarna",
+          "location": "Karnataka",
+          "description": "Spiritual town with pristine beaches",
+          "image": "https://prayanaai.com/images/place-names/gokarna-karnataka/om-beach/img-1_google_places_425176c0.jpg",
+          "rating": 4.7,
+          "searchQuery": "Gokarna",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Mar",
+            "beaches": "5 main"
+          },
+          "highlights": [
+            "Om Beach",
+            "Paradise Beach",
+            "Temples",
+            "Beach trekking"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "island-beaches",
+      "title": "Island Beach Paradises",
+      "subtitle": "Tropical islands with untouched beauty",
+      "searchQuery": "Havelock Island",
+      "viewAllText": "Explore Island Beaches",
+      "places": [
+        {
+          "id": "havelock",
+          "name": "Havelock Island",
+          "location": "Andaman",
+          "description": "Most popular island with Radhanagar Beach",
+          "image": "https://prayanaai.com/images/place-names/andaman/havelock-island/img-1_google_places_28705b76.jpg",
+          "rating": 4.9,
+          "searchQuery": "Havelock Island",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Nov-Apr",
+            "area": "113 sq km"
+          },
+          "highlights": [
+            "Radhanagar Beach",
+            "Elephant Beach",
+            "Scuba diving",
+            "Snorkeling"
+          ]
+        },
+        {
+          "id": "neil_island",
+          "name": "Neil Island",
+          "location": "Andaman",
+          "description": "Peaceful island with natural rock formations",
+          "image": "https://prayanaai.com/images/place-names/andaman/neil-island/img-1_google_places_8b44edf3.jpg",
+          "rating": 4.7,
+          "searchQuery": "Neil Island",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Nov-Apr",
+            "beaches": "3 main"
+          },
+          "highlights": [
+            "Natural Bridge",
+            "Bharatpur Beach",
+            "Laxmanpur Beach",
+            "Coral reefs"
+          ]
+        },
+        {
+          "id": "agatti",
+          "name": "Agatti Island",
+          "location": "Lakshadweep",
+          "description": "Gateway to Lakshadweep with stunning lagoon",
+          "image": "https://prayanaai.com/images/place-names/lakshadweep/agatti-island/img-1_google_places_d38cf079.jpg",
+          "rating": 4.8,
+          "searchQuery": "Agatti Island",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-May",
+            "lagoon": "Turquoise"
+          },
+          "highlights": [
+            "Agatti Beach",
+            "Water sports",
+            "Coral diving",
+            "Fishing"
+          ]
+        },
+        {
+          "id": "bangaram",
+          "name": "Bangaram Island",
+          "location": "Lakshadweep",
+          "description": "Uninhabited coral island paradise",
+          "image": "https://prayanaai.com/images/place-names/lakshadweep/bangaram-island/img-1_google_places_6b8b5133.jpg",
+          "rating": 4.9,
+          "searchQuery": "Bangaram Island",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Oct-May",
+            "coral": "Pristine"
+          },
+          "highlights": [
+            "Coral reefs",
+            "Snorkeling",
+            "Kayaking",
+            "Secluded beaches"
+          ]
+        },
+        {
+          "id": "ross_island",
+          "name": "Ross Island",
+          "location": "Andaman",
+          "description": "Historic island with colonial ruins",
+          "image": "https://prayanaai.com/images/place-names/andaman/ross-island/img-1_google_places_b995b358.jpg",
+          "rating": 4.5,
+          "searchQuery": "Ross Island",
+          "stats": {
+            "idealDays": "Half day",
+            "bestTime": "Nov-Apr",
+            "heritage": "British era"
+          },
+          "highlights": [
+            "Colonial ruins",
+            "Deer park",
+            "Japanese Bunkers",
+            "Museum"
+          ]
+        },
+        {
+          "id": "baratang",
+          "name": "Baratang Island",
+          "location": "Andaman",
+          "description": "Limestone caves and mangrove creeks",
+          "image": "https://prayanaai.com/images/place-names/andaman/baratang-island/img-1_google_places_287cd0f6.jpg",
+          "rating": 4.6,
+          "searchQuery": "Baratang Island",
+          "stats": {
+            "idealDays": "1-2 days",
+            "bestTime": "Nov-Apr",
+            "caves": "Limestone"
+          },
+          "highlights": [
+            "Limestone caves",
+            "Mud volcanoes",
+            "Mangroves",
+            "Parrot Island"
+          ]
+        },
+        {
+          "id": "long_island",
+          "name": "Long Island",
+          "location": "Andaman",
+          "description": "Offbeat island with pristine beaches",
+          "image": "https://prayanaai.com/images/place-names/andaman/long-island/img-1_google_places_92329cc3.jpg",
+          "rating": 4.6,
+          "searchQuery": "Long Island",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Nov-Apr",
+            "beaches": "Untouched"
+          },
+          "highlights": [
+            "Lalaji Bay",
+            "Guitar Island",
+            "Merk Bay",
+            "Trekking"
+          ]
+        },
+        {
+          "id": "little_andaman",
+          "name": "Little Andaman",
+          "location": "Andaman",
+          "description": "Remote island with waterfalls and surfing",
+          "image": "https://prayanaai.com/images/place-names/andaman/little-andaman/img-1_google_places_5a3d9c32.jpg",
+          "rating": 4.5,
+          "searchQuery": "Little Andaman",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Nov-Apr",
+            "surfing": "Best waves"
+          },
+          "highlights": [
+            "Butler Bay Beach",
+            "Surfing",
+            "Waterfalls",
+            "Elephant safari"
+          ]
+        },
+        {
+          "id": "kavaratti",
+          "name": "Kavaratti",
+          "location": "Lakshadweep",
+          "description": "Capital island with beautiful lagoons",
+          "image": "https://prayanaai.com/images/place-names/lakshadweep/kavaratti/img-1_google_places_55c6c1fd.jpg",
+          "rating": 4.7,
+          "searchQuery": "Kavaratti",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-May",
+            "lagoon": "12 atolls"
+          },
+          "highlights": [
+            "Marine aquarium",
+            "Water sports",
+            "Mosques",
+            "Lagoon beaches"
+          ]
+        },
+        {
+          "id": "minicoy",
+          "name": "Minicoy Island",
+          "location": "Lakshadweep",
+          "description": "Southernmost island with lighthouse",
+          "image": "https://prayanaai.com/images/place-names/lakshadweep/minicoy-island/img-1_google_places_5f29b3c4.jpg",
+          "rating": 4.7,
+          "searchQuery": "Minicoy Island",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-May",
+            "lighthouse": "300 ft"
+          },
+          "highlights": [
+            "Lighthouse",
+            "Tuna fishing",
+            "Traditional dances",
+            "Beaches"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "west-coast",
+      "title": "West Coast Beach Escapes",
+      "subtitle": "Arabian Sea coastal gems",
+      "searchQuery": "Palolem",
+      "viewAllText": "Discover West Coast Beaches",
+      "places": [
+        {
+          "id": "palolem",
+          "name": "Palolem Beach",
+          "location": "Goa",
+          "description": "Crescent beach with calm waters",
+          "image": "https://prayanaai.com/images/place-names/goa/palolem-beach/img-1_google_places_4703ce2d.jpg",
+          "rating": 4.8,
+          "searchQuery": "Palolem Beach",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Nov-Mar",
+            "length": "1.6 km"
+          },
+          "highlights": [
+            "Beach huts",
+            "Kayaking",
+            "Dolphin spotting",
+            "Nightlife"
+          ]
+        },
+        {
+          "id": "arambol",
+          "name": "Arambol Beach",
+          "location": "Goa",
+          "description": "Hippie beach with bohemian vibe",
+          "image": "https://prayanaai.com/images/place-names/goa/arambol-beach/img-1_google_places_84e2079f.jpg",
+          "rating": 4.7,
+          "searchQuery": "Arambol Beach",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Nov-Mar",
+            "vibe": "Bohemian"
+          },
+          "highlights": [
+            "Sweet Lake",
+            "Paragliding",
+            "Drum circles",
+            "Yoga retreats"
+          ]
+        },
+        {
+          "id": "marari",
+          "name": "Marari Beach",
+          "location": "Kerala",
+          "description": "Peaceful fishing village beach",
+          "image": "https://prayanaai.com/images/place-names/kerala/marari-beach/img-1_google_places_7f24f58e.jpg",
+          "rating": 4.6,
+          "searchQuery": "Marari Beach",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "village": "Traditional"
+          },
+          "highlights": [
+            "Pristine sands",
+            "Village life",
+            "Ayurveda",
+            "Quiet escape"
+          ]
+        },
+        {
+          "id": "muzhappilangad",
+          "name": "Muzhappilangad Beach",
+          "location": "Kerala",
+          "description": "India's longest drive-in beach",
+          "image": "https://prayanaai.com/images/place-names/kerala/muzhappilangad-beach/img-1_google_places_23449694.jpg",
+          "rating": 4.5,
+          "searchQuery": "Muzhappilangad Beach",
+          "stats": {
+            "idealDays": "1-2 days",
+            "bestTime": "Sep-May",
+            "length": "4 km"
+          },
+          "highlights": [
+            "Drive-in beach",
+            "Black rocks",
+            "Swimming",
+            "Beach camping"
+          ]
+        },
+        {
+          "id": "bekal",
+          "name": "Bekal Beach",
+          "location": "Kerala",
+          "description": "Fort beach with stunning views",
+          "image": "https://prayanaai.com/images/place-names/kerala/bekal-beach/img-1_google_places_b2ed8fd8.jpg",
+          "rating": 4.6,
+          "searchQuery": "Bekal Beach",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "fort": "17th century"
+          },
+          "highlights": [
+            "Bekal Fort",
+            "Backwaters",
+            "Houseboats",
+            "Beach views"
+          ]
+        },
+        {
+          "id": "om_beach",
+          "name": "Om Beach",
+          "location": "Karnataka",
+          "description": "Natural Om-shaped coastline",
+          "image": "https://prayanaai.com/images/place-names/gokarna-karnataka/om-beach/img-1_google_places_425176c0.jpg",
+          "rating": 4.7,
+          "searchQuery": "Om Beach",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "shape": "Om symbol"
+          },
+          "highlights": [
+            "Beach camping",
+            "Trekking",
+            "Water sports",
+            "Cafes"
+          ]
+        },
+        {
+          "id": "karwar",
+          "name": "Karwar Beach",
+          "location": "Karnataka",
+          "description": "Clean beach with island views",
+          "image": "https://prayanaai.com/images/place-names/karnataka/karwar-beach/img-1_google_places_79cc2a04.jpg",
+          "rating": 4.5,
+          "searchQuery": "Karwar Beach",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "islands": "5 nearby"
+          },
+          "highlights": [
+            "Devbagh Beach",
+            "Island hopping",
+            "Temples",
+            "Naval base"
+          ]
+        },
+        {
+          "id": "kashid",
+          "name": "Kashid Beach",
+          "location": "Maharashtra",
+          "description": "White sand beach near Mumbai",
+          "image": "https://prayanaai.com/images/place-names/kashid-beach-maharashtra/kashid-beach-maharashtra/img-1_google_places_8d3e2f91.jpg",
+          "rating": 4.5,
+          "searchQuery": "Kashid Beach",
+          "stats": {
+            "idealDays": "1-2 days",
+            "bestTime": "Oct-Mar",
+            "sand": "White"
+          },
+          "highlights": [
+            "White sands",
+            "Casuarina trees",
+            "Water sports",
+            "Weekend escape"
+          ]
+        },
+        {
+          "id": "tarkarli",
+          "name": "Tarkarli Beach",
+          "location": "Maharashtra",
+          "description": "Clear waters for scuba diving",
+          "image": "https://prayanaai.com/images/place-names/tarkarli-beach-maharashtra/tarkarli-beach-maharashtra/img-1_google_places_9e2d8f82.jpg",
+          "rating": 4.6,
+          "searchQuery": "Tarkarli Beach",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "visibility": "20 feet"
+          },
+          "highlights": [
+            "Scuba diving",
+            "Snorkeling",
+            "Sindhudurg Fort",
+            "Malvan cuisine"
+          ]
+        },
+        {
+          "id": "ganpatipule",
+          "name": "Ganpatipule Beach",
+          "location": "Maharashtra",
+          "description": "Temple beach with clean shores",
+          "image": "https://prayanaai.com/images/place-names/ganpatipule-beach-maharashtra/ganpatipule-beach-maharashtra/img-1_google_places_7d3e2f82.jpg",
+          "rating": 4.5,
+          "searchQuery": "Ganpatipule Beach",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "temple": "Ganpati"
+          },
+          "highlights": [
+            "Ganpati Temple",
+            "Clean beach",
+            "Water sports",
+            "Sunset views"
+          ]
+        }
+      ]
+    }
+  ],
+  "travelTips": {
+    "title": "Essential Beach Travel Tips",
+    "tips": [
+      {
+        "icon": "☀️",
+        "title": "Sun Protection",
+        "description": "Sunscreen, hats, and sunglasses are essential for tropical beaches"
+      },
+      {
+        "icon": "🏊",
+        "title": "Water Safety",
+        "description": "Always swim in designated areas and follow lifeguard instructions"
+      },
+      {
+        "icon": "🌊",
+        "title": "Best Season",
+        "description": "October to March is ideal for most Indian beaches"
+      },
+      {
+        "icon": "📸",
+        "title": "Protect Electronics",
+        "description": "Use waterproof bags for phones and cameras near water"
+      }
+    ]
+  },
+  "seasonGuide": {
+    "title": "When to Visit Beach Destinations",
+    "seasons": [
+      {
+        "name": "Winter (Oct-Feb)",
+        "icon": "☀️",
+        "description": "Perfect weather with calm seas and pleasant temperatures",
+        "bestFor": [
+          "Goa",
+          "Andaman",
+          "Kerala",
+          "Lakshadweep"
+        ]
+      },
+      {
+        "name": "Summer (Mar-May)",
+        "icon": "🌡️",
+        "description": "Hot and humid but great for off-season discounts",
+        "bestFor": [
+          "Gokarna",
+          "Pondicherry",
+          "Early season trips"
+        ]
+      },
+      {
+        "name": "Monsoon (Jun-Sep)",
+        "icon": "🌧️",
+        "description": "Heavy rains and rough seas, beaches closed for swimming",
+        "bestFor": [
+          "Avoid beach visits during monsoon"
+        ]
+      },
+      {
+        "name": "Post-Monsoon (Sep-Oct)",
+        "icon": "🍃",
+        "description": "Beaches get clean, weather improves, fewer crowds",
+        "bestFor": [
+          "Varkala",
+          "Kovalam",
+          "Budget travelers"
+        ]
+      }
+    ]
+  }
+}

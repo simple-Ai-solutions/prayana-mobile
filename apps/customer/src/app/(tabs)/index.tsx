@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View,
   Text,
@@ -11,6 +12,7 @@ import {
   RefreshControl,
   Animated,
   Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -19,7 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
-import { resolveImageUrl } from '@prayana/shared-utils';
+import { resolveImageUrl, canGuestUse, incrementGuestUsage, GUEST_LIMITS } from '@prayana/shared-utils';
 import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -36,12 +38,9 @@ const getImageUrl = (img: any): string | null => {
 // SECTION 1: HERO - SERVICE TABS (matching web 9 service types)
 // ============================================================
 const SERVICES_BAR = [
-  { label: 'Hotels', icon: 'bed-outline' as const, color: '#3B82F6', bg: '#DBEAFE' },
-  { label: 'Flights', icon: 'airplane-outline' as const, color: '#8B5CF6', bg: '#EDE9FE' },
-  { label: 'Activities', icon: 'ticket-outline' as const, color: '#F97316', bg: '#FFF7ED' },
-  { label: 'Trains', icon: 'train-outline' as const, color: '#10B981', bg: '#D1FAE5' },
-  { label: 'Bus', icon: 'bus-outline' as const, color: '#EC4899', bg: '#FCE7F3' },
-  { label: 'eSIM', icon: 'phone-portrait-outline' as const, color: '#6366F1', bg: '#E0E7FF' },
+  { label: 'Hotels', icon: 'bed-outline' as const, color: '#3B82F6', bg: '#DBEAFE', route: '/hotels' },
+  { label: 'Activities', icon: 'ticket-outline' as const, color: '#F97316', bg: '#FFF7ED', route: '/activities' },
+  { label: 'eSIM', icon: 'phone-portrait-outline' as const, color: '#6366F1', bg: '#E0E7FF', route: '/esim' },
 ];
 
 // ============================================================
@@ -49,14 +48,16 @@ const SERVICES_BAR = [
 // ============================================================
 const DISCOVER_COLLECTIONS = [
   {
+    id: 'mountain',
     label: 'Serene Hill Stations',
     subtitle: 'Mountain retreats',
     category: 'MOUNTAIN',
-    gradient: ['#06B6D4', '#0284C7'] as const,
+    gradient: ['#06B6D4', '#0891b2'] as const,
     destinations: ['Shimla', 'Manali', 'Darjeeling', 'Munnar'],
     image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=600&q=80',
   },
   {
+    id: 'beach',
     label: 'Best Beach Destinations',
     subtitle: 'Sun, sand & surf',
     category: 'BEACH',
@@ -65,6 +66,7 @@ const DISCOVER_COLLECTIONS = [
     image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&q=80',
   },
   {
+    id: 'romantic',
     label: 'Idyllic Romantic Destinations',
     subtitle: 'For couples',
     category: 'ROMANTIC',
@@ -73,6 +75,7 @@ const DISCOVER_COLLECTIONS = [
     image: 'https://images.unsplash.com/photo-1597074866923-dc0589150a32?w=600&q=80',
   },
   {
+    id: 'honeymoon',
     label: 'Dreamy Honeymoon Escapes',
     subtitle: 'International getaways',
     category: 'HONEYMOON',
@@ -81,14 +84,16 @@ const DISCOVER_COLLECTIONS = [
     image: 'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=600&q=80',
   },
   {
+    id: 'international',
     label: 'Affordable International',
     subtitle: 'Budget-friendly',
     category: 'INTERNATIONAL',
-    gradient: ['#F97316', '#EA580C'] as const,
+    gradient: ['#06B6D4', '#155e75'] as const,
     destinations: ['Thailand', 'Nepal', 'Sri Lanka', 'Bhutan'],
     image: 'https://images.unsplash.com/photo-1528181304800-259b08848526?w=600&q=80',
   },
   {
+    id: 'weekend',
     label: 'Perfect Weekend Getaways',
     subtitle: 'Quick escapes',
     category: 'WEEKEND',
@@ -97,6 +102,7 @@ const DISCOVER_COLLECTIONS = [
     image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=600&q=80',
   },
   {
+    id: 'adventure',
     label: 'Thrilling Adventure Spots',
     subtitle: 'Adrenaline rush',
     category: 'ADVENTURE',
@@ -246,11 +252,73 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 // ============================================================
 export default function HomeScreen() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+
+  // requireAuth with guest free-tier limit support
+  // feature: 'PLAN_TRIP' | null (null = hard require, no free uses)
+  const requireAuth = useCallback(
+    async (onSuccess: () => void, feature?: 'PLAN_TRIP') => {
+      const isGuest = !isAuthenticated || !user?.uid || user.uid === 'guest-user';
+      if (!isGuest) {
+        onSuccess();
+        return;
+      }
+      // Guest with a limited-use feature
+      if (feature) {
+        const allowed = await canGuestUse(feature);
+        if (allowed) {
+          await incrementGuestUsage(feature);
+          const remaining = GUEST_LIMITS[feature] - (await (async () => {
+            const { getGuestUsageCount } = await import('@prayana/shared-utils');
+            return getGuestUsageCount(feature);
+          })());
+          if (remaining <= 0) {
+            // Used last free attempt — navigate then prompt
+            onSuccess();
+            setTimeout(() => {
+              Alert.alert(
+                'Free limit reached',
+                `You've used your ${GUEST_LIMITS[feature]} free trip plans. Sign in to continue planning and save your trips.`,
+                [
+                  { text: 'Later', style: 'cancel' },
+                  { text: 'Sign In', onPress: () => router.push('/(auth)/login') },
+                ]
+              );
+            }, 500);
+          } else {
+            onSuccess();
+          }
+          return;
+        }
+        // Limit exceeded
+        Alert.alert(
+          'Free limit reached',
+          `You've used all ${GUEST_LIMITS[feature]} free trip plans. Sign in to plan unlimited trips and save them.`,
+          [
+            { text: 'Maybe later', style: 'cancel' },
+            { text: 'Sign In', onPress: () => router.push('/(auth)/login') },
+          ]
+        );
+        return;
+      }
+      // Hard require (create trip = must be signed in)
+      Alert.alert(
+        'Sign In Required',
+        'Please sign in to create and save trips.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign In', onPress: () => router.push('/(auth)/login') },
+        ]
+      );
+    },
+    [isAuthenticated, user, router]
+  );
   const { themeColors, isDarkMode } = useTheme();
   const [popularActivities, setPopularActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  // Prevent repeated focus-retries when the endpoint is consistently unavailable
+  const fetchAttemptedRef = useRef(false);
   const [activeRegion, setActiveRegion] = useState('north');
   const [activeCategoryIdx, setActiveCategoryIdx] = useState(0);
   const [showAllTop, setShowAllTop] = useState(false);
@@ -277,25 +345,45 @@ export default function HomeScreen() {
   const orbTranslate2 = orbAnim2.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
 
   // Fetch data — only activities (destinations are hardcoded, matching web PWA)
-  const fetchPopularActivities = useCallback(async () => {
-    setLoadingActivities(true);
+  const fetchPopularActivities = useCallback(async (silent = false) => {
+    if (!silent) setLoadingActivities(true);
     try {
-      const res = await makeAPICall('/activities/search?limit=8&sort=rating', { timeout: 30000 });
+      const res = await makeAPICall('/activities/search?limit=8&sort=rating', {
+        timeout: 30000,
+        retries: 0,
+      });
       if (res?.success && Array.isArray(res.data)) setPopularActivities(res.data);
       else if (Array.isArray(res)) setPopularActivities(res);
     } catch (err: any) {
-      console.warn('[Home] Activities fetch failed:', err.message);
+      // Log only on first failure — avoid repeating the same warning on every focus
+      if (!fetchAttemptedRef.current) {
+        console.warn('[Home] Activities fetch failed:', err.message);
+      }
     } finally {
-      setLoadingActivities(false);
+      fetchAttemptedRef.current = true;
+      if (!silent) setLoadingActivities(false);
     }
   }, []);
 
+  // Initial fetch on mount
   useEffect(() => { fetchPopularActivities(); }, [fetchPopularActivities]);
+
+  // On tab focus: only retry if we haven't tried yet (avoids repeated timeouts on every tab switch)
+  useFocusEffect(
+    useCallback(() => {
+      if (!fetchAttemptedRef.current) {
+        fetchPopularActivities(true);
+      }
+    }, [fetchPopularActivities])
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const res = await makeAPICall('/activities/search?limit=8&sort=rating', { timeout: 30000 });
+      const res = await makeAPICall('/activities/search?limit=8&sort=rating', {
+        timeout: 15000,
+        retries: 0,
+      });
       if (res?.success && Array.isArray(res.data)) setPopularActivities(res.data);
       else if (Array.isArray(res)) setPopularActivities(res);
     } catch {} finally {
@@ -356,7 +444,7 @@ export default function HomeScreen() {
                   backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff',
                   borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#E5E7EB',
                 }]}
-                onPress={() => router.push('/search')}
+                onPress={() => router.push(svc.route as any)}
                 activeOpacity={0.7}
               >
                 <Ionicons name={svc.icon} size={14} color={svc.color} />
@@ -387,7 +475,7 @@ export default function HomeScreen() {
           <View style={styles.heroActions}>
             <TouchableOpacity
               style={styles.heroActionBtn}
-              onPress={() => router.push('/trip/plan')}
+              onPress={() => requireAuth(() => router.push('/trip/plan'), 'PLAN_TRIP')}
               activeOpacity={0.85}
             >
               <LinearGradient colors={['#FF6B6B', '#EE5A5A']} style={styles.heroActionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
@@ -397,10 +485,10 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.heroActionBtn}
-              onPress={() => router.push('/trip/setup')}
+              onPress={() => requireAuth(() => router.push('/trip/setup'))}
               activeOpacity={0.85}
             >
-              <LinearGradient colors={['#06B6D4', '#0284C7']} style={styles.heroActionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient colors={['#06B6D4', '#0891b2']} style={styles.heroActionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                 <Ionicons name="add-circle-outline" size={16} color="#ffffff" />
                 <Text style={styles.heroActionText}>Create a Trip</Text>
               </LinearGradient>
@@ -421,7 +509,7 @@ export default function HomeScreen() {
               <Pressable
                 key={col.label}
                 style={({ pressed }) => [styles.discoverCard, pressed && { opacity: 0.9 }]}
-                onPress={() => handleDestinationPress(col.destinations[0])}
+                onPress={() => router.push(`/interest/${col.id}` as any)}
               >
                 <Image source={{ uri: col.image }} style={styles.discoverImage} />
                 <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.discoverOverlay}>

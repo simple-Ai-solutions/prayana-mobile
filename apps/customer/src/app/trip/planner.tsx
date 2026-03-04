@@ -1,10 +1,8 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Platform,
   Modal,
@@ -12,6 +10,8 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
+import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -115,6 +115,25 @@ export default function DayPlannerScreen() {
   const activeTripId = tripId || tempTripId;
   useCollaboration(activeTripId);
 
+  // ─── Build activity object from search result ───
+  const buildActivity = useCallback((place: any, slot: TimeSlotKey) => {
+    const imageUrl = place.imageUrls?.[0] || place.images?.[0]?.url || place.image || place.imageUrl || '';
+    const coords = place.locationData?.coordinates || place.coordinates;
+    return {
+      name: place.name || '',
+      description: place.shortDescription || place.description || '',
+      timeSlot: slot,
+      duration: place.duration ? parseFloat(place.duration) : 2,
+      rating: place.rating || 4.0,
+      category: place.category || 'general',
+      coordinates: coords ? { lat: coords.lat || coords.latitude || 0, lng: coords.lng || coords.longitude || 0 } : { lat: 0, lng: 0 },
+      image: imageUrl,
+      images: place.images || [],
+      imageUrls: place.imageUrls || [],
+      notes: '',
+    };
+  }, []);
+
   // Local UI state
   const [expandedCards, setExpandedCards] = useState<Record<number, boolean>>({});
   const [activeSlot, setActiveSlot] = useState<TimeSlotKey>('morning');
@@ -127,6 +146,17 @@ export default function DayPlannerScreen() {
   const [editingActivity, setEditingActivity] = useState<{ index: number; activity: Activity } | null>(null);
   const [editNotes, setEditNotes] = useState('');
   const [scrollEnabled, setScrollEnabled] = useState(true);
+
+  // ── Inline Add Activity Panel ──
+  const [showAddPanel, setShowAddPanel] = useState(false);
+  const [addPanelSlot, setAddPanelSlot] = useState<TimeSlotKey>('morning');
+  const [addSearchQuery, setAddSearchQuery] = useState('');
+  const [addSearchResults, setAddSearchResults] = useState<any[]>([]);
+  const [addSearching, setAddSearching] = useState(false);
+  const [popularPlaces, setPopularPlaces] = useState<any[]>([]);
+  const [showPopular, setShowPopular] = useState(false);
+  const [loadingPopular, setLoadingPopular] = useState(false);
+  const addSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const dayTabsRef = useRef<ScrollView>(null);
   const smartBuilderRef = useRef<BottomModalRef>(null);
@@ -157,6 +187,121 @@ export default function DayPlannerScreen() {
   const toggleCardExpand = useCallback((idx: number) => {
     setExpandedCards((prev) => ({ ...prev, [idx]: !prev[idx] }));
   }, []);
+
+  // ─── Inline Add Activity Panel ───
+
+  const openAddPanel = useCallback((slot?: TimeSlotKey) => {
+    setAddPanelSlot(slot || activeSlot);
+    setAddSearchQuery('');
+    setAddSearchResults([]);
+    setShowPopular(false);
+    setShowAddPanel(true);
+  }, [activeSlot]);
+
+  const closeAddPanel = useCallback(() => {
+    setShowAddPanel(false);
+    setAddSearchQuery('');
+    setAddSearchResults([]);
+    setShowPopular(false);
+  }, []);
+
+  const handleAddSearch = useCallback(async (query: string) => {
+    if (query.trim().length < 2) {
+      setAddSearchResults([]);
+      return;
+    }
+    setAddSearching(true);
+    try {
+      const res = await makeAPICall(`/destinations/places/search?q=${encodeURIComponent(query)}&destination=${encodeURIComponent(currentDestination?.name || '')}&limit=8`, {
+        timeout: 10000,
+      });
+      const results = res?.data?.places || res?.places || res?.data || [];
+      setAddSearchResults(Array.isArray(results) ? results : []);
+    } catch {
+      setAddSearchResults([]);
+    } finally {
+      setAddSearching(false);
+    }
+  }, [currentDestination]);
+
+  const onAddSearchInput = useCallback((text: string) => {
+    setAddSearchQuery(text);
+    if (addSearchTimer.current) clearTimeout(addSearchTimer.current);
+    addSearchTimer.current = setTimeout(() => handleAddSearch(text), 300);
+  }, [handleAddSearch]);
+
+  const loadPopularPlaces = useCallback(async () => {
+    if (popularPlaces.length > 0) { setShowPopular(true); return; }
+    setLoadingPopular(true);
+    try {
+      const res = await makeAPICall('/destinations/hierarchical-search', {
+        method: 'POST',
+        body: JSON.stringify({ query: currentDestination?.name, filters: { limit: 10 } }),
+        timeout: 15000,
+      });
+      const places = res?.data?.crownJewels || res?.crownJewels || res?.data?.places || res?.places || [];
+      setPopularPlaces(Array.isArray(places) ? places.slice(0, 10) : []);
+      setShowPopular(true);
+    } catch {
+      setShowPopular(false);
+    } finally {
+      setLoadingPopular(false);
+    }
+  }, [currentDestination, popularPlaces]);
+
+  const handleAddFromPanel = useCallback((place: any) => {
+    const placeName = place.name || '';
+    // ── Duplicate detection ──
+    const alreadyAdded = currentActivities.some(
+      (a) => a.name.trim().toLowerCase() === placeName.trim().toLowerCase()
+    );
+    if (alreadyAdded) {
+      Alert.alert(
+        'Already Added',
+        `"${placeName}" is already in your itinerary for this day. Do you want to add it again?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Add Anyway',
+            onPress: () => {
+              addActivity(selectedDayIndex, buildActivity(place, addPanelSlot));
+              closeAddPanel();
+            },
+          },
+        ]
+      );
+      return;
+    }
+    addActivity(selectedDayIndex, buildActivity(place, addPanelSlot));
+    closeAddPanel();
+  }, [currentActivities, selectedDayIndex, addPanelSlot, closeAddPanel]);
+
+  const handleAddCustomFromPanel = useCallback(() => {
+    if (!addSearchQuery.trim()) return;
+    const placeName = addSearchQuery.trim();
+    const alreadyAdded = currentActivities.some(
+      (a) => a.name.trim().toLowerCase() === placeName.toLowerCase()
+    );
+    if (alreadyAdded) {
+      Alert.alert(
+        'Already Added',
+        `"${placeName}" is already in your itinerary for this day. Add it again?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Add Anyway',
+            onPress: () => {
+              addActivity(selectedDayIndex, { name: placeName, timeSlot: addPanelSlot, description: '', notes: '' });
+              closeAddPanel();
+            },
+          },
+        ]
+      );
+      return;
+    }
+    addActivity(selectedDayIndex, { name: placeName, timeSlot: addPanelSlot, description: '', notes: '' });
+    closeAddPanel();
+  }, [addSearchQuery, addPanelSlot, currentActivities, selectedDayIndex, closeAddPanel]);
 
   // ─── Open Add Activity (navigates to dedicated search screen) ───
 
@@ -561,7 +706,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       <View style={styles.aiPanel}>
         <View style={styles.aiPanelHeader}>
           <View style={styles.aiPanelHeaderLeft}>
-            <Ionicons name="sparkles" size={16} color="#06b6d4" />
+            <Ionicons name="sparkles" size={16} color="#06B6D4" />
             <Text style={styles.aiPanelTitle}>AI Suggestions</Text>
           </View>
           <View style={styles.aiPanelHeaderRight}>
@@ -570,7 +715,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.aiRefreshBtn}
             >
-              <Ionicons name="refresh" size={16} color="#06b6d4" />
+              <Ionicons name="refresh" size={16} color="#06B6D4" />
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => {
@@ -586,7 +731,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
         {isGeneratingAI ? (
           <View style={styles.aiLoading}>
-            <ActivityIndicator size="large" color="#06b6d4" />
+            <ActivityIndicator size="large" color="#06B6D4" />
             <Text style={styles.aiLoadingText}>Generating smart suggestions...</Text>
             <Text style={styles.aiLoadingSubtext}>
               Analyzing {currentDestination?.name} attractions, ratings & routes
@@ -852,7 +997,8 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         </View>
       )}
 
-      {/* ── Main Content ── */}
+      {/* ── Main Content + Floating Buttons Container ── */}
+      <View style={styles.contentContainer}>
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
@@ -876,15 +1022,189 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           onDragEnd={() => setScrollEnabled(true)}
         />
 
-        {/* ── Add Activity Button (opens full-screen search) ── */}
-        <TouchableOpacity
-          style={styles.addActivityBtn}
-          onPress={() => handleOpenAddPanel()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add-circle-outline" size={20} color={colors.primary[500]} />
-          <Text style={styles.addActivityText}>Add Activity</Text>
-        </TouchableOpacity>
+        {/* ── Add Activity Inline Panel ── */}
+        {showAddPanel ? (
+          <View style={styles.addPanel}>
+            {/* Time slot row */}
+            <View style={styles.addPanelSlotRow}>
+              {TIME_SLOTS.map((slot) => (
+                <TouchableOpacity
+                  key={slot.key}
+                  style={[styles.addPanelSlotBtn, addPanelSlot === slot.key && { backgroundColor: slot.bgColor, borderColor: slot.color }]}
+                  onPress={() => setAddPanelSlot(slot.key)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.addPanelSlotEmoji}>{slot.emoji}</Text>
+                  <Text style={[styles.addPanelSlotLabel, addPanelSlot === slot.key && { color: slot.color, fontWeight: fontWeight.bold }]}>
+                    {slot.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Search input */}
+            <View style={styles.addPanelSearchRow}>
+              <Ionicons name="search" size={16} color={colors.textTertiary} style={styles.addPanelSearchIcon} />
+              <TextInput
+                style={styles.addPanelSearchInput}
+                value={addSearchQuery}
+                onChangeText={onAddSearchInput}
+                placeholder={`Search places in ${currentDestination?.name || 'destination'}...`}
+                placeholderTextColor={colors.textTertiary}
+                autoFocus
+                returnKeyType="search"
+                autoCapitalize="none"
+              />
+              {addSearchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => { setAddSearchQuery(''); setAddSearchResults([]); }}>
+                  <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Searching indicator */}
+            {addSearching && (
+              <View style={styles.addPanelSearchingRow}>
+                <ActivityIndicator size="small" color={colors.primary[500]} />
+                <Text style={styles.addPanelSearchingText}>Searching in {currentDestination?.name}...</Text>
+              </View>
+            )}
+
+            {/* Search results */}
+            {addSearchResults.length > 0 && (
+              <View style={styles.addPanelResults}>
+                {addSearchResults.map((result, i) => {
+                  const rName = result.name || '';
+                  const rImg = result.imageUrls?.[0] || result.images?.[0]?.url || result.image || null;
+                  const rDesc = result.shortDescription || result.category || '';
+                  const alreadyAdded = currentActivities.some((a) => a.name.trim().toLowerCase() === rName.trim().toLowerCase());
+                  return (
+                    <TouchableOpacity
+                      key={`result-${i}`}
+                      style={[styles.addPanelResultItem, alreadyAdded && styles.addPanelResultItemDuplicate]}
+                      onPress={() => handleAddFromPanel(result)}
+                      activeOpacity={0.7}
+                    >
+                      {rImg ? (
+                        <Image source={{ uri: rImg }} style={styles.addPanelResultImg} contentFit="cover" />
+                      ) : (
+                        <View style={styles.addPanelResultImgPlaceholder}>
+                          <Ionicons name="location" size={14} color={colors.primary[400]} />
+                        </View>
+                      )}
+                      <View style={styles.addPanelResultInfo}>
+                        <Text style={styles.addPanelResultName} numberOfLines={1}>{rName}</Text>
+                        {rDesc ? <Text style={styles.addPanelResultDesc} numberOfLines={1}>{rDesc}</Text> : null}
+                      </View>
+                      {alreadyAdded ? (
+                        <View style={styles.addPanelDuplicateBadge}>
+                          <Text style={styles.addPanelDuplicateText}>Added</Text>
+                        </View>
+                      ) : (
+                        <Ionicons name="add-circle" size={22} color={colors.primary[500]} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Browse popular */}
+            {!showPopular && addSearchQuery.length < 2 && (
+              <TouchableOpacity
+                style={styles.addPanelPopularBtn}
+                onPress={loadPopularPlaces}
+                disabled={loadingPopular}
+                activeOpacity={0.7}
+              >
+                {loadingPopular ? (
+                  <ActivityIndicator size="small" color={colors.primary[500]} />
+                ) : (
+                  <Ionicons name="location" size={14} color={colors.primary[500]} />
+                )}
+                <Text style={styles.addPanelPopularBtnText}>
+                  {loadingPopular ? 'Loading...' : `Browse popular in ${currentDestination?.name || 'destination'}`}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Popular places */}
+            {showPopular && popularPlaces.length > 0 && addSearchQuery.length < 2 && (
+              <View style={styles.addPanelResults}>
+                <View style={styles.addPanelPopularHeader}>
+                  <Text style={styles.addPanelPopularTitle}>Popular in {currentDestination?.name}</Text>
+                  <TouchableOpacity onPress={() => setShowPopular(false)}>
+                    <Text style={styles.addPanelPopularHide}>Hide</Text>
+                  </TouchableOpacity>
+                </View>
+                {popularPlaces.map((place, i) => {
+                  const pName = place.name || '';
+                  const pImg = place.imageUrls?.[0] || place.images?.[0]?.url || place.image || null;
+                  const alreadyAdded = currentActivities.some((a) => a.name.trim().toLowerCase() === pName.trim().toLowerCase());
+                  return (
+                    <TouchableOpacity
+                      key={`popular-${i}`}
+                      style={[styles.addPanelResultItem, alreadyAdded && styles.addPanelResultItemDuplicate]}
+                      onPress={() => handleAddFromPanel(place)}
+                      activeOpacity={0.7}
+                    >
+                      {pImg ? (
+                        <Image source={{ uri: pImg }} style={styles.addPanelResultImg} contentFit="cover" />
+                      ) : (
+                        <View style={styles.addPanelResultImgPlaceholder}>
+                          <Ionicons name="location" size={14} color={colors.primary[400]} />
+                        </View>
+                      )}
+                      <View style={styles.addPanelResultInfo}>
+                        <Text style={styles.addPanelResultName} numberOfLines={1}>{pName}</Text>
+                        {place.category ? <Text style={styles.addPanelResultDesc} numberOfLines={1}>{place.category}</Text> : null}
+                      </View>
+                      {alreadyAdded ? (
+                        <View style={styles.addPanelDuplicateBadge}>
+                          <Text style={styles.addPanelDuplicateText}>Added</Text>
+                        </View>
+                      ) : (
+                        <Ionicons name="add-circle" size={22} color={colors.primary[500]} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* Custom add */}
+            {addSearchQuery.trim().length > 0 && (
+              <TouchableOpacity style={styles.addPanelCustomBtn} onPress={handleAddCustomFromPanel} activeOpacity={0.7}>
+                <Ionicons name="add" size={14} color="#8b5cf6" />
+                <Text style={styles.addPanelCustomText}>Add "{addSearchQuery.trim()}"</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Browse full screen */}
+            <TouchableOpacity
+              style={styles.addPanelBrowseBtn}
+              onPress={() => { closeAddPanel(); handleOpenAddPanel(addPanelSlot); }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="grid-outline" size={14} color={colors.primary[500]} />
+              <Text style={styles.addPanelBrowseText}>Browse all places</Text>
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity onPress={closeAddPanel} style={styles.addPanelCancel}>
+              <Text style={styles.addPanelCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.addActivityBtn}
+            onPress={() => openAddPanel()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={colors.primary[500]} />
+            <Text style={styles.addActivityText}>Add Activity</Text>
+          </TouchableOpacity>
+        )}
 
         {/* ── Budget Tracker (below activities, full width) ── */}
         <TouchableOpacity
@@ -904,7 +1224,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             onPress={() => setShowScheduleModal(true)}
             activeOpacity={0.7}
           >
-            <Ionicons name="grid-outline" size={16} color="#0d9488" />
+            <Ionicons name="grid-outline" size={16} color="#0891b2" />
             <Text style={styles.viewScheduleBtnText}>View Day Schedule</Text>
           </TouchableOpacity>
         )}
@@ -943,6 +1263,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           <Text style={styles.floatingMapBtnText}>View Map</Text>
         </TouchableOpacity>
       )}
+      </View>{/* end contentContainer */}
 
       {/* ── Map Modal ── */}
       <Modal
@@ -974,6 +1295,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
               visible={true}
               onClose={() => setShowMapModal(false)}
               dayTitle={currentDay?.title}
+              destinationName={currentDestination?.name}
               inline
               height={Dimensions.get('window').height - 160}
             />
@@ -993,7 +1315,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           <View style={styles.scheduleSheet}>
             <View style={styles.scheduleHeader}>
               <View style={styles.scheduleHeaderLeft}>
-                <Ionicons name="grid-outline" size={18} color="#0d9488" />
+                <Ionicons name="grid-outline" size={18} color="#0891b2" />
                 <View>
                   <Text style={styles.scheduleTitle}>
                     {currentDay?.title || 'Day'} Schedule
@@ -1199,6 +1521,10 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
   },
+  contentContainer: {
+    flex: 1,
+    position: 'relative',
+  },
 
   // Header
   header: {
@@ -1286,10 +1612,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[200],
   },
   stepDotCompleted: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
   },
   stepDotCurrent: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
     width: 26,
     height: 26,
     borderRadius: 13,
@@ -1310,7 +1636,7 @@ const styles = StyleSheet.create({
     maxWidth: 50,
   },
   stepConnectorActive: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
   },
 
   // Day Tabs
@@ -1484,7 +1810,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: '#06b6d4',
+    backgroundColor: '#06B6D4',
     ...shadow.sm,
   },
 
@@ -1512,6 +1838,192 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
     color: colors.primary[500],
+  },
+
+  // ── Inline Add Activity Panel ──
+  addPanel: {
+    marginTop: spacing.sm,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+    backgroundColor: colors.primary[50],
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  addPanelSlotRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  addPanelSlotBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    gap: 2,
+  },
+  addPanelSlotEmoji: {
+    fontSize: 14,
+  },
+  addPanelSlotLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: fontWeight.medium,
+  },
+  addPanelSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.md,
+    paddingVertical: Platform.OS === 'ios' ? spacing.sm : 4,
+    gap: spacing.sm,
+  },
+  addPanelSearchIcon: {
+    flexShrink: 0,
+  },
+  addPanelSearchInput: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: colors.text,
+    padding: 0,
+  },
+  addPanelSearchingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  addPanelSearchingText: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+  },
+  addPanelResults: {
+    gap: 4,
+  },
+  addPanelResultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  addPanelResultItemDuplicate: {
+    borderColor: colors.primary[200],
+    backgroundColor: colors.primary[50],
+  },
+  addPanelResultImg: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+  },
+  addPanelResultImgPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addPanelResultInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  addPanelResultName: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    color: colors.text,
+  },
+  addPanelResultDesc: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    marginTop: 1,
+  },
+  addPanelDuplicateBadge: {
+    backgroundColor: colors.primary[100],
+    borderRadius: borderRadius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  addPanelDuplicateText: {
+    fontSize: 11,
+    color: colors.primary[600],
+    fontWeight: fontWeight.semibold,
+  },
+  addPanelPopularBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+  },
+  addPanelPopularBtnText: {
+    fontSize: fontSize.xs,
+    color: colors.primary[600],
+    fontWeight: fontWeight.medium,
+  },
+  addPanelPopularHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  addPanelPopularTitle: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.textSecondary,
+  },
+  addPanelPopularHide: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+  },
+  addPanelCustomBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: '#e9d5ff',
+  },
+  addPanelCustomText: {
+    fontSize: fontSize.xs,
+    color: '#7c3aed',
+  },
+  addPanelBrowseBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  addPanelBrowseText: {
+    fontSize: fontSize.xs,
+    color: colors.primary[500],
+    fontWeight: fontWeight.medium,
+  },
+  addPanelCancel: {
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+  },
+  addPanelCancelText: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
   },
 
   // AI Panel
@@ -1549,7 +2061,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: '#cffafe',
+    backgroundColor: '#ccfbf7',
   },
   aiPanelTitle: {
     fontSize: fontSize.md,
@@ -1681,7 +2193,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#06b6d4',
+    backgroundColor: '#06B6D4',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1714,7 +2226,7 @@ const styles = StyleSheet.create({
   viewScheduleBtnText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-    color: '#0d9488',
+    color: '#0891b2',
   },
 
   // Day Notes
@@ -1787,7 +2299,7 @@ const styles = StyleSheet.create({
   scheduleTableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0d9488',
+    backgroundColor: '#0891b2',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
   },

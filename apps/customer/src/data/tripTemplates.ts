@@ -262,7 +262,7 @@ export const TRIP_TEMPLATES: TripTemplate[] = [
     budget: 'moderate',
     tripType: 'leisure',
     tags: ['Backwaters', 'Ayurveda', 'Nature'],
-    gradient: ['#06b6d4', '#0891b2'],
+    gradient: ['#06B6D4', '#0891b2'],
     emoji: '\uD83D\uDEF6',
     days: [
       {

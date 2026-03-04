@@ -2,12 +2,11 @@ import React, { useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  TouchableOpacity,
   StyleSheet,
   StyleProp,
   ViewStyle,
 } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { colors, spacing, fontSize, fontWeight, useTheme } from '@prayana/shared-ui';
 
 interface Tag {

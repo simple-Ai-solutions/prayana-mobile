@@ -1,21 +1,23 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
   Platform,
   KeyboardAvoidingView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
+import { createTripAPI } from '@prayana/shared-services';
+import { useAuth } from '@prayana/shared-hooks';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -47,6 +49,16 @@ function formatDate(date: Date | null): string {
   });
 }
 
+function formatDateShort(date: Date | null): { day: string; month: string; year: string; weekday: string } {
+  if (!date) return { day: '--', month: '---', year: '----', weekday: '' };
+  return {
+    day: date.toLocaleDateString('en-US', { day: '2-digit' }),
+    month: date.toLocaleDateString('en-US', { month: 'short' }),
+    year: date.toLocaleDateString('en-US', { year: 'numeric' }),
+    weekday: date.toLocaleDateString('en-US', { weekday: 'long' }),
+  };
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function TripSetupScreen() {
@@ -61,6 +73,9 @@ export default function TripSetupScreen() {
   const budget = useCreateTripStore((s) => s.budget);
   const tripType = useCreateTripStore((s) => s.tripType);
 
+  const tripId = useCreateTripStore((s) => s.tripId);
+  const isSaving = useCreateTripStore((s) => s.isSaving);
+
   // Store actions
   const setName = useCreateTripStore((s) => s.setName);
   const setDates = useCreateTripStore((s) => s.setDates);
@@ -69,11 +84,89 @@ export default function TripSetupScreen() {
   const setBudget = useCreateTripStore((s) => s.setBudget);
   const setTripType = useCreateTripStore((s) => s.setTripType);
   const setCurrentStep = useCreateTripStore((s) => s.setCurrentStep);
+  const setTripId = useCreateTripStore((s) => s.setTripId);
+  const setIsSaving = useCreateTripStore((s) => s.setIsSaving);
+  const markSaved = useCreateTripStore((s) => s.markSaved);
+  const initializeTempTripId = useCreateTripStore((s) => s.initializeTempTripId);
+
+  // Auth
+  const { user, isAuthenticated } = useAuth();
 
   // Local UI state
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ─── Initialize tempTripId on mount (enables collab before first save) ───
+  useEffect(() => {
+    initializeTempTripId();
+  }, [initializeTempTripId]);
+
+  // ─── Save Trip to Backend ───
+  const saveTrip = useCallback(async (): Promise<boolean> => {
+    if (!user?.uid || user.uid === 'guest-user') return false;
+    if (isSaving) return false;
+
+    const state = useCreateTripStore.getState();
+    setIsSaving(true);
+    try {
+      const tripData = {
+        name: state.name,
+        startDate: state.startDate,
+        endDate: state.endDate,
+        travelers: state.travelers,
+        kids: state.kids,
+        budget: state.budget,
+        tripType: state.tripType,
+        currency: state.currency || 'INR',
+        destinations: state.destinations || [],
+        days: state.days || [],
+        lastEditedStep: 1,
+        status: 'planning',
+      };
+
+      if (state.tripId) {
+        // Update existing trip
+        await createTripAPI.updateTrip(state.tripId, tripData);
+        markSaved();
+        return true;
+      } else {
+        // Create new trip
+        const result = await createTripAPI.createTrip({
+          ...tripData,
+          userId: user.uid,
+          ownerName: user.displayName || user.email || '',
+        });
+        if (result?.success && result?.data?.tripId) {
+          setTripId(result.data.tripId);
+          useCreateTripStore.setState({ userRole: 'owner' });
+          markSaved();
+          return true;
+        }
+        return false;
+      }
+    } catch (err: any) {
+      console.warn('[Setup] Auto-save failed:', err?.message);
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [user, isSaving, setIsSaving, setTripId, markSaved]);
+
+  // ─── Auto-save when trip name reaches 3+ chars (like web) ───
+  useEffect(() => {
+    if (name && name.length >= 3 && !tripId && isAuthenticated && user?.uid && user.uid !== 'guest-user') {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = setTimeout(() => {
+        saveTrip();
+      }, 1500);
+    }
+    return () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    };
+  }, [name, tripId, isAuthenticated, user, saveTrip]);
 
   // ─── Date Handlers ───
 
@@ -153,12 +246,29 @@ export default function TripSetupScreen() {
     return Object.keys(newErrors).length === 0;
   }, [name, startDate, endDate]);
 
-  const handleNext = useCallback(() => {
-    if (validate()) {
-      setCurrentStep(2);
-      router.push('/trip/destinations');
+  const handleNext = useCallback(async () => {
+    if (!validate()) return;
+
+    if (!isAuthenticated || !user?.uid || user.uid === 'guest-user') {
+      Alert.alert(
+        'Sign In Required',
+        'Please sign in to save your trip and enable sharing & collaboration.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Sign In', onPress: () => router.push('/(auth)/login') },
+        ]
+      );
+      return;
     }
-  }, [validate, setCurrentStep, router]);
+
+    // Save trip on Step 1 completion so tripId is available immediately
+    if (!tripId) {
+      await saveTrip();
+    }
+
+    setCurrentStep(2);
+    router.push('/trip/destinations');
+  }, [validate, isAuthenticated, user, tripId, saveTrip, setCurrentStep, router]);
 
   const handleBack = useCallback(() => {
     router.back();
@@ -259,32 +369,55 @@ export default function TripSetupScreen() {
           {/* ── Date Range ── */}
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Travel Dates</Text>
-            <View style={styles.dateRow}>
-              {/* Start Date */}
+
+            <View style={[styles.dateCard, errors.dates ? styles.dateCardError : null]}>
+              {/* Start Date Row */}
               <TouchableOpacity
-                style={[styles.dateButton, errors.dates ? styles.inputError : null]}
+                style={styles.dateCellBtn}
                 onPress={() => setShowStartPicker(true)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="calendar-outline" size={18} color={colors.primary[500]} />
-                <View style={styles.dateTextContainer}>
-                  <Text style={styles.dateLabel}>Start</Text>
-                  <Text style={[styles.dateValue, !parsedStartDate && styles.datePlaceholder]}>
-                    {formatDate(parsedStartDate)}
-                  </Text>
+                <View style={[styles.dateCellIcon, { backgroundColor: colors.primary[50] }]}>
+                  <Ionicons name="airplane-outline" size={16} color={colors.primary[500]} />
                 </View>
+                <View style={styles.dateCellInfo}>
+                  <Text style={styles.dateCellLabel}>Departure</Text>
+                  {parsedStartDate ? (
+                    <View style={styles.dateCellValueRow}>
+                      <Text style={styles.dateCellDay}>{formatDateShort(parsedStartDate).day}</Text>
+                      <View style={styles.dateCellRight}>
+                        <Text style={styles.dateCellMonth}>
+                          {formatDateShort(parsedStartDate).month} {formatDateShort(parsedStartDate).year}
+                        </Text>
+                        <Text style={styles.dateCellWeekday}>{formatDateShort(parsedStartDate).weekday}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.dateCellPlaceholder}>Select start date</Text>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
 
-              <Ionicons
-                name="arrow-forward"
-                size={18}
-                color={colors.textTertiary}
-                style={styles.dateArrow}
-              />
+              {/* Divider with duration */}
+              <View style={styles.dateDivider}>
+                <View style={styles.dateDividerLine} />
+                {parsedStartDate && parsedEndDate ? (
+                  <View style={styles.dateDividerBadge}>
+                    <Ionicons name="time-outline" size={12} color={colors.primary[600]} />
+                    <Text style={styles.dateDividerText}>
+                      {Math.ceil((parsedEndDate.getTime() - parsedStartDate.getTime()) / 86400000) + 1} days
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.dateDividerDot} />
+                )}
+                <View style={styles.dateDividerLine} />
+              </View>
 
-              {/* End Date */}
+              {/* End Date Row */}
               <TouchableOpacity
-                style={[styles.dateButton, errors.dates ? styles.inputError : null]}
+                style={styles.dateCellBtn}
                 onPress={() => {
                   if (!startDate) {
                     Alert.alert('Start Date Required', 'Please select a start date first.');
@@ -294,28 +427,30 @@ export default function TripSetupScreen() {
                 }}
                 activeOpacity={0.7}
               >
-                <Ionicons name="calendar-outline" size={18} color={colors.primary[500]} />
-                <View style={styles.dateTextContainer}>
-                  <Text style={styles.dateLabel}>End</Text>
-                  <Text style={[styles.dateValue, !parsedEndDate && styles.datePlaceholder]}>
-                    {formatDate(parsedEndDate)}
-                  </Text>
+                <View style={[styles.dateCellIcon, { backgroundColor: '#FFF7ED' }]}>
+                  <Ionicons name="flag-outline" size={16} color="#F97316" />
                 </View>
+                <View style={styles.dateCellInfo}>
+                  <Text style={styles.dateCellLabel}>Return</Text>
+                  {parsedEndDate ? (
+                    <View style={styles.dateCellValueRow}>
+                      <Text style={styles.dateCellDay}>{formatDateShort(parsedEndDate).day}</Text>
+                      <View style={styles.dateCellRight}>
+                        <Text style={styles.dateCellMonth}>
+                          {formatDateShort(parsedEndDate).month} {formatDateShort(parsedEndDate).year}
+                        </Text>
+                        <Text style={styles.dateCellWeekday}>{formatDateShort(parsedEndDate).weekday}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Text style={styles.dateCellPlaceholder}>Select end date</Text>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
               </TouchableOpacity>
             </View>
-            {errors.dates ? <Text style={styles.errorText}>{errors.dates}</Text> : null}
 
-            {parsedStartDate && parsedEndDate && (
-              <View style={styles.durationBadge}>
-                <Ionicons name="time-outline" size={14} color={colors.primary[600]} />
-                <Text style={styles.durationText}>
-                  {Math.ceil(
-                    (parsedEndDate.getTime() - parsedStartDate.getTime()) / 86400000
-                  ) + 1}{' '}
-                  days
-                </Text>
-              </View>
-            )}
+            {errors.dates ? <Text style={styles.errorText}>{errors.dates}</Text> : null}
           </View>
 
           {/* Date Pickers (conditionally rendered) */}
@@ -324,9 +459,10 @@ export default function TripSetupScreen() {
               <DateTimePicker
                 value={parsedStartDate || new Date()}
                 mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 minimumDate={new Date()}
                 onChange={handleStartDateChange}
+                accentColor={colors.primary[500]}
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
@@ -343,9 +479,10 @@ export default function TripSetupScreen() {
               <DateTimePicker
                 value={parsedEndDate || minimumEndDate}
                 mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 minimumDate={minimumEndDate}
                 onChange={handleEndDateChange}
+                accentColor={colors.primary[500]}
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
@@ -488,9 +625,32 @@ export default function TripSetupScreen() {
 
         {/* ── Next Button (fixed at bottom) ── */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.8}>
-            <Text style={styles.nextButtonText}>Continue to Destinations</Text>
-            <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+          {isSaving && (
+            <View style={styles.savingBanner}>
+              <ActivityIndicator size="small" color={colors.primary[500]} />
+              <Text style={styles.savingBannerText}>Saving trip...</Text>
+            </View>
+          )}
+          {tripId && !isSaving && (
+            <View style={styles.savedBanner}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+              <Text style={styles.savedBannerText}>Trip saved — share link ready</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={[styles.nextButton, isSaving && styles.nextButtonDisabled]}
+            onPress={handleNext}
+            activeOpacity={0.8}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <>
+                <Text style={styles.nextButtonText}>Continue to Destinations</Text>
+                <Ionicons name="arrow-forward" size={20} color="#ffffff" />
+              </>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -568,7 +728,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[200],
   },
   stepDotCurrent: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
     width: 26,
     height: 26,
     borderRadius: 13,
@@ -589,7 +749,7 @@ const styles = StyleSheet.create({
     maxWidth: 50,
   },
   stepConnectorActive: {
-    backgroundColor: '#f97316',
+    backgroundColor: '#06B6D4',
   },
 
   // Scroll Content
@@ -631,68 +791,113 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
   },
 
-  // Date Range
-  dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  dateButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.gray[50],
+  // Date Card
+  dateCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
+    overflow: 'hidden',
+    ...shadow.sm,
   },
-  dateTextContainer: {
-    flex: 1,
+  dateCardError: {
+    borderColor: colors.error,
   },
-  dateLabel: {
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-    fontWeight: fontWeight.medium,
-  },
-  dateValue: {
-    fontSize: fontSize.sm,
-    color: colors.text,
-    fontWeight: fontWeight.medium,
-    marginTop: 1,
-  },
-  datePlaceholder: {
-    color: colors.textTertiary,
-  },
-  dateArrow: {
-    marginHorizontal: spacing.sm,
-  },
-  durationBadge: {
+  dateCellBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  dateCellIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dateCellInfo: {
+    flex: 1,
+  },
+  dateCellLabel: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    fontWeight: fontWeight.medium,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 3,
+  },
+  dateCellValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  dateCellDay: {
+    fontSize: 32,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+    lineHeight: 36,
+  },
+  dateCellRight: {
+    gap: 1,
+  },
+  dateCellMonth: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  dateCellWeekday: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+  },
+  dateCellPlaceholder: {
+    fontSize: fontSize.md,
+    color: colors.textTertiary,
+  },
+  dateDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+  },
+  dateDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dateDividerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: colors.primary[50],
     borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    marginTop: spacing.sm,
-    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: colors.primary[100],
   },
-  durationText: {
-    fontSize: fontSize.xs,
+  dateDividerText: {
+    fontSize: 11,
     color: colors.primary[600],
     fontWeight: fontWeight.semibold,
+  },
+  dateDividerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.border,
   },
 
   // iOS Picker
   iosPickerContainer: {
-    backgroundColor: colors.gray[50],
-    borderRadius: borderRadius.lg,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
     marginBottom: spacing.lg,
     paddingBottom: spacing.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    overflow: 'hidden',
   },
   iosPickerDone: {
     alignSelf: 'flex-end',
@@ -849,5 +1054,33 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
     color: '#ffffff',
+  },
+  nextButtonDisabled: {
+    opacity: 0.7,
+  },
+  savingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  savingBannerText: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+  },
+  savedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  savedBannerText: {
+    fontSize: fontSize.xs,
+    color: colors.success,
+    fontWeight: fontWeight.medium,
   },
 });
