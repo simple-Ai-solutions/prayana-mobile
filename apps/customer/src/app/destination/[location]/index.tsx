@@ -136,7 +136,11 @@ const SkeletonBlock = ({
 
 export default function LocationSearchResults() {
   const router = useRouter();
-  const { location } = useLocalSearchParams<{ location: string }>();
+  const { location, previewImage, previewDesc } = useLocalSearchParams<{
+    location: string;
+    previewImage?: string;
+    previewDesc?: string;
+  }>();
   const { themeColors, isDarkMode } = useTheme();
 
   const [luxuryData, setLuxuryData] = useState<LuxuryData | null>(null);
@@ -145,6 +149,9 @@ export default function LocationSearchResults() {
   const [refreshing, setRefreshing] = useState(false);
   const [filteredTag, setFilteredTag] = useState('all');
   const [showAllPlaces, setShowAllPlaces] = useState(false);
+
+  // Preview data from navigation params — shown instantly while API loads
+  const hasPreview = !!(previewImage || previewDesc);
 
   // Progressive section reveal — each section fades in after data arrives
   const heroAnim = useRef(new Animated.Value(0)).current;
@@ -402,31 +409,67 @@ export default function LocationSearchResults() {
         }
         contentContainerStyle={styles.scrollContent}
       >
-        {/* ── LOADING SKELETON (inline, static — renders instantly) ── */}
+        {/* ── LOADING: Preview Hero (instant) + Skeleton (progressive) ── */}
         {loading && !luxuryData && (
           <>
-            {/* Hero placeholder with gradient + location name */}
-            <LinearGradient
-              colors={[colors.primary[700], colors.primary[900]]}
-              style={styles.skeletonHero}
-            >
-              <View style={styles.skeletonHeroContent}>
-                <View style={styles.skeletonHeroMeta}>
-                  <SkeletonBlock width={80} height={18} radius={999} style={{ backgroundColor: 'rgba(255,255,255,0.25)' }} />
-                  <SkeletonBlock width={60} height={18} radius={999} style={{ backgroundColor: 'rgba(255,255,255,0.25)' }} />
+            {/* Preview Hero — shows immediately with image/desc from navigation */}
+            {hasPreview ? (
+              <View style={styles.skeletonHero}>
+                {previewImage ? (
+                  <Image
+                    source={{ uri: previewImage }}
+                    style={StyleSheet.absoluteFillObject}
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    priority="high"
+                  />
+                ) : (
+                  <LinearGradient
+                    colors={[colors.primary[700], colors.primary[900]]}
+                    style={StyleSheet.absoluteFillObject}
+                  />
+                )}
+                <LinearGradient
+                  colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.7)']}
+                  style={StyleSheet.absoluteFillObject}
+                />
+                <View style={styles.skeletonHeroContent}>
+                  <View style={styles.previewLoadingPill}>
+                    <ActivityIndicator size="small" color="#fff" style={{ transform: [{ scale: 0.6 }] }} />
+                    <Text style={styles.previewLoadingText}>Discovering places...</Text>
+                  </View>
+                  <Text style={styles.skeletonHeroTitle} numberOfLines={1}>
+                    {locationName}
+                  </Text>
+                  {previewDesc ? (
+                    <Text style={styles.previewDescText} numberOfLines={2}>
+                      {previewDesc}
+                    </Text>
+                  ) : null}
                 </View>
-                <Text style={styles.skeletonHeroTitle} numberOfLines={1}>
-                  {locationName}
-                </Text>
-                <SkeletonBlock width={200} height={14} radius={6} style={{ backgroundColor: 'rgba(255,255,255,0.2)', marginTop: 8 }} />
               </View>
-              {/* Slide dots placeholder */}
-              <View style={styles.skeletonDots}>
-                {[0,1,2,3,4].map(i => (
-                  <View key={i} style={[styles.skeletonDot, i === 0 && styles.skeletonDotActive]} />
-                ))}
-              </View>
-            </LinearGradient>
+            ) : (
+              <LinearGradient
+                colors={[colors.primary[700], colors.primary[900]]}
+                style={styles.skeletonHero}
+              >
+                <View style={styles.skeletonHeroContent}>
+                  <View style={styles.skeletonHeroMeta}>
+                    <SkeletonBlock width={80} height={18} radius={999} style={{ backgroundColor: 'rgba(255,255,255,0.25)' }} />
+                    <SkeletonBlock width={60} height={18} radius={999} style={{ backgroundColor: 'rgba(255,255,255,0.25)' }} />
+                  </View>
+                  <Text style={styles.skeletonHeroTitle} numberOfLines={1}>
+                    {locationName}
+                  </Text>
+                  <SkeletonBlock width={200} height={14} radius={6} style={{ backgroundColor: 'rgba(255,255,255,0.2)', marginTop: 8 }} />
+                </View>
+                <View style={styles.skeletonDots}>
+                  {[0,1,2,3,4].map(i => (
+                    <View key={i} style={[styles.skeletonDot, i === 0 && styles.skeletonDotActive]} />
+                  ))}
+                </View>
+              </LinearGradient>
+            )}
 
             {/* Filter pills skeleton */}
             <View style={styles.skeletonFilters}>
@@ -443,10 +486,6 @@ export default function LocationSearchResults() {
                 <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
                 <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
               </View>
-              <View style={{ flexDirection: 'row', gap: spacing.md, marginTop: spacing.md }}>
-                <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
-                <SkeletonBlock width={BENTO_SMALL_WIDTH} height={140} />
-              </View>
             </View>
 
             {/* Section: More Places */}
@@ -455,13 +494,6 @@ export default function LocationSearchResults() {
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md }}>
                 {[0,1,2,3].map(i => <SkeletonBlock key={i} width={CARD_WIDTH} height={160} />)}
               </View>
-            </View>
-
-            {/* Section: Circuits */}
-            <View style={styles.skeletonSection}>
-              <SkeletonBlock width={180} height={22} radius={6} />
-              <SkeletonBlock width="100%" height={160} style={{ marginTop: spacing.md }} />
-              <SkeletonBlock width="100%" height={160} style={{ marginTop: spacing.md }} />
             </View>
 
             <View style={{ height: spacing['3xl'] }} />
@@ -925,6 +957,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: 280,
     justifyContent: 'flex-end',
+    overflow: 'hidden',
   },
   skeletonHeroContent: {
     paddingHorizontal: spacing.lg,
@@ -970,6 +1003,30 @@ const styles = StyleSheet.create({
   skeletonSection: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
+  },
+
+  // Preview hero (instant loading with image from navigation)
+  previewLoadingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(249,115,22,0.85)',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+  },
+  previewLoadingText: {
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+    color: '#ffffff',
+  },
+  previewDescText: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    marginTop: 6,
+    lineHeight: 20,
   },
 
   // Error

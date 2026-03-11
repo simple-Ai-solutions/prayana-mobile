@@ -142,7 +142,8 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
       <Text style={styles.sectionTitle}>By Category</Text>
       <View style={styles.categoryGrid}>
         {CATEGORIES.map((cat) => {
-          const spent = getSpentByCategory ? getSpentByCategory(cat.key) : 0;
+          const spentMap = getSpentByCategory ? getSpentByCategory() : {};
+          const spent = (spentMap as Record<string, number>)[cat.key] || 0;
           return (
             <View key={cat.key} style={styles.categoryCard}>
               <View style={[styles.categoryIcon, { backgroundColor: cat.color + '20' }]}>

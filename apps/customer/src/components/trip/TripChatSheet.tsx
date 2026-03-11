@@ -55,6 +55,9 @@ const TripChatSheet: React.FC<TripChatSheetProps> = ({ sheetRef }) => {
     if (!activeTripId) return;
 
     const handleMessage = (data: any) => {
+      // Skip own messages — already added locally in handleSend
+      if (data.userId === user?.uid) return;
+
       const msg: ChatMessage = {
         id: `${data.userId}-${Date.now()}-${Math.random()}`,
         userId: data.userId,

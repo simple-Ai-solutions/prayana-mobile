@@ -56,7 +56,11 @@ export default function InterestBrowseScreen() {
 
   const handlePlacePress = (place: InterestPlace) => {
     const query = place.searchQuery || place.name;
-    router.push(`/destination/${encodeURIComponent(query)}` as any);
+    const params = new URLSearchParams();
+    if (place.image) params.set('previewImage', place.image);
+    if (place.description) params.set('previewDesc', place.description);
+    const qs = params.toString();
+    router.push(`/destination/${encodeURIComponent(query)}${qs ? '?' + qs : ''}` as any);
   };
 
   // ============================================================

@@ -395,9 +395,13 @@ export default function HomeScreen() {
     setRefreshing(false);
   }, [fetchPopularActivities]);
 
-  const handleDestinationPress = useCallback((name: string) => {
+  const handleDestinationPress = useCallback((name: string, preview?: { image?: string; desc?: string }) => {
     console.log('[Home] Destination pressed:', name);
-    router.push(`/destination/${encodeURIComponent(name)}` as any);
+    const params = new URLSearchParams();
+    if (preview?.image) params.set('previewImage', preview.image);
+    if (preview?.desc) params.set('previewDesc', preview.desc);
+    const qs = params.toString();
+    router.push(`/destination/${encodeURIComponent(name)}${qs ? '?' + qs : ''}` as any);
   }, [router]);
 
   const regionDests = REGIONS[activeRegion] || [];
@@ -563,7 +567,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={[styles.masonryLarge, shadow.md, { width: MASONRY_HALF, height: 240 }]}
                   activeOpacity={0.9}
-                  onPress={() => handleDestinationPress(visibleVisaFree[0].name)}
+                  onPress={() => handleDestinationPress(visibleVisaFree[0].name, { image: visibleVisaFree[0].image, desc: visibleVisaFree[0].desc })}
                 >
                   <Image source={{ uri: visibleVisaFree[0].image }} style={styles.masonryImage} />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.masonryOverlay}>
@@ -581,7 +585,7 @@ export default function HomeScreen() {
                       key={country.name}
                       style={[styles.masonryStacked, shadow.md, { height: (240 - MASONRY_GAP) / 2 }]}
                       activeOpacity={0.9}
-                      onPress={() => handleDestinationPress(country.name)}
+                      onPress={() => handleDestinationPress(country.name, { image: country.image, desc: country.desc })}
                     >
                       <Image source={{ uri: country.image }} style={styles.masonryImage} />
                       <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.masonryOverlay}>
@@ -683,7 +687,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   style={[styles.masonryLarge, shadow.md, { width: MASONRY_HALF, height: 260 }]}
                   activeOpacity={0.9}
-                  onPress={() => handleDestinationPress(visiblePilgrimage[0].name)}
+                  onPress={() => handleDestinationPress(visiblePilgrimage[0].name, { image: visiblePilgrimage[0].image, desc: visiblePilgrimage[0].desc })}
                 >
                   <Image source={{ uri: visiblePilgrimage[0].image }} style={styles.masonryImage} />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.masonryOverlay}>
@@ -706,7 +710,7 @@ export default function HomeScreen() {
                       key={site.name}
                       style={[styles.masonryStacked, shadow.md, { height: (260 - MASONRY_GAP) / 2 }]}
                       activeOpacity={0.9}
-                      onPress={() => handleDestinationPress(site.name)}
+                      onPress={() => handleDestinationPress(site.name, { image: site.image, desc: site.desc })}
                     >
                       <Image source={{ uri: site.image }} style={styles.masonryImage} />
                       <LinearGradient colors={['transparent', 'rgba(0,0,0,0.8)']} style={styles.masonryOverlay}>
@@ -795,7 +799,7 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[styles.topHeroCard, shadow.md]}
               activeOpacity={0.9}
-              onPress={() => handleDestinationPress(TOP_INDIA[0].name)}
+              onPress={() => handleDestinationPress(TOP_INDIA[0].name, { image: TOP_INDIA[0].image, desc: TOP_INDIA[0].desc })}
             >
               <Image source={{ uri: TOP_INDIA[0].image }} style={styles.topHeroImage} />
               <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.topHeroOverlay}>
@@ -815,7 +819,7 @@ export default function HomeScreen() {
                 key={dest.name}
                 style={[styles.topGridCard, shadow.sm, { width: CARD_W }]}
                 activeOpacity={0.9}
-                onPress={() => handleDestinationPress(dest.name)}
+                onPress={() => handleDestinationPress(dest.name, { image: dest.image, desc: dest.desc })}
               >
                 <Image source={{ uri: dest.image }} style={styles.topGridImage} />
                 <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.topGridOverlay}>
@@ -864,7 +868,7 @@ export default function HomeScreen() {
                 key={trek.name}
                 style={[styles.trekkingCard, shadow.md]}
                 activeOpacity={0.9}
-                onPress={() => handleDestinationPress(trek.name)}
+                onPress={() => handleDestinationPress(trek.name, { image: trek.image })}
               >
                 <Image source={{ uri: trek.image }} style={styles.trekkingImage} />
                 <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.trekkingOverlay}>
@@ -1069,7 +1073,7 @@ export default function HomeScreen() {
                 key={dest.name}
                 style={[styles.regionCard, shadow.md, { width: CARD_W }]}
                 activeOpacity={0.9}
-                onPress={() => handleDestinationPress(dest.name)}
+                onPress={() => handleDestinationPress(dest.name, { image: dest.image })}
               >
                 <Image source={{ uri: dest.image }} style={styles.regionCardImage} />
                 <LinearGradient colors={['transparent', 'rgba(0,0,0,0.7)']} style={styles.regionCardOverlay}>

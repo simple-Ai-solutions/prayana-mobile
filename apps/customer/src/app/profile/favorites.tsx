@@ -68,14 +68,17 @@ export default function FavoritesScreen() {
     setFavorites((prev) => prev.filter((f) => f.id !== id));
   };
 
-  const handlePress = (name: string) => {
-    router.push(`/destination/${encodeURIComponent(name)}` as any);
+  const handlePress = (name: string, image?: string) => {
+    const params = new URLSearchParams();
+    if (image) params.set('previewImage', image);
+    const qs = params.toString();
+    router.push(`/destination/${encodeURIComponent(name)}${qs ? '?' + qs : ''}` as any);
   };
 
   const renderItem = ({ item }: { item: typeof SAMPLE_FAVORITES[0] }) => (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: themeColors.card }, shadow.sm]}
-      onPress={() => handlePress(item.name)}
+      onPress={() => handlePress(item.name, item.image)}
       activeOpacity={0.85}
     >
       {/* Image */}

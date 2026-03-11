@@ -186,7 +186,9 @@ class SocketService {
       return;
     }
 
-    this.socket.emit("chat-message", { tripId, message });
+    // Server expects message as an object with a `message` field so it can spread it
+    const messageObj = typeof message === 'string' ? { message } : message;
+    this.socket.emit("chat-message", { tripId, message: messageObj });
     console.log(`[Socket] Sent chat message`);
   }
 
