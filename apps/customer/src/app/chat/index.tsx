@@ -29,7 +29,7 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
-import { makeChatAPICall, makeItineraryAPICall } from '@prayana/shared-services';
+import { makeChatAPICall, makeItineraryAPICall, socketService, auth } from '@prayana/shared-services';
 import Toast from 'react-native-toast-message';
 
 // ============================================================
@@ -792,11 +792,99 @@ export default function ChatScreen() {
   const [isConnected, setIsConnected] = useState(false);
   const [isGeneratingTrip, setIsGeneratingTrip] = useState(false);
 
+  // ── Human-handoff state (mirrors ChatSession.mode on the server) ───────
+  const [handoffMode, setHandoffMode] = useState<'ai' | 'queued' | 'human' | 'resolved'>('ai');
+  const [assignedAgent, setAssignedAgent] = useState<{ id: string; name: string } | null>(null);
+  const [agentTyping, setAgentTyping] = useState(false);
+  const [isEscalating, setIsEscalating] = useState(false);
+  // Tracks the active session id reactively (sessionIdRef alone doesn't trigger
+  // the handoff socket effect to re-run when the session is created).
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
   const sessionIdRef = useRef<string | null>(null);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
 
   const isWelcomeScreen = messages.length === 0;
+
+  // Open the /customer-chat socket whenever there's a session. The agent's
+  // claim event flips handoffMode and pushes their replies into the message
+  // list; meanwhile the existing /chat/send REST flow keeps working untouched.
+  useEffect(() => {
+    if (!activeSessionId) return undefined;
+    let cancelled = false;
+    let cleanup: (() => void) | null = null;
+
+    (async () => {
+      let token: string | null = null;
+      try {
+        token = (await auth.currentUser?.getIdToken()) || null;
+      } catch {
+        token = null;
+      }
+      if (cancelled) return;
+
+      cleanup = socketService.connectCustomerChat(token, activeSessionId, {
+        onModeChanged: (payload: any) => {
+          if (cancelled) return;
+          setHandoffMode((payload?.mode as any) || 'ai');
+          if (payload?.assignedAgent) setAssignedAgent(payload.assignedAgent);
+          if (payload?.mode !== 'human') setAgentTyping(false);
+        },
+        onAgentMessage: (payload: any) => {
+          if (cancelled) return;
+          const msg: ChatMessage = {
+            id: payload.messageId || `agent-${Date.now()}`,
+            role: 'assistant',
+            type: 'text',
+            content: payload.content,
+            timestamp: new Date(payload.timestamp || Date.now()),
+          };
+          // FlatList is `inverted` — newest items go to the front.
+          setMessages((prev) => [msg, ...prev]);
+          setAgentTyping(false);
+        },
+        onAgentTyping: (payload: any) => {
+          if (cancelled) return;
+          setAgentTyping(!!payload?.isTyping);
+        },
+        onAgentsAllBusy: () => {
+          if (cancelled) return;
+          Toast.show({
+            type: 'info',
+            text1: 'All agents are busy',
+            text2: "We've notified the team. Keep typing — they'll reply via push.",
+            visibilityTime: 6000,
+          });
+        },
+      });
+    })();
+
+    return () => {
+      cancelled = true;
+      try {
+        cleanup && cleanup();
+      } catch {}
+    };
+  }, [activeSessionId]);
+
+  const escalateToHuman = useCallback(async () => {
+    const sid = sessionIdRef.current;
+    if (!sid || isEscalating) return;
+    setIsEscalating(true);
+    try {
+      await makeChatAPICall('/chat/escalate', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: sid, reason: 'explicit' }),
+        timeout: 15000,
+      });
+      setHandoffMode('queued');
+    } catch {
+      Toast.show({ type: 'error', text1: 'Could not connect to support', text2: 'Try again in a moment.' });
+    } finally {
+      setIsEscalating(false);
+    }
+  }, [isEscalating]);
 
   // Start session on mount
   useEffect(() => {
@@ -808,7 +896,7 @@ export default function ChatScreen() {
           timeout: 15000,
         });
         const sid = res?.data?.sessionId;
-        if (sid) { sessionIdRef.current = sid; setIsConnected(true); }
+        if (sid) { sessionIdRef.current = sid; setActiveSessionId(sid); setIsConnected(true); }
       } catch { /* offline */ }
     })();
   }, []);
@@ -825,6 +913,7 @@ export default function ChatScreen() {
     const sid = res?.data?.sessionId;
     if (!sid) throw new Error('Could not start session');
     sessionIdRef.current = sid;
+    setActiveSessionId(sid);
     setIsConnected(true);
   };
 
@@ -1048,6 +1137,34 @@ export default function ChatScreen() {
           />
         )}
 
+        {/* HANDOFF BANNER — shown whenever a human is in the loop */}
+        {(handoffMode === 'queued' || handoffMode === 'human' || handoffMode === 'resolved') && (
+          <View
+            style={[
+              styles.handoffBanner,
+              handoffMode === 'human'
+                ? { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', borderColor: isDarkMode ? '#065f46' : '#a7f3d0' }
+                : handoffMode === 'queued'
+                  ? { backgroundColor: isDarkMode ? '#451a03' : '#fffbeb', borderColor: isDarkMode ? '#78350f' : '#fde68a' }
+                  : { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: isDarkMode ? '#334155' : '#cbd5e1' },
+            ]}
+            accessibilityLiveRegion="polite"
+          >
+            <Ionicons
+              name="headset-outline"
+              size={16}
+              color={handoffMode === 'human' ? '#10b981' : handoffMode === 'queued' ? '#f59e0b' : '#64748b'}
+            />
+            <Text style={[styles.handoffBannerText, { color: isDarkMode ? '#f1f5f9' : '#0f172a' }]}>
+              {handoffMode === 'human'
+                ? `Connected to ${assignedAgent?.name || 'support'}${agentTyping ? ' — typing…' : ''}`
+                : handoffMode === 'queued'
+                  ? 'Waiting for the next available agent…'
+                  : 'This conversation has been resolved.'}
+            </Text>
+          </View>
+        )}
+
         {/* INPUT BAR */}
         <View style={[styles.inputBar, { backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', borderTopColor: isDarkMode ? '#1e293b' : '#e2e8f0' }]}>
           {charNearLimit && (
@@ -1056,6 +1173,18 @@ export default function ChatScreen() {
             </Text>
           )}
           <View style={styles.inputRow}>
+            {/* Talk-to-a-human icon: only visible while still talking to the AI */}
+            {handoffMode === 'ai' && (
+              <TouchableOpacity
+                style={styles.inputIconBtn}
+                activeOpacity={0.7}
+                onPress={escalateToHuman}
+                disabled={isEscalating}
+                accessibilityLabel="Talk to a human"
+              >
+                <Ionicons name="headset-outline" size={20} color={isEscalating ? '#94a3b8' : '#f97316'} />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.inputIconBtn} activeOpacity={0.7} onPress={showTripPlannerForm}>
               <Ionicons name="map-outline" size={20} color="#2EC4B6" />
             </TouchableOpacity>
@@ -1236,6 +1365,15 @@ const styles = StyleSheet.create({
   itineraryFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm, borderTopWidth: 1 },
 
   // Input bar
+  handoffBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderTopWidth: 1,
+  },
+  handoffBannerText: { fontSize: 13, fontWeight: fontWeight.medium, flex: 1 },
   inputBar: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.md, borderTopWidth: 1 },
   charCount: { fontSize: 10, textAlign: 'right', marginBottom: spacing.xs, fontWeight: fontWeight.medium },
   inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.xs },
