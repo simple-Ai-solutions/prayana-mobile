@@ -301,6 +301,99 @@ class SocketService {
       hasSocket: !!this.socket,
     };
   }
+
+  // ───── Human-handoff helpers ─────
+  // These do NOT share state with the trip socket — each call returns a fresh
+  // socket and a cleanup fn. Caller owns the lifecycle. Keeps namespaces
+  // independent so a flaky trip socket can't kill the agent inbox.
+
+  /**
+   * Connect a support-agent client to the /support-agents namespace.
+   * Used by apps/support-agent.
+   *
+   * @param {string} firebaseToken
+   * @param {Object} handlers - { onPendingHandoffs, onNewHandoff, onClaimedByOther,
+   *                              onClaimSucceeded, onClaimFailed, onCustomerMessage,
+   *                              onCustomerDisconnected }
+   * @returns {{ socket, disconnect }}
+   */
+  connectAgentNamespace(firebaseToken, handlers = {}) {
+    const apiUrl = API_CONFIG.BASE_URL;
+    const SOCKET_URL = apiUrl.replace(/\/api$/, "");
+
+    const sock = io(`${SOCKET_URL}/support-agents`, {
+      auth: { token: firebaseToken },
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
+
+    if (handlers.onPendingHandoffs) sock.on("pending-handoffs", handlers.onPendingHandoffs);
+    if (handlers.onNewHandoff) sock.on("new-handoff-request", handlers.onNewHandoff);
+    if (handlers.onClaimedByOther) sock.on("handoff-claimed-by-other", handlers.onClaimedByOther);
+    if (handlers.onClaimSucceeded) sock.on("claim-succeeded", handlers.onClaimSucceeded);
+    if (handlers.onClaimFailed) sock.on("claim-failed", handlers.onClaimFailed);
+    if (handlers.onCustomerMessage) sock.on("customer-message", handlers.onCustomerMessage);
+    if (handlers.onCustomerDisconnected) sock.on("customer-disconnected", handlers.onCustomerDisconnected);
+    if (handlers.onError) sock.on("error", handlers.onError);
+
+    return {
+      socket: sock,
+      claim: (sessionId) => sock.emit("claim-conversation", { sessionId }),
+      send: (sessionId, content) => sock.emit("agent-message", { sessionId, content }),
+      typing: (sessionId, isTyping) => sock.emit("agent-typing", { sessionId, isTyping }),
+      release: (sessionId) => sock.emit("release-conversation", { sessionId }),
+      resolve: (sessionId) => sock.emit("resolve-conversation", { sessionId }),
+      handBackToAI: (sessionId) => sock.emit("hand-back-to-ai", { sessionId }),
+      heartbeat: () => sock.emit("heartbeat"),
+      disconnect: () => {
+        try {
+          sock.removeAllListeners();
+          sock.disconnect();
+        } catch {}
+      },
+    };
+  }
+
+  /**
+   * Connect a customer client to the /customer-chat namespace.
+   * Used by apps/customer.
+   *
+   * @param {string|null} firebaseToken
+   * @param {string} sessionId
+   * @param {Object} handlers
+   * @returns {Function} disconnect
+   */
+  connectCustomerChat(firebaseToken, sessionId, handlers = {}) {
+    const apiUrl = API_CONFIG.BASE_URL;
+    const SOCKET_URL = apiUrl.replace(/\/api$/, "");
+
+    const sock = io(`${SOCKET_URL}/customer-chat`, {
+      auth: firebaseToken ? { token: firebaseToken } : {},
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+    });
+
+    sock.on("connect", () => {
+      sock.emit("join-chat", { sessionId });
+    });
+
+    if (handlers.onModeChanged) sock.on("mode-changed", handlers.onModeChanged);
+    if (handlers.onAgentMessage) sock.on("agent-message", handlers.onAgentMessage);
+    if (handlers.onAgentTyping) sock.on("agent-typing", handlers.onAgentTyping);
+    if (handlers.onAgentsAllBusy) sock.on("agents-all-busy", handlers.onAgentsAllBusy);
+
+    return () => {
+      try {
+        sock.emit("leave-chat", { sessionId });
+        sock.removeAllListeners();
+        sock.disconnect();
+      } catch {}
+    };
+  }
 }
 
 // Export singleton instance
