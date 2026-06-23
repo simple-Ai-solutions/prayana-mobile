@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
+import { ThemeProvider, useTheme } from "@prayana/shared-ui";
 
 import LoginScreen from "./src/screens/LoginScreen";
 import InboxScreen from "./src/screens/InboxScreen";
@@ -17,7 +18,9 @@ export type RootStackParamList = {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export default function App() {
+// Inner component so we can read themeColors from inside the ThemeProvider.
+function AppNavigator() {
+  const { isDarkMode, themeColors } = useTheme();
   const isAuthenticated = useAgentStore((s) => s.isAuthenticated);
   const restoreOnlinePreference = useAgentStore((s) => s.restoreOnlinePreference);
 
@@ -31,14 +34,15 @@ export default function App() {
   }, [isAuthenticated, restoreOnlinePreference]);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
+    <>
+      <StatusBar style={isDarkMode ? "light" : "dark"} />
       <NavigationContainer>
         <Stack.Navigator
+          id={undefined}
           screenOptions={{
-            headerStyle: { backgroundColor: "#0f172a" },
-            headerTintColor: "#f1f5f9",
-            headerTitleStyle: { fontWeight: "600" },
+            headerStyle: { backgroundColor: themeColors.surface },
+            headerTintColor: themeColors.text,
+            headerTitleStyle: { fontWeight: "600" as const },
           }}
         >
           {!isAuthenticated ? (
@@ -51,6 +55,16 @@ export default function App() {
           )}
         </Stack.Navigator>
       </NavigationContainer>
-    </SafeAreaProvider>
+    </>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <AppNavigator />
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
