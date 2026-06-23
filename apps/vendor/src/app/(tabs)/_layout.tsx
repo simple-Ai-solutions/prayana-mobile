@@ -1,6 +1,6 @@
 import { Tabs } from 'expo-router';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
-import { colors } from '@prayana/shared-ui';
+import { colors, useTheme } from '@prayana/shared-ui';
 
 function DashboardIcon({ color, size }: { color: string; size: number }) {
   return (
@@ -52,15 +52,16 @@ function MoreIcon({ color, size }: { color: string; size: number }) {
 }
 
 export default function TabLayout() {
+  const { themeColors } = useTheme();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary[500],
-        tabBarInactiveTintColor: colors.gray[400],
+        tabBarInactiveTintColor: themeColors.textTertiary,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
+          backgroundColor: themeColors.tabBar,
+          borderTopColor: themeColors.tabBarBorder,
           borderTopWidth: 1,
           height: 85,
           paddingBottom: 30,
