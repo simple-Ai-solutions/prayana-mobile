@@ -15,6 +15,7 @@ import {
   fontWeight,
   spacing,
   borderRadius,
+  useTheme,
 } from '@prayana/shared-ui';
 import Toast from 'react-native-toast-message';
 
@@ -62,6 +63,7 @@ const FAQ_ITEMS: FAQItem[] = [
 // ============================================================
 function FAQAccordion({ item }: { item: FAQItem }) {
   const [expanded, setExpanded] = React.useState(false);
+  const { themeColors } = useTheme();
 
   return (
     <TouchableOpacity
@@ -70,14 +72,14 @@ function FAQAccordion({ item }: { item: FAQItem }) {
       activeOpacity={0.7}
     >
       <View style={styles.faqHeader}>
-        <Text style={styles.faqQuestion}>{item.question}</Text>
+        <Text style={[styles.faqQuestion, { color: themeColors.text }]}>{item.question}</Text>
         <Ionicons
           name={expanded ? 'chevron-up' : 'chevron-down'}
           size={18}
-          color={colors.textSecondary}
+          color={themeColors.textSecondary}
         />
       </View>
-      {expanded && <Text style={styles.faqAnswer}>{item.answer}</Text>}
+      {expanded && <Text style={[styles.faqAnswer, { color: themeColors.textSecondary }]}>{item.answer}</Text>}
     </TouchableOpacity>
   );
 }
@@ -86,6 +88,7 @@ function FAQAccordion({ item }: { item: FAQItem }) {
 // HELP CENTER SCREEN
 // ============================================================
 export default function HelpScreen() {
+  const { themeColors } = useTheme();
   const handleContactSupport = useCallback(async () => {
     try {
       await Linking.openURL('mailto:support@prayana.ai?subject=Help%20Request');
@@ -100,18 +103,18 @@ export default function HelpScreen() {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: themeColors.background }]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
       {/* ====== FAQ SECTION ====== */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Frequently Asked Questions</Text>
-        <Card style={styles.faqCard}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Frequently Asked Questions</Text>
+        <Card style={[styles.faqCard, { backgroundColor: themeColors.card }]}>
           {FAQ_ITEMS.map((item, index) => (
             <View key={index}>
               <FAQAccordion item={item} />
-              {index < FAQ_ITEMS.length - 1 && <View style={styles.faqDivider} />}
+              {index < FAQ_ITEMS.length - 1 && <View style={[styles.faqDivider, { backgroundColor: themeColors.border }]} />}
             </View>
           ))}
         </Card>
@@ -119,8 +122,8 @@ export default function HelpScreen() {
 
       {/* ====== CONTACT SECTION ====== */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Need More Help?</Text>
-        <Card style={styles.contactCard}>
+        <Text style={[styles.sectionTitle, { color: themeColors.textSecondary }]}>Need More Help?</Text>
+        <Card style={[styles.contactCard, { backgroundColor: themeColors.card }]}>
           <TouchableOpacity
             style={styles.contactItem}
             onPress={handleContactSupport}
@@ -130,10 +133,10 @@ export default function HelpScreen() {
               <Ionicons name="mail-outline" size={22} color={colors.primary[500]} />
             </View>
             <View style={styles.contactText}>
-              <Text style={styles.contactLabel}>Email Support</Text>
-              <Text style={styles.contactValue}>support@prayana.ai</Text>
+              <Text style={[styles.contactLabel, { color: themeColors.text }]}>Email Support</Text>
+              <Text style={[styles.contactValue, { color: themeColors.textSecondary }]}>support@prayana.ai</Text>
             </View>
-            <Ionicons name="open-outline" size={18} color={colors.textTertiary} />
+            <Ionicons name="open-outline" size={18} color={themeColors.textTertiary} />
           </TouchableOpacity>
         </Card>
       </View>

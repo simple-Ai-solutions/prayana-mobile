@@ -30,8 +30,10 @@ import {
   StarRating,
   LoadingSpinner,
   ErrorView,
+  useTheme,
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
+import { useRequireAuth } from '../../lib/useRequireAuth';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 280;
@@ -91,6 +93,7 @@ function ImageGallery({
   images: string[];
   onOpenFullscreen: (index: number) => void;
 }) {
+  const { themeColors } = useTheme();
   const [activeIndex, setActiveIndex] = useState(0);
   const scrollRef = useRef<FlatList>(null);
 
@@ -107,9 +110,9 @@ function ImageGallery({
 
   if (images.length === 0) {
     return (
-      <View style={[galleryStyles.placeholder, { height: HERO_HEIGHT }]}>
+      <View style={[galleryStyles.placeholder, { height: HERO_HEIGHT, backgroundColor: themeColors.surface }]}>
         <Ionicons name="image-outline" size={48} color={colors.gray[300]} />
-        <Text style={galleryStyles.placeholderText}>No images available</Text>
+        <Text style={[galleryStyles.placeholderText, { color: themeColors.textTertiary }]}>No images available</Text>
       </View>
     );
   }
@@ -281,8 +284,9 @@ const fullscreenStyles = StyleSheet.create({
 
 /** Single review card */
 function ReviewCard({ review }: { review: any }) {
+  const { themeColors } = useTheme();
   return (
-    <View style={reviewStyles.card}>
+    <View style={[reviewStyles.card, { backgroundColor: themeColors.surface }]}>
       <View style={reviewStyles.header}>
         <View style={reviewStyles.avatar}>
           <Text style={reviewStyles.avatarText}>
@@ -290,12 +294,12 @@ function ReviewCard({ review }: { review: any }) {
           </Text>
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={reviewStyles.name}>{review.customerName || 'Anonymous'}</Text>
-          <Text style={reviewStyles.date}>{formatDate(review.createdAt)}</Text>
+          <Text style={[reviewStyles.name, { color: themeColors.text }]}>{review.customerName || 'Anonymous'}</Text>
+          <Text style={[reviewStyles.date, { color: themeColors.textTertiary }]}>{formatDate(review.createdAt)}</Text>
         </View>
         <StarRating rating={review.rating} size={14} />
       </View>
-      {review.comment ? <Text style={reviewStyles.comment}>{review.comment}</Text> : null}
+      {review.comment ? <Text style={[reviewStyles.comment, { color: themeColors.textSecondary }]}>{review.comment}</Text> : null}
     </View>
   );
 }
@@ -356,9 +360,10 @@ function Section({
   children: React.ReactNode;
   id?: string;
 }) {
+  const { themeColors } = useTheme();
   return (
-    <View style={sectionStyles.container}>
-      <Text style={sectionStyles.title}>{title}</Text>
+    <View style={[sectionStyles.container, { borderBottomColor: themeColors.border }]}>
+      <Text style={[sectionStyles.title, { color: themeColors.text }]}>{title}</Text>
       {children}
     </View>
   );
@@ -384,6 +389,7 @@ const sectionStyles = StyleSheet.create({
 // ---------------------------------------------------------------------------
 
 export default function ActivityDetailScreen() {
+  const { themeColors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
@@ -470,9 +476,12 @@ export default function ActivityDetailScreen() {
     setFullscreenVisible(true);
   };
 
+  const requireAuth = useRequireAuth();
   const handleBookNow = () => {
     if (!activity) return;
-    router.push(`/activity/book/${activity._id}`);
+    const target = `/activity/book/${activity._id}`;
+    if (!requireAuth({ reason: 'Sign in to book this activity. Your booking and payment receipt will be saved to your account.', redirectAfter: target })) return;
+    router.push(target);
   };
 
   // ---------------------------------------------------------------------------
@@ -481,7 +490,7 @@ export default function ActivityDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: themeColors.background }]} edges={['top']}>
         <LoadingSpinner fullScreen message="Loading activity..." />
       </SafeAreaView>
     );
@@ -489,7 +498,7 @@ export default function ActivityDetailScreen() {
 
   if (error || !activity) {
     return (
-      <SafeAreaView style={styles.loadingContainer} edges={['top']}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: themeColors.background }]} edges={['top']}>
         <ErrorView
           fullScreen
           title="Could not load activity"
@@ -539,12 +548,14 @@ export default function ActivityDetailScreen() {
   // ---------------------------------------------------------------------------
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { backgroundColor: themeColors.background }]}>
       {/* Animated header background */}
       <Animated.View
         style={[
           styles.animatedHeader,
           {
+            backgroundColor: themeColors.background,
+            borderBottomColor: themeColors.border,
             opacity: headerOpacity,
             paddingTop: Platform.OS === 'ios'
               ? (RNStatusBar.currentHeight || 44) + 4
@@ -552,7 +563,7 @@ export default function ActivityDetailScreen() {
           },
         ]}
       >
-        <Text style={styles.animatedHeaderTitle} numberOfLines={1}>
+        <Text style={[styles.animatedHeaderTitle, { color: themeColors.text }]} numberOfLines={1}>
           {activity.title}
         </Text>
       </Animated.View>
@@ -582,14 +593,14 @@ export default function ActivityDetailScreen() {
         <ImageGallery images={images} onOpenFullscreen={handleOpenFullscreen} />
 
         {/* Info section */}
-        <View style={styles.infoSection}>
-          <Text style={styles.title}>{activity.title}</Text>
+        <View style={[styles.infoSection, { borderBottomColor: themeColors.border }]}>
+          <Text style={[styles.title, { color: themeColors.text }]}>{activity.title}</Text>
 
           {/* Location */}
           {(activity.location?.city || activity.city) && (
             <View style={styles.inlineRow}>
-              <Ionicons name="location-outline" size={16} color={colors.textSecondary} />
-              <Text style={styles.locationText}>
+              <Ionicons name="location-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.locationText, { color: themeColors.textSecondary }]}>
                 {activity.location?.city || activity.city}
                 {(activity.location?.state || activity.state)
                   ? `, ${activity.location?.state || activity.state}`
@@ -605,7 +616,7 @@ export default function ActivityDetailScreen() {
             activeOpacity={0.7}
           >
             <StarRating rating={Math.round(avgRating)} size={16} />
-            <Text style={styles.ratingText}>
+            <Text style={[styles.ratingText, { color: themeColors.textSecondary }]}>
               {avgRating.toFixed(1)} ({totalReviews} review{totalReviews !== 1 ? 's' : ''})
             </Text>
           </TouchableOpacity>
@@ -623,16 +634,16 @@ export default function ActivityDetailScreen() {
 
           {/* Price */}
           <View style={styles.priceRow}>
-            <Text style={styles.priceLabel}>From </Text>
+            <Text style={[styles.priceLabel, { color: themeColors.textSecondary }]}>From </Text>
             <Text style={styles.priceValue}>{formatCurrency(basePrice)}</Text>
-            <Text style={styles.priceUnit}> per person</Text>
+            <Text style={[styles.priceUnit, { color: themeColors.textSecondary }]}> per person</Text>
           </View>
         </View>
 
         {/* Description */}
         <Section title="About">
           <Text
-            style={styles.descText}
+            style={[styles.descText, { color: themeColors.textSecondary }]}
             numberOfLines={descExpanded ? undefined : DESCRIPTION_PREVIEW_LINES}
           >
             {activity.description || 'No description available.'}
@@ -657,7 +668,7 @@ export default function ActivityDetailScreen() {
                   color={colors.success}
                   style={{ marginRight: spacing.sm }}
                 />
-                <Text style={styles.highlightText}>{item}</Text>
+                <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
               </View>
             ))}
           </Section>
@@ -669,23 +680,23 @@ export default function ActivityDetailScreen() {
             {safetyInfo.minimumAge && (
               <View style={styles.highlightRow}>
                 <Ionicons name="person-outline" size={18} color={colors.primary[500]} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.highlightText}>Minimum age: {safetyInfo.minimumAge} years</Text>
+                <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>Minimum age: {safetyInfo.minimumAge} years</Text>
               </View>
             )}
             {safetyInfo.fitnessLevel && (
               <View style={styles.highlightRow}>
                 <Ionicons name="fitness-outline" size={18} color={colors.primary[500]} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.highlightText}>Fitness level: {safetyInfo.fitnessLevel}</Text>
+                <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>Fitness level: {safetyInfo.fitnessLevel}</Text>
               </View>
             )}
             {safetyInfo.whatToBring && Array.isArray(safetyInfo.whatToBring) && safetyInfo.whatToBring.map((item: string, idx: number) => (
               <View key={idx} style={styles.highlightRow}>
                 <Ionicons name="bag-outline" size={18} color={colors.primary[500]} style={{ marginRight: spacing.sm }} />
-                <Text style={styles.highlightText}>{item}</Text>
+                <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
               </View>
             ))}
             {typeof safetyInfo === 'string' && (
-              <Text style={styles.highlightText}>{safetyInfo}</Text>
+              <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{safetyInfo}</Text>
             )}
           </Section>
         )}
@@ -703,7 +714,7 @@ export default function ActivityDetailScreen() {
                 <Text style={styles.avgRatingNumber}>{avgRating.toFixed(1)}</Text>
                 <View style={{ marginLeft: spacing.md }}>
                   <StarRating rating={Math.round(avgRating)} size={20} />
-                  <Text style={styles.avgRatingSubtext}>
+                  <Text style={[styles.avgRatingSubtext, { color: themeColors.textSecondary }]}>
                     Based on {totalReviews} review{totalReviews !== 1 ? 's' : ''}
                   </Text>
                 </View>
@@ -718,13 +729,7 @@ export default function ActivityDetailScreen() {
                 {totalReviews > 3 && (
                   <Button
                     title={`View All ${totalReviews} Reviews`}
-                    onPress={() => {
-                      Toast.show({
-                        type: 'info',
-                        text1: 'All Reviews',
-                        text2: 'Full reviews screen coming soon.',
-                      });
-                    }}
+                    onPress={() => router.push(`/activity/reviews/${id}`)}
                     variant="outline"
                     size="md"
                     fullWidth
@@ -732,7 +737,7 @@ export default function ActivityDetailScreen() {
                 )}
               </>
             ) : (
-              <Text style={styles.emptyReviews}>No reviews yet. Be the first to review!</Text>
+              <Text style={[styles.emptyReviews, { color: themeColors.textTertiary }]}>No reviews yet. Be the first to review!</Text>
             )}
           </Section>
         </View>
@@ -742,8 +747,8 @@ export default function ActivityDetailScreen() {
           <View style={styles.cancellationContainer}>
             <View style={[styles.cancellationDot, { backgroundColor: cancellation.color }]} />
             <View style={{ flex: 1 }}>
-              <Text style={styles.cancellationLabel}>{cancellation.label}</Text>
-              <Text style={styles.cancellationDesc}>{cancellation.desc}</Text>
+              <Text style={[styles.cancellationLabel, { color: themeColors.text }]}>{cancellation.label}</Text>
+              <Text style={[styles.cancellationDesc, { color: themeColors.textSecondary }]}>{cancellation.desc}</Text>
             </View>
           </View>
         </Section>
@@ -759,7 +764,7 @@ export default function ActivityDetailScreen() {
                   color={colors.primary[500]}
                   style={{ marginRight: spacing.sm }}
                 />
-                <Text style={styles.highlightText}>{activity.location.address}</Text>
+                <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{activity.location.address}</Text>
               </View>
             )}
             {meetingPoint && (
@@ -770,7 +775,7 @@ export default function ActivityDetailScreen() {
                   color={colors.primary[500]}
                   style={{ marginRight: spacing.sm }}
                 />
-                <Text style={styles.highlightText}>
+                <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>
                   Meeting point: {typeof meetingPoint === 'string' ? meetingPoint : meetingPoint.description || meetingPoint.address || ''}
                 </Text>
               </View>
@@ -780,12 +785,12 @@ export default function ActivityDetailScreen() {
       </Animated.ScrollView>
 
       {/* Sticky bottom bar */}
-      <SafeAreaView edges={['bottom']} style={styles.bottomBarSafe}>
+      <SafeAreaView edges={['bottom']} style={[styles.bottomBarSafe, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
         <View style={styles.bottomBar}>
           <View>
-            <Text style={styles.bottomPriceLabel}>From</Text>
-            <Text style={styles.bottomPrice}>{formatCurrency(basePrice)}</Text>
-            <Text style={styles.bottomPriceUnit}>per person</Text>
+            <Text style={[styles.bottomPriceLabel, { color: themeColors.textTertiary }]}>From</Text>
+            <Text style={[styles.bottomPrice, { color: themeColors.text }]}>{formatCurrency(basePrice)}</Text>
+            <Text style={[styles.bottomPriceUnit, { color: themeColors.textTertiary }]}>per person</Text>
           </View>
           <Button title="Book Now" onPress={handleBookNow} size="lg" />
         </View>

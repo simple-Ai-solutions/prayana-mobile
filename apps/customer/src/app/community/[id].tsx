@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fontSize, fontWeight, spacing, borderRadius } from "@prayana/shared-ui";
+import { colors, fontSize, fontWeight, spacing, borderRadius, useTheme } from "@prayana/shared-ui";
 import { communityAPI } from "@prayana/shared-services";
 
 const URL_PATTERN = /^https?:\/\/[^\s<>")]+$/;
@@ -40,7 +40,7 @@ function RichText({ text, style }: { text: string; style?: any }) {
         URL_PATTERN.test(p) ? (
           <Text
             key={i}
-            style={{ color: colors.brand[600], textDecorationLine: "underline" }}
+            style={{ color: colors.primary[600], textDecorationLine: "underline" }}
             onPress={() => Linking.openURL(p)}
           >
             {p}
@@ -56,6 +56,7 @@ function RichText({ text, style }: { text: string; style?: any }) {
 export default function QuestionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { themeColors } = useTheme();
   const [question, setQuestion] = useState<any>(null);
   const [answers, setAnswers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,9 +127,9 @@ export default function QuestionDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.center}>
-          <ActivityIndicator color={colors.brand[500]} />
+          <ActivityIndicator color={colors.primary[500]} />
         </View>
       </SafeAreaView>
     );
@@ -136,11 +137,11 @@ export default function QuestionDetailScreen() {
 
   if (!question) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.center}>
-          <Text style={{ color: colors.gray[600] }}>Question not found.</Text>
+          <Text style={{ color: themeColors.textSecondary }}>Question not found.</Text>
           <TouchableOpacity onPress={() => router.back()}>
-            <Text style={{ color: colors.brand[600], marginTop: 8 }}>Go back</Text>
+            <Text style={{ color: colors.primary[600], marginTop: 8 }}>Go back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -150,12 +151,12 @@ export default function QuestionDetailScreen() {
   const ctx = question.tripContext || {};
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={colors.gray[700]} />
+          <Ionicons name="arrow-back" size={20} color={themeColors.textSecondary} />
         </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>
+        <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={1}>
           {question.category}
         </Text>
         <View style={{ width: 36 }} />
@@ -164,10 +165,10 @@ export default function QuestionDetailScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand[500]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
         }
       >
-        <View style={styles.questionCard}>
+        <View style={[styles.questionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
             <Text style={styles.cardCategory}>{question.category.toUpperCase()}</Text>
             {question.isResolved && (
@@ -181,9 +182,9 @@ export default function QuestionDetailScreen() {
               </View>
             )}
           </View>
-          <Text style={styles.questionTitle}>{question.title}</Text>
+          <Text style={[styles.questionTitle, { color: themeColors.text }]}>{question.title}</Text>
           {question.description ? (
-            <RichText text={question.description} style={styles.questionDesc} />
+            <RichText text={question.description} style={[styles.questionDesc, { color: themeColors.textSecondary }]} />
           ) : null}
 
           {(question.images?.length ?? 0) > 0 && (
@@ -204,7 +205,7 @@ export default function QuestionDetailScreen() {
                 )
               }
             >
-              <Ionicons name="compass-outline" size={18} color={colors.brand[600]} />
+              <Ionicons name="compass-outline" size={18} color={colors.primary[600]} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.ctaTitle}>Plan a trip to {ctx.destination}</Text>
                 <Text style={styles.ctaSub}>AI builds a day-by-day itinerary →</Text>
@@ -213,34 +214,34 @@ export default function QuestionDetailScreen() {
           )}
 
           <View style={styles.actionRow}>
-            <TouchableOpacity onPress={upvoteQuestion} style={styles.actionPill}>
-              <Ionicons name="arrow-up" size={14} color={colors.gray[700]} />
-              <Text style={styles.actionPillText}>{question.upvotes || 0}</Text>
+            <TouchableOpacity onPress={upvoteQuestion} style={[styles.actionPill, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+              <Ionicons name="arrow-up" size={14} color={themeColors.textSecondary} />
+              <Text style={[styles.actionPillText, { color: themeColors.textSecondary }]}>{question.upvotes || 0}</Text>
             </TouchableOpacity>
-            <View style={styles.actionPill}>
-              <Ionicons name="chatbubble-outline" size={14} color={colors.gray[500]} />
-              <Text style={styles.actionPillText}>{question.answerCount || 0}</Text>
+            <View style={[styles.actionPill, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+              <Ionicons name="chatbubble-outline" size={14} color={themeColors.textTertiary} />
+              <Text style={[styles.actionPillText, { color: themeColors.textSecondary }]}>{question.answerCount || 0}</Text>
             </View>
-            <Text style={styles.metaRight}>by {question.userName} · {timeAgo(question.createdAt)}</Text>
+            <Text style={[styles.metaRight, { color: themeColors.textTertiary }]}>by {question.userName} · {timeAgo(question.createdAt)}</Text>
           </View>
         </View>
 
-        <Text style={styles.sectionHeader}>
+        <Text style={[styles.sectionHeader, { color: themeColors.text }]}>
           {answers.length} Answer{answers.length === 1 ? "" : "s"}
         </Text>
 
         {answers.map((a) => (
           <View
             key={a._id}
-            style={[styles.answerCard, a.isAccepted && styles.answerAccepted]}
+            style={[styles.answerCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }, a.isAccepted && styles.answerAccepted]}
           >
             <View style={styles.answerHead}>
               <View style={styles.avatarCircle}>
                 <Text style={styles.avatarText}>{(a.displayName || "?")[0].toUpperCase()}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.answerAuthor}>{a.displayName}</Text>
-                <Text style={styles.answerMeta}>{timeAgo(a.createdAt)}</Text>
+                <Text style={[styles.answerAuthor, { color: themeColors.text }]}>{a.displayName}</Text>
+                <Text style={[styles.answerMeta, { color: themeColors.textTertiary }]}>{timeAgo(a.createdAt)}</Text>
               </View>
               <View style={{ flexDirection: "row", gap: 4, flexWrap: "wrap" }}>
                 {a.authorType === "partner" && (
@@ -263,14 +264,14 @@ export default function QuestionDetailScreen() {
                   </View>
                 )}
                 {a.isAccepted && (
-                  <View style={[styles.badge, { backgroundColor: colors.brand[500] }]}>
+                  <View style={[styles.badge, { backgroundColor: colors.primary[500] }]}>
                     <Text style={[styles.badgeText, { color: "white" }]}>Accepted</Text>
                   </View>
                 )}
               </View>
             </View>
 
-            <RichText text={a.content} style={styles.answerContent} />
+            <RichText text={a.content} style={[styles.answerContent, { color: themeColors.textSecondary }]} />
 
             {(a.images?.length ?? 0) > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
@@ -281,22 +282,23 @@ export default function QuestionDetailScreen() {
             )}
 
             <View style={styles.actionRow}>
-              <TouchableOpacity onPress={() => upvoteAnswer(a._id)} style={styles.actionPill}>
-                <Ionicons name="arrow-up" size={14} color={colors.gray[700]} />
-                <Text style={styles.actionPillText}>{a.upvotes || 0}</Text>
+              <TouchableOpacity onPress={() => upvoteAnswer(a._id)} style={[styles.actionPill, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                <Ionicons name="arrow-up" size={14} color={themeColors.textSecondary} />
+                <Text style={[styles.actionPillText, { color: themeColors.textSecondary }]}>{a.upvotes || 0}</Text>
               </TouchableOpacity>
             </View>
           </View>
         ))}
 
-        <View style={styles.composer}>
-          <Text style={styles.composerLabel}>Your Answer</Text>
+        <View style={[styles.composer, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+          <Text style={[styles.composerLabel, { color: themeColors.text }]}>Your Answer</Text>
           <TextInput
             value={reply}
             onChangeText={setReply}
             placeholder="Share what you know…"
+            placeholderTextColor={themeColors.textTertiary}
             multiline
-            style={styles.composerInput}
+            style={[styles.composerInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
             maxLength={10000}
           />
           <TouchableOpacity
@@ -328,7 +330,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1, borderColor: colors.gray[200], justifyContent: "space-between",
   },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
-  title: { fontSize: fontSize.base, fontWeight: fontWeight.semibold as any, color: colors.gray[900], textTransform: "capitalize" },
+  title: { fontSize: fontSize.md, fontWeight: fontWeight.semibold as any, color: colors.gray[900], textTransform: "capitalize" },
   scroll: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl * 2 },
   questionCard: {
     backgroundColor: "white",
@@ -337,13 +339,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gray[200],
   },
-  cardCategory: { fontSize: 10, color: colors.brand[600], fontWeight: fontWeight.bold as any, letterSpacing: 0.5 },
+  cardCategory: { fontSize: 10, color: colors.primary[600], fontWeight: fontWeight.bold as any, letterSpacing: 0.5 },
   questionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold as any, color: colors.gray[900], marginBottom: 8 },
   questionDesc: { fontSize: fontSize.sm, color: colors.gray[700], lineHeight: 20 },
   questionImage: { width: 220, height: 160, borderRadius: borderRadius.md, marginRight: 8 },
   ctaCard: {
     flexDirection: "row", alignItems: "center", gap: 10,
-    backgroundColor: colors.brand[50], borderColor: colors.brand[200], borderWidth: 1,
+    backgroundColor: colors.primary[50], borderColor: colors.primary[200], borderWidth: 1,
     padding: spacing.sm, borderRadius: borderRadius.md, marginTop: 12,
   },
   ctaTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold as any, color: colors.gray[900] },
@@ -357,7 +359,7 @@ const styles = StyleSheet.create({
   },
   actionPillText: { fontSize: 12, color: colors.gray[700] },
   metaRight: { marginLeft: "auto", fontSize: 11, color: colors.gray[400] },
-  sectionHeader: { fontSize: fontSize.base, fontWeight: fontWeight.semibold as any, color: colors.gray[900], marginTop: 8 },
+  sectionHeader: { fontSize: fontSize.md, fontWeight: fontWeight.semibold as any, color: colors.gray[900], marginTop: 8 },
   answerCard: {
     backgroundColor: "white",
     padding: spacing.md,
@@ -369,7 +371,7 @@ const styles = StyleSheet.create({
   answerHead: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 },
   avatarCircle: {
     width: 32, height: 32, borderRadius: 16,
-    backgroundColor: colors.brand[500], alignItems: "center", justifyContent: "center",
+    backgroundColor: colors.primary[500], alignItems: "center", justifyContent: "center",
   },
   avatarText: { color: "white", fontWeight: fontWeight.semibold as any, fontSize: 13 },
   answerAuthor: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold as any, color: colors.gray[900] },
@@ -396,7 +398,7 @@ const styles = StyleSheet.create({
   },
   composerBtn: {
     marginTop: 10,
-    backgroundColor: colors.brand[500],
+    backgroundColor: colors.primary[500],
     paddingVertical: 10,
     borderRadius: borderRadius.md,
     alignItems: "center",

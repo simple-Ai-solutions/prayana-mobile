@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fontSize, fontWeight, spacing, borderRadius } from "@prayana/shared-ui";
+import { colors, fontSize, fontWeight, spacing, borderRadius, useTheme } from "@prayana/shared-ui";
 import { communityAPI } from "@prayana/shared-services";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
@@ -41,6 +41,7 @@ type Q = {
 
 export default function VisualFeedScreen() {
   const router = useRouter();
+  const { themeColors } = useTheme();
   const [items, setItems] = useState<Q[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -49,7 +50,7 @@ export default function VisualFeedScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await communityAPI.listQuestions({ sort: "top", category, limit: 80 });
+      const res = await communityAPI.listQuestions({ sort: "top", category, limit: 80 } as any);
       const all = (res?.data as Q[]) || [];
       setItems(all.filter((q) => q.images?.length > 0));
     } catch {
@@ -80,14 +81,14 @@ export default function VisualFeedScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={colors.gray[700]} />
+          <Ionicons name="arrow-back" size={20} color={themeColors.textSecondary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Visual Community</Text>
+        <Text style={[styles.title, { color: themeColors.text }]}>Visual Community</Text>
         <TouchableOpacity onPress={() => router.push("/community/ask")}>
-          <Ionicons name="add" size={22} color={colors.brand[600]} />
+          <Ionicons name="add" size={22} color={colors.primary[600]} />
         </TouchableOpacity>
       </View>
 
@@ -98,9 +99,9 @@ export default function VisualFeedScreen() {
             <TouchableOpacity
               key={c.value || "all"}
               onPress={() => setCategory(c.value)}
-              style={[styles.catChip, active && styles.catChipActive]}
+              style={[styles.catChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, active && styles.catChipActive]}
             >
-              <Text style={[styles.catChipText, active && styles.catChipTextActive]}>
+              <Text style={[styles.catChipText, { color: themeColors.textSecondary }, active && styles.catChipTextActive]}>
                 {c.label}
               </Text>
             </TouchableOpacity>
@@ -110,13 +111,13 @@ export default function VisualFeedScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator color={colors.brand[500]} />
+          <ActivityIndicator color={colors.primary[500]} />
         </View>
       ) : items.length === 0 ? (
         <View style={styles.center}>
-          <Text style={{ color: colors.gray[600] }}>No photos yet in this category.</Text>
+          <Text style={{ color: themeColors.textSecondary }}>No photos yet in this category.</Text>
           <TouchableOpacity onPress={() => router.push("/community/ask")} style={{ marginTop: 8 }}>
-            <Text style={{ color: colors.brand[600], fontWeight: "600" }}>
+            <Text style={{ color: colors.primary[600], fontWeight: "600" }}>
               Ask a visual question →
             </Text>
           </TouchableOpacity>
@@ -124,7 +125,7 @@ export default function VisualFeedScreen() {
       ) : (
         <ScrollView
           contentContainerStyle={styles.masonry}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand[500]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />}
         >
           {[0, 1].map((col) => (
             <View key={col} style={[styles.column, { width: COL_WIDTH }]}>
@@ -132,7 +133,7 @@ export default function VisualFeedScreen() {
                 <TouchableOpacity
                   key={q._id}
                   onPress={() => router.push(`/community/${q._id}` as any)}
-                  style={styles.tile}
+                  style={[styles.tile, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
                 >
                   <Image
                     source={{ uri: q.images[0].url }}
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999,
     backgroundColor: "white", borderWidth: 1, borderColor: colors.gray[200], marginRight: 6,
   },
-  catChipActive: { backgroundColor: colors.brand[500], borderColor: colors.brand[500] },
+  catChipActive: { backgroundColor: colors.primary[500], borderColor: colors.primary[500] },
   catChipText: { fontSize: 11, color: colors.gray[700] },
   catChipTextActive: { color: "white", fontWeight: fontWeight.semibold as any },
   masonry: {

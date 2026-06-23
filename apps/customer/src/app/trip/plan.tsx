@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, fontSize, fontWeight, spacing, shadow, borderRadius } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';
 import { PlaceAutocomplete } from '../../components/trip/PlaceAutocomplete';
 
@@ -29,6 +29,7 @@ const DURATION_OPTIONS = [1, 2, 3, 4, 5, 7, 10, 14];
 
 export default function PlanTripScreen() {
   const router = useRouter();
+  const { themeColors } = useTheme();
 
   // Form state
   const [destination, setDestination] = useState('');
@@ -147,7 +148,7 @@ export default function PlanTripScreen() {
   // --- Generating State ---
   if (isGenerating) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
         <View style={styles.generatingContainer}>
           <View style={styles.spinnerWrapper}>
             <Animated.View style={[styles.spinnerRing, { transform: [{ rotate: spinInterpolate }] }]}>
@@ -163,14 +164,14 @@ export default function PlanTripScreen() {
             </View>
           </View>
 
-          <Text style={styles.generatingTitle}>Crafting Your Itinerary</Text>
-          <Text style={styles.generatingSubtitle}>
+          <Text style={[styles.generatingTitle, { color: themeColors.text }]}>Crafting Your Itinerary</Text>
+          <Text style={[styles.generatingSubtitle, { color: themeColors.textSecondary }]}>
             AI is planning your {days}-day trip to {destination}...
           </Text>
 
           {/* Progress Bar */}
           <View style={styles.progressBarContainer}>
-            <View style={styles.progressBarTrack}>
+            <View style={[styles.progressBarTrack, { backgroundColor: themeColors.surface }]}>
               <LinearGradient
                 colors={['#FF6B6B', '#ee5a5a']}
                 start={{ x: 0, y: 0 }}
@@ -186,7 +187,7 @@ export default function PlanTripScreen() {
             onPress={() => setIsGenerating(false)}
             activeOpacity={0.7}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={[styles.cancelButtonText, { color: themeColors.textTertiary }]}>Cancel</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -194,7 +195,7 @@ export default function PlanTripScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -206,12 +207,12 @@ export default function PlanTripScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Text style={styles.backArrow}>{'\u2190'}</Text>
+            <TouchableOpacity onPress={() => router.back()} style={[styles.backButton, { backgroundColor: themeColors.surface }]}>
+              <Text style={[styles.backArrow, { color: themeColors.text }]}>{'\u2190'}</Text>
             </TouchableOpacity>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.title}>Plan a Trip</Text>
-              <Text style={styles.subtitle}>AI-powered itinerary in seconds</Text>
+              <Text style={[styles.title, { color: themeColors.text }]}>Plan a Trip</Text>
+              <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>AI-powered itinerary in seconds</Text>
             </View>
           </View>
 
@@ -238,7 +239,7 @@ export default function PlanTripScreen() {
                 <View style={styles.stepLine} />
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.fieldLabel}>Starting Point (Optional)</Text>
+                <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Starting Point (Optional)</Text>
                 <PlaceAutocomplete
                   value={startingPoint}
                   onChange={setStartingPoint}
@@ -256,7 +257,7 @@ export default function PlanTripScreen() {
                 <View style={styles.stepLine} />
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.fieldLabel}>
+                <Text style={[styles.fieldLabel, { color: themeColors.text }]}>
                   Destination <Text style={styles.requiredStar}>*</Text>
                 </Text>
                 <PlaceAutocomplete
@@ -280,7 +281,7 @@ export default function PlanTripScreen() {
                 <View style={styles.stepLine} />
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.fieldLabel}>Trip Duration</Text>
+                <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Trip Duration</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -291,6 +292,7 @@ export default function PlanTripScreen() {
                       key={d}
                       style={[
                         styles.durationChip,
+                        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                         days === d && styles.durationChipActive,
                         shadow.sm,
                       ]}
@@ -300,6 +302,7 @@ export default function PlanTripScreen() {
                       <Text
                         style={[
                           styles.durationChipText,
+                          { color: themeColors.text },
                           days === d && styles.durationChipTextActive,
                         ]}
                       >
@@ -319,13 +322,14 @@ export default function PlanTripScreen() {
                 </View>
               </View>
               <View style={styles.stepContent}>
-                <Text style={styles.fieldLabel}>Transport Mode</Text>
+                <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Transport Mode</Text>
                 <View style={styles.transportGrid}>
                   {TRANSPORT_MODES.map((mode) => (
                     <TouchableOpacity
                       key={mode.id}
                       style={[
                         styles.transportCard,
+                        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                         shadow.sm,
                         transportMode === mode.id && styles.transportCardActive,
                       ]}
@@ -336,12 +340,13 @@ export default function PlanTripScreen() {
                       <Text
                         style={[
                           styles.transportLabel,
+                          { color: themeColors.text },
                           transportMode === mode.id && styles.transportLabelActive,
                         ]}
                       >
                         {mode.label}
                       </Text>
-                      <Text style={styles.transportDesc}>{mode.description}</Text>
+                      <Text style={[styles.transportDesc, { color: themeColors.textTertiary }]}>{mode.description}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -378,9 +383,9 @@ export default function PlanTripScreen() {
 
           {/* Info tip */}
           <View style={styles.tipContainer}>
-            <View style={[styles.tipCard, shadow.sm]}>
+            <View style={[styles.tipCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
               <Text style={styles.tipIcon}>{'\uD83D\uDCA1'}</Text>
-              <Text style={styles.tipText}>
+              <Text style={[styles.tipText, { color: themeColors.textSecondary }]}>
                 AI will create a day-by-day guide with places, food spots, and travel tips based on your
                 preferences.
               </Text>

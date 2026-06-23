@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,13 +29,17 @@ import {
   Stepper,
   TextInput,
   Card,
+  useTheme,
 } from '@prayana/shared-ui';
 import {
   activityMarketplaceAPI,
   bookingAPI,
   makeAPICall,
+  openCheckout,
+  toPaise,
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
+import { ENV } from '../../../config/env';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const STEP_LABELS = ['Date', 'Options', 'Contact', 'Payment'];
@@ -96,11 +99,12 @@ function Counter({
   max: number;
   onChange: (v: number) => void;
 }) {
+  const { themeColors } = useTheme();
   return (
-    <View style={counterStyles.row}>
+    <View style={[counterStyles.row, { borderBottomColor: themeColors.border }]}>
       <View style={{ flex: 1 }}>
-        <Text style={counterStyles.label}>{label}</Text>
-        {sublabel ? <Text style={counterStyles.sublabel}>{sublabel}</Text> : null}
+        <Text style={[counterStyles.label, { color: themeColors.text }]}>{label}</Text>
+        {sublabel ? <Text style={[counterStyles.sublabel, { color: themeColors.textTertiary }]}>{sublabel}</Text> : null}
       </View>
       <View style={counterStyles.controls}>
         <TouchableOpacity
@@ -115,7 +119,7 @@ function Counter({
             color={value <= min ? colors.gray[300] : colors.primary[500]}
           />
         </TouchableOpacity>
-        <Text style={counterStyles.value}>{value}</Text>
+        <Text style={[counterStyles.value, { color: themeColors.text }]}>{value}</Text>
         <TouchableOpacity
           style={[counterStyles.btn, value >= max && counterStyles.btnDisabled]}
           disabled={value >= max}
@@ -192,12 +196,14 @@ function SelectableCard({
   onPress: () => void;
   children: React.ReactNode;
 }) {
+  const { themeColors } = useTheme();
   return (
     <TouchableOpacity
       activeOpacity={disabled ? 1 : 0.7}
       onPress={disabled ? undefined : onPress}
       style={[
         selectableStyles.card,
+        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
         selected && selectableStyles.selected,
         disabled && selectableStyles.disabled,
       ]}
@@ -252,12 +258,15 @@ function BreakdownRow({
   isTotal?: boolean;
   isDiscount?: boolean;
 }) {
+  const { themeColors } = useTheme();
   return (
     <View style={breakdownStyles.row}>
       <Text
         style={[
           breakdownStyles.label,
+          { color: themeColors.textSecondary },
           isTotal && breakdownStyles.totalLabel,
+          isTotal && { color: themeColors.text },
         ]}
       >
         {label}
@@ -265,6 +274,7 @@ function BreakdownRow({
       <Text
         style={[
           breakdownStyles.amount,
+          { color: themeColors.text },
           isTotal && breakdownStyles.totalAmount,
           isDiscount && breakdownStyles.discount,
         ]}
@@ -311,6 +321,7 @@ const breakdownStyles = StyleSheet.create({
 // ===========================================================================
 
 export default function BookingFlowScreen() {
+  const { themeColors } = useTheme();
   const { id: activityId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -622,40 +633,85 @@ export default function BookingFlowScreen() {
     setPaymentLoading(true);
 
     try {
-      // Step 1: Create order
+      // Step 1: Server creates the Razorpay order. Returns { orderId, amount, currency, keyId }.
       const orderRes = await bookingAPI.createPaymentOrder(bookingId, 'razorpay');
 
-      if (orderRes?.success) {
-        // In production, this would open the Razorpay SDK via react-native-razorpay.
-        // For now we show a placeholder message.
-        Alert.alert(
-          'Payment Integration',
-          'Razorpay payment gateway integration coming soon.\n\nYour booking has been created successfully! You can pay at the venue.',
-          [
-            {
-              text: 'OK',
-              onPress: () => {
-                setBookingComplete(true);
-              },
-            },
-          ],
-        );
-      } else {
+      if (!orderRes?.success || !orderRes.data?.orderId) {
+        Toast.show({
+          type: 'error',
+          text1: 'Payment unavailable',
+          text2: orderRes?.message || 'Could not create order. Please try again.',
+        });
+        setPaymentLoading(false);
+        return;
+      }
+
+      const { orderId, amount, currency, keyId } = orderRes.data;
+
+      // Step 2: Open native Razorpay sheet. Server-issued keyId takes precedence
+      // over the env value so live/test rotation is server-controlled.
+      const result = await openCheckout({
+        keyId: keyId || ENV.razorpayKeyId,
+        orderId,
+        amountInPaise: amount || toPaise(totalPrice),
+        currency: currency || 'INR',
+        description: activity?.title || 'Activity booking',
+        prefill: { email, contact: phone, name },
+        notes: { bookingId, activityId: String(activityId || '') },
+      });
+
+      if (result.status === 'cancelled') {
         Toast.show({
           type: 'info',
-          text1: 'Payment pending',
-          text2: 'Payment gateway is being set up. Your booking is confirmed for pay-at-venue.',
+          text1: 'Payment cancelled',
+          text2: 'You can complete payment anytime from My Bookings.',
+        });
+        setPaymentLoading(false);
+        return;
+      }
+
+      if (result.status === 'failed') {
+        Toast.show({
+          type: 'error',
+          text1: 'Payment failed',
+          text2: result.reason || 'Please try again.',
+        });
+        setPaymentLoading(false);
+        return;
+      }
+
+      // Step 3: Server verifies the signature and marks the booking confirmed.
+      // Never trust client-side success — signature check is the source of truth.
+      const verifyRes = await bookingAPI.verifyPayment(bookingId, {
+        gateway: 'razorpay',
+        razorpay_order_id: result.orderId,
+        razorpay_payment_id: result.paymentId,
+        razorpay_signature: result.signature,
+      });
+
+      if (verifyRes?.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Payment successful',
+          text2: 'Your booking is confirmed.',
         });
         setBookingComplete(true);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Verification failed',
+          text2:
+            verifyRes?.message ||
+            'Payment captured but verification failed. Our team will reconcile within 24 hours.',
+        });
       }
     } catch (err: any) {
-      console.warn('[Booking] payment order error:', err.message);
-      // Graceful fallback: booking already created
-      Alert.alert(
-        'Payment Not Available',
-        'Online payment is currently being set up. Your booking has been created. You can pay at the venue.',
-        [{ text: 'OK', onPress: () => setBookingComplete(true) }],
-      );
+      console.warn('[Booking] payment flow error:', err?.message);
+      Toast.show({
+        type: 'error',
+        text1: 'Something went wrong',
+        text2: err?.message || 'Please try again or contact support.',
+      });
     } finally {
       setPaymentLoading(false);
     }
@@ -694,7 +750,7 @@ export default function BookingFlowScreen() {
 
   if (pageLoading) {
     return (
-      <SafeAreaView style={styles.screen} edges={['top']}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: themeColors.background }]} edges={['top']}>
         <LoadingSpinner fullScreen message="Loading booking details..." />
       </SafeAreaView>
     );
@@ -702,7 +758,7 @@ export default function BookingFlowScreen() {
 
   if (pageError || !activity) {
     return (
-      <SafeAreaView style={styles.screen} edges={['top']}>
+      <SafeAreaView style={[styles.screen, { backgroundColor: themeColors.background }]} edges={['top']}>
         <ErrorView
           fullScreen
           title="Could not load activity"
@@ -725,21 +781,21 @@ export default function BookingFlowScreen() {
   // --------------- STEP 1: Date & Participants ---------------
   const renderStep1 = () => (
     <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Select Date & Participants</Text>
+      <Text style={[styles.stepTitle, { color: themeColors.text }]}>Select Date & Participants</Text>
 
       {/* Date selector */}
-      <Card bordered style={{ marginBottom: spacing.lg }}>
-        <Text style={styles.fieldLabel}>Booking Date</Text>
+      <Card bordered style={{ marginBottom: spacing.lg, backgroundColor: themeColors.card, borderColor: themeColors.border }}>
+        <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Booking Date</Text>
 
         {Platform.OS === 'android' && (
           <TouchableOpacity
-            style={styles.dateButton}
+            style={[styles.dateButton, { borderColor: themeColors.border }]}
             onPress={() => setShowDatePicker(true)}
             activeOpacity={0.7}
           >
             <Ionicons name="calendar-outline" size={20} color={colors.primary[500]} />
-            <Text style={styles.dateButtonText}>{formatDate(selectedDate)}</Text>
-            <Ionicons name="chevron-down" size={18} color={colors.textTertiary} />
+            <Text style={[styles.dateButtonText, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
+            <Ionicons name="chevron-down" size={18} color={themeColors.textTertiary} />
           </TouchableOpacity>
         )}
 
@@ -756,8 +812,8 @@ export default function BookingFlowScreen() {
       </Card>
 
       {/* Participant counters */}
-      <Card bordered>
-        <Text style={styles.fieldLabel}>Participants</Text>
+      <Card bordered style={{ backgroundColor: themeColors.card, borderColor: themeColors.border }}>
+        <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Participants</Text>
         <Counter
           label="Adults"
           sublabel="Age 18+"
@@ -775,11 +831,11 @@ export default function BookingFlowScreen() {
           onChange={setChildren}
         />
         <View style={styles.totalParticipants}>
-          <Text style={styles.totalParticipantsText}>
+          <Text style={[styles.totalParticipantsText, { color: themeColors.text }]}>
             Total: {adults + children} participant{adults + children !== 1 ? 's' : ''}
           </Text>
           {maxGroupSize && (
-            <Text style={styles.maxGroupText}>Max {maxGroupSize} per group</Text>
+            <Text style={[styles.maxGroupText, { color: themeColors.textTertiary }]}>Max {maxGroupSize} per group</Text>
           )}
         </View>
       </Card>
@@ -800,17 +856,17 @@ export default function BookingFlowScreen() {
   // --------------- STEP 2: Time Slots & Variants ---------------
   const renderStep2 = () => (
     <View style={styles.stepContent}>
-      <Text style={styles.stepTitle}>Choose Your Experience</Text>
+      <Text style={[styles.stepTitle, { color: themeColors.text }]}>Choose Your Experience</Text>
 
       {/* Time Slots */}
       {slotsLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading time slots...</Text>
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading time slots...</Text>
         </View>
       ) : timeSlots.length > 0 ? (
         <View style={{ marginBottom: spacing.xl }}>
-          <Text style={styles.fieldLabel}>Available Time Slots</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Available Time Slots</Text>
           {timeSlots.map((slot) => {
             const isSoldOut = (slot.capacity?.booked ?? 0) >= (slot.capacity?.total ?? Infinity);
             const spotsLeft = (slot.capacity?.total ?? 0) - (slot.capacity?.booked ?? 0);
@@ -825,8 +881,8 @@ export default function BookingFlowScreen() {
               >
                 <View style={styles.slotRow}>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.slotLabel}>{slot.label || 'Time Slot'}</Text>
-                    <Text style={styles.slotTime}>
+                    <Text style={[styles.slotLabel, { color: themeColors.text }]}>{slot.label || 'Time Slot'}</Text>
+                    <Text style={[styles.slotTime, { color: themeColors.textSecondary }]}>
                       {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
                     </Text>
                   </View>
@@ -836,7 +892,7 @@ export default function BookingFlowScreen() {
                     ) : spotsLeft > 0 && spotsLeft <= 5 ? (
                       <Badge label={`${spotsLeft} spots left`} variant="warning" />
                     ) : spotsLeft > 0 ? (
-                      <Text style={styles.spotsText}>{spotsLeft} spots</Text>
+                      <Text style={[styles.spotsText, { color: themeColors.textTertiary }]}>{spotsLeft} spots</Text>
                     ) : null}
                     {slot.priceModifier && slot.priceModifier !== 1 && (
                       <Badge
@@ -852,9 +908,9 @@ export default function BookingFlowScreen() {
           })}
         </View>
       ) : (
-        <View style={[styles.emptyBox, { marginBottom: spacing.xl }]}>
-          <Ionicons name="time-outline" size={24} color={colors.textTertiary} />
-          <Text style={styles.emptyText}>No specific time slots - open availability</Text>
+        <View style={[styles.emptyBox, { marginBottom: spacing.xl, backgroundColor: themeColors.surface }]}>
+          <Ionicons name="time-outline" size={24} color={themeColors.textTertiary} />
+          <Text style={[styles.emptyText, { color: themeColors.textTertiary }]}>No specific time slots - open availability</Text>
         </View>
       )}
 
@@ -862,11 +918,11 @@ export default function BookingFlowScreen() {
       {variantsLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading experience tiers...</Text>
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading experience tiers...</Text>
         </View>
       ) : variants.length > 0 ? (
         <View style={{ marginBottom: spacing.xl }}>
-          <Text style={styles.fieldLabel}>Experience Tier</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Experience Tier</Text>
           {variants.map((variant) => {
             const isSelected = selectedVariant?._id === variant._id;
             const variantPrice = variant.pricing?.adultPrice ?? variant.price ?? basePrice;
@@ -878,18 +934,18 @@ export default function BookingFlowScreen() {
                 onPress={() => setSelectedVariant(variant)}
               >
                 <View style={styles.variantHeader}>
-                  <Text style={styles.variantName}>{variant.name}</Text>
+                  <Text style={[styles.variantName, { color: themeColors.text }]}>{variant.name}</Text>
                   <Text style={styles.variantPrice}>{formatCurrency(variantPrice)}</Text>
                 </View>
                 {variant.description ? (
-                  <Text style={styles.variantDesc}>{variant.description}</Text>
+                  <Text style={[styles.variantDesc, { color: themeColors.textSecondary }]}>{variant.description}</Text>
                 ) : null}
                 {variant.highlights && variant.highlights.length > 0 && (
                   <View style={{ marginTop: spacing.sm }}>
                     {variant.highlights.slice(0, 3).map((h: string, i: number) => (
                       <View key={i} style={styles.variantHighlight}>
                         <Ionicons name="checkmark" size={14} color={colors.success} />
-                        <Text style={styles.variantHighlightText}>{h}</Text>
+                        <Text style={[styles.variantHighlightText, { color: themeColors.textSecondary }]}>{h}</Text>
                       </View>
                     ))}
                   </View>
@@ -899,15 +955,15 @@ export default function BookingFlowScreen() {
           })}
         </View>
       ) : (
-        <View style={[styles.emptyBox, { marginBottom: spacing.xl }]}>
-          <Ionicons name="layers-outline" size={24} color={colors.textTertiary} />
-          <Text style={styles.emptyText}>Standard experience - no variant selection needed</Text>
+        <View style={[styles.emptyBox, { marginBottom: spacing.xl, backgroundColor: themeColors.surface }]}>
+          <Ionicons name="layers-outline" size={24} color={themeColors.textTertiary} />
+          <Text style={[styles.emptyText, { color: themeColors.textTertiary }]}>Standard experience - no variant selection needed</Text>
         </View>
       )}
 
       {/* Price Preview */}
-      <Card bordered style={{ marginBottom: spacing.lg }}>
-        <Text style={styles.fieldLabel}>Price Estimate</Text>
+      <Card bordered style={{ marginBottom: spacing.lg, backgroundColor: themeColors.card, borderColor: themeColors.border }}>
+        <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Price Estimate</Text>
         {priceLoading ? (
           <ActivityIndicator color={colors.primary[500]} style={{ paddingVertical: spacing.md }} />
         ) : priceBreakdown ? (
@@ -931,12 +987,12 @@ export default function BookingFlowScreen() {
             {priceBreakdown.tax > 0 && (
               <BreakdownRow label="Tax & fees" amount={priceBreakdown.tax} />
             )}
-            <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
             <BreakdownRow label="Total" amount={priceBreakdown.total ?? priceBreakdown.totalAmount ?? totalPrice} isTotal />
           </View>
         ) : (
           <View style={styles.priceSimple}>
-            <Text style={styles.priceSimpleLabel}>Estimated total</Text>
+            <Text style={[styles.priceSimpleLabel, { color: themeColors.textSecondary }]}>Estimated total</Text>
             <Text style={styles.priceSimpleValue}>{formatCurrency(totalPrice)}</Text>
           </View>
         )}
@@ -963,7 +1019,7 @@ export default function BookingFlowScreen() {
       keyboardVerticalOffset={100}
     >
       <View style={styles.stepContent}>
-        <Text style={styles.stepTitle}>Contact Details</Text>
+        <Text style={[styles.stepTitle, { color: themeColors.text }]}>Contact Details</Text>
 
         <TextInput
           label="Full Name"
@@ -971,7 +1027,7 @@ export default function BookingFlowScreen() {
           value={name}
           onChangeText={setName}
           autoCapitalize="words"
-          leftIcon={<Ionicons name="person-outline" size={18} color={colors.textTertiary} />}
+          leftIcon={<Ionicons name="person-outline" size={18} color={themeColors.textTertiary} />}
         />
 
         <TextInput
@@ -981,7 +1037,7 @@ export default function BookingFlowScreen() {
           onChangeText={setEmail}
           keyboardType="email-address"
           autoCapitalize="none"
-          leftIcon={<Ionicons name="mail-outline" size={18} color={colors.textTertiary} />}
+          leftIcon={<Ionicons name="mail-outline" size={18} color={themeColors.textTertiary} />}
         />
 
         <TextInput
@@ -990,7 +1046,7 @@ export default function BookingFlowScreen() {
           value={phone}
           onChangeText={setPhone}
           keyboardType="phone-pad"
-          leftIcon={<Ionicons name="call-outline" size={18} color={colors.textTertiary} />}
+          leftIcon={<Ionicons name="call-outline" size={18} color={themeColors.textTertiary} />}
         />
 
         <TextInput
@@ -1004,35 +1060,35 @@ export default function BookingFlowScreen() {
         />
 
         {/* Booking summary mini card */}
-        <Card bordered style={{ marginBottom: spacing.lg, backgroundColor: colors.gray[50] }}>
-          <Text style={[styles.fieldLabel, { marginBottom: spacing.sm }]}>Booking Summary</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Date</Text>
-            <Text style={styles.summaryValue}>{formatDate(selectedDate)}</Text>
+        <Card bordered style={{ marginBottom: spacing.lg, backgroundColor: themeColors.surface, borderColor: themeColors.border }}>
+          <Text style={[styles.fieldLabel, { marginBottom: spacing.sm, color: themeColors.text }]}>Booking Summary</Text>
+          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Date</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Participants</Text>
-            <Text style={styles.summaryValue}>
+          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Participants</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.text }]}>
               {adults} adult{adults > 1 ? 's' : ''}
               {children > 0 ? `, ${children} child${children > 1 ? 'ren' : ''}` : ''}
             </Text>
           </View>
           {selectedSlot && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Time</Text>
-              <Text style={styles.summaryValue}>
+            <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]}>
                 {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
               </Text>
             </View>
           )}
           {selectedVariant && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tier</Text>
-              <Text style={styles.summaryValue}>{selectedVariant.name}</Text>
+            <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Tier</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]}>{selectedVariant.name}</Text>
             </View>
           )}
           <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
-            <Text style={[styles.summaryLabel, { fontWeight: fontWeight.bold }]}>Total</Text>
+            <Text style={[styles.summaryLabel, { fontWeight: fontWeight.bold, color: themeColors.text }]}>Total</Text>
             <Text style={[styles.summaryValue, { color: colors.primary[500], fontWeight: fontWeight.bold }]}>
               {formatCurrency(totalPrice)}
             </Text>
@@ -1061,45 +1117,45 @@ export default function BookingFlowScreen() {
 
     return (
       <View style={styles.stepContent}>
-        <Text style={styles.stepTitle}>Payment</Text>
+        <Text style={[styles.stepTitle, { color: themeColors.text }]}>Payment</Text>
 
         {/* Booking summary */}
-        <Card bordered style={{ marginBottom: spacing.xl }}>
-          <Text style={styles.fieldLabel}>Booking Summary</Text>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Activity</Text>
-            <Text style={[styles.summaryValue, { flex: 1, textAlign: 'right' }]} numberOfLines={2}>
+        <Card bordered style={{ marginBottom: spacing.xl, backgroundColor: themeColors.card, borderColor: themeColors.border }}>
+          <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Booking Summary</Text>
+          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Activity</Text>
+            <Text style={[styles.summaryValue, { flex: 1, textAlign: 'right', color: themeColors.text }]} numberOfLines={2}>
               {activity.title}
             </Text>
           </View>
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Date</Text>
-            <Text style={styles.summaryValue}>{formatDate(selectedDate)}</Text>
+          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Date</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
           </View>
           {selectedSlot && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Time</Text>
-              <Text style={styles.summaryValue}>
+            <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]}>
                 {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
               </Text>
             </View>
           )}
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Participants</Text>
-            <Text style={styles.summaryValue}>
+          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Participants</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.text }]}>
               {adults} adult{adults > 1 ? 's' : ''}
               {children > 0 ? `, ${children} child${children > 1 ? 'ren' : ''}` : ''}
             </Text>
           </View>
           {selectedVariant && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tier</Text>
-              <Text style={styles.summaryValue}>{selectedVariant.name}</Text>
+            <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Tier</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]}>{selectedVariant.name}</Text>
             </View>
           )}
           {bookingRef && (
             <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
-              <Text style={styles.summaryLabel}>Reference</Text>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Reference</Text>
               <Text style={[styles.summaryValue, { fontWeight: fontWeight.bold, color: colors.primary[500] }]}>
                 {bookingRef}
               </Text>
@@ -1109,27 +1165,27 @@ export default function BookingFlowScreen() {
 
         {/* Total */}
         <View style={styles.paymentTotalRow}>
-          <Text style={styles.paymentTotalLabel}>Amount to Pay</Text>
+          <Text style={[styles.paymentTotalLabel, { color: themeColors.text }]}>Amount to Pay</Text>
           <Text style={styles.paymentTotalAmount}>{formatCurrency(totalPrice)}</Text>
         </View>
 
         {/* Payment method selection */}
-        <Text style={[styles.fieldLabel, { marginBottom: spacing.md }]}>Payment Method</Text>
+        <Text style={[styles.fieldLabel, { marginBottom: spacing.md, color: themeColors.text }]}>Payment Method</Text>
 
         <SelectableCard
           selected={paymentMethod === 'online'}
           onPress={() => setPaymentMethod('online')}
         >
           <View style={styles.paymentOptionRow}>
-            <View style={styles.paymentOptionIcon}>
+            <View style={[styles.paymentOptionIcon, { backgroundColor: themeColors.surface }]}>
               <Ionicons name="card-outline" size={24} color={colors.primary[500]} />
             </View>
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={styles.paymentOptionTitle}>Pay Online</Text>
+                <Text style={[styles.paymentOptionTitle, { color: themeColors.text }]}>Pay Online</Text>
                 <Badge label="Recommended" variant="primary" style={{ marginLeft: spacing.sm }} />
               </View>
-              <Text style={styles.paymentOptionDesc}>
+              <Text style={[styles.paymentOptionDesc, { color: themeColors.textTertiary }]}>
                 Credit/Debit Card, UPI, Net Banking, Wallets
               </Text>
             </View>
@@ -1141,12 +1197,12 @@ export default function BookingFlowScreen() {
           onPress={() => setPaymentMethod('venue')}
         >
           <View style={styles.paymentOptionRow}>
-            <View style={styles.paymentOptionIcon}>
+            <View style={[styles.paymentOptionIcon, { backgroundColor: themeColors.surface }]}>
               <Ionicons name="cash-outline" size={24} color={colors.success} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.paymentOptionTitle}>Pay at Venue</Text>
-              <Text style={styles.paymentOptionDesc}>
+              <Text style={[styles.paymentOptionTitle, { color: themeColors.text }]}>Pay at Venue</Text>
+              <Text style={[styles.paymentOptionDesc, { color: themeColors.textTertiary }]}>
                 Cash or card payment at the activity location
               </Text>
             </View>
@@ -1181,14 +1237,14 @@ export default function BookingFlowScreen() {
         <Ionicons name="checkmark" size={48} color="#ffffff" />
       </View>
 
-      <Text style={styles.successTitle}>Booking Confirmed!</Text>
-      <Text style={styles.successSubtext}>
+      <Text style={[styles.successTitle, { color: themeColors.text }]}>Booking Confirmed!</Text>
+      <Text style={[styles.successSubtext, { color: themeColors.textSecondary }]}>
         Your booking has been {bookingData?.isInstantBooking ? 'instantly confirmed' : 'created successfully'}.
       </Text>
 
       {bookingRef && (
-        <View style={styles.refContainer}>
-          <Text style={styles.refLabel}>Booking Reference</Text>
+        <View style={[styles.refContainer, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <Text style={[styles.refLabel, { color: themeColors.textTertiary }]}>Booking Reference</Text>
           <Text style={styles.refValue}>{bookingRef}</Text>
         </View>
       )}
@@ -1211,27 +1267,27 @@ export default function BookingFlowScreen() {
         </View>
       )}
 
-      <Card bordered style={{ marginBottom: spacing.xl, width: '100%' }}>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Activity</Text>
-          <Text style={[styles.summaryValue, { flex: 1, textAlign: 'right' }]} numberOfLines={2}>
+      <Card bordered style={{ marginBottom: spacing.xl, width: '100%', backgroundColor: themeColors.card, borderColor: themeColors.border }}>
+        <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+          <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Activity</Text>
+          <Text style={[styles.summaryValue, { flex: 1, textAlign: 'right', color: themeColors.text }]} numberOfLines={2}>
             {activity.title}
           </Text>
         </View>
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Date</Text>
-          <Text style={styles.summaryValue}>{formatDate(selectedDate)}</Text>
+        <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+          <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Date</Text>
+          <Text style={[styles.summaryValue, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
         </View>
         {selectedSlot && (
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Time</Text>
-            <Text style={styles.summaryValue}>
+          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
+            <Text style={[styles.summaryValue, { color: themeColors.text }]}>
               {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
             </Text>
           </View>
         )}
         <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
-          <Text style={[styles.summaryLabel, { fontWeight: fontWeight.bold }]}>Total</Text>
+          <Text style={[styles.summaryLabel, { fontWeight: fontWeight.bold, color: themeColors.text }]}>Total</Text>
           <Text style={[styles.summaryValue, { color: colors.primary[500], fontWeight: fontWeight.bold, fontSize: fontSize.lg }]}>
             {formatCurrency(totalPrice)}
           </Text>
@@ -1262,18 +1318,18 @@ export default function BookingFlowScreen() {
   const stepRenderers = [renderStep1, renderStep2, renderStep3, renderStep4];
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top']}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
       {!bookingComplete && (
-        <View style={styles.header}>
+        <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             onPress={goBack}
             style={styles.headerBack}
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back" size={22} color={colors.text} />
+            <Ionicons name="arrow-back" size={22} color={themeColors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
             {step === 3 && bookingComplete ? 'Confirmed' : activity.title}
           </Text>
           <View style={{ width: 40 }} />

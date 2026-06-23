@@ -6,12 +6,22 @@ import {
   Share,
   StyleSheet,
   Platform,
+  ActionSheetIOS,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, fontSize, fontWeight, shadow } from '@prayana/shared-ui';
-import { makeAPICall, tripPlanningAPI } from '@prayana/shared-services';
+import * as Clipboard from 'expo-clipboard';
+import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
+import { colors, spacing, fontSize, fontWeight, shadow, useTheme } from '@prayana/shared-ui';
+import {
+  makeAPICall,
+  tripPlanningAPI,
+  generateShareLink,
+  generateICalendar,
+} from '@prayana/shared-services';
 import { parseMarkdown } from '../../utils/markdownParser';
 import { MarkdownItineraryView } from '../../components/trip/MarkdownItineraryView';
 import { StructuredTimelineView } from '../../components/trip/StructuredTimelineView';
@@ -30,6 +40,8 @@ export default function ItineraryScreen() {
     markdownItineraryId: string;
   }>();
 
+  const { themeColors } = useTheme();
+
   const [activeTab, setActiveTab] = useState<TabType>('guide');
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [structuredData, setStructuredData] = useState<any>(null);
@@ -40,7 +52,7 @@ export default function ItineraryScreen() {
     [params.markdown]
   );
 
-  const handleShare = useCallback(async () => {
+  const shareItinerary = useCallback(async () => {
     try {
       await Share.share({
         title: parsed.title || `${params.destination} Itinerary`,
@@ -50,6 +62,76 @@ export default function ItineraryScreen() {
       // User cancelled
     }
   }, [parsed.title, params.markdown, params.destination, params.duration]);
+
+  const sharePublicLink = useCallback(async () => {
+    try {
+      // Server returns { shareUrl, slug, expiresAt }. If the trip isn't yet
+      // saved server-side, fall back to sharing the markdown directly.
+      const tripId = params.markdownItineraryId;
+      if (!tripId) {
+        await shareItinerary();
+        return;
+      }
+      const res: any = await generateShareLink(tripId, { duration: 7 });
+      const url = res?.shareUrl || res?.url;
+      if (!url) {
+        await shareItinerary();
+        return;
+      }
+      await Share.share({
+        title: parsed.title || `${params.destination} Itinerary`,
+        message: `${parsed.title || params.destination} — ${url}`,
+        url,
+      });
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Could not share', text2: err?.message });
+    }
+  }, [params.markdownItineraryId, params.destination, parsed.title, shareItinerary]);
+
+  const copyAsCalendar = useCallback(async () => {
+    try {
+      const ics = generateICalendar({
+        title: parsed.title || `${params.destination} Trip`,
+        destination: params.destination,
+        startDate: new Date().toISOString(),
+        days: [],
+        markdown: params.markdown,
+      } as any);
+      await Clipboard.setStringAsync(typeof ics === 'string' ? ics : String(ics));
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Toast.show({
+        type: 'success',
+        text1: 'Calendar (.ics) copied',
+        text2: 'Paste into Apple Calendar / Google Calendar.',
+      });
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'Could not copy', text2: err?.message });
+    }
+  }, [parsed.title, params.destination, params.markdown]);
+
+  // Show a share action sheet (iOS) or alert menu (Android) with the 3 options.
+  const handleShare = useCallback(() => {
+    const options = ['Share itinerary', 'Share public link', 'Copy as Calendar (.ics)', 'Cancel'];
+    const cancelButtonIndex = options.length - 1;
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex },
+        (idx) => {
+          if (idx === 0) shareItinerary();
+          else if (idx === 1) sharePublicLink();
+          else if (idx === 2) copyAsCalendar();
+        },
+      );
+    } else {
+      Alert.alert('Share', 'Choose how to share this itinerary', [
+        { text: 'Share text', onPress: shareItinerary },
+        { text: 'Share public link', onPress: sharePublicLink },
+        { text: 'Copy as Calendar', onPress: copyAsCalendar },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }, [shareItinerary, sharePublicLink, copyAsCalendar]);
 
   const handleBookmark = useCallback(async () => {
     try {
@@ -109,22 +191,22 @@ export default function ItineraryScreen() {
   }, [structuredData, structuredLoading, handleGenerateStructured]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, shadow.sm]}>
+      <View style={[styles.header, shadow.sm, { backgroundColor: themeColors.surface }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.headerButton}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
+          <Ionicons name="chevron-back" size={22} color={themeColors.text} />
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle} numberOfLines={1}>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>
             {parsed.title || params.destination || 'Itinerary'}
           </Text>
-          <Text style={styles.headerSubtitle}>
+          <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
             {params.duration} {Number(params.duration) === 1 ? 'day' : 'days'} {'\u2022'} {params.destination}
           </Text>
         </View>
@@ -134,7 +216,7 @@ export default function ItineraryScreen() {
           style={styles.headerButton}
           activeOpacity={0.7}
         >
-          <Ionicons name="share-outline" size={20} color={colors.text} />
+          <Ionicons name="share-outline" size={20} color={themeColors.text} />
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -145,13 +227,13 @@ export default function ItineraryScreen() {
           <Ionicons
             name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
             size={20}
-            color={isBookmarked ? '#FF6B6B' : colors.text}
+            color={isBookmarked ? '#FF6B6B' : themeColors.text}
           />
         </TouchableOpacity>
       </View>
 
       {/* Tab Bar */}
-      <View style={styles.tabBar}>
+      <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'guide' && styles.tabActive]}
           onPress={() => handleTabChange('guide')}
@@ -160,9 +242,9 @@ export default function ItineraryScreen() {
           <Ionicons
             name="book-outline"
             size={16}
-            color={activeTab === 'guide' ? '#FF6B6B' : colors.textSecondary}
+            color={activeTab === 'guide' ? '#FF6B6B' : themeColors.textSecondary}
           />
-          <Text style={[styles.tabText, activeTab === 'guide' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'guide' && styles.tabTextActive]}>
             Travel Guide
           </Text>
         </TouchableOpacity>
@@ -175,9 +257,9 @@ export default function ItineraryScreen() {
           <Ionicons
             name="git-branch-outline"
             size={16}
-            color={activeTab === 'timeline' ? '#FF6B6B' : colors.textSecondary}
+            color={activeTab === 'timeline' ? '#FF6B6B' : themeColors.textSecondary}
           />
-          <Text style={[styles.tabText, activeTab === 'timeline' && styles.tabTextActive]}>
+          <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'timeline' && styles.tabTextActive]}>
             Timeline
           </Text>
         </TouchableOpacity>

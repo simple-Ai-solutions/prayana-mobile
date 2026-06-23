@@ -15,7 +15,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
@@ -33,6 +33,7 @@ import {
   StarRating,
   TextInput,
   Button,
+  useTheme,
 } from '@prayana/shared-ui';
 import { bookingAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
@@ -217,7 +218,9 @@ function SkeletonCard() {
 
 export default function MyBookingsScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ reviewBookingId?: string }>();
   const { user } = useAuth();
+  const { themeColors, isDarkMode } = useTheme();
 
   // State
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -237,6 +240,12 @@ export default function MyBookingsScreen() {
   // ===== Data Fetching =====
 
   const fetchBookings = useCallback(async () => {
+    // Skip the API call for guests — they have no bookings.
+    if (!user?.uid || user.uid === 'guest-user') {
+      setIsLoading(false);
+      setIsRefreshing(false);
+      return;
+    }
     try {
       const response = await bookingAPI.getMyBookings();
       if (response?.data) {
@@ -263,6 +272,18 @@ export default function MyBookingsScreen() {
   useEffect(() => {
     fetchBookings();
   }, [fetchBookings]);
+
+  // Deep-link: ?reviewBookingId=xxx auto-opens the review modal.
+  // Used by booking detail's "Write Review" button.
+  useEffect(() => {
+    if (params.reviewBookingId) {
+      setReviewBookingId(params.reviewBookingId);
+      setReviewRating(0);
+      setReviewTitle('');
+      setReviewBody('');
+      setReviewModalVisible(true);
+    }
+  }, [params.reviewBookingId]);
 
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
@@ -388,7 +409,7 @@ export default function MyBookingsScreen() {
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.tabsContainer}
-      style={styles.tabsScrollView}
+      style={[styles.tabsScrollView, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}
     >
       {STATUS_TABS.map((tab) => {
         const isActive = activeTab === tab.key;
@@ -404,12 +425,14 @@ export default function MyBookingsScreen() {
             activeOpacity={0.7}
             style={[
               styles.tab,
+              !isActive && { backgroundColor: isDarkMode ? themeColors.surfaceElevated : undefined },
               isActive && styles.tabActive,
             ]}
           >
             <Text
               style={[
                 styles.tabText,
+                !isActive && { color: themeColors.textSecondary },
                 isActive && styles.tabTextActive,
               ]}
             >
@@ -487,7 +510,7 @@ export default function MyBookingsScreen() {
               />
             ) : (
               <LinearGradient
-                colors={getGradientForIndex(index) as unknown as string[]}
+                colors={getGradientForIndex(index) as any}
                 style={styles.activityImage}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -498,11 +521,11 @@ export default function MyBookingsScreen() {
 
             {/* Content */}
             <View style={styles.cardContent}>
-              <Text style={styles.activityTitle} numberOfLines={1}>
+              <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={1}>
                 {activity?.title || 'Activity'}
               </Text>
 
-              <Text style={styles.bookingRef} numberOfLines={1}>
+              <Text style={[styles.bookingRef, { color: themeColors.textTertiary }]} numberOfLines={1}>
                 {item.bookingReference}
               </Text>
 
@@ -510,9 +533,9 @@ export default function MyBookingsScreen() {
                 <Ionicons
                   name="calendar-outline"
                   size={13}
-                  color={colors.textTertiary}
+                  color={themeColors.textTertiary}
                 />
-                <Text style={styles.infoText}>
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
                   {formatDate(item.bookingDate)}
                   {timeText ? ` \u2022 ${timeText}` : ''}
                 </Text>
@@ -522,12 +545,12 @@ export default function MyBookingsScreen() {
                 <Ionicons
                   name="people-outline"
                   size={13}
-                  color={colors.textTertiary}
+                  color={themeColors.textTertiary}
                 />
-                <Text style={styles.infoText}>{participantText}</Text>
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>{participantText}</Text>
               </View>
 
-              <Text style={styles.priceText}>
+              <Text style={[styles.priceText, { color: themeColors.text }]}>
                 {formatCurrency(totalAmount)}
               </Text>
             </View>
@@ -536,7 +559,7 @@ export default function MyBookingsScreen() {
           {/* Action Buttons */}
           {(canReview || canCancel) && (
             <View style={styles.cardActions}>
-              <View style={styles.actionsDivider} />
+              <View style={[styles.actionsDivider, { backgroundColor: themeColors.border }]} />
               <View style={styles.actionsRow}>
                 {canReview && (
                   <TouchableOpacity
@@ -590,15 +613,34 @@ export default function MyBookingsScreen() {
   const renderEmptyState = () => {
     if (isLoading) return null;
 
+    const isGuestUser = !user?.uid || user.uid === 'guest-user';
+    if (isGuestUser) {
+      return (
+        <EmptyState
+          icon={
+            <View style={[styles.emptyIcon, { backgroundColor: themeColors.surfaceElevated }]}>
+              <Ionicons name="lock-closed-outline" size={48} color={themeColors.textTertiary} />
+            </View>
+          }
+          title="Sign in to see your bookings"
+          description="Receipts, refunds, and reviews are tied to your account."
+          actionLabel="Sign in"
+          onAction={() =>
+            router.push({ pathname: '/(auth)/login', params: { redirectTo: '/bookings' } } as any)
+          }
+        />
+      );
+    }
+
     const isFiltered = activeTab !== 'all';
     return (
       <EmptyState
         icon={
-          <View style={styles.emptyIcon}>
+          <View style={[styles.emptyIcon, { backgroundColor: themeColors.surfaceElevated }]}>
             <Ionicons
               name={isFiltered ? 'filter-outline' : 'receipt-outline'}
               size={48}
-              color={colors.textTertiary}
+              color={themeColors.textTertiary}
             />
           </View>
         }
@@ -636,15 +678,15 @@ export default function MyBookingsScreen() {
       onRequestClose={closeReviewModal}
     >
       <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+        <View style={[styles.modalContent, { backgroundColor: themeColors.surface }]}>
           {/* Modal Header */}
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Write a Review</Text>
+          <View style={[styles.modalHeader, { borderBottomColor: themeColors.border }]}>
+            <Text style={[styles.modalTitle, { color: themeColors.text }]}>Write a Review</Text>
             <TouchableOpacity
               onPress={closeReviewModal}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Ionicons name="close" size={24} color={colors.text} />
+              <Ionicons name="close" size={24} color={themeColors.text} />
             </TouchableOpacity>
           </View>
 
@@ -655,7 +697,7 @@ export default function MyBookingsScreen() {
           >
             {/* Star Rating */}
             <View style={styles.ratingSection}>
-              <Text style={styles.ratingLabel}>Your Rating</Text>
+              <Text style={[styles.ratingLabel, { color: themeColors.text }]}>Your Rating</Text>
               <View style={styles.ratingStars}>
                 <StarRating
                   rating={reviewRating}
@@ -702,14 +744,14 @@ export default function MyBookingsScreen() {
             />
 
             {reviewBody.length > 0 && (
-              <Text style={styles.charCount}>
+              <Text style={[styles.charCount, { color: themeColors.textTertiary }]}>
                 {reviewBody.length}/1000
               </Text>
             )}
           </ScrollView>
 
           {/* Submit Button */}
-          <View style={styles.modalFooter}>
+          <View style={[styles.modalFooter, { borderTopColor: themeColors.border }]}>
             <Button
               title="Submit Review"
               onPress={submitReview}
@@ -728,17 +770,17 @@ export default function MyBookingsScreen() {
   // ===== Main Render =====
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: themeColors.surfaceElevated }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Bookings</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.text }]}>My Bookings</Text>
         <View style={styles.headerSpacer} />
       </View>
 

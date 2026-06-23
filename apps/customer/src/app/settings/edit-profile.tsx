@@ -23,6 +23,7 @@ import {
   spacing,
   borderRadius,
   shadow,
+  useTheme,
 } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
 import { updateUserProfile } from '@prayana/shared-services';
@@ -57,15 +58,17 @@ function FormField({
   error?: string;
 }) {
   const [focused, setFocused] = useState(false);
+  const { themeColors } = useTheme();
 
   return (
     <View style={styles.fieldContainer}>
-      <Text style={styles.fieldLabel}>{label}</Text>
+      <Text style={[styles.fieldLabel, { color: themeColors.text }]}>{label}</Text>
       <View
         style={[
           styles.fieldInputContainer,
-          focused && styles.fieldInputFocused,
-          !editable && styles.fieldInputDisabled,
+          { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border },
+          focused && [styles.fieldInputFocused, { backgroundColor: themeColors.card }],
+          !editable && [styles.fieldInputDisabled, { backgroundColor: themeColors.backgroundSecondary }],
           error ? styles.fieldInputError : null,
         ]}
       >
@@ -77,15 +80,15 @@ function FormField({
               ? '#ef4444'
               : focused
                 ? colors.primary[500]
-                : colors.textTertiary
+                : themeColors.textTertiary
           }
         />
         <TextInput
-          style={[styles.fieldInput, !editable && styles.fieldInputTextDisabled]}
+          style={[styles.fieldInput, { color: themeColors.text }, !editable && [styles.fieldInputTextDisabled, { color: themeColors.textSecondary }]]}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor={themeColors.textTertiary}
           editable={editable}
           keyboardType={keyboardType}
           autoCapitalize={autoCapitalize}
@@ -94,13 +97,13 @@ function FormField({
           onBlur={() => setFocused(false)}
         />
         {!editable && (
-          <Ionicons name="lock-closed-outline" size={16} color={colors.textTertiary} />
+          <Ionicons name="lock-closed-outline" size={16} color={themeColors.textTertiary} />
         )}
       </View>
       {error ? (
         <Text style={styles.fieldError}>{error}</Text>
       ) : helperText ? (
-        <Text style={styles.fieldHelper}>{helperText}</Text>
+        <Text style={[styles.fieldHelper, { color: themeColors.textTertiary }]}>{helperText}</Text>
       ) : null}
     </View>
   );
@@ -112,6 +115,7 @@ function FormField({
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { themeColors } = useTheme();
 
   // --- State ---
   const [displayName, setDisplayName] = useState('');
@@ -197,7 +201,7 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
-      await updateUserProfile(user.uid, {
+      await updateUserProfile({
         displayName: displayName.trim(),
         phoneNumber: phone.trim() || undefined,
       });
@@ -241,7 +245,7 @@ export default function EditProfileScreen() {
   // ============================================================
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: themeColors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
     >
@@ -255,10 +259,10 @@ export default function EditProfileScreen() {
           <View style={styles.avatarContainer}>
             <Avatar
               name={avatarName}
-              imageUrl={avatarPhoto}
+              uri={avatarPhoto}
               size={96}
             />
-            <View style={styles.cameraIconOverlay}>
+            <View style={[styles.cameraIconOverlay, { borderColor: themeColors.background }]}>
               <LinearGradient
                 colors={[colors.primary[500], colors.primary[600]]}
                 style={styles.cameraIconBg}
@@ -267,11 +271,11 @@ export default function EditProfileScreen() {
               </LinearGradient>
             </View>
           </View>
-          <Text style={styles.avatarHint}>Tap to change photo</Text>
+          <Text style={[styles.avatarHint, { color: themeColors.textSecondary }]}>Tap to change photo</Text>
         </View>
 
         {/* ====== FORM FIELDS ====== */}
-        <Card style={styles.formCard}>
+        <Card style={[styles.formCard, { backgroundColor: themeColors.card }]}>
           <FormField
             label="Display Name"
             icon="person-outline"
@@ -347,7 +351,7 @@ export default function EditProfileScreen() {
             </LinearGradient>
           </TouchableOpacity>
           {!hasChanges && (
-            <Text style={styles.noChangesText}>No changes to save</Text>
+            <Text style={[styles.noChangesText, { color: themeColors.textTertiary }]}>No changes to save</Text>
           )}
         </View>
       </ScrollView>

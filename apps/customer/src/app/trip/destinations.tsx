@@ -16,7 +16,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { makeAPICall } from '@prayana/shared-services';
 import { useDebounce, useCollaboration } from '@prayana/shared-hooks';
@@ -60,9 +60,10 @@ function normalizeSearchResult(item: any, fallbackQuery?: string): SearchResult 
 
 export default function DestinationsScreen() {
   const router = useRouter();
+  const { themeColors, isDarkMode } = useTheme();
 
   // Store state
-  const destinations = useCreateTripStore((s) => s.destinations);
+  const destinations = useCreateTripStore((s: any) => s.destinations) as any[];
   const startDate = useCreateTripStore((s) => s.startDate);
   const endDate = useCreateTripStore((s) => s.endDate);
 
@@ -352,11 +353,11 @@ export default function DestinationsScreen() {
           <Ionicons name="location" size={18} color={colors.primary[500]} />
         </View>
         <View style={styles.searchResultContent}>
-          <Text style={styles.searchResultName} numberOfLines={1}>
+          <Text style={[styles.searchResultName, { color: themeColors.text }]} numberOfLines={1}>
             {item.name}
           </Text>
           {item.country ? (
-            <Text style={styles.searchResultCountry} numberOfLines={1}>
+            <Text style={[styles.searchResultCountry, { color: themeColors.textTertiary }]} numberOfLines={1}>
               {item.country}
             </Text>
           ) : null}
@@ -370,19 +371,19 @@ export default function DestinationsScreen() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* ── Header ── */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
+          <TouchableOpacity onPress={handleBack} style={[styles.backButton, { backgroundColor: themeColors.surface }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.stepIndicator}>Step 2 of 4</Text>
-            <Text style={styles.headerTitle}>Destinations</Text>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Destinations</Text>
           </View>
           <View style={styles.headerRight}>
             <CollaboratorAvatars onPress={() => inviteSheetRef.current?.expand()} />
@@ -397,7 +398,7 @@ export default function DestinationsScreen() {
         </View>
 
         {/* ── Step Navigation ── */}
-        <View style={styles.stepNav}>
+        <View style={[styles.stepNav, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
           {[
             { step: 1, label: 'Setup', route: '/trip/setup' },
             { step: 2, label: 'Destinations', route: null },
@@ -445,13 +446,13 @@ export default function DestinationsScreen() {
 
         {/* ── Search Bar ── */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchInputWrapper}>
-            <Ionicons name="search" size={18} color={colors.textTertiary} />
+          <View style={[styles.searchInputWrapper, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
+            <Ionicons name="search" size={18} color={themeColors.textTertiary} />
             <TextInput
               ref={searchInputRef}
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: themeColors.text }]}
               placeholder="Search destinations (e.g., Goa, Paris, Tokyo)"
-              placeholderTextColor={colors.textTertiary}
+              placeholderTextColor={themeColors.textTertiary}
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
@@ -470,14 +471,14 @@ export default function DestinationsScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+                <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
               </TouchableOpacity>
             )}
           </View>
 
           {/* ── Search Results Dropdown ── */}
           {showResults && (searchResults.length > 0 || (debouncedQuery.length >= 2 && !isSearching)) && (
-            <View style={styles.searchDropdown}>
+            <View style={[styles.searchDropdown, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
               {/* Add as custom destination (always shown when typing) */}
               {debouncedQuery.trim().length >= 2 && (
                 <TouchableOpacity
@@ -546,6 +547,7 @@ export default function DestinationsScreen() {
             <Text
               style={[
                 styles.daysProgressText,
+                { color: themeColors.textSecondary },
                 assignedDays > totalTripDays && { color: colors.error },
               ]}
             >
@@ -566,14 +568,14 @@ export default function DestinationsScreen() {
           {destinations.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="map-outline" size={56} color={colors.gray[300]} />
-              <Text style={styles.emptyTitle}>No destinations yet</Text>
-              <Text style={styles.emptySubtitle}>
+              <Text style={[styles.emptyTitle, { color: themeColors.textSecondary }]}>No destinations yet</Text>
+              <Text style={[styles.emptySubtitle, { color: themeColors.textTertiary }]}>
                 Search and add destinations for your trip
               </Text>
             </View>
           ) : (
             destinations.map((dest, index) => (
-              <View key={`${dest.name}-${index}`} style={styles.destCard}>
+              <View key={`${dest.name}-${index}`} style={[styles.destCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <View style={styles.destCardHeader}>
                   {/* Destination image thumbnail with order badge overlay */}
                   <View style={styles.destImageContainer}>
@@ -596,11 +598,11 @@ export default function DestinationsScreen() {
                   </View>
 
                   <View style={styles.destInfo}>
-                    <Text style={styles.destName} numberOfLines={1}>
+                    <Text style={[styles.destName, { color: themeColors.text }]} numberOfLines={1}>
                       {dest.name}
                     </Text>
                     {dest.country ? (
-                      <Text style={styles.destCountry} numberOfLines={1}>
+                      <Text style={[styles.destCountry, { color: themeColors.textTertiary }]} numberOfLines={1}>
                         {dest.country}
                       </Text>
                     ) : null}
@@ -615,9 +617,9 @@ export default function DestinationsScreen() {
                 </View>
 
                 {/* Duration Editor */}
-                <View style={styles.durationRow}>
-                  <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.durationLabel}>Duration</Text>
+                <View style={[styles.durationRow, { borderTopColor: themeColors.border }]}>
+                  <Ionicons name="time-outline" size={16} color={themeColors.textSecondary} />
+                  <Text style={[styles.durationLabel, { color: themeColors.textSecondary }]}>Duration</Text>
                   <View style={styles.durationControls}>
                     <TouchableOpacity
                       style={[
@@ -634,7 +636,7 @@ export default function DestinationsScreen() {
                         color={(dest.duration || 1) <= 1 ? colors.gray[300] : colors.primary[500]}
                       />
                     </TouchableOpacity>
-                    <Text style={styles.durationValue}>
+                    <Text style={[styles.durationValue, { color: themeColors.text }]}>
                       {dest.duration || 1} {(dest.duration || 1) === 1 ? 'day' : 'days'}
                     </Text>
                     <TouchableOpacity
@@ -669,11 +671,11 @@ export default function DestinationsScreen() {
             <View style={styles.aiSection}>
               <View style={styles.aiSectionHeader}>
                 <Ionicons name="sparkles" size={16} color={colors.primary[500]} />
-                <Text style={styles.aiSectionTitle}>Suggested Destinations</Text>
+                <Text style={[styles.aiSectionTitle, { color: themeColors.textSecondary }]}>Suggested Destinations</Text>
                 {isLoadingAI && <ActivityIndicator size="small" color={colors.primary[500]} />}
               </View>
               {isLoadingAI && aiSuggestions.length === 0 && (
-                <Text style={styles.aiLoadingText}>Finding destinations that pair well...</Text>
+                <Text style={[styles.aiLoadingText, { color: themeColors.textTertiary }]}>Finding destinations that pair well...</Text>
               )}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.aiPills}>
                 {aiSuggestions.map((suggestion, idx) => (
@@ -692,7 +694,7 @@ export default function DestinationsScreen() {
                 ))}
               </ScrollView>
               {aiSuggestions.some((s) => s.reason) && (
-                <Text style={styles.aiReasonText}>
+                <Text style={[styles.aiReasonText, { color: themeColors.textTertiary }]}>
                   {aiSuggestions.find((s) => s.reason)?.reason}
                 </Text>
               )}
@@ -704,10 +706,10 @@ export default function DestinationsScreen() {
         </ScrollView>
 
         {/* ── Bottom Bar ── */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={18} color={colors.textSecondary} />
-            <Text style={styles.backBtnText}>Back</Text>
+        <View style={[styles.bottomBar, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
+          <TouchableOpacity style={[styles.backBtn, { borderColor: themeColors.border }]} onPress={handleBack} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={18} color={themeColors.textSecondary} />
+            <Text style={[styles.backBtnText, { color: themeColors.textSecondary }]}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[

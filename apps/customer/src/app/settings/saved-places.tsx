@@ -10,20 +10,22 @@ import {
   fontSize,
   fontWeight,
   spacing,
+  useTheme,
 } from '@prayana/shared-ui';
 
 // ============================================================
 // SAVED PLACES SCREEN (Placeholder)
 // ============================================================
 export default function SavedPlacesScreen() {
+  const { themeColors } = useTheme();
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={styles.emptyState}>
-        <View style={styles.iconContainer}>
+        <View style={[styles.iconContainer, { backgroundColor: themeColors.card }]}>
           <Ionicons name="heart-outline" size={56} color={colors.gray[300]} />
         </View>
-        <Text style={styles.emptyTitle}>No saved places yet</Text>
-        <Text style={styles.emptySubtitle}>
+        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No saved places yet</Text>
+        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
           Explore destinations and save your favorite places to find them quickly
           later.
         </Text>

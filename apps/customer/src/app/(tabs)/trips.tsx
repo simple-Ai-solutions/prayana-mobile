@@ -26,6 +26,7 @@ import {
   borderRadius,
   Badge,
   EmptyState,
+  useTheme,
 } from '@prayana/shared-ui';
 import { createTripAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
@@ -258,6 +259,7 @@ function GuideModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { themeColors } = useTheme();
 
   if (!guide) return null;
 
@@ -268,7 +270,7 @@ function GuideModal({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <SafeAreaView style={modalStyles.container} edges={['top']}>
+      <SafeAreaView style={[modalStyles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
         {/* Hero Image */}
         <View style={modalStyles.heroContainer}>
           <Image
@@ -308,8 +310,8 @@ function GuideModal({
             </Text>
           </View>
           {guide.tags.map((t) => (
-            <View key={t} style={[modalStyles.tag, { backgroundColor: colors.gray[100] }]}>
-              <Text style={[modalStyles.tagText, { color: colors.textSecondary }]}>{t}</Text>
+            <View key={t} style={[modalStyles.tag, { backgroundColor: themeColors.surface }]}>
+              <Text style={[modalStyles.tagText, { color: themeColors.textSecondary }]}>{t}</Text>
             </View>
           ))}
         </View>
@@ -321,21 +323,21 @@ function GuideModal({
           showsVerticalScrollIndicator={false}
         >
           {guide.days.map((day, dayIdx) => (
-            <View key={dayIdx} style={[modalStyles.dayCard, shadow.sm]}>
-              <View style={modalStyles.dayHeader}>
+            <View key={dayIdx} style={[modalStyles.dayCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+              <View style={[modalStyles.dayHeader, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
                 <LinearGradient
                   colors={[colors.primary[400], colors.primary[600]]}
                   style={modalStyles.dayBadge}
                 >
                   <Text style={modalStyles.dayBadgeText}>{dayIdx + 1}</Text>
                 </LinearGradient>
-                <Text style={modalStyles.dayTitle}>{day.title}</Text>
+                <Text style={[modalStyles.dayTitle, { color: themeColors.text }]}>{day.title}</Text>
               </View>
               <View style={modalStyles.activityList}>
                 {day.activities.map((act, actIdx) => (
                   <View key={actIdx} style={modalStyles.activityItem}>
                     <View style={modalStyles.activityDot} />
-                    <Text style={modalStyles.activityText}>{act}</Text>
+                    <Text style={[modalStyles.activityText, { color: themeColors.text }]}>{act}</Text>
                   </View>
                 ))}
               </View>
@@ -344,7 +346,7 @@ function GuideModal({
         </ScrollView>
 
         {/* CTA */}
-        <View style={modalStyles.ctaContainer}>
+        <View style={[modalStyles.ctaContainer, { borderTopColor: themeColors.border }]}>
           <TouchableOpacity
             style={shadow.md}
             activeOpacity={0.85}
@@ -378,8 +380,9 @@ function GuideModal({
 // SKELETON
 // ============================================================
 function SkeletonCard() {
+  const { themeColors } = useTheme();
   return (
-    <View style={[styles.tripCard, { borderWidth: 0 }]}>
+    <View style={[styles.tripCard, { borderWidth: 0, backgroundColor: themeColors.surface }]}>
       <View style={styles.skeletonImage} />
       <View style={styles.tripCardBody}>
         <View style={[styles.skeletonLine, { width: '70%' }]} />
@@ -396,6 +399,7 @@ function SkeletonCard() {
 export default function TripsScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { themeColors } = useTheme();
 
   const [trips, setTrips] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -405,7 +409,9 @@ export default function TripsScreen() {
 
   // --- Fetch trips ---
   const fetchTrips = useCallback(async () => {
-    if (!user?.uid) {
+    // Guests have no trips on the server — skip the fetch and show the
+    // sign-in empty state below.
+    if (!user?.uid || user.uid === 'guest-user') {
       setLoading(false);
       return;
     }
@@ -599,7 +605,7 @@ export default function TripsScreen() {
           style={[
             styles.colorTripCard,
             shadow.sm,
-            { borderColor: gradient.border, borderLeftColor: gradient.accent },
+            { backgroundColor: themeColors.surface, borderColor: gradient.border, borderLeftColor: gradient.accent },
           ]}
           activeOpacity={0.9}
           onPress={() => handleTripPress(trip)}
@@ -642,7 +648,7 @@ export default function TripsScreen() {
 
             {/* Duration */}
             {daysCount > 0 ? (
-              <Text style={styles.colorTripDuration}>
+              <Text style={[styles.colorTripDuration, { color: themeColors.textSecondary }]}>
                 {daysCount} Day{daysCount !== 1 ? 's' : ''}{' '}
                 {nightsCount > 0 ? `${nightsCount} Night${nightsCount !== 1 ? 's' : ''}` : ''}
               </Text>
@@ -656,7 +662,7 @@ export default function TripsScreen() {
 
             {/* Shared by */}
             {isShared && trip.ownerName && (
-              <Text style={styles.sharedByText}>by {trip.ownerName}</Text>
+              <Text style={[styles.sharedByText, { color: themeColors.textTertiary }]}>by {trip.ownerName}</Text>
             )}
 
             {/* Destination tags */}
@@ -677,7 +683,7 @@ export default function TripsScreen() {
                   </View>
                 ))}
                 {extraDests > 0 && (
-                  <Text style={styles.destTagExtra}>+{extraDests} more</Text>
+                  <Text style={[styles.destTagExtra, { color: themeColors.textTertiary }]}>+{extraDests} more</Text>
                 )}
               </View>
             )}
@@ -685,18 +691,18 @@ export default function TripsScreen() {
         </TouchableOpacity>
       );
     },
-    [handleTripPress]
+    [handleTripPress, themeColors]
   );
 
   // ============================================================
   // MAIN RENDER
   // ============================================================
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* ======= HEADER ======= */}
       <View style={styles.header}>
         <View style={styles.headerRow}>
-          <Text style={styles.title}>My Trips</Text>
+          <Text style={[styles.title, { color: themeColors.text }]}>My Trips</Text>
           {trips.length > 0 && (
             <View style={styles.countBadge}>
               <Text style={styles.countBadgeText}>{trips.length}</Text>
@@ -706,7 +712,7 @@ export default function TripsScreen() {
       </View>
 
       {/* ======= FILTER TABS ======= */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { borderBottomColor: themeColors.border }]}>
         <FlatList
           data={FILTER_TABS as unknown as FilterTab[]}
           horizontal
@@ -717,12 +723,12 @@ export default function TripsScreen() {
             const isActive = tab === activeFilter;
             return (
               <TouchableOpacity
-                style={[styles.filterTab, isActive && styles.filterTabActive]}
+                style={[styles.filterTab, { backgroundColor: themeColors.surface }, isActive && styles.filterTabActive]}
                 onPress={() => setActiveFilter(tab)}
                 activeOpacity={0.7}
               >
                 <Text
-                  style={[styles.filterTabText, isActive && styles.filterTabTextActive]}
+                  style={[styles.filterTabText, { color: themeColors.textSecondary }, isActive && styles.filterTabTextActive]}
                 >
                   {tab}
                 </Text>
@@ -755,7 +761,7 @@ export default function TripsScreen() {
           {/* ====== TRAVEL GUIDES CAROUSEL ====== */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>Travel Guides</Text>
+              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Travel Guides</Text>
             </View>
             <ScrollView
               horizontal
@@ -771,26 +777,26 @@ export default function TripsScreen() {
           {/* ====== QUICK STATS ====== */}
           {myTrips.length > 0 && (
             <View style={styles.statsRow}>
-              <View style={[styles.statCard, shadow.sm]}>
+              <View style={[styles.statCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <View style={[styles.statIconBg, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
                   <Ionicons name="globe-outline" size={20} color="#3B82F6" />
                 </View>
-                <Text style={styles.statValue}>{quickStats.destinations}</Text>
-                <Text style={styles.statLabel}>Destinations</Text>
+                <Text style={[styles.statValue, { color: themeColors.text }]}>{quickStats.destinations}</Text>
+                <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Destinations</Text>
               </View>
-              <View style={[styles.statCard, shadow.sm]}>
+              <View style={[styles.statCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <View style={[styles.statIconBg, { backgroundColor: 'rgba(139,92,246,0.1)' }]}>
                   <Ionicons name="calendar-outline" size={20} color="#8B5CF6" />
                 </View>
-                <Text style={styles.statValue}>{quickStats.days}</Text>
-                <Text style={styles.statLabel}>Days Planned</Text>
+                <Text style={[styles.statValue, { color: themeColors.text }]}>{quickStats.days}</Text>
+                <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Days Planned</Text>
               </View>
-              <View style={[styles.statCard, shadow.sm]}>
+              <View style={[styles.statCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <View style={[styles.statIconBg, { backgroundColor: 'rgba(245,158,11,0.1)' }]}>
                   <Ionicons name="camera-outline" size={20} color="#F59E0B" />
                 </View>
-                <Text style={styles.statValue}>{quickStats.activities}</Text>
-                <Text style={styles.statLabel}>Activities</Text>
+                <Text style={[styles.statValue, { color: themeColors.text }]}>{quickStats.activities}</Text>
+                <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Activities</Text>
               </View>
             </View>
           )}
@@ -798,14 +804,14 @@ export default function TripsScreen() {
           {/* ====== MY TRIPS ====== */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionLabel}>
+              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>
                 {myTrips.length > 0
                   ? 'Saved! Just a few steps left.'
                   : 'Your Trips'}
               </Text>
               {myTrips.length > 0 && (
-                <View style={styles.sectionCountBadge}>
-                  <Text style={styles.sectionCountText}>{myTrips.length}</Text>
+                <View style={[styles.sectionCountBadge, { backgroundColor: themeColors.surface }]}>
+                  <Text style={[styles.sectionCountText, { color: themeColors.textSecondary }]}>{myTrips.length}</Text>
                 </View>
               )}
             </View>
@@ -814,27 +820,35 @@ export default function TripsScreen() {
               activeFilter !== 'All' && myTrips.length > 0 ? (
                 <View style={styles.emptyFilterContainer}>
                   <Text style={styles.emptyFilterEmoji}>{'\uD83D\uDD0D'}</Text>
-                  <Text style={styles.emptyFilterTitle}>
+                  <Text style={[styles.emptyFilterTitle, { color: themeColors.text }]}>
                     No {activeFilter.toLowerCase()} trips
                   </Text>
-                  <Text style={styles.emptyFilterSubtitle}>
+                  <Text style={[styles.emptyFilterSubtitle, { color: themeColors.textTertiary }]}>
                     Try switching to a different filter
                   </Text>
                 </View>
               ) : (
-                <View style={styles.emptyTripsCard}>
+                <View style={[styles.emptyTripsCard, { borderColor: themeColors.border }]}>
                   <Ionicons
-                    name="airplane-outline"
+                    name={user?.uid === 'guest-user' ? 'lock-closed-outline' : 'airplane-outline'}
                     size={40}
-                    color={colors.textTertiary}
+                    color={themeColors.textTertiary}
                   />
-                  <Text style={styles.emptyTripsTitle}>No trips yet</Text>
-                  <Text style={styles.emptyTripsSubtitle}>
-                    Start planning your first adventure
+                  <Text style={[styles.emptyTripsTitle, { color: themeColors.text }]}>
+                    {user?.uid === 'guest-user' ? 'Sign in to see your trips' : 'No trips yet'}
+                  </Text>
+                  <Text style={[styles.emptyTripsSubtitle, { color: themeColors.textTertiary }]}>
+                    {user?.uid === 'guest-user'
+                      ? 'Saved itineraries and collaborator invites live in your account.'
+                      : 'Start planning your first adventure'}
                   </Text>
                   <TouchableOpacity
                     activeOpacity={0.85}
-                    onPress={() => router.push('/trip/setup' as any)}
+                    onPress={() =>
+                      user?.uid === 'guest-user'
+                        ? router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/trips' } } as any)
+                        : router.push('/trip/setup' as any)
+                    }
                   >
                     <LinearGradient
                       colors={[colors.primary[500], colors.primary[600]]}
@@ -842,7 +856,9 @@ export default function TripsScreen() {
                       end={{ x: 1, y: 0 }}
                       style={styles.emptyTripsCTA}
                     >
-                      <Text style={styles.emptyTripsCTAText}>Create First Trip</Text>
+                      <Text style={styles.emptyTripsCTAText}>
+                        {user?.uid === 'guest-user' ? 'Sign in' : 'Create First Trip'}
+                      </Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -862,12 +878,12 @@ export default function TripsScreen() {
                   <Ionicons
                     name="people-outline"
                     size={18}
-                    color={colors.textSecondary}
+                    color={themeColors.textSecondary}
                   />
-                  <Text style={styles.sectionLabel}>Shared with Me</Text>
+                  <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Shared with Me</Text>
                 </View>
-                <View style={styles.sectionCountBadge}>
-                  <Text style={styles.sectionCountText}>{sharedTrips.length}</Text>
+                <View style={[styles.sectionCountBadge, { backgroundColor: themeColors.surface }]}>
+                  <Text style={[styles.sectionCountText, { color: themeColors.textSecondary }]}>{sharedTrips.length}</Text>
                 </View>
               </View>
               <View style={styles.tripsListInline}>
@@ -939,22 +955,22 @@ export default function TripsScreen() {
           {/* ====== TRAVEL TIPS CARDS ====== */}
           <View style={styles.tipsRow}>
             <TouchableOpacity
-              style={[styles.tipCard, shadow.sm]}
+              style={[styles.tipCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
               activeOpacity={0.85}
               onPress={() => router.push('/(tabs)/' as any)}
             >
               <Text style={styles.tipEmoji}>{'\uD83C\uDF0D'}</Text>
-              <Text style={styles.tipTitle}>Explore Guides</Text>
-              <Text style={styles.tipDesc}>Browse curated destinations</Text>
+              <Text style={[styles.tipTitle, { color: themeColors.text }]}>Explore Guides</Text>
+              <Text style={[styles.tipDesc, { color: themeColors.textTertiary }]}>Browse curated destinations</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.tipCard, shadow.sm]}
+              style={[styles.tipCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
               activeOpacity={0.85}
               onPress={() => router.push('/trip/setup' as any)}
             >
               <Text style={styles.tipEmoji}>{'\uD83E\uDD16'}</Text>
-              <Text style={styles.tipTitle}>AI Planning</Text>
-              <Text style={styles.tipDesc}>Smart itinerary builder</Text>
+              <Text style={[styles.tipTitle, { color: themeColors.text }]}>AI Planning</Text>
+              <Text style={[styles.tipDesc, { color: themeColors.textTertiary }]}>Smart itinerary builder</Text>
             </TouchableOpacity>
           </View>
 

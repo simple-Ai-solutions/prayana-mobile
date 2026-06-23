@@ -11,15 +11,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Button, TextInput } from '@prayana/shared-ui';
+import { Button, TextInput, useTheme } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
 import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth';
-import { auth } from '@prayana/shared-services/src/firebase';
+import { auth } from '@prayana/shared-services';
 
 export default function SignUpScreen() {
+  const { themeColors } = useTheme();
   const { setUser, setIsAuthenticated } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -121,7 +122,7 @@ export default function SignUpScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -139,8 +140,8 @@ export default function SignUpScreen() {
                 <Text style={styles.logoIcon}>P</Text>
               </View>
             </View>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>
+            <Text style={[styles.title, { color: themeColors.text }]}>Create Account</Text>
+            <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>
               Join Prayana AI and start planning your perfect trips
             </Text>
           </View>
@@ -207,7 +208,7 @@ export default function SignUpScreen() {
 
           {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Already have an account? </Text>
+            <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>Already have an account? </Text>
             <TouchableOpacity onPress={handleSignIn}>
               <Text style={styles.footerLink}>Sign In</Text>
             </TouchableOpacity>

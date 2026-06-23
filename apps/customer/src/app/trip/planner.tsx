@@ -15,7 +15,7 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { makeAPICall } from '@prayana/shared-services';
 import { useImageEnrichment, useCoordinateEnrichment, useCollaboration } from '@prayana/shared-hooks';
@@ -91,6 +91,7 @@ function renderStars(rating: number): string {
 
 export default function DayPlannerScreen() {
   const router = useRouter();
+  const { themeColors, isDarkMode } = useTheme();
 
   // Store state
   const days = useCreateTripStore((s) => s.days);
@@ -638,7 +639,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       horizontal
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={styles.dayTabsContent}
-      style={styles.dayTabsContainer}
+      style={[styles.dayTabsContainer, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}
     >
       {days.map((day: any, index: number) => {
         const isSelected = index === selectedDayIndex;
@@ -647,16 +648,16 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         return (
           <TouchableOpacity
             key={index}
-            style={[styles.dayTab, isSelected && styles.dayTabSelected]}
+            style={[styles.dayTab, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, isSelected && styles.dayTabSelected]}
             onPress={() => handleDaySelect(index)}
             activeOpacity={0.7}
           >
-            <Text style={[styles.dayTabLabel, isSelected && styles.dayTabLabelSelected]}>
+            <Text style={[styles.dayTabLabel, { color: themeColors.textSecondary }, isSelected && styles.dayTabLabelSelected]}>
               Day {day.dayNumber}
             </Text>
             {dest ? (
               <Text
-                style={[styles.dayTabDest, isSelected && styles.dayTabDestSelected]}
+                style={[styles.dayTabDest, { color: themeColors.textTertiary }, isSelected && styles.dayTabDestSelected]}
                 numberOfLines={1}
               >
                 {dest.name}
@@ -703,7 +704,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
     if (!showAISuggestions) return null;
 
     return (
-      <View style={styles.aiPanel}>
+      <View style={[styles.aiPanel, { backgroundColor: themeColors.surface }]}>
         <View style={styles.aiPanelHeader}>
           <View style={styles.aiPanelHeaderLeft}>
             <Ionicons name="sparkles" size={16} color="#06B6D4" />
@@ -724,7 +725,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
               }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="close" size={20} color={colors.textSecondary} />
+              <Ionicons name="close" size={20} color={themeColors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -732,15 +733,15 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         {isGeneratingAI ? (
           <View style={styles.aiLoading}>
             <ActivityIndicator size="large" color="#06B6D4" />
-            <Text style={styles.aiLoadingText}>Generating smart suggestions...</Text>
+            <Text style={[styles.aiLoadingText, { color: themeColors.text }]}>Generating smart suggestions...</Text>
             <Text style={styles.aiLoadingSubtext}>
               Analyzing {currentDestination?.name} attractions, ratings & routes
             </Text>
           </View>
         ) : aiSuggestions.length === 0 ? (
           <View style={styles.aiEmpty}>
-            <Ionicons name="sparkles-outline" size={24} color={colors.textTertiary} />
-            <Text style={styles.aiEmptyText}>No suggestions generated yet</Text>
+            <Ionicons name="sparkles-outline" size={24} color={themeColors.textTertiary} />
+            <Text style={[styles.aiEmptyText, { color: themeColors.textTertiary }]}>No suggestions generated yet</Text>
           </View>
         ) : (
           <ScrollView style={styles.aiSuggestionsList} nestedScrollEnabled>
@@ -760,7 +761,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                       <Text style={[styles.aiSlotLabel, { color: slot.color }]}>
                         {slot.label}
                       </Text>
-                      <Text style={styles.aiSlotTimeRange}>
+                      <Text style={[styles.aiSlotTimeRange, { color: themeColors.textTertiary }]}>
                         {AI_SLOT_CONFIG[slot.key].timeRange}
                       </Text>
                     </View>
@@ -771,7 +772,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
                   {/* Suggestion Cards with thumbnails */}
                   {visibleItems.map((suggestion, idx) => (
-                    <View key={idx} style={styles.aiSuggestionCard}>
+                    <View key={idx} style={[styles.aiSuggestionCard, { borderBottomColor: themeColors.border }]}>
                       <ActivityImage
                         activity={suggestion}
                         destinationName={currentDestination?.name}
@@ -781,22 +782,22 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                         fallbackIconColor={slot.color}
                       />
                       <View style={styles.aiSuggestionContent}>
-                        <Text style={styles.aiSuggestionName} numberOfLines={1}>
+                        <Text style={[styles.aiSuggestionName, { color: themeColors.text }]} numberOfLines={1}>
                           {suggestion.name}
                         </Text>
                         {suggestion.description ? (
-                          <Text style={styles.aiSuggestionDesc} numberOfLines={1}>
+                          <Text style={[styles.aiSuggestionDesc, { color: themeColors.textTertiary }]} numberOfLines={1}>
                             {suggestion.description}
                           </Text>
                         ) : null}
                         <View style={styles.aiSuggestionMeta}>
                           <View style={styles.aiSuggestionMetaItem}>
                             <Ionicons name="star" size={9} color="#f59e0b" />
-                            <Text style={styles.aiSuggestionMetaText}>{suggestion.rating.toFixed(1)}</Text>
+                            <Text style={[styles.aiSuggestionMetaText, { color: themeColors.textSecondary }]}>{suggestion.rating.toFixed(1)}</Text>
                           </View>
                           <View style={styles.aiSuggestionMetaItem}>
-                            <Ionicons name="time-outline" size={9} color={colors.textTertiary} />
-                            <Text style={styles.aiSuggestionMetaText}>{suggestion.duration}h</Text>
+                            <Ionicons name="time-outline" size={9} color={themeColors.textTertiary} />
+                            <Text style={[styles.aiSuggestionMetaText, { color: themeColors.textSecondary }]}>{suggestion.duration}h</Text>
                           </View>
                           {suggestion.category ? (
                             <View style={[styles.aiCategoryPill, { backgroundColor: slot.bgColor }]}>
@@ -851,7 +852,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                 </View>
               );
             })}
-            <Text style={styles.aiFooter}>Powered by Gemini AI</Text>
+            <Text style={[styles.aiFooter, { color: themeColors.textTertiary }]}>Powered by Gemini AI</Text>
           </ScrollView>
         )}
       </View>
@@ -864,21 +865,21 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
   if (days.length === 0) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.stepIndicator}>Step 3 of 4</Text>
-            <Text style={styles.headerTitle}>Day Planner</Text>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Day Planner</Text>
           </View>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.emptyDays}>
           <Ionicons name="calendar-outline" size={56} color={colors.gray[300]} />
-          <Text style={styles.emptyDaysTitle}>No days to plan</Text>
-          <Text style={styles.emptyDaysSubtitle}>
+          <Text style={[styles.emptyDaysTitle, { color: themeColors.textSecondary }]}>No days to plan</Text>
+          <Text style={[styles.emptyDaysSubtitle, { color: themeColors.textTertiary }]}>
             Go back and add destinations with durations first
           </Text>
           <TouchableOpacity style={styles.emptyDaysBtn} onPress={handleBack}>
@@ -890,15 +891,15 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={handleBack} style={styles.backButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.stepIndicator}>Step 3 of 4</Text>
-          <Text style={styles.headerTitle}>Day Planner</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Day Planner</Text>
         </View>
         <View style={styles.headerRight}>
           <CollaboratorAvatars onPress={() => inviteSheetRef.current?.expand()} />
@@ -920,7 +921,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       </View>
 
       {/* ── Step Navigation ── */}
-      <View style={styles.stepNav}>
+      <View style={[styles.stepNav, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
         {[
           { step: 1, label: 'Setup', route: '/trip/setup' },
           { step: 2, label: 'Destinations', route: '/trip/destinations' },
@@ -971,11 +972,11 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
       {/* ── Day Info ── */}
       {currentDay && (
-        <View style={styles.dayInfoBar}>
+        <View style={[styles.dayInfoBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <View style={styles.dayInfoLeft}>
-            <Text style={styles.dayInfoTitle}>{currentDay.title}</Text>
+            <Text style={[styles.dayInfoTitle, { color: themeColors.text }]}>{currentDay.title}</Text>
             <View style={styles.dayInfoSubRow}>
-              {dayDate ? <Text style={styles.dayInfoDate}>{dayDate}</Text> : null}
+              {dayDate ? <Text style={[styles.dayInfoDate, { color: themeColors.textTertiary }]}>{dayDate}</Text> : null}
               {currentDestination?.name ? (
                 <WeatherBadge destinationName={currentDestination.name} />
               ) : null}
@@ -1030,12 +1031,12 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
               {TIME_SLOTS.map((slot) => (
                 <TouchableOpacity
                   key={slot.key}
-                  style={[styles.addPanelSlotBtn, addPanelSlot === slot.key && { backgroundColor: slot.bgColor, borderColor: slot.color }]}
+                  style={[styles.addPanelSlotBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, addPanelSlot === slot.key && { backgroundColor: slot.bgColor, borderColor: slot.color }]}
                   onPress={() => setAddPanelSlot(slot.key)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.addPanelSlotEmoji}>{slot.emoji}</Text>
-                  <Text style={[styles.addPanelSlotLabel, addPanelSlot === slot.key && { color: slot.color, fontWeight: fontWeight.bold }]}>
+                  <Text style={[styles.addPanelSlotLabel, { color: themeColors.textSecondary }, addPanelSlot === slot.key && { color: slot.color, fontWeight: fontWeight.bold }]}>
                     {slot.label}
                   </Text>
                 </TouchableOpacity>
@@ -1043,21 +1044,21 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             </View>
 
             {/* Search input */}
-            <View style={styles.addPanelSearchRow}>
-              <Ionicons name="search" size={16} color={colors.textTertiary} style={styles.addPanelSearchIcon} />
+            <View style={[styles.addPanelSearchRow, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
+              <Ionicons name="search" size={16} color={themeColors.textTertiary} style={styles.addPanelSearchIcon} />
               <TextInput
-                style={styles.addPanelSearchInput}
+                style={[styles.addPanelSearchInput, { color: themeColors.text }]}
                 value={addSearchQuery}
                 onChangeText={onAddSearchInput}
                 placeholder={`Search places in ${currentDestination?.name || 'destination'}...`}
-                placeholderTextColor={colors.textTertiary}
+                placeholderTextColor={themeColors.textTertiary}
                 autoFocus
                 returnKeyType="search"
                 autoCapitalize="none"
               />
               {addSearchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => { setAddSearchQuery(''); setAddSearchResults([]); }}>
-                  <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
+                  <Ionicons name="close-circle" size={16} color={themeColors.textTertiary} />
                 </TouchableOpacity>
               )}
             </View>
@@ -1066,7 +1067,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             {addSearching && (
               <View style={styles.addPanelSearchingRow}>
                 <ActivityIndicator size="small" color={colors.primary[500]} />
-                <Text style={styles.addPanelSearchingText}>Searching in {currentDestination?.name}...</Text>
+                <Text style={[styles.addPanelSearchingText, { color: themeColors.textTertiary }]}>Searching in {currentDestination?.name}...</Text>
               </View>
             )}
 
@@ -1081,7 +1082,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                   return (
                     <TouchableOpacity
                       key={`result-${i}`}
-                      style={[styles.addPanelResultItem, alreadyAdded && styles.addPanelResultItemDuplicate]}
+                      style={[styles.addPanelResultItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, alreadyAdded && styles.addPanelResultItemDuplicate]}
                       onPress={() => handleAddFromPanel(result)}
                       activeOpacity={0.7}
                     >
@@ -1093,8 +1094,8 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                         </View>
                       )}
                       <View style={styles.addPanelResultInfo}>
-                        <Text style={styles.addPanelResultName} numberOfLines={1}>{rName}</Text>
-                        {rDesc ? <Text style={styles.addPanelResultDesc} numberOfLines={1}>{rDesc}</Text> : null}
+                        <Text style={[styles.addPanelResultName, { color: themeColors.text }]} numberOfLines={1}>{rName}</Text>
+                        {rDesc ? <Text style={[styles.addPanelResultDesc, { color: themeColors.textTertiary }]} numberOfLines={1}>{rDesc}</Text> : null}
                       </View>
                       {alreadyAdded ? (
                         <View style={styles.addPanelDuplicateBadge}>
@@ -1112,7 +1113,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             {/* Browse popular */}
             {!showPopular && addSearchQuery.length < 2 && (
               <TouchableOpacity
-                style={styles.addPanelPopularBtn}
+                style={[styles.addPanelPopularBtn, { backgroundColor: themeColors.surface }]}
                 onPress={loadPopularPlaces}
                 disabled={loadingPopular}
                 activeOpacity={0.7}
@@ -1132,9 +1133,9 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             {showPopular && popularPlaces.length > 0 && addSearchQuery.length < 2 && (
               <View style={styles.addPanelResults}>
                 <View style={styles.addPanelPopularHeader}>
-                  <Text style={styles.addPanelPopularTitle}>Popular in {currentDestination?.name}</Text>
+                  <Text style={[styles.addPanelPopularTitle, { color: themeColors.textSecondary }]}>Popular in {currentDestination?.name}</Text>
                   <TouchableOpacity onPress={() => setShowPopular(false)}>
-                    <Text style={styles.addPanelPopularHide}>Hide</Text>
+                    <Text style={[styles.addPanelPopularHide, { color: themeColors.textTertiary }]}>Hide</Text>
                   </TouchableOpacity>
                 </View>
                 {popularPlaces.map((place, i) => {
@@ -1144,7 +1145,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                   return (
                     <TouchableOpacity
                       key={`popular-${i}`}
-                      style={[styles.addPanelResultItem, alreadyAdded && styles.addPanelResultItemDuplicate]}
+                      style={[styles.addPanelResultItem, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, alreadyAdded && styles.addPanelResultItemDuplicate]}
                       onPress={() => handleAddFromPanel(place)}
                       activeOpacity={0.7}
                     >
@@ -1156,8 +1157,8 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                         </View>
                       )}
                       <View style={styles.addPanelResultInfo}>
-                        <Text style={styles.addPanelResultName} numberOfLines={1}>{pName}</Text>
-                        {place.category ? <Text style={styles.addPanelResultDesc} numberOfLines={1}>{place.category}</Text> : null}
+                        <Text style={[styles.addPanelResultName, { color: themeColors.text }]} numberOfLines={1}>{pName}</Text>
+                        {place.category ? <Text style={[styles.addPanelResultDesc, { color: themeColors.textTertiary }]} numberOfLines={1}>{place.category}</Text> : null}
                       </View>
                       {alreadyAdded ? (
                         <View style={styles.addPanelDuplicateBadge}>
@@ -1174,7 +1175,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
             {/* Custom add */}
             {addSearchQuery.trim().length > 0 && (
-              <TouchableOpacity style={styles.addPanelCustomBtn} onPress={handleAddCustomFromPanel} activeOpacity={0.7}>
+              <TouchableOpacity style={[styles.addPanelCustomBtn, { backgroundColor: themeColors.surface }]} onPress={handleAddCustomFromPanel} activeOpacity={0.7}>
                 <Ionicons name="add" size={14} color="#8b5cf6" />
                 <Text style={styles.addPanelCustomText}>Add "{addSearchQuery.trim()}"</Text>
               </TouchableOpacity>
@@ -1192,7 +1193,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
             {/* Cancel */}
             <TouchableOpacity onPress={closeAddPanel} style={styles.addPanelCancel}>
-              <Text style={styles.addPanelCancelText}>Cancel</Text>
+              <Text style={[styles.addPanelCancelText, { color: themeColors.textTertiary }]}>Cancel</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -1214,7 +1215,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         >
           <Ionicons name="wallet-outline" size={18} color="#f59e0b" />
           <Text style={styles.budgetInlineBtnText}>Budget Tracker</Text>
-          <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+          <Ionicons name="chevron-forward" size={16} color={themeColors.textTertiary} />
         </TouchableOpacity>
 
         {/* ── View Schedule Button ── */}
@@ -1232,16 +1233,16 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         {/* ── Day Notes ── */}
         <View style={styles.dayNotesSection}>
           <View style={styles.dayNotesHeader}>
-            <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.dayNotesLabel}>Day Notes</Text>
+            <Ionicons name="document-text-outline" size={16} color={themeColors.textSecondary} />
+            <Text style={[styles.dayNotesLabel, { color: themeColors.textSecondary }]}>Day Notes</Text>
           </View>
           <TextInput
-            style={styles.dayNotesInput}
+            style={[styles.dayNotesInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
             value={dayNotesText}
             onChangeText={setDayNotesText}
             onBlur={handleSaveDayNotes}
             placeholder="Add notes for this day..."
-            placeholderTextColor={colors.textTertiary}
+            placeholderTextColor={themeColors.textTertiary}
             multiline
             numberOfLines={2}
             textAlignVertical="top"
@@ -1255,7 +1256,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       {/* ── Floating Map Button (sticky at bottom center) ── */}
       {currentActivities.length > 0 && (
         <TouchableOpacity
-          style={styles.floatingMapBtn}
+          style={[styles.floatingMapBtn, { backgroundColor: themeColors.surface }]}
           onPress={() => setShowMapModal(true)}
           activeOpacity={0.85}
         >
@@ -1272,21 +1273,21 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         presentationStyle="pageSheet"
         onRequestClose={() => setShowMapModal(false)}
       >
-        <SafeAreaView style={styles.mapModalSafeArea} edges={['top']}>
-          <View style={styles.mapModalHeader}>
+        <SafeAreaView style={[styles.mapModalSafeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
+          <View style={[styles.mapModalHeader, { borderBottomColor: themeColors.border }]}>
             <View>
-              <Text style={styles.mapModalTitle}>
+              <Text style={[styles.mapModalTitle, { color: themeColors.text }]}>
                 {currentDay?.title || 'Day'} Map
               </Text>
-              <Text style={styles.mapModalSubtitle}>
+              <Text style={[styles.mapModalSubtitle, { color: themeColors.textTertiary }]}>
                 {currentActivities.length} places{currentDestination?.name ? ` · ${currentDestination.name}` : ''}
               </Text>
             </View>
             <TouchableOpacity
               onPress={() => setShowMapModal(false)}
-              style={styles.mapModalCloseBtn}
+              style={[styles.mapModalCloseBtn, { backgroundColor: themeColors.surface }]}
             >
-              <Ionicons name="close" size={22} color={colors.textSecondary} />
+              <Ionicons name="close" size={22} color={themeColors.textSecondary} />
             </TouchableOpacity>
           </View>
           <View style={styles.mapModalContent}>
@@ -1312,21 +1313,21 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         statusBarTranslucent
       >
         <View style={styles.scheduleOverlay}>
-          <View style={styles.scheduleSheet}>
-            <View style={styles.scheduleHeader}>
+          <View style={[styles.scheduleSheet, { backgroundColor: themeColors.surface }]}>
+            <View style={[styles.scheduleHeader, { borderBottomColor: themeColors.border }]}>
               <View style={styles.scheduleHeaderLeft}>
                 <Ionicons name="grid-outline" size={18} color="#0891b2" />
                 <View>
-                  <Text style={styles.scheduleTitle}>
+                  <Text style={[styles.scheduleTitle, { color: themeColors.text }]}>
                     {currentDay?.title || 'Day'} Schedule
                   </Text>
-                  <Text style={styles.scheduleSubtitle}>
+                  <Text style={[styles.scheduleSubtitle, { color: themeColors.textTertiary }]}>
                     {currentActivities.length} activities{currentDestination?.name ? ` · ${currentDestination.name}` : ''}
                   </Text>
                 </View>
               </View>
               <TouchableOpacity onPress={() => setShowScheduleModal(false)}>
-                <Ionicons name="close" size={22} color={colors.textSecondary} />
+                <Ionicons name="close" size={22} color={themeColors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -1350,22 +1351,23 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                     key={idx}
                     style={[
                       styles.scheduleRow,
+                      { borderBottomColor: themeColors.border },
                       idx % 2 === 1 && styles.scheduleRowAlt,
                     ]}
                   >
-                    <Text style={[styles.scheduleRowNum, { width: 30 }]}>{idx + 1}</Text>
+                    <Text style={[styles.scheduleRowNum, { width: 30, color: themeColors.textSecondary }]}>{idx + 1}</Text>
                     <View style={{ width: 70 }}>
                       <View style={[styles.scheduleSlotBadge, { backgroundColor: slotConfig?.bgColor || colors.gray[100] }]}>
                         <Text style={[styles.scheduleSlotBadgeText, { color: slotConfig?.color || colors.textSecondary }]}>
                           {slotConfig?.emoji} {time || slotConfig?.label}
                         </Text>
                       </View>
-                      {endHour ? <Text style={styles.scheduleDuration}>{endHour}h</Text> : null}
+                      {endHour ? <Text style={[styles.scheduleDuration, { color: themeColors.textTertiary }]}>{endHour}h</Text> : null}
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.scheduleActivityName}>{activity.name}</Text>
+                      <Text style={[styles.scheduleActivityName, { color: themeColors.text }]}>{activity.name}</Text>
                       {activity.notes ? (
-                        <Text style={styles.scheduleActivityNotes} numberOfLines={1}>
+                        <Text style={[styles.scheduleActivityNotes, { color: themeColors.textTertiary }]} numberOfLines={1}>
                           {activity.notes}
                         </Text>
                       ) : null}
@@ -1376,9 +1378,9 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
               {/* Day Notes */}
               {currentDay?.notes ? (
-                <View style={styles.scheduleNotesSection}>
-                  <Ionicons name="document-text-outline" size={14} color={colors.textTertiary} />
-                  <Text style={styles.scheduleNotesText}>{currentDay.notes}</Text>
+                <View style={[styles.scheduleNotesSection, { backgroundColor: themeColors.surface }]}>
+                  <Ionicons name="document-text-outline" size={14} color={themeColors.textTertiary} />
+                  <Text style={[styles.scheduleNotesText, { color: themeColors.textSecondary }]}>{currentDay.notes}</Text>
                 </View>
               ) : null}
             </ScrollView>
@@ -1387,10 +1389,10 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       </Modal>
 
       {/* ── Bottom Bar ── */}
-      <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={18} color={colors.textSecondary} />
-          <Text style={styles.backBtnText}>Back</Text>
+      <View style={[styles.bottomBar, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
+        <TouchableOpacity style={[styles.backBtn, { borderColor: themeColors.border }]} onPress={handleBack} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={18} color={themeColors.textSecondary} />
+          <Text style={[styles.backBtnText, { color: themeColors.textSecondary }]}>Back</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.8}>
           <Text style={styles.nextButtonText}>Review Trip</Text>
@@ -1431,20 +1433,20 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         statusBarTranslucent
       >
         <View style={styles.editOverlay}>
-          <View style={styles.editSheet}>
+          <View style={[styles.editSheet, { backgroundColor: themeColors.surface }]}>
             {editingActivity && (
               <>
                 <View style={styles.editHeader}>
-                  <Text style={styles.editTitle} numberOfLines={1}>
+                  <Text style={[styles.editTitle, { color: themeColors.text }]} numberOfLines={1}>
                     {editingActivity.activity.name}
                   </Text>
                   <TouchableOpacity onPress={() => setEditingActivity(null)}>
-                    <Ionicons name="close" size={22} color={colors.textSecondary} />
+                    <Ionicons name="close" size={22} color={themeColors.textSecondary} />
                   </TouchableOpacity>
                 </View>
 
                 {/* Time Slot Picker */}
-                <Text style={styles.editSectionLabel}>Time Slot</Text>
+                <Text style={[styles.editSectionLabel, { color: themeColors.textSecondary }]}>Time Slot</Text>
                 <View style={styles.editSlotRow}>
                   {TIME_SLOTS.map((slot) => (
                     <TouchableOpacity
@@ -1472,13 +1474,13 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                 </View>
 
                 {/* Notes */}
-                <Text style={styles.editSectionLabel}>Notes</Text>
+                <Text style={[styles.editSectionLabel, { color: themeColors.textSecondary }]}>Notes</Text>
                 <TextInput
-                  style={styles.editNotesInput}
+                  style={[styles.editNotesInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                   value={editNotes}
                   onChangeText={setEditNotes}
                   placeholder="Add notes about this activity..."
-                  placeholderTextColor={colors.textTertiary}
+                  placeholderTextColor={themeColors.textTertiary}
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
@@ -1495,9 +1497,9 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
                 {/* Activity Details */}
                 {editingActivity.activity.description ? (
-                  <View style={styles.editDetailSection}>
-                    <Text style={styles.editSectionLabel}>Description</Text>
-                    <Text style={styles.editDetailText}>
+                  <View style={[styles.editDetailSection, { borderTopColor: themeColors.border }]}>
+                    <Text style={[styles.editSectionLabel, { color: themeColors.textSecondary }]}>Description</Text>
+                    <Text style={[styles.editDetailText, { color: themeColors.textSecondary }]}>
                       {editingActivity.activity.description}
                     </Text>
                   </View>
