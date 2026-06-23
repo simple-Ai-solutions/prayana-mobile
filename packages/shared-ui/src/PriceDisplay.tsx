@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, fontSize, fontWeight, spacing } from './theme';
+import { useTheme } from './ThemeProvider';
 
 interface PriceDisplayProps {
   amount: number;
@@ -24,6 +25,7 @@ export function PriceDisplay({
   perUnit,
   size = 'md',
 }: PriceDisplayProps) {
+  const { themeColors } = useTheme();
   const symbol = currencySymbols[currency] || currency;
   const hasDiscount = originalAmount && originalAmount > amount;
   const discountPercent = hasDiscount
@@ -33,16 +35,16 @@ export function PriceDisplay({
   return (
     <View style={styles.container}>
       <View style={styles.row}>
-        <Text style={[styles.amount, styles[`amount_${size}`]]}>
+        <Text style={[styles.amount, styles[`amount_${size}`], { color: themeColors.text }]}>
           {symbol}{amount.toLocaleString()}
         </Text>
         {perUnit && (
-          <Text style={styles.perUnit}>/{perUnit}</Text>
+          <Text style={[styles.perUnit, { color: themeColors.textSecondary }]}>/{perUnit}</Text>
         )}
       </View>
       {hasDiscount && (
         <View style={styles.discountRow}>
-          <Text style={styles.originalAmount}>
+          <Text style={[styles.originalAmount, { color: themeColors.textTertiary }]}>
             {symbol}{originalAmount.toLocaleString()}
           </Text>
           <View style={styles.discountBadge}>

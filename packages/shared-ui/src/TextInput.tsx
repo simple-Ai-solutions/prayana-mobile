@@ -8,6 +8,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import { colors, borderRadius, fontSize, fontWeight, spacing } from './theme';
+import { useTheme } from './ThemeProvider';
 
 interface TextInputProps extends RNTextInputProps {
   label?: string;
@@ -29,13 +30,15 @@ export function TextInput({
   ...props
 }: TextInputProps) {
   const [isFocused, setIsFocused] = useState(false);
+  const { themeColors } = useTheme();
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={styles.label}>{label}</Text>}
+      {label && <Text style={[styles.label, { color: themeColors.text }]}>{label}</Text>}
       <View
         style={[
           styles.inputWrapper,
+          { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border },
           isFocused && styles.inputFocused,
           error && styles.inputError,
         ]}
@@ -44,11 +47,12 @@ export function TextInput({
         <RNTextInput
           style={[
             styles.input,
+            { color: themeColors.text },
             leftIcon ? { paddingLeft: 0 } : undefined,
             rightIcon ? { paddingRight: 0 } : undefined,
             style,
           ]}
-          placeholderTextColor={colors.textTertiary}
+          placeholderTextColor={themeColors.textTertiary}
           onFocus={(e) => {
             setIsFocused(true);
             props.onFocus?.(e);

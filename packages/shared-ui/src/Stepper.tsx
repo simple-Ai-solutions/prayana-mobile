@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, fontSize, fontWeight, spacing } from './theme';
+import { useTheme } from './ThemeProvider';
 
 interface StepperProps {
   steps: string[];
@@ -8,6 +9,7 @@ interface StepperProps {
 }
 
 export function Stepper({ steps, currentStep }: StepperProps) {
+  const { themeColors } = useTheme();
   return (
     <View style={styles.container}>
       {steps.map((step, index) => {
@@ -20,6 +22,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
               <View
                 style={[
                   styles.circle,
+                  { backgroundColor: themeColors.border },
                   isActive && styles.circleActive,
                   isCompleted && styles.circleCompleted,
                 ]}
@@ -27,6 +30,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
                 <Text
                   style={[
                     styles.circleText,
+                    { color: themeColors.textSecondary },
                     (isActive || isCompleted) && styles.circleTextActive,
                   ]}
                 >
@@ -36,6 +40,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
               <Text
                 style={[
                   styles.label,
+                  { color: themeColors.textTertiary },
                   isActive && styles.labelActive,
                   isCompleted && styles.labelCompleted,
                 ]}
@@ -48,6 +53,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
               <View
                 style={[
                   styles.connector,
+                  { backgroundColor: themeColors.border },
                   isCompleted && styles.connectorCompleted,
                 ]}
               />
