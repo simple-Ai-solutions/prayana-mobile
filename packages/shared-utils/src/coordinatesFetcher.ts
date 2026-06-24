@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 /**
  * Fetches real coordinates from Google Places API when database coordinates are missing (0,0)
  */

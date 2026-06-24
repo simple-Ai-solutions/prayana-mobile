@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 // utils/countryCodes.js - Country Code Data with Currency Information
 export const COUNTRY_CODES = [
   { code: "+91", country: "IN", name: "India", flag: "🇮🇳", currency: "INR", currencySymbol: "₹" },

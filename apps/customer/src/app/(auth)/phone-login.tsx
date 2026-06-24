@@ -167,7 +167,7 @@ export default function PhoneLoginScreen() {
           phoneNumber: response.user.phone || fullPhone,
           photoURL: response.user.avatar || null,
           getIdToken: async () => 'phone-verified-token',
-        });
+        } as any);
         setIsAuthenticated(true);
         router.replace('/(tabs)');
       } else {

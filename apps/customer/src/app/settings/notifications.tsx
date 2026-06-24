@@ -98,7 +98,6 @@ async function registerForPushNotifications(): Promise<string | null> {
         allowAlert: true,
         allowBadge: true,
         allowSound: true,
-        allowAnnouncements: true,
       },
     });
   }

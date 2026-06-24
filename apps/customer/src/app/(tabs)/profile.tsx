@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
+import { useAppStore } from '@prayana/shared-stores';
 import { fetchUserProfile } from '@prayana/shared-services';
 import Toast from 'react-native-toast-message';
 
@@ -150,6 +151,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isDarkMode, toggleTheme, themeColors } = useTheme();
+  const userPreferences = useAppStore((state) => state.userPreferences);
 
   // --- State ---
   const [stats, setStats] = useState<UserStats>({
@@ -172,7 +174,7 @@ export default function ProfileScreen() {
     }
 
     try {
-      const profile = await fetchUserProfile(user.uid);
+      const profile: any = await (fetchUserProfile as any)(user.uid);
       if (profile) {
         setStats({
           totalTrips: profile.totalTrips ?? profile.tripsCount ?? 0,
@@ -278,6 +280,14 @@ export default function ProfileScreen() {
           iconColor: '#f59e0b',
           iconBg: '#fffbeb',
         },
+        {
+          label: 'Country & Currency',
+          subtitle: `${userPreferences.countryName} (${userPreferences.currencySymbol}${userPreferences.currency})`,
+          icon: 'globe-outline',
+          route: '/settings/country',
+          iconColor: '#3b82f6',
+          iconBg: '#eff6ff',
+        },
       ],
     },
     {
@@ -315,6 +325,35 @@ export default function ProfileScreen() {
       ],
     },
     {
+      title: 'Wallet & Identity',
+      items: [
+        {
+          label: 'Saved payment methods',
+          subtitle: 'Cards, UPI, net banking — one-tap pay',
+          icon: 'card-outline',
+          route: '/profile/payment-methods',
+          iconColor: '#10b981',
+          iconBg: '#ecfdf5',
+        },
+        {
+          label: 'Identity Vault',
+          subtitle: 'Passport, Aadhaar, PAN — encrypted',
+          icon: 'lock-closed-outline',
+          route: '/profile/identity',
+          iconColor: '#7c3aed',
+          iconBg: '#f5f3ff',
+        },
+        {
+          label: 'Notification settings',
+          subtitle: 'Bookings, trips, marketing emails',
+          icon: 'notifications-outline',
+          route: '/profile/notifications',
+          iconColor: '#3b82f6',
+          iconBg: '#eff6ff',
+        },
+      ],
+    },
+    {
       title: 'Support',
       items: [
         {
@@ -348,15 +387,42 @@ export default function ProfileScreen() {
   // ============================================================
   // HANDLE MENU PRESS
   // ============================================================
+  // Routes that need a real account. Tapping them as a guest opens the login
+  // prompt instead of navigating into a screen that won't have data.
+  const AUTH_GATED_ROUTES = useMemo(
+    () =>
+      new Set([
+        '/profile/favorites',
+        '/profile/identity',
+        '/profile/payment-methods',
+        '/profile/notifications',
+        '/profile/travel-preferences',
+        '/profile/feedback',
+        '/profile/membership',
+      ]),
+    [],
+  );
+
   const handleMenuPress = useCallback(
     (item: MenuItem) => {
       if (item.action) {
         item.action();
-      } else if (item.route) {
-        router.push(item.route as any);
+        return;
       }
+      if (!item.route) return;
+
+      const needsAuth = AUTH_GATED_ROUTES.has(item.route);
+      const isGuestUser = !user?.uid || user.uid === 'guest-user';
+      if (needsAuth && isGuestUser) {
+        router.push({
+          pathname: '/(auth)/login',
+          params: { redirectTo: item.route },
+        } as any);
+        return;
+      }
+      router.push(item.route as any);
     },
-    [router]
+    [router, user?.uid, AUTH_GATED_ROUTES],
   );
 
   // ============================================================
@@ -406,7 +472,7 @@ export default function ProfileScreen() {
               <View style={styles.avatarWrapper}>
                 <Avatar
                   name={displayName}
-                  imageUrl={displayPhoto}
+                  uri={displayPhoto}
                   size={72}
                 />
               </View>
@@ -561,23 +627,44 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* ====== SIGN OUT BUTTON ====== */}
+        {/* ====== SIGN IN / SIGN OUT BUTTON ====== */}
         <View style={styles.signOutSection}>
-          <TouchableOpacity
-            style={[styles.signOutButton, isDarkMode && { backgroundColor: '#1c1017', borderColor: '#4a1c1c' }]}
-            onPress={handleSignOut}
-            activeOpacity={0.7}
-            disabled={loggingOut}
-          >
-            {loggingOut ? (
-              <ActivityIndicator size="small" color="#ef4444" />
-            ) : (
-              <Ionicons name="log-out-outline" size={20} color="#ef4444" />
-            )}
-            <Text style={styles.signOutText}>
-              {loggingOut ? 'Signing out...' : 'Sign Out'}
-            </Text>
-          </TouchableOpacity>
+          {user?.uid === 'guest-user' || !user?.uid ? (
+            <TouchableOpacity
+              style={[
+                styles.signOutButton,
+                {
+                  backgroundColor: colors.primary[50],
+                  borderColor: colors.primary[200],
+                },
+              ]}
+              onPress={() =>
+                router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/profile' } } as any)
+              }
+              activeOpacity={0.7}
+            >
+              <Ionicons name="log-in-outline" size={20} color={colors.primary[600]} />
+              <Text style={[styles.signOutText, { color: colors.primary[700] }]}>
+                Sign in to your account
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.signOutButton, isDarkMode && { backgroundColor: '#1c1017', borderColor: '#4a1c1c' }]}
+              onPress={handleSignOut}
+              activeOpacity={0.7}
+              disabled={loggingOut}
+            >
+              {loggingOut ? (
+                <ActivityIndicator size="small" color="#ef4444" />
+              ) : (
+                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+              )}
+              <Text style={styles.signOutText}>
+                {loggingOut ? 'Signing out...' : 'Sign Out'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ====== APP VERSION ====== */}

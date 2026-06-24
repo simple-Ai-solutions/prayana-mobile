@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 /**
  * Region detection utilities for country-based personalization
  */

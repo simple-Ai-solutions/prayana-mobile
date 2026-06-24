@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 // utils/currencyMapping.js - Currency Mapping and Helper Functions
 import { COUNTRY_CODES } from './countryCodes';
 

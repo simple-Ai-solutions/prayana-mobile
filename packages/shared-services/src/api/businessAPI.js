@@ -179,6 +179,26 @@ class BusinessAPI {
     });
   }
 
+  // ===== REVIEWS MANAGEMENT (vendor side) =====
+
+  async getMyReviews({ page = 1, limit = 20 } = {}) {
+    const qs = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    return makeAPICall(`/business/me/reviews?${qs.toString()}`, {
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  async replyToReview(reviewId, comment) {
+    return makeAPICall(`/business/me/reviews/${reviewId}/reply`, {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ comment }),
+    });
+  }
+
   // ===== PUBLIC PROFILE =====
 
   async getPublicProfile(slug) {

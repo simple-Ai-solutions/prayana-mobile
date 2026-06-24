@@ -16,6 +16,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, colors, fontSize, fontWeight, spacing, borderRadius } from '@prayana/shared-ui';
+import { feedbackAPI } from '@prayana/shared-services';
 
 const CATEGORIES = [
   { id: 'general', label: 'General', icon: 'chatbubble-outline' },
@@ -47,15 +48,27 @@ export default function FeedbackScreen() {
     }
 
     setSubmitting(true);
-    // TODO: call backend feedback API
-    await new Promise((r) => setTimeout(r, 1000));
-    setSubmitting(false);
+    try {
+      const fd = new FormData();
+      fd.append('rating', String(rating));
+      fd.append('category', category);
+      fd.append('message', message.trim());
+      fd.append('source', 'mobile-customer');
+      await feedbackAPI.submitFeedback(fd);
 
-    Alert.alert(
-      'Thank you! 🙏',
-      'Your feedback has been submitted. We really appreciate you helping us improve Prayana.',
-      [{ text: 'Done', onPress: () => router.back() }]
-    );
+      Alert.alert(
+        'Thank you!',
+        'Your feedback has been submitted. We really appreciate you helping us improve Prayana.',
+        [{ text: 'Done', onPress: () => router.back() }],
+      );
+    } catch (err: any) {
+      Alert.alert(
+        'Could not send',
+        err?.message || 'Please check your connection and try again.',
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

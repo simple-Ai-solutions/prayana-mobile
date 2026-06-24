@@ -433,7 +433,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
 
                             {/* Expand/collapse toggle inline */}
                             {hasExtra && (
-                              <TouchableOpacity style={styles.expandToggle} onPress={(e) => { e.stopPropagation?.(); toggleExpand(cardKey); }} activeOpacity={0.7}>
+                              <TouchableOpacity style={styles.expandToggle} onPress={() => { toggleExpand(cardKey); }} activeOpacity={0.7}>
                                 <Text style={styles.expandToggleText}>{isExpanded ? 'Show less' : 'More'}</Text>
                                 <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} color="#FF6B6B" />
                               </TouchableOpacity>

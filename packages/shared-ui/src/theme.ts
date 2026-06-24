@@ -1,19 +1,34 @@
 // Design tokens for Prayana AI mobile apps
-// Cyan-based theme (#06B6D4)
+// Brand: Klook-style orange (#f97316) — synced with web (Phase 7 Teal removal)
+// Single source of truth: change tokens here, all 411 component refs auto-update.
 
 export const colors = {
-  // Primary - Cyan (Prayana brand)
+  // Primary - Orange (Prayana brand, matches web --tab-accommodation-start)
   primary: {
-    50: '#ecfeff',
-    100: '#cffafe',
-    200: '#a5f3fc',
-    300: '#67e8f9',
-    400: '#22d3ee',
-    500: '#06B6D4', // Main brand color
-    600: '#0891b2',
-    700: '#0e7490',
-    800: '#155e75',
-    900: '#164e63',
+    50: '#fff7ed',
+    100: '#ffedd5',
+    200: '#fed7aa',
+    300: '#fdba74',
+    400: '#fb923c',
+    500: '#f97316', // Main brand color (Tailwind orange-500)
+    600: '#ea580c',
+    700: '#c2410c',
+    800: '#9a3412',
+    900: '#7c2d12',
+  },
+
+  // Accent - keep a complementary blue for info / CTAs that aren't primary
+  accent: {
+    50: '#eff6ff',
+    100: '#dbeafe',
+    200: '#bfdbfe',
+    300: '#93c5fd',
+    400: '#60a5fa',
+    500: '#3b82f6',
+    600: '#2563eb',
+    700: '#1d4ed8',
+    800: '#1e40af',
+    900: '#1e3a8a',
   },
 
   // Neutral / Gray
@@ -54,7 +69,7 @@ export const colors = {
 
   // Border
   border: '#e5e5e5',
-  borderFocused: '#06B6D4',
+  borderFocused: '#f97316',
 
   // Overlay
   overlay: 'rgba(0, 0, 0, 0.5)',
@@ -135,6 +150,49 @@ export const shadow = {
   },
 } as const;
 
+// Animation timing (matches iOS spring + Material motion guidelines)
+export const motion = {
+  duration: {
+    instant: 100,
+    fast: 200,
+    normal: 300,
+    slow: 500,
+  },
+  easing: {
+    standard: 'ease-in-out' as const,
+    decelerate: 'ease-out' as const,
+    accelerate: 'ease-in' as const,
+  },
+  spring: {
+    gentle: { damping: 18, stiffness: 150 },
+    bouncy: { damping: 12, stiffness: 180 },
+    stiff: { damping: 22, stiffness: 220 },
+  },
+} as const;
+
+// Z-index scale — prevents stacking-order chaos
+export const zIndex = {
+  base: 0,
+  raised: 1,
+  dropdown: 10,
+  sticky: 20,
+  overlay: 30,
+  modal: 40,
+  toast: 50,
+  tooltip: 60,
+} as const;
+
+// Layout constants
+export const layout = {
+  screenPadding: 16,
+  cardPadding: 16,
+  tabBarHeight: 60,
+  headerHeight: 56,
+  buttonHeight: { sm: 36, md: 44, lg: 52 },
+  inputHeight: 48,
+  minTouchTarget: 44, // Apple HIG + Material accessibility minimum
+} as const;
+
 export const theme = {
   colors,
   spacing,
@@ -142,6 +200,9 @@ export const theme = {
   fontSize,
   fontWeight,
   shadow,
+  motion,
+  zIndex,
+  layout,
 } as const;
 
 export type Theme = typeof theme;

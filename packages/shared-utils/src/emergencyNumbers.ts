@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 // utils/emergencyNumbers.js - Emergency contact numbers by country
 
 export const EMERGENCY_NUMBERS = {

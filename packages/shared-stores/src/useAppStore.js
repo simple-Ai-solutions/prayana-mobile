@@ -2,6 +2,12 @@
 import { create } from "zustand";
 import { devtools, persist, createJSONStorage } from "zustand/middleware";
 import { mmkvStorage } from "./storage";
+import {
+  getCurrencyForCountry,
+  getCountryName,
+  getRegionForCountry,
+  isEuropeanCountry,
+} from "@prayana/shared-utils";
 
 const useAppStore = create()(
   devtools(
@@ -116,7 +122,6 @@ const useAppStore = create()(
           ),
 
         // Initialize country/currency from geolocation
-        // NOTE: In React Native, country/currency mapping utils must be provided externally
         initializeLocationPreferences: async (locationData) => {
           const { country } = locationData;
 
@@ -126,13 +131,21 @@ const useAppStore = create()(
           }
 
           try {
-            // In React Native, these utils should be injected or imported from shared-utils
-            // For now, set basic location data
+            const countryName = getCountryName(country);
+            const currencyData = getCurrencyForCountry(country);
+            const region = getRegionForCountry(country);
+            const european = isEuropeanCountry(country);
+
             set(
               (state) => ({
                 userPreferences: {
                   ...state.userPreferences,
-                  countryName: country,
+                  country: country,
+                  countryName: countryName,
+                  currency: currencyData.code,
+                  currencySymbol: currencyData.symbol,
+                  region: region,
+                  isEuropean: european,
                   locationDetected: true,
                 },
               }),
@@ -140,7 +153,7 @@ const useAppStore = create()(
               "initializeLocationPreferences"
             );
 
-            console.log(`Auto-set location: ${country}`);
+            console.log(`Auto-set location: ${country} (${countryName}), currency: ${currencyData.code}, region: ${region}`);
           } catch (error) {
             console.error("Failed to initialize location preferences:", error);
           }
@@ -149,13 +162,22 @@ const useAppStore = create()(
         // Manual country/currency update
         updateCountryAndCurrency: async (countryCode, currencyCode = null) => {
           try {
+            const countryName = getCountryName(countryCode);
+            const currencyData = getCurrencyForCountry(countryCode);
+            const region = getRegionForCountry(countryCode);
+            const european = isEuropeanCountry(countryCode);
+
             set(
               (state) => ({
                 userPreferences: {
                   ...state.userPreferences,
                   country: countryCode,
+                  countryName: countryName,
+                  currency: currencyCode || currencyData.code,
+                  currencySymbol: currencyData.symbol,
+                  region: region,
+                  isEuropean: european,
                   manuallySet: true,
-                  ...(currencyCode ? { currency: currencyCode } : {}),
                 },
               }),
               false,
@@ -299,11 +321,11 @@ const useAppStore = create()(
             lastUpdated: state.appMetadata.lastUpdated,
           },
         }),
-        version: 2, // Store version for migrations
+        version: 3, // Store version for migrations
         migrate: (persistedState, version) => {
           if (version < 2) {
             // Migrate from version 1 to 2: add country/currency fields
-            return {
+            persistedState = {
               ...persistedState,
               userPreferences: {
                 ...persistedState.userPreferences,
@@ -311,6 +333,18 @@ const useAppStore = create()(
                 countryName: "India",
                 currencySymbol: "\u20B9",
                 locationDetected: false,
+              },
+            };
+          }
+          if (version < 3) {
+            // Migrate to version 3: add region/isEuropean/manuallySet fields
+            persistedState = {
+              ...persistedState,
+              userPreferences: {
+                ...persistedState.userPreferences,
+                region: "asia",
+                isEuropean: false,
+                manuallySet: persistedState.userPreferences?.manuallySet || false,
               },
             };
           }

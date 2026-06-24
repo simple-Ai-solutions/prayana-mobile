@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,53 +6,28 @@ import {
   ScrollView,
   TouchableOpacity,
   FlatList,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import { useTheme, colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
+import { favoritesAPI } from '@prayana/shared-services';
 
-// Placeholder favorites — in production these would be fetched from the backend
-const SAMPLE_FAVORITES = [
-  {
-    id: '1',
-    name: 'Hampi',
-    location: 'Karnataka, India',
-    image: 'https://images.unsplash.com/photo-1600682882799-85c8ed218e4a?w=400&q=80',
-    savedAt: '2025-12-10',
-    rating: 4.7,
-    category: 'Heritage',
-  },
-  {
-    id: '2',
-    name: 'Goa Beaches',
-    location: 'Goa, India',
-    image: 'https://images.unsplash.com/photo-1506953823976-52e1fdc0149a?w=400&q=80',
-    savedAt: '2025-12-05',
-    rating: 4.5,
-    category: 'Beach',
-  },
-  {
-    id: '3',
-    name: 'Manali',
-    location: 'Himachal Pradesh, India',
-    image: 'https://images.unsplash.com/photo-1589019983-9f350d6c4dd5?w=400&q=80',
-    savedAt: '2025-11-20',
-    rating: 4.8,
-    category: 'Mountains',
-  },
-  {
-    id: '4',
-    name: 'Jaipur',
-    location: 'Rajasthan, India',
-    image: 'https://images.unsplash.com/photo-1599661046289-e31897846e41?w=400&q=80',
-    savedAt: '2025-11-15',
-    rating: 4.6,
-    category: 'Culture',
-  },
-];
+type Favorite = {
+  id: string;
+  name: string;
+  location: string;
+  image: string;
+  savedAt: string;
+  rating?: number;
+  category?: string;
+};
 
 function formatSavedDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -62,10 +37,55 @@ function formatSavedDate(dateStr: string): string {
 export default function FavoritesScreen() {
   const router = useRouter();
   const { isDarkMode, themeColors } = useTheme();
-  const [favorites, setFavorites] = useState(SAMPLE_FAVORITES);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const handleRemove = (id: string) => {
-    setFavorites((prev) => prev.filter((f) => f.id !== id));
+  const fetchFavorites = useCallback(async () => {
+    try {
+      const res = await favoritesAPI.getFavorites();
+      const list = (res?.favorites || []).map((f: any) => ({
+        id: f.placeId,
+        name: f.placeName || 'Saved place',
+        location: f.placeLocation || '',
+        image: f.placeImage || '',
+        savedAt: f.savedAt || new Date().toISOString(),
+        rating: f.placeData?.rating,
+        category: f.placeData?.category,
+      }));
+      setFavorites(list);
+    } catch (err: any) {
+      console.warn('[Favorites] fetch failed:', err?.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFavorites();
+  }, [fetchFavorites]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchFavorites();
+  }, [fetchFavorites]);
+
+  const handleRemove = async (id: string) => {
+    Haptics.selectionAsync();
+    // Optimistic remove
+    const prev = favorites;
+    setFavorites((p) => p.filter((f) => f.id !== id));
+    try {
+      const res = await favoritesAPI.removeFavorite(id);
+      if (!res?.success) {
+        Toast.show({ type: 'error', text1: 'Could not remove' });
+        setFavorites(prev);
+      }
+    } catch {
+      setFavorites(prev);
+      Toast.show({ type: 'error', text1: 'Could not remove' });
+    }
   };
 
   const handlePress = (name: string, image?: string) => {
@@ -75,7 +95,7 @@ export default function FavoritesScreen() {
     router.push(`/destination/${encodeURIComponent(name)}${qs ? '?' + qs : ''}` as any);
   };
 
-  const renderItem = ({ item }: { item: typeof SAMPLE_FAVORITES[0] }) => (
+  const renderItem = ({ item }: { item: Favorite }) => (
     <TouchableOpacity
       style={[styles.card, { backgroundColor: themeColors.card }, shadow.sm]}
       onPress={() => handlePress(item.name, item.image)}
@@ -146,7 +166,11 @@ export default function FavoritesScreen() {
         </View>
       </View>
 
-      {favorites.length === 0 ? (
+      {loading ? (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color={colors.primary[500]} />
+        </View>
+      ) : favorites.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="heart-outline" size={64} color={themeColors.border} />
           <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No Favorites Yet</Text>
@@ -176,6 +200,7 @@ export default function FavoritesScreen() {
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
       )}
     </SafeAreaView>

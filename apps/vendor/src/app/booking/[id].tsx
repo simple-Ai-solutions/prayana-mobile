@@ -205,7 +205,7 @@ export default function BookingDetailScreen() {
           onPress: async () => {
             setDeclining(true);
             try {
-              await businessAPI.updateBookingStatus(id, 'cancelled', 'Declined by business');
+              await (businessAPI.updateBookingStatus as any)(id, 'cancelled', 'Declined by business');
               setBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : prev));
               updateBookingInStore(id, { status: 'cancelled' });
               Toast.show({ type: 'success', text1: 'Booking declined' });

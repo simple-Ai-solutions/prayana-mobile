@@ -5,6 +5,7 @@ export default function ActivityLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="[id]" />
       <Stack.Screen name="book" />
+      <Stack.Screen name="reviews/[id]" />
     </Stack>
   );
 }

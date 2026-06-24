@@ -20,9 +20,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';
-import { useAuth } from '@prayana/shared-hooks';
+import { useAuth, useAutoLocationDetection } from '@prayana/shared-hooks';
+import { useAppStore } from '@prayana/shared-stores';
 import { resolveImageUrl, canGuestUse, incrementGuestUsage, GUEST_LIMITS } from '@prayana/shared-utils';
 import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
+import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -253,6 +255,11 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 export default function HomeScreen() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
+
+  // Auto-detect country and adapt home screen content
+  const { country, countryName, region, isEuropean } = useAutoLocationDetection();
+  const userPreferences = useAppStore((state) => state.userPreferences);
+  const isIndiaUser = userPreferences.country === 'IN';
 
   // requireAuth with guest free-tier limit support
   // feature: 'PLAN_TRIP' | null (null = hard require, no free uses)
@@ -504,6 +511,20 @@ export default function HomeScreen() {
           </View>
         </LinearGradient>
 
+        {/* ============================================================ */}
+        {/* COUNTRY-SPECIFIC CONTENT                                      */}
+        {/* India users see curated hardcoded content                      */}
+        {/* Other countries see dynamic API-driven content                 */}
+        {/* ============================================================ */}
+        {!isIndiaUser ? (
+          <DynamicHomeContent
+            countryCode={userPreferences.country}
+            countryName={userPreferences.countryName}
+            region={userPreferences.region}
+            isEuropean={userPreferences.isEuropean}
+          />
+        ) : (
+        <>
         {/* ============================================================ */}
         {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
         {/* ============================================================ */}
@@ -896,6 +917,8 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
         </View>
+        </>
+        )}
 
         {/* ============================================================ */}
         {/* FEATURED ACTIVITIES (matching web ActivitiesHomepageSection)   */}

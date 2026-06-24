@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, colors, fontSize, fontWeight, spacing, borderRadius } from '@prayana/shared-ui';
+import { fetchUserProfile, updateUserProfile } from '@prayana/shared-services';
 
 const INTERESTS = [
   'Historical Sites', 'Nature & Wildlife', 'Adventure Sports', 'Food & Cuisine',
@@ -43,6 +44,21 @@ export default function TravelPreferencesScreen() {
   const [budgetRange, setBudgetRange] = useState<string>('medium');
   const [saving, setSaving] = useState(false);
 
+  // Hydrate from backend so the user sees what's currently stored.
+  useEffect(() => {
+    (async () => {
+      try {
+        const res: any = await fetchUserProfile();
+        const prefs = res?.data?.preferences || res?.user?.preferences;
+        if (prefs?.interests?.length) setSelectedInterests(prefs.interests);
+        if (prefs?.travelStyle) setTravelStyle(prefs.travelStyle);
+        if (prefs?.budgetRange) setBudgetRange(prefs.budgetRange);
+      } catch {
+        // Silent — user can still update preferences
+      }
+    })();
+  }, []);
+
   const toggleInterest = (interest: string) => {
     setSelectedInterests((prev) =>
       prev.includes(interest) ? prev.filter((i) => i !== interest) : [...prev, interest]
@@ -51,12 +67,22 @@ export default function TravelPreferencesScreen() {
 
   const handleSave = async () => {
     setSaving(true);
-    // TODO: persist preferences to backend
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    Alert.alert('Saved!', 'Your travel preferences have been updated.', [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
+    try {
+      await updateUserProfile({
+        preferences: {
+          interests: selectedInterests,
+          travelStyle,
+          budgetRange,
+        },
+      });
+      setSaving(false);
+      Alert.alert('Saved!', 'Your travel preferences have been updated.', [
+        { text: 'OK', onPress: () => router.back() },
+      ]);
+    } catch (err: any) {
+      setSaving(false);
+      Alert.alert('Save failed', err?.message || 'Please try again.');
+    }
   };
 
   return (

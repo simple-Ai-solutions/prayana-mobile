@@ -26,5 +26,8 @@ export { useEnrichmentPolling } from './useEnrichmentPolling';
 export { useImageEnrichment } from './useImageEnrichment';
 export { useCoordinateEnrichment } from './useCoordinateEnrichment';
 
+// Location detection
+export { useAutoLocationDetection } from './useAutoLocationDetection';
+
 // Search
 export { useTripPlannerSearch } from './useTripPlannerSearch';

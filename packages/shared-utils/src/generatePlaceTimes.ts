@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 // utils/generatePlaceTimes.js
 // Simple utility to assign realistic times to places
 

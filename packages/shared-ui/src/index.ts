@@ -14,7 +14,18 @@ export { SearchBar } from './SearchBar';
 export { Stepper } from './Stepper';
 
 // Theme
-export { theme, colors, spacing, borderRadius, fontSize, fontWeight, shadow } from './theme';
+export {
+  theme,
+  colors,
+  spacing,
+  borderRadius,
+  fontSize,
+  fontWeight,
+  shadow,
+  motion,
+  zIndex,
+  layout,
+} from './theme';
 export type { Theme } from './theme';
 
 // Theme Provider (Dark Mode)

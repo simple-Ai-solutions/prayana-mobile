@@ -8,6 +8,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "prayana",
+    "owner": "prayanaai",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/REPLACE_WITH_PROJECT_ID",
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,15 +24,33 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prayanaai.customer",
+      "buildNumber": "1",
+      "associatedDomains": [
+        "applinks:prayanaai.com",
+        "applinks:www.prayanaai.com"
+      ],
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "We need your location to show nearby destinations and activities.",
-        "NSCameraUsageDescription": "Take photos for your trip journal.",
-        "NSPhotoLibraryUsageDescription": "Select photos for your trip.",
+        "NSLocationWhenInUseUsageDescription": "Prayana uses your location to recommend nearby destinations, activities, and accurate trip routing.",
+        "NSCameraUsageDescription": "Take photos for your trip journal, KYC verification, and to upload activity images.",
+        "NSPhotoLibraryUsageDescription": "Select photos from your library for your trip, profile, or KYC documents.",
+        "NSMicrophoneUsageDescription": "Optional — used only when you record a voice note in the AI travel chat.",
+        "NSUserTrackingUsageDescription": "Lets us measure ad performance and personalize travel recommendations. You can keep tracking off and the app still works.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "mailto",
+          "whatsapp",
+          "comgooglemaps",
+          "googlechromes"
+        ],
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.926782873134-ljojer8isfftfsbtbg93aiskel9p5t14"
             ]
+          },
+          {
+            "CFBundleURLSchemes": ["prayana"]
           }
         ]
       }
@@ -35,6 +61,7 @@
         "backgroundColor": "#f97316"
       },
       "package": "com.prayanaai.customer",
+      "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
@@ -42,7 +69,24 @@
         "CAMERA",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
+        "POST_NOTIFICATIONS",
         "USE_EXACT_ALARM"
+      ],
+      "blockedPermissions": [
+        "ACCESS_BACKGROUND_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "https", "host": "prayanaai.com", "pathPrefix": "/app" },
+            { "scheme": "https", "host": "www.prayanaai.com", "pathPrefix": "/app" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"],
+          "autoVerify": true
+        }
       ]
     },
     "plugins": [
@@ -54,30 +98,30 @@
       ],
       "expo-secure-store",
       "expo-location",
-      "@react-native-community/datetimepicker",
       "expo-web-browser",
       [
         "expo-notifications",
         {
           "icon": "./assets/icon.png",
-          "color": "#2EC4B6",
+          "color": "#f97316",
           "defaultChannel": "default",
           "sounds": []
         }
       ],
       [
-        "@react-native-google-signin/google-signin",
+        "expo-tracking-transparency",
         {
-          "iosUrlScheme": "com.googleusercontent.apps.926782873134-ljojer8isfftfsbtbg93aiskel9p5t14"
+          "userTrackingPermission": "Lets us measure ad performance and personalize travel recommendations. You can decline and still use Prayana fully."
         }
-      ]
+      ],
+      "@sentry/react-native/expo"
     ],
     "extra": {
       "router": {
         "origin": false
       },
       "eas": {
-        "projectId": ""
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
       }
     }
   }
