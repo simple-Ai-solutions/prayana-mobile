@@ -13,6 +13,27 @@ class ActivityMarketplaceAPI {
     return makeAPICall(`/activities/featured?limit=${limit}`);
   }
 
+  // Global (Headout + Viator) experiences for a city/country — powers the
+  // "Activities" tab and the Global Experiences screen (mirrors PWA).
+  async getGlobalActivities(opts = {}) {
+    const { city, country, limit = 20, skip = 0, q, category } = opts;
+    const params = new URLSearchParams();
+    if (city) params.append("city", city);
+    if (country) params.append("country", country);
+    if (q) params.append("q", q);
+    if (category) params.append("category", category);
+    params.append("limit", String(limit));
+    params.append("skip", String(skip));
+    return makeAPICall(`/activities/global?${params.toString()}`);
+  }
+
+  // City-grouped global experiences (each city => hero image + items).
+  // Powers the Global Experiences "Explore" view rails.
+  async getGlobalByCity(opts = {}) {
+    const { cities = 30, perCity = 20 } = opts;
+    return makeAPICall(`/activities/global/by-city?cities=${cities}&perCity=${perCity}`);
+  }
+
   async getCategories() {
     return makeAPICall("/activities/categories");
   }
