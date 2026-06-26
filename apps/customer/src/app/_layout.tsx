@@ -281,6 +281,16 @@ function RootNavigator() {
         <Stack.Screen name="transport/[id]" />
         <Stack.Screen name="transport/checkout/[id]" />
         <Stack.Screen name="activities/index" />
+        <Stack.Screen name="quick-itinerary/index" />
+        <Stack.Screen name="quick-itinerary/result" />
+        <Stack.Screen name="global-experiences/index" />
+        <Stack.Screen name="india-experiences/index" />
+        <Stack.Screen name="explore-nearby/index" />
+        <Stack.Screen name="favorites/index" />
+        <Stack.Screen name="captain-tours/index" />
+        <Stack.Screen name="theme-itineraries/index" />
+        <Stack.Screen name="travel-guides/index" />
+        <Stack.Screen name="divya-darshana/index" />
         <Stack.Screen name="profile/travel-preferences" />
         <Stack.Screen name="profile/favorites" />
         <Stack.Screen name="profile/membership" />
