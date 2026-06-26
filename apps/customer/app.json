@@ -50,7 +50,9 @@
             ]
           },
           {
-            "CFBundleURLSchemes": ["prayana"]
+            "CFBundleURLSchemes": [
+              "prayana"
+            ]
           }
         ]
       }
@@ -81,10 +83,21 @@
         {
           "action": "VIEW",
           "data": [
-            { "scheme": "https", "host": "prayanaai.com", "pathPrefix": "/app" },
-            { "scheme": "https", "host": "www.prayanaai.com", "pathPrefix": "/app" }
+            {
+              "scheme": "https",
+              "host": "prayanaai.com",
+              "pathPrefix": "/app"
+            },
+            {
+              "scheme": "https",
+              "host": "www.prayanaai.com",
+              "pathPrefix": "/app"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
           "autoVerify": true
         }
       ]
@@ -118,7 +131,7 @@
     ],
     "extra": {
       "router": {
-        "origin": false
+        "origin": "https://prayanaai.com"
       },
       "eas": {
         "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
