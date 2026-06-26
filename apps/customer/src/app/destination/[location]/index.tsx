@@ -37,6 +37,9 @@ import { ExperienceTagFilters } from '../../../components/destination/Experience
 import { HeritageCircuits } from '../../../components/destination/HeritageCircuits';
 import { HiddenGems } from '../../../components/destination/HiddenGems';
 import { EmbeddedChatWidget } from '../../../components/destination/EmbeddedChatWidget';
+import { SearchResultsTabs, type SearchTabId } from '../../../components/destination/SearchResultsTabs';
+import { DestinationActivities } from '../../../components/destination/DestinationActivities';
+import { DestinationVideos } from '../../../components/destination/DestinationVideos';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - spacing.xl * 2 - spacing.md) / 2;
@@ -144,6 +147,7 @@ export default function LocationSearchResults() {
   const { themeColors, isDarkMode } = useTheme();
 
   const [luxuryData, setLuxuryData] = useState<LuxuryData | null>(null);
+  const [activeTab, setActiveTab] = useState<SearchTabId>('places');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -556,6 +560,45 @@ export default function LocationSearchResults() {
             </Animated.View>
 
             {/* ============================== */}
+            {/* RESULT TABS (Places·Videos·Activities·Hidden Gems) */}
+            {/* ============================== */}
+            <SearchResultsTabs activeTab={activeTab} onChange={setActiveTab} />
+
+            {/* ===== VIDEOS TAB ===== */}
+            {activeTab === 'videos' && (
+              <View style={{ paddingTop: spacing.lg }}>
+                <DestinationVideos locationName={locationName} />
+              </View>
+            )}
+
+            {/* ===== ACTIVITIES TAB ===== */}
+            {activeTab === 'activities' && (
+              <View style={{ paddingTop: spacing.lg }}>
+                <DestinationActivities locationName={locationName} />
+              </View>
+            )}
+
+            {/* ===== HIDDEN GEMS TAB ===== */}
+            {activeTab === 'gems' && (
+              <View style={{ paddingTop: spacing.lg }}>
+                {filteredHiddenGems.length > 0 ? (
+                  <HiddenGems
+                    gems={filteredHiddenGems}
+                    onPlacePress={handlePlacePress}
+                    filteredTag={filteredTag}
+                  />
+                ) : (
+                  <Text style={{ textAlign: 'center', color: themeColors.textSecondary, padding: spacing['2xl'] }}>
+                    No hidden gems found for {locationName}.
+                  </Text>
+                )}
+              </View>
+            )}
+
+            {/* ===== PLACES TAB (default) ===== */}
+            {activeTab === 'places' && (
+            <>
+            {/* ============================== */}
             {/* 2. TOP PLACES — BENTO GRID     */}
             {/* ============================== */}
             {filteredCrownJewels.length > 0 && (
@@ -883,18 +926,9 @@ export default function LocationSearchResults() {
               </Animated.View>
             )}
 
-            {/* ============================== */}
-            {/* 6. HIDDEN GEMS                 */}
-            {/* ============================== */}
-            {filteredHiddenGems.length > 0 && (
-              <Animated.View style={{ opacity: gemsAnim }}>
-                <HiddenGems
-                  gems={filteredHiddenGems}
-                  onPlacePress={handlePlacePress}
-                  filteredTag={filteredTag}
-                />
-              </Animated.View>
+            </>
             )}
+            {/* end Places tab */}
 
             {/* Bottom Spacer */}
             <View style={{ height: spacing['3xl'] }} />
