@@ -100,6 +100,15 @@ export { paymentMethodsAPI } from './api/paymentMethodsAPI';
 // Favorites
 export { default as favoritesAPI } from './api/favoritesAPI';
 
+// Itineraries (Quick Itinerary + detail)
+export { itineraryAPI } from './api/itineraryAPI';
+
+// Videos (destination "Videos" tab)
+export { videosAPI } from './api/videosAPI';
+
+// Captain Tours (guide-run trips)
+export { captainAPI } from './api/captainAPI';
+
 // Community Q&A
 export { default as communityAPI } from './api/communityAPI';
 
