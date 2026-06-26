@@ -88,7 +88,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="create-trip"
         options={{
-          title: 'Create',
+          title: 'Planner',
           tabBarIcon: ({ color }) => <PlusIcon color={color} size={24} />,
         }}
       />

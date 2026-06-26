@@ -150,7 +150,7 @@ export default function CreateTripScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* ======= HEADER ======= */}
         <View style={styles.header}>
-          <Text style={[styles.title, { color: themeColors.text }]}>Create a Trip</Text>
+          <Text style={[styles.title, { color: themeColors.text }]}>Trip Planner</Text>
           <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Plan your perfect journey with AI</Text>
         </View>
 
