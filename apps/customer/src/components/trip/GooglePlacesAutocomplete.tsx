@@ -9,7 +9,7 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  FlatList,
+  ScrollView,
 } from 'react-native';
 import { Search, MapPin, X } from 'lucide-react-native';
 import { useTheme, colors, spacing, fontSize, fontWeight, borderRadius, shadow } from '@prayana/shared-ui';
@@ -133,8 +133,12 @@ export const GooglePlacesAutocomplete: React.FC<Props> = ({ value, onChange, pla
   const fieldBg = isDarkMode ? '#1F2937' : '#F9FAFB';
   const fieldBorder = focused ? colors.primary[400] : (isDarkMode ? '#374151' : '#E5E7EB');
 
+  const showDropdown = open && predictions.length > 0;
+
   return (
-    <View style={styles.wrap}>
+    // Raise z-index/elevation only while the dropdown is open so it overlays the
+    // field below it (otherwise the next input shows through the suggestions).
+    <View style={[styles.wrap, showDropdown && styles.wrapOpen]}>
       <View style={[styles.inputBox, { backgroundColor: fieldBg, borderColor: fieldBorder }]}>
         <Search size={16} color={themeColors.textTertiary} />
         <TextInput
@@ -157,15 +161,23 @@ export const GooglePlacesAutocomplete: React.FC<Props> = ({ value, onChange, pla
         ) : null}
       </View>
 
-      {open && predictions.length > 0 && (
+      {showDropdown && (
         <View style={[styles.dropdown, shadow.lg, { backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF', borderColor: isDarkMode ? '#374151' : '#E5E7EB' }]}>
-          <FlatList
-            data={predictions}
+          {/* Plain ScrollView (not FlatList) — the list is tiny (≤6 items), and a
+              VirtualizedList nested in the modal's ScrollView throws a warning
+              and mis-measures. keyboardShouldPersistTaps keeps taps working. */}
+          <ScrollView
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
-            keyExtractor={(item, i) => `${item.placeId || item.text}-${i}`}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.row} onPress={() => select(item)} activeOpacity={0.7}>
+            showsVerticalScrollIndicator={false}
+          >
+            {predictions.map((item, i) => (
+              <TouchableOpacity
+                key={`${item.placeId || item.text}-${i}`}
+                style={styles.row}
+                onPress={() => select(item)}
+                activeOpacity={0.7}
+              >
                 <MapPin size={16} color={colors.primary[500]} />
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.rowMain, { color: themeColors.text }]} numberOfLines={1}>{item.main}</Text>
@@ -174,8 +186,8 @@ export const GooglePlacesAutocomplete: React.FC<Props> = ({ value, onChange, pla
                   )}
                 </View>
               </TouchableOpacity>
-            )}
-          />
+            ))}
+          </ScrollView>
         </View>
       )}
     </View>
@@ -184,6 +196,10 @@ export const GooglePlacesAutocomplete: React.FC<Props> = ({ value, onChange, pla
 
 const styles = StyleSheet.create({
   wrap: { position: 'relative', zIndex: 20 },
+  // While the dropdown is open, lift this field above sibling fields (Android
+  // honours elevation for stacking; iOS honours zIndex) so suggestions overlay
+  // the next input instead of rendering behind it.
+  wrapOpen: { zIndex: 1000, elevation: 24 },
   inputBox: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12 },
   input: { flex: 1, paddingVertical: 12, fontSize: 15 },
   dropdown: {
