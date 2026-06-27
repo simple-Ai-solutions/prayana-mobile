@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,11 +34,20 @@ interface Place {
   openingHours?: string;
 }
 
+interface FoodRecommendation {
+  name: string;
+  description?: string;
+  restaurant?: string;
+  mealSlot?: string;
+  isLocalSpecialty?: boolean;
+}
+
 interface StructuredDay {
   dayNumber: number;
   title?: string;
   theme?: string;
   mainPlaces: Place[];
+  foodRecommendations?: FoodRecommendation[];
 }
 
 interface StructuredTimelineViewProps {
@@ -194,6 +203,9 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   // Store fetched image URLs so we can pass them in preview
   const [fetchedImages, setFetchedImages] = useState<Record<string, string>>({});
+  // Guard against double navigation — a fast double-tap (or re-render mid-tap)
+  // would otherwise push the place-detail screen twice, making it "reopen in a loop".
+  const isNavigatingRef = useRef(false);
 
   const days = useMemo(() => {
     if (!structuredData?.days) return [];
@@ -221,12 +233,21 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
   }, [fetchedImages]);
 
   const handlePlacePress = useCallback((place: Place) => {
+    // Block re-entrant navigation so a single place can't open twice.
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => { isNavigatingRef.current = false; }, 800);
+
+    // NOTE: do NOT pass the resolved image URL in the route param. S3/CDN URLs
+    // contain &/?/= which expo-router re-encodes on each render, churning
+    // useLocalSearchParams → previewData → an infinite re-render ("flicker")
+    // loop on the detail screen. The detail screen fetches its own images.
     const preview = JSON.stringify({
       name: place.name,
       category: place.type || (place.tags && place.tags[0]) || '',
       rating: null,
       shortDescription: place.description || '',
-      image: getPlaceImageForPreview(place),
+      image: '',
       duration: place.visitDuration || '',
     });
 
@@ -449,6 +470,46 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
           })}
         </View>
 
+        {/* Local Food to Try — matches the PWA "🍽️ Local Food to Try" card */}
+        {currentDay?.foodRecommendations && currentDay.foodRecommendations.length > 0 && (
+          <View style={styles.foodCard}>
+            <View style={styles.foodHeader}>
+              <LinearGradient colors={['#F97316', '#EF4444']} style={styles.foodIcon}>
+                <Text style={styles.foodEmoji}>{'🍽️'}</Text>
+              </LinearGradient>
+              <Text style={styles.foodTitle}>Local Food to Try</Text>
+            </View>
+            {currentDay.foodRecommendations.map((food, fIdx) => (
+              <View key={`food-${selectedDay}-${fIdx}`} style={styles.foodItem}>
+                <View style={styles.foodBullet} />
+                <View style={styles.foodItemContent}>
+                  <View style={styles.foodNameRow}>
+                    <Text style={styles.foodName}>{food.name}</Text>
+                    {food.mealSlot ? (
+                      <View style={styles.foodSlotBadge}>
+                        <Text style={styles.foodSlotText}>{food.mealSlot}</Text>
+                      </View>
+                    ) : food.isLocalSpecialty ? (
+                      <View style={styles.foodSpecialtyBadge}>
+                        <Text style={styles.foodSpecialtyText}>Local</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {food.restaurant ? (
+                    <View style={styles.foodRestaurantRow}>
+                      <Ionicons name="storefront-outline" size={11} color="#C2410C" />
+                      <Text style={styles.foodRestaurant}>{food.restaurant}</Text>
+                    </View>
+                  ) : null}
+                  {food.description ? (
+                    <Text style={styles.foodDesc} numberOfLines={2}>{food.description}</Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Day Navigation */}
         <View style={styles.dayNavigation}>
           <TouchableOpacity
@@ -664,6 +725,33 @@ const styles = StyleSheet.create({
   mealBreakBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 4, backgroundColor: '#FFF7ED', borderRadius: 999, marginHorizontal: spacing.sm },
   mealBreakEmoji: { fontSize: 14 },
   mealBreakText: { fontSize: 11, color: '#EA580C', fontWeight: fontWeight.medium },
+
+  // Local Food to Try
+  foodCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 14,
+    backgroundColor: '#FFF7ED',
+    borderLeftWidth: 4,
+    borderLeftColor: '#F97316',
+  },
+  foodHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  foodIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  foodEmoji: { fontSize: 16 },
+  foodTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#9A3412' },
+  foodItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  foodBullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#F97316', marginTop: 6, marginRight: 10 },
+  foodItemContent: { flex: 1 },
+  foodNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  foodName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#7C2D12' },
+  foodSpecialtyBadge: { backgroundColor: '#FED7AA', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  foodSpecialtyText: { fontSize: 9, color: '#C2410C', fontWeight: fontWeight.semibold },
+  foodSlotBadge: { backgroundColor: '#FFEDD5', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  foodSlotText: { fontSize: 9, color: '#C2410C', fontWeight: fontWeight.semibold, textTransform: 'capitalize' },
+  foodRestaurantRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  foodRestaurant: { fontSize: 11, color: '#C2410C', fontWeight: fontWeight.medium },
+  foodDesc: { fontSize: 12, color: '#9A3412', lineHeight: 17, marginTop: 2 },
 
   // Day Navigation
   dayNavigation: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginTop: spacing.xl },
