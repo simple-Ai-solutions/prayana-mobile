@@ -33,6 +33,7 @@ import { useAuth, useAutoLocationDetection } from '@prayana/shared-hooks';
 import { useAppStore } from '@prayana/shared-stores';
 import { resolveImageUrl, canGuestUse, incrementGuestUsage, GUEST_LIMITS } from '@prayana/shared-utils';
 import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
+import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -362,6 +363,7 @@ export default function HomeScreen() {
   const [showAllPilgrimage, setShowAllPilgrimage] = useState(false);
   const [showAllVisaFree, setShowAllVisaFree] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [showQuickItinerary, setShowQuickItinerary] = useState(false);
 
   // Animated floating orbs
   const orbAnim1 = useRef(new Animated.Value(0)).current;
@@ -487,7 +489,11 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={tab.id}
                 style={styles.heroTab}
-                onPress={() => router.push(tab.route as any)}
+                onPress={() =>
+                  tab.id === 'quick-itinerary'
+                    ? setShowQuickItinerary(true)
+                    : router.push(tab.route as any)
+                }
                 activeOpacity={0.7}
               >
                 <Image source={tab.icon} style={styles.heroTabIcon} resizeMode="contain" />
@@ -1220,7 +1226,12 @@ export default function HomeScreen() {
       </Modal>
 
       {/* Floating AI Chat Button (matching web FloatingChatButton) */}
-      <FloatingChatFAB />
+      {/* Hide the floating chat FAB while the Quick Itinerary popup is open
+          so it doesn't overlap the form/keyboard. */}
+      {!showQuickItinerary && <FloatingChatFAB />}
+
+      {/* Quick Itinerary generate popup (opens from the hero tab) */}
+      <QuickItineraryModal visible={showQuickItinerary} onClose={() => setShowQuickItinerary(false)} />
     </SafeAreaView>
   );
 }
