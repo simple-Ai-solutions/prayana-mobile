@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   Platform,
   ActionSheetIOS,
   Alert,
-  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -26,10 +25,9 @@ import {
 import { parseMarkdown } from '../../utils/markdownParser';
 import { MarkdownItineraryView } from '../../components/trip/MarkdownItineraryView';
 import { StructuredTimelineView } from '../../components/trip/StructuredTimelineView';
-import { PackingList } from '../../components/trip/PackingList';
-import { EmergencyContacts } from '../../components/trip/EmergencyContacts';
-import { TripBookings } from '../../components/trip/TripBookings';
+import { TripEssentials } from '../../components/trip/TripEssentials';
 import { downloadItineraryPdf } from '../../utils/itineraryPdf';
+import { addRecentItinerary } from '../../utils/recentItineraries';
 
 type TabType = 'guide' | 'timeline' | 'essentials';
 
@@ -56,6 +54,20 @@ export default function ItineraryScreen() {
     () => parseMarkdown(params.markdown || ''),
     [params.markdown]
   );
+
+  // Auto-save to local "Recent Itineraries" history so it surfaces on the home
+  // screen without needing an explicit bookmark.
+  useEffect(() => {
+    if (!params.markdown || !params.destination) return;
+    addRecentItinerary({
+      title: parsed.title || `${params.destination} Trip`,
+      destination: params.destination,
+      duration: params.duration || '5',
+      markdown: params.markdown,
+      transportMode: params.transportMode,
+      markdownItineraryId: params.markdownItineraryId,
+    });
+  }, [params.markdown, params.destination, params.duration, params.transportMode, params.markdownItineraryId, parsed.title]);
 
   const shareItinerary = useCallback(async () => {
     try {
@@ -356,14 +368,7 @@ export default function ItineraryScreen() {
           transportMode={params.transportMode || 'flight'}
         />
       ) : activeTab === 'essentials' ? (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 40 }}
-        >
-          <TripBookings destination={params.destination || ''} />
-          <PackingList destination={params.destination || ''} />
-          <EmergencyContacts destination={params.destination || ''} />
-        </ScrollView>
+        <TripEssentials destination={params.destination || ''} />
       ) : (
         <StructuredTimelineView
           structuredData={structuredData}

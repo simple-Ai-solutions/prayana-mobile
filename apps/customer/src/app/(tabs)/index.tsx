@@ -34,6 +34,7 @@ import { useAppStore } from '@prayana/shared-stores';
 import { resolveImageUrl, canGuestUse, incrementGuestUsage, GUEST_LIMITS } from '@prayana/shared-utils';
 import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
 import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
+import { RecentItineraries } from '../../components/home/RecentItineraries';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -540,6 +541,9 @@ export default function HomeScreen() {
 
         </LinearGradient>
 
+        {/* Recent AI-generated itineraries (Plan-a-Trip + Quick Itinerary) */}
+        <RecentItineraries />
+
         {/* ============================================================ */}
         {/* COUNTRY-SPECIFIC CONTENT                                      */}
         {/* India users see curated hardcoded content                      */}
@@ -554,31 +558,6 @@ export default function HomeScreen() {
           />
         ) : (
         <>
-        {/* ============================================================ */}
-        {/* EXPLORE MORE — feature shortcuts                              */}
-        {/* ============================================================ */}
-        <View style={[styles.section, { backgroundColor: themeColors.background }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Explore more</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingTop: spacing.md }}>
-            {EXPLORE_MORE.map((f) => {
-              const Icon = f.Icon;
-              return (
-                <TouchableOpacity
-                  key={f.route}
-                  style={[styles.exploreChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                  activeOpacity={0.8}
-                  onPress={() => router.push(f.route as any)}
-                >
-                  <View style={[styles.exploreChipIcon, { backgroundColor: f.bg }]}>
-                    <Icon size={20} color={f.color} />
-                  </View>
-                  <Text style={[styles.exploreChipText, { color: themeColors.text }]} numberOfLines={2}>{f.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
         {/* ============================================================ */}
         {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
         {/* ============================================================ */}
