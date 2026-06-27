@@ -8,6 +8,7 @@ import {
   Platform,
   ActionSheetIOS,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,8 +26,12 @@ import {
 import { parseMarkdown } from '../../utils/markdownParser';
 import { MarkdownItineraryView } from '../../components/trip/MarkdownItineraryView';
 import { StructuredTimelineView } from '../../components/trip/StructuredTimelineView';
+import { PackingList } from '../../components/trip/PackingList';
+import { EmergencyContacts } from '../../components/trip/EmergencyContacts';
+import { TripBookings } from '../../components/trip/TripBookings';
+import { downloadItineraryPdf } from '../../utils/itineraryPdf';
 
-type TabType = 'guide' | 'timeline';
+type TabType = 'guide' | 'timeline' | 'essentials';
 
 export default function ItineraryScreen() {
   const router = useRouter();
@@ -133,6 +138,18 @@ export default function ItineraryScreen() {
     }
   }, [shareItinerary, sharePublicLink, copyAsCalendar]);
 
+  const handleDownloadPdf = useCallback(async () => {
+    const res = await downloadItineraryPdf({
+      markdown: params.markdown || '',
+      title: parsed.title || `${params.destination} Trip`,
+      destination: params.destination || '',
+      duration: params.duration || '5',
+    });
+    if (!res.ok) {
+      Alert.alert('Download failed', res.error || 'Could not create the PDF. Please try again.');
+    }
+  }, [params.markdown, params.destination, params.duration, parsed.title]);
+
   const handleBookmark = useCallback(async () => {
     try {
       await tripPlanningAPI.saveTrip({
@@ -154,13 +171,17 @@ export default function ItineraryScreen() {
   const handleGenerateStructured = useCallback(async () => {
     setStructuredLoading(true);
     try {
+      // API only accepts car_bus | bike | flight; sanitize anything else.
+      const VALID_MODES = ['car_bus', 'bike', 'flight'];
+      const rawMode = params.transportMode === 'car' ? 'car_bus' : params.transportMode;
+      const safeMode = VALID_MODES.includes(rawMode || '') ? rawMode : 'car_bus';
       const response = await makeAPICall('/itinerary/generate', {
         method: 'POST',
         body: JSON.stringify({
           destination: params.destination,
           duration: Number(params.duration),
           startingPoint: params.startingPoint || undefined,
-          transportMode: params.transportMode === 'car' ? 'car_bus' : params.transportMode,
+          transportMode: safeMode,
           preferences: {
             budget: 'moderate',
             interests: [],
@@ -171,12 +192,50 @@ export default function ItineraryScreen() {
         timeout: 60000,
       });
 
-      if (response?.success && response.data) {
-        const itinerary = response.data.data?.itinerary || response.data.itinerary || response.data;
-        setStructuredData(itinerary);
+      const extractItinerary = (payload: any) =>
+        payload?.data?.data?.itinerary || payload?.data?.itinerary || payload?.itinerary || payload?.data;
+
+      // If the itinerary came back inline, use it.
+      const inline = extractItinerary(response);
+      if (inline && (inline.days || inline.itinerary)) {
+        setStructuredData(inline.itinerary || inline);
+        return;
       }
-    } catch (_) {
-      // Silently fail
+
+      // Otherwise it's an async job — poll the status URL until completed.
+      const pollUrl: string | undefined = response?.pollUrl;
+      const interval = response?.pollInterval || 2000;
+      console.log('[Timeline] generate response:', JSON.stringify({ success: response?.success, status: response?.status, pollUrl, hasInline: !!inline }));
+      if (pollUrl) {
+        // makeAPICall already prefixes the base URL (which ends in /api).
+        const endpoint = pollUrl.replace(/^\/api/, '');
+        const maxTries = 40; // ~80s
+        for (let i = 0; i < maxTries; i++) {
+          await new Promise((r) => setTimeout(r, interval));
+          let poll: any;
+          try {
+            poll = await makeAPICall(endpoint);
+          } catch (err: any) {
+            console.warn('[Timeline] poll error:', err?.message);
+            continue;
+          }
+          console.log('[Timeline] poll', i, 'status:', poll?.status);
+          if (poll?.status === 'completed') {
+            const it = extractItinerary(poll);
+            const finalData = it?.days ? it : (it?.itinerary || it);
+            console.log('[Timeline] completed. days:', finalData?.days?.length);
+            setStructuredData(finalData);
+            return;
+          }
+          if (poll?.status === 'failed') {
+            console.warn('[Timeline] generation failed');
+            break;
+          }
+        }
+        console.warn('[Timeline] polling timed out');
+      }
+    } catch (e: any) {
+      console.warn('[Timeline] error:', e?.message);
     } finally {
       setStructuredLoading(false);
     }
@@ -210,6 +269,14 @@ export default function ItineraryScreen() {
             {params.duration} {Number(params.duration) === 1 ? 'day' : 'days'} {'\u2022'} {params.destination}
           </Text>
         </View>
+
+        <TouchableOpacity
+          onPress={handleDownloadPdf}
+          style={styles.headerButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="download-outline" size={20} color={themeColors.text} />
+        </TouchableOpacity>
 
         <TouchableOpacity
           onPress={handleShare}
@@ -263,6 +330,21 @@ export default function ItineraryScreen() {
             Timeline
           </Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'essentials' && styles.tabActive]}
+          onPress={() => handleTabChange('essentials')}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="briefcase-outline"
+            size={16}
+            color={activeTab === 'essentials' ? '#FF6B6B' : themeColors.textSecondary}
+          />
+          <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'essentials' && styles.tabTextActive]}>
+            Essentials
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Tab Content */}
@@ -273,6 +355,15 @@ export default function ItineraryScreen() {
           duration={params.duration || '5'}
           transportMode={params.transportMode || 'flight'}
         />
+      ) : activeTab === 'essentials' ? (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
+          <TripBookings destination={params.destination || ''} />
+          <PackingList destination={params.destination || ''} />
+          <EmergencyContacts destination={params.destination || ''} />
+        </ScrollView>
       ) : (
         <StructuredTimelineView
           structuredData={structuredData}
