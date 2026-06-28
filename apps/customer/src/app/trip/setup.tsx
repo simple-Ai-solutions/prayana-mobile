@@ -21,6 +21,13 @@ import { useAuth } from '@prayana/shared-hooks';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
+// Planner cyan palette (mirrors the PWA create-trip theme) — overrides the
+// app's global orange so the trip planner matches web.
+const P = {
+  50: '#ECFEFF', 100: '#CFFAFE', 200: '#A5F3FC', 300: '#67E8F9',
+  400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2', 700: '#0E7490',
+};
+
 const BUDGET_TIERS = [
   { key: 'budget', label: 'Budget', emoji: '\uD83D\uDCB0', description: 'Cost-effective' },
   { key: 'moderate', label: 'Moderate', emoji: '\uD83D\uDC8E', description: 'Balanced comfort' },
@@ -67,6 +74,7 @@ export default function TripSetupScreen() {
 
   // Store state
   const name = useCreateTripStore((s) => s.name);
+  const description = useCreateTripStore((s) => s.description);
   const startDate = useCreateTripStore((s) => s.startDate);
   const endDate = useCreateTripStore((s) => s.endDate);
   const travelers = useCreateTripStore((s) => s.travelers);
@@ -79,6 +87,7 @@ export default function TripSetupScreen() {
 
   // Store actions
   const setName = useCreateTripStore((s) => s.setName);
+  const setDescription = useCreateTripStore((s) => s.setDescription);
   const setDates = useCreateTripStore((s) => s.setDates);
   const setTravelers = useCreateTripStore((s) => s.setTravelers);
   const setKids = useCreateTripStore((s) => s.setKids);
@@ -367,6 +376,24 @@ export default function TripSetupScreen() {
             {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
           </View>
 
+          {/* ── Description (optional) — matches PWA create-trip ── */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>
+              Description <Text style={{ color: themeColors.textTertiary, fontWeight: '400' }}>(optional)</Text>
+            </Text>
+            <TextInput
+              style={[styles.textArea, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+              placeholder="What's this trip about? Add notes, goals, or a vibe…"
+              placeholderTextColor={themeColors.textTertiary}
+              value={description || ''}
+              onChangeText={(text) => setDescription(text)}
+              maxLength={400}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
           {/* ── Date Range ── */}
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Travel Dates</Text>
@@ -378,8 +405,8 @@ export default function TripSetupScreen() {
                 onPress={() => setShowStartPicker(true)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.dateCellIcon, { backgroundColor: colors.primary[50] }]}>
-                  <Ionicons name="airplane-outline" size={16} color={colors.primary[500]} />
+                <View style={[styles.dateCellIcon, { backgroundColor: P[50] }]}>
+                  <Ionicons name="airplane-outline" size={16} color={P[500]} />
                 </View>
                 <View style={styles.dateCellInfo}>
                   <Text style={styles.dateCellLabel}>Departure</Text>
@@ -405,7 +432,7 @@ export default function TripSetupScreen() {
                 <View style={[styles.dateDividerLine, { backgroundColor: themeColors.border }]} />
                 {parsedStartDate && parsedEndDate ? (
                   <View style={styles.dateDividerBadge}>
-                    <Ionicons name="time-outline" size={12} color={colors.primary[600]} />
+                    <Ionicons name="time-outline" size={12} color={P[600]} />
                     <Text style={styles.dateDividerText}>
                       {Math.ceil((parsedEndDate.getTime() - parsedStartDate.getTime()) / 86400000) + 1} days
                     </Text>
@@ -463,7 +490,7 @@ export default function TripSetupScreen() {
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 minimumDate={new Date()}
                 onChange={handleStartDateChange}
-                accentColor={colors.primary[500]}
+                accentColor={P[500]}
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
@@ -483,7 +510,7 @@ export default function TripSetupScreen() {
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 minimumDate={minimumEndDate}
                 onChange={handleEndDateChange}
-                accentColor={colors.primary[500]}
+                accentColor={P[500]}
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
@@ -513,7 +540,7 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="remove"
                       size={20}
-                      color={travelers <= 1 ? colors.gray[300] : colors.primary[500]}
+                      color={travelers <= 1 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
                   <Text style={[styles.counterValue, { color: themeColors.text }]}>{travelers}</Text>
@@ -526,7 +553,7 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="add"
                       size={20}
-                      color={travelers >= 20 ? colors.gray[300] : colors.primary[500]}
+                      color={travelers >= 20 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
                 </View>
@@ -548,7 +575,7 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="remove"
                       size={20}
-                      color={kids <= 0 ? colors.gray[300] : colors.primary[500]}
+                      color={kids <= 0 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
                   <Text style={[styles.counterValue, { color: themeColors.text }]}>{kids}</Text>
@@ -561,7 +588,7 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="add"
                       size={20}
-                      color={kids >= 10 ? colors.gray[300] : colors.primary[500]}
+                      color={kids >= 10 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
                 </View>
@@ -628,7 +655,7 @@ export default function TripSetupScreen() {
         <View style={[styles.bottomBar, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
           {isSaving && (
             <View style={styles.savingBanner}>
-              <ActivityIndicator size="small" color={colors.primary[500]} />
+              <ActivityIndicator size="small" color={P[500]} />
               <Text style={styles.savingBannerText}>Saving trip...</Text>
             </View>
           )}
@@ -694,7 +721,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -781,6 +808,17 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? spacing.lg : spacing.md,
     fontSize: fontSize.md,
     color: colors.text,
+  },
+  textArea: {
+    backgroundColor: colors.gray[50],
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.md,
+    color: colors.text,
+    minHeight: 80,
   },
   inputError: {
     borderColor: colors.error,
@@ -871,16 +909,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: colors.primary[100],
+    borderColor: P[100],
   },
   dateDividerText: {
     fontSize: 11,
-    color: colors.primary[600],
+    color: P[600],
     fontWeight: fontWeight.semibold,
   },
   dateDividerDot: {
@@ -908,7 +946,7 @@ const styles = StyleSheet.create({
   iosPickerDoneText: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
-    color: colors.primary[500],
+    color: P[500],
   },
 
   // Travelers Counter
@@ -944,7 +982,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.primary[300],
+    borderColor: P[300],
     backgroundColor: colors.background,
   },
   counterBtnDisabled: {
@@ -981,8 +1019,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   budgetCardSelected: {
-    borderColor: colors.primary[500],
-    backgroundColor: colors.primary[50],
+    borderColor: P[500],
+    backgroundColor: P[50],
   },
   budgetEmoji: {
     fontSize: 28,
@@ -994,7 +1032,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   budgetLabelSelected: {
-    color: colors.primary[700],
+    color: P[700],
   },
   budgetDesc: {
     fontSize: fontSize.xs,
@@ -1020,8 +1058,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   tripTypeChipSelected: {
-    borderColor: colors.primary[500],
-    backgroundColor: colors.primary[500],
+    borderColor: P[500],
+    backgroundColor: P[500],
   },
   tripTypeLabel: {
     fontSize: fontSize.sm,
@@ -1045,7 +1083,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     gap: spacing.sm,

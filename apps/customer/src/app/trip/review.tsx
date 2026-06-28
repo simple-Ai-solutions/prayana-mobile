@@ -18,6 +18,11 @@ import { useCreateTripStore } from '@prayana/shared-stores';
 import { createTripAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 
+const P = {
+  50: '#ECFEFF', 100: '#CFFAFE', 200: '#A5F3FC', 300: '#67E8F9',
+  400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2', 700: '#0E7490',
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatDate(isoDate: string | null): string {
@@ -254,8 +259,8 @@ export default function ReviewScreen() {
   const renderStatsRow = () => (
     <View style={[styles.statsRow, { backgroundColor: themeColors.surface }]}>
       <View style={styles.statItem}>
-        <View style={[styles.statIcon, { backgroundColor: colors.primary[50] }]}>
-          <Ionicons name="calendar-outline" size={18} color={colors.primary[500]} />
+        <View style={[styles.statIcon, { backgroundColor: P[50] }]}>
+          <Ionicons name="calendar-outline" size={18} color={P[500]} />
         </View>
         <Text style={[styles.statValue, { color: themeColors.text }]}>{tripDuration || totalDays}</Text>
         <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Days</Text>
@@ -301,7 +306,7 @@ export default function ReviewScreen() {
           <Text style={[styles.headerTitle, { color: themeColors.text }]}>Review Trip</Text>
         </View>
         <TouchableOpacity onPress={handleShare} style={styles.shareButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="share-outline" size={22} color={colors.primary[500]} />
+          <Ionicons name="share-outline" size={22} color={P[500]} />
         </TouchableOpacity>
       </View>
 
@@ -360,7 +365,7 @@ export default function ReviewScreen() {
         {/* ── Trip Summary Card ── */}
         <View style={[styles.summaryCard, { backgroundColor: themeColors.surface }]}>
           <View style={[styles.summaryHeader, { borderBottomColor: themeColors.border }]}>
-            <Ionicons name="airplane" size={22} color={colors.primary[500]} />
+            <Ionicons name="airplane" size={22} color={P[500]} />
             <Text style={[styles.summaryTitle, { color: themeColors.text }]} numberOfLines={2}>
               {name}
             </Text>
@@ -500,7 +505,7 @@ export default function ReviewScreen() {
       {/* ── Bottom Bar ── */}
       <View style={[styles.bottomBar, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
         <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.7}>
-          <Ionicons name="share-social-outline" size={20} color={colors.primary[500]} />
+          <Ionicons name="share-social-outline" size={20} color={P[500]} />
           <Text style={styles.shareBtnText}>Share</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -563,7 +568,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -580,7 +585,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
 
   // Step Navigation
@@ -735,7 +740,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -782,14 +787,14 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayNumberText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.bold,
-    color: colors.primary[600],
+    color: P[600],
   },
   dayCardTitle: {
     fontSize: fontSize.sm,
@@ -844,7 +849,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary[400],
+    backgroundColor: P[400],
     marginTop: 6,
   },
   activityListContent: {
@@ -889,20 +894,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.xl,
     borderWidth: 1.5,
-    borderColor: colors.primary[300],
-    backgroundColor: colors.primary[50],
+    borderColor: P[300],
+    backgroundColor: P[50],
   },
   shareBtnText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-    color: colors.primary[500],
+    color: P[500],
   },
   saveButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     gap: spacing.sm,

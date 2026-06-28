@@ -135,13 +135,13 @@ const META_CARDS: Array<{
   label: string;
   gradient: [string, string];
 }> = [
-  { key: 'bestTime', emoji: '\u2B50', label: 'Best Time', gradient: ['#FF6B6B', '#F97316'] },
+  { key: 'bestTime', emoji: '\u2B50', label: 'Best Time', gradient: ['#06B6D4', '#F97316'] },
   { key: 'duration', emoji: '\uD83D\uDCC5', label: 'Duration', gradient: ['#3B82F6', '#06B6D4'] },
   { key: 'budget', emoji: '\uD83D\uDCB0', label: 'Budget', gradient: ['#EC4899', '#F43F5E'] },
   { key: 'transport', emoji: '\uD83D\uDE97', label: 'Transport', gradient: ['#14B8A6', '#06B6D4'] },
 ];
 
-const DAY_COLORS = ['#FF6B6B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
+const DAY_COLORS = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 interface MarkdownItineraryViewProps {
   parsed: ParsedItinerary;
@@ -269,7 +269,7 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
     >
       {/* Hero Section */}
       <LinearGradient
-        colors={['#FF6B6B', '#ee5a5a', '#cc4444']}
+        colors={['#06B6D4', '#0EA5E9', '#0284C7']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.hero}
@@ -280,7 +280,7 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
             {transportLabel} {'\u2022'} {duration} {Number(duration) === 1 ? 'Day' : 'Days'}
           </Text>
           <View style={styles.heroBadge}>
-            <Ionicons name="sparkles" size={12} color="#FF6B6B" />
+            <Ionicons name="sparkles" size={12} color="#06B6D4" />
             <Text style={styles.heroBadgeText}>AI-Generated Guide</Text>
           </View>
         </View>
@@ -338,7 +338,7 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
           <Ionicons
             name={allExpanded ? 'contract-outline' : 'expand-outline'}
             size={16}
-            color="#FF6B6B"
+            color="#06B6D4"
           />
           <Text style={styles.expandAllText}>
             {allExpanded ? 'Collapse All' : 'Expand All Days'}
@@ -613,7 +613,7 @@ const styles = StyleSheet.create({
   heroBadgeText: {
     fontSize: 10,
     fontWeight: fontWeight.semibold,
-    color: '#FF6B6B',
+    color: '#06B6D4',
   },
 
   // Meta Info Cards
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
   },
   expandAllText: {
     fontSize: fontSize.xs,
-    color: '#FF6B6B',
+    color: '#06B6D4',
     fontWeight: fontWeight.semibold,
   },
 

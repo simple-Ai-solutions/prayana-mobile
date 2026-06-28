@@ -87,7 +87,7 @@ function assignPlaceTimes(places: Place[]): Place[] {
   });
 }
 
-const TIMELINE_COLORS = ['#FF6B6B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
+const TIMELINE_COLORS = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 // Extract image URL from place data (handles string[], {url}[] formats)
 function extractPlaceImage(place: Place): string | null {
@@ -274,7 +274,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
     return (
       <View style={styles.generateContainer}>
         <View style={styles.generateContent}>
-          <LinearGradient colors={['#FF6B6B', '#ee5a5a']} style={styles.generateIcon}>
+          <LinearGradient colors={['#06B6D4', '#0EA5E9']} style={styles.generateIcon}>
             <Ionicons name="git-branch-outline" size={32} color="#ffffff" />
           </LinearGradient>
           <Text style={styles.generateTitle}>Generate Timeline</Text>
@@ -282,7 +282,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
             Create a structured timeline with place details, timings, and map coordinates for your {destination} trip.
           </Text>
           <TouchableOpacity style={[styles.generateButton, shadow.md]} onPress={onGenerateStructured} activeOpacity={0.85}>
-            <LinearGradient colors={['#FF6B6B', '#ee5a5a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.generateButtonGradient}>
+            <LinearGradient colors={['#06B6D4', '#0EA5E9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.generateButtonGradient}>
               <Ionicons name="sparkles" size={18} color="#ffffff" />
               <Text style={styles.generateButtonText}>Generate Timeline</Text>
             </LinearGradient>
@@ -295,7 +295,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B6B" />
+        <ActivityIndicator size="large" color="#06B6D4" />
         <Text style={styles.loadingTitle}>Generating Timeline...</Text>
         <Text style={styles.loadingSubtitle}>AI is creating a detailed day-by-day plan with timings and coordinates</Text>
       </View>
@@ -456,7 +456,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
                             {hasExtra && (
                               <TouchableOpacity style={styles.expandToggle} onPress={() => { toggleExpand(cardKey); }} activeOpacity={0.7}>
                                 <Text style={styles.expandToggleText}>{isExpanded ? 'Show less' : 'More'}</Text>
-                                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} color="#FF6B6B" />
+                                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} color="#06B6D4" />
                               </TouchableOpacity>
                             )}
                           </View>
@@ -518,7 +518,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
             disabled={selectedDay === 0}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={16} color={selectedDay === 0 ? colors.gray[300] : '#FF6B6B'} />
+            <Ionicons name="chevron-back" size={16} color={selectedDay === 0 ? colors.gray[300] : '#06B6D4'} />
             <Text style={[styles.navButtonText, selectedDay === 0 && styles.navButtonTextDisabled]}>Previous Day</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -528,7 +528,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
             activeOpacity={0.7}
           >
             <Text style={[styles.navButtonText, selectedDay === days.length - 1 && styles.navButtonTextDisabled]}>Next Day</Text>
-            <Ionicons name="chevron-forward" size={16} color={selectedDay === days.length - 1 ? colors.gray[300] : '#FF6B6B'} />
+            <Ionicons name="chevron-forward" size={16} color={selectedDay === days.length - 1 ? colors.gray[300] : '#06B6D4'} />
           </TouchableOpacity>
         </View>
 
@@ -537,7 +537,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
 
       {/* Map FAB */}
       <TouchableOpacity style={[styles.mapFab, shadow.lg]} onPress={() => setShowMap(true)} activeOpacity={0.85}>
-        <LinearGradient colors={['#FF6B6B', '#ee5a5a']} style={styles.mapFabGradient}>
+        <LinearGradient colors={['#06B6D4', '#0EA5E9']} style={styles.mapFabGradient}>
           <Ionicons name="map" size={22} color="#ffffff" />
         </LinearGradient>
       </TouchableOpacity>
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   daySelectorScroll: { maxHeight: 52, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.gray[200] },
   daySelector: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: 8 },
   dayPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.gray[100] },
-  dayPillActive: { backgroundColor: '#FF6B6B' },
+  dayPillActive: { backgroundColor: '#06B6D4' },
   dayPillText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.text },
   dayPillTextActive: { color: '#ffffff', fontWeight: fontWeight.semibold },
 
@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
 
   // Expand toggle (inline)
   expandToggle: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
-  expandToggleText: { fontSize: 10, fontWeight: fontWeight.semibold, color: '#FF6B6B' },
+  expandToggleText: { fontSize: 10, fontWeight: fontWeight.semibold, color: '#06B6D4' },
 
   // Tips
   tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, backgroundColor: '#FFFBEB', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
@@ -757,7 +757,7 @@ const styles = StyleSheet.create({
   dayNavigation: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginTop: spacing.xl },
   navButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   navButtonDisabled: { opacity: 0.5 },
-  navButtonText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#FF6B6B' },
+  navButtonText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#06B6D4' },
   navButtonTextDisabled: { color: colors.gray[300] },
 
   // Map FAB

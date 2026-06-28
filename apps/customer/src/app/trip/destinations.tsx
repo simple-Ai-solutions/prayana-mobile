@@ -24,6 +24,12 @@ import type { BottomModalRef } from '../../components/common/BottomModal';
 import CollaboratorAvatars from '../../components/trip/CollaboratorAvatars';
 import InviteSheet from '../../components/trip/InviteSheet';
 
+// ─── Cyan/sky-blue accent palette (PWA theme) ────────────────────────────────
+const P = {
+  50: '#ECFEFF', 100: '#CFFAFE', 200: '#A5F3FC', 300: '#67E8F9',
+  400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2', 700: '#0E7490',
+};
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 interface SearchResult {
@@ -350,7 +356,7 @@ export default function DestinationsScreen() {
         activeOpacity={0.7}
       >
         <View style={styles.searchResultIcon}>
-          <Ionicons name="location" size={18} color={colors.primary[500]} />
+          <Ionicons name="location" size={18} color={P[500]} />
         </View>
         <View style={styles.searchResultContent}>
           <Text style={[styles.searchResultName, { color: themeColors.text }]} numberOfLines={1}>
@@ -362,7 +368,7 @@ export default function DestinationsScreen() {
             </Text>
           ) : null}
         </View>
-        <Ionicons name="add-circle-outline" size={22} color={colors.primary[500]} />
+        <Ionicons name="add-circle-outline" size={22} color={P[500]} />
       </TouchableOpacity>
     ),
     [handleSelectResult]
@@ -392,7 +398,7 @@ export default function DestinationsScreen() {
               onPress={() => inviteSheetRef.current?.expand()}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="person-add-outline" size={16} color={colors.primary[500]} />
+              <Ionicons name="person-add-outline" size={16} color={P[500]} />
             </TouchableOpacity>
           </View>
         </View>
@@ -461,7 +467,7 @@ export default function DestinationsScreen() {
               returnKeyType="search"
               autoCorrect={false}
             />
-            {isSearching && <ActivityIndicator size="small" color={colors.primary[500]} />}
+            {isSearching && <ActivityIndicator size="small" color={P[500]} />}
             {searchQuery.length > 0 && !isSearching && (
               <TouchableOpacity
                 onPress={() => {
@@ -493,7 +499,7 @@ export default function DestinationsScreen() {
                     <Text style={styles.customAddText}>Add "{debouncedQuery.trim()}"</Text>
                     <Text style={styles.customAddSubtext}>as custom destination</Text>
                   </View>
-                  <Ionicons name="arrow-forward-circle" size={22} color={colors.primary[500]} />
+                  <Ionicons name="arrow-forward-circle" size={22} color={P[500]} />
                 </TouchableOpacity>
               )}
 
@@ -539,7 +545,7 @@ export default function DestinationsScreen() {
                   {
                     width: `${Math.min((assignedDays / totalTripDays) * 100, 100)}%`,
                     backgroundColor:
-                      assignedDays > totalTripDays ? colors.error : colors.primary[500],
+                      assignedDays > totalTripDays ? colors.error : P[500],
                   },
                 ]}
               />
@@ -589,7 +595,7 @@ export default function DestinationsScreen() {
                       />
                     ) : (
                       <View style={[styles.destImage, styles.destImagePlaceholder]}>
-                        <Ionicons name="location" size={22} color={colors.primary[400]} />
+                        <Ionicons name="location" size={22} color={P[400]} />
                       </View>
                     )}
                     <View style={styles.destOrderBadge}>
@@ -633,7 +639,7 @@ export default function DestinationsScreen() {
                       <Ionicons
                         name="remove"
                         size={16}
-                        color={(dest.duration || 1) <= 1 ? colors.gray[300] : colors.primary[500]}
+                        color={(dest.duration || 1) <= 1 ? colors.gray[300] : P[500]}
                       />
                     </TouchableOpacity>
                     <Text style={[styles.durationValue, { color: themeColors.text }]}>
@@ -656,7 +662,7 @@ export default function DestinationsScreen() {
                         color={
                           totalTripDays > 0 && remainingDays <= 0
                             ? colors.gray[300]
-                            : colors.primary[500]
+                            : P[500]
                         }
                       />
                     </TouchableOpacity>
@@ -670,9 +676,9 @@ export default function DestinationsScreen() {
           {destinations.length > 0 && (aiSuggestions.length > 0 || isLoadingAI) && (
             <View style={styles.aiSection}>
               <View style={styles.aiSectionHeader}>
-                <Ionicons name="sparkles" size={16} color={colors.primary[500]} />
+                <Ionicons name="sparkles" size={16} color={P[500]} />
                 <Text style={[styles.aiSectionTitle, { color: themeColors.textSecondary }]}>Suggested Destinations</Text>
-                {isLoadingAI && <ActivityIndicator size="small" color={colors.primary[500]} />}
+                {isLoadingAI && <ActivityIndicator size="small" color={P[500]} />}
               </View>
               {isLoadingAI && aiSuggestions.length === 0 && (
                 <Text style={[styles.aiLoadingText, { color: themeColors.textTertiary }]}>Finding destinations that pair well...</Text>
@@ -685,7 +691,7 @@ export default function DestinationsScreen() {
                     onPress={() => handleAddAISuggestion(suggestion)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="add-circle" size={16} color={colors.primary[500]} />
+                    <Ionicons name="add-circle" size={16} color={P[500]} />
                     <Text style={styles.aiPillName}>{suggestion.name}</Text>
                     {suggestion.suggestedDays ? (
                       <Text style={styles.aiPillDays}>{suggestion.suggestedDays}d</Text>
@@ -767,7 +773,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -789,7 +795,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
 
   // Step Navigation
@@ -884,7 +890,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1009,7 +1015,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   destImagePlaceholder: {
-    backgroundColor: colors.primary[50] || '#e0f7f4',
+    backgroundColor: P[50] || '#ECFEFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1020,7 +1026,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1078,7 +1084,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.primary[300],
+    borderColor: P[300],
     backgroundColor: colors.background,
   },
   durationBtnDisabled: {
@@ -1125,7 +1131,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     gap: spacing.sm,
@@ -1147,24 +1153,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.md,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
   customAddIcon: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
   customAddText: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
-    color: colors.primary[600],
+    color: P[600],
   },
   customAddSubtext: {
     fontSize: fontSize.xs,
-    color: colors.primary[400],
+    color: P[400],
     marginTop: 1,
   },
 
@@ -1201,19 +1207,19 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.primary[200],
+    borderColor: P[200],
   },
   aiPillName: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
-    color: colors.primary[600],
+    color: P[600],
   },
   aiPillDays: {
     fontSize: fontSize.xs,
-    color: colors.primary[400],
+    color: P[400],
     fontWeight: fontWeight.medium,
   },
   aiReasonText: {
