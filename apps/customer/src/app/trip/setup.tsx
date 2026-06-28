@@ -8,8 +8,10 @@ import {
   KeyboardAvoidingView,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
+import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -42,6 +44,12 @@ const TRIP_TYPES = [
   { key: 'solo', label: 'Solo', icon: 'person-outline' as const },
   { key: 'family', label: 'Family', icon: 'people-outline' as const },
   { key: 'business', label: 'Business', icon: 'briefcase-outline' as const },
+] as const;
+
+// Multi-select trip styles (PWA parity) — orthogonal to the single Trip Type.
+const TRIP_STYLES = [
+  'Beach', 'Mountains', 'Nature', 'City', 'Food', 'Nightlife',
+  'Shopping', 'History', 'Spiritual', 'Wildlife', 'Wellness', 'Photography',
 ] as const;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -81,6 +89,8 @@ export default function TripSetupScreen() {
   const kids = useCreateTripStore((s) => s.kids);
   const budget = useCreateTripStore((s) => s.budget);
   const tripType = useCreateTripStore((s) => s.tripType);
+  const tripStyles = useCreateTripStore((s) => s.tripStyles) || [];
+  const coverImage = useCreateTripStore((s) => s.coverImage);
 
   const tripId = useCreateTripStore((s) => s.tripId);
   const isSaving = useCreateTripStore((s) => s.isSaving);
@@ -93,6 +103,8 @@ export default function TripSetupScreen() {
   const setKids = useCreateTripStore((s) => s.setKids);
   const setBudget = useCreateTripStore((s) => s.setBudget);
   const setTripType = useCreateTripStore((s) => s.setTripType);
+  const toggleTripStyle = useCreateTripStore((s) => s.toggleTripStyle);
+  const setCoverImage = useCreateTripStore((s) => s.setCoverImage);
   const setCurrentStep = useCreateTripStore((s) => s.setCurrentStep);
   const setTripId = useCreateTripStore((s) => s.setTripId);
   const setIsSaving = useCreateTripStore((s) => s.setIsSaving);
@@ -124,12 +136,15 @@ export default function TripSetupScreen() {
     try {
       const tripData = {
         name: state.name,
+        description: state.description || '',
         startDate: state.startDate,
         endDate: state.endDate,
         travelers: state.travelers,
         kids: state.kids,
         budget: state.budget,
         tripType: state.tripType,
+        tripStyles: state.tripStyles || [],
+        coverImage: state.coverImage || null,
         currency: state.currency || 'INR',
         destinations: state.destinations || [],
         days: state.days || [],
@@ -280,6 +295,27 @@ export default function TripSetupScreen() {
     router.push('/trip/destinations');
   }, [validate, isAuthenticated, user, tripId, saveTrip, setCurrentStep, router]);
 
+  const pickCoverImage = useCallback(async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission needed', 'Allow photo access to set a cover image.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets?.[0]?.uri) {
+        setCoverImage(result.assets[0].uri);
+      }
+    } catch (e: any) {
+      Alert.alert('Could not pick image', e?.message || 'Please try again.');
+    }
+  }, [setCoverImage]);
+
   const handleBack = useCallback(() => {
     router.back();
   }, [router]);
@@ -356,6 +392,40 @@ export default function TripSetupScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* ── Cover Image (optional) ── */}
+          <TouchableOpacity
+            style={[styles.coverPicker, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
+            onPress={pickCoverImage}
+            activeOpacity={0.85}
+          >
+            {coverImage ? (
+              <>
+                <Image source={{ uri: coverImage }} style={styles.coverImage} resizeMode="cover" />
+                <View style={styles.coverOverlay}>
+                  <TouchableOpacity
+                    style={styles.coverRemove}
+                    onPress={() => setCoverImage(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Ionicons name="close" size={16} color="#fff" />
+                  </TouchableOpacity>
+                  <View style={styles.coverChangeBadge}>
+                    <Ionicons name="camera" size={13} color="#fff" />
+                    <Text style={styles.coverChangeText}>Change cover</Text>
+                  </View>
+                </View>
+              </>
+            ) : (
+              <View style={styles.coverEmpty}>
+                <View style={[styles.coverEmptyIcon, { backgroundColor: P[50] }]}>
+                  <Ionicons name="image-outline" size={22} color={P[500]} />
+                </View>
+                <Text style={[styles.coverEmptyText, { color: themeColors.text }]}>Add a cover photo</Text>
+                <Text style={[styles.coverEmptySub, { color: themeColors.textTertiary }]}>Optional · gives your trip a visual identity</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           {/* ── Trip Name ── */}
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Trip Name</Text>
@@ -641,6 +711,29 @@ export default function TripSetupScreen() {
                     <Text style={[styles.tripTypeLabel, { color: themeColors.textSecondary }, isSelected && styles.tripTypeLabelSelected]}>
                       {type.label}
                     </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* ── Trip Styles (multi-select) ── */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>
+              Trip Styles <Text style={{ color: themeColors.textTertiary, fontWeight: '400' }}>(pick any)</Text>
+            </Text>
+            <View style={styles.styleWrap}>
+              {TRIP_STYLES.map((style) => {
+                const on = tripStyles.includes(style);
+                return (
+                  <TouchableOpacity
+                    key={style}
+                    style={[styles.styleChip, { borderColor: themeColors.border, backgroundColor: themeColors.surface }, on && { borderColor: P[500], backgroundColor: P[50] }]}
+                    onPress={() => toggleTripStyle(style)}
+                    activeOpacity={0.7}
+                  >
+                    {on && <Ionicons name="checkmark" size={13} color={P[600]} />}
+                    <Text style={[styles.styleChipText, { color: themeColors.textSecondary }, on && { color: P[700], fontWeight: '600' }]}>{style}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -1046,6 +1139,27 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.sm,
   },
+  // Cover image
+  coverPicker: {
+    height: 150,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: spacing.lg,
+  },
+  coverImage: { width: '100%', height: '100%' },
+  coverOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-between', padding: spacing.sm },
+  coverRemove: { alignSelf: 'flex-end', width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  coverChangeBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  coverChangeText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  coverEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
+  coverEmptyIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  coverEmptyText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  coverEmptySub: { fontSize: fontSize.xs },
+  // Trip styles (multi-select)
+  styleWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  styleChip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: borderRadius.full, borderWidth: 1.5 },
+  styleChipText: { fontSize: fontSize.sm },
   tripTypeChip: {
     flexDirection: 'row',
     alignItems: 'center',

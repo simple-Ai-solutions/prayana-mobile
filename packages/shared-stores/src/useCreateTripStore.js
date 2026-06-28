@@ -47,6 +47,7 @@ const useCreateTripStore = create()(
         kids: 0,
         budget: "moderate",
         tripType: "leisure",
+        tripStyles: [],
         currency: "INR",
         coverImage: null,
 
@@ -127,6 +128,20 @@ const useCreateTripStore = create()(
         setTripType: (tripType) => {
           set({ tripType, hasUnsavedChanges: true });
           get().broadcastChanges('tripType');
+        },
+
+        setTripStyles: (tripStyles) => {
+          set({ tripStyles, hasUnsavedChanges: true });
+          get().broadcastChanges('tripStyles');
+        },
+
+        toggleTripStyle: (style) => {
+          const cur = get().tripStyles || [];
+          const next = cur.includes(style)
+            ? cur.filter((s) => s !== style)
+            : [...cur, style];
+          set({ tripStyles: next, hasUnsavedChanges: true });
+          get().broadcastChanges('tripStyles');
         },
 
         setCurrency: (currency) => {

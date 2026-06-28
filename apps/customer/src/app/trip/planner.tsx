@@ -673,12 +673,15 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                 {dest.name}
               </Text>
             ) : null}
-            {actCount > 0 && (
+            {actCount > 0 ? (
               <View style={[styles.dayTabBadge, isSelected && styles.dayTabBadgeSelected]}>
                 <Text style={[styles.dayTabBadgeText, isSelected && styles.dayTabBadgeTextSelected]}>
                   {actCount}
                 </Text>
               </View>
+            ) : (
+              // Empty-day indicator — flags an unplanned day at a glance (PWA parity).
+              <View style={styles.dayTabEmptyDot} />
             )}
           </TouchableOpacity>
         );
@@ -1712,6 +1715,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray[400],
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dayTabEmptyDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#F59E0B',
   },
   dayTabBadgeSelected: {
     backgroundColor: '#8b5cf6',
