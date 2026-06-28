@@ -267,7 +267,7 @@ export default function QuickItineraryResultScreen() {
               onPress={() => handleTabChange('guide')}
               activeOpacity={0.7}
             >
-              <Ionicons name="book-outline" size={16} color={activeTab === 'guide' ? '#FF6B6B' : themeColors.textSecondary} />
+              <Ionicons name="book-outline" size={16} color={activeTab === 'guide' ? '#06B6D4' : themeColors.textSecondary} />
               <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'guide' && styles.tabTextActive]}>
                 Travel Guide
               </Text>
@@ -277,7 +277,7 @@ export default function QuickItineraryResultScreen() {
               onPress={() => handleTabChange('timeline')}
               activeOpacity={0.7}
             >
-              <Ionicons name="git-branch-outline" size={16} color={activeTab === 'timeline' ? '#FF6B6B' : themeColors.textSecondary} />
+              <Ionicons name="git-branch-outline" size={16} color={activeTab === 'timeline' ? '#06B6D4' : themeColors.textSecondary} />
               <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'timeline' && styles.tabTextActive]}>
                 Timeline
               </Text>
@@ -287,7 +287,7 @@ export default function QuickItineraryResultScreen() {
               onPress={() => handleTabChange('essentials')}
               activeOpacity={0.7}
             >
-              <Ionicons name="briefcase-outline" size={16} color={activeTab === 'essentials' ? '#FF6B6B' : themeColors.textSecondary} />
+              <Ionicons name="briefcase-outline" size={16} color={activeTab === 'essentials' ? '#06B6D4' : themeColors.textSecondary} />
               <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'essentials' && styles.tabTextActive]}>
                 Essentials
               </Text>
@@ -350,9 +350,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  tabActive: { borderBottomColor: '#FF6B6B' },
+  tabActive: { borderBottomColor: '#06B6D4' },
   tabText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
-  tabTextActive: { color: '#FF6B6B', fontWeight: fontWeight.semibold },
+  tabTextActive: { color: '#06B6D4', fontWeight: fontWeight.semibold },
   center: {
     flex: 1,
     alignItems: 'center',

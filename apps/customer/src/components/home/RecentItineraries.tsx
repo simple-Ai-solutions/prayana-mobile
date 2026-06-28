@@ -61,7 +61,7 @@ const CardThumb: React.FC<{ destination: string; gradient: [string, string] }> =
 );
 
 const CARD_GRADIENTS: [string, string][] = [
-  ['#FF6B6B', '#ee5a5a'],
+  ['#06B6D4', '#0EA5E9'],
   ['#3B82F6', '#06B6D4'],
   ['#10B981', '#059669'],
   ['#8B5CF6', '#6366F1'],
