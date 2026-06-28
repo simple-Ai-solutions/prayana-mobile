@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { colors, borderRadius, fontSize, fontWeight, spacing } from './theme';
+import { useTheme } from './ThemeProvider';
 
 type BadgeVariant = 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info';
 
@@ -21,7 +22,11 @@ const variantColors: Record<BadgeVariant, { bg: string; text: string }> = {
 };
 
 export function Badge({ label, variant = 'default', size = 'sm', style }: BadgeProps) {
-  const vc = variantColors[variant];
+  const { themeColors } = useTheme();
+  const vc =
+    variant === 'default'
+      ? { bg: themeColors.backgroundSecondary, text: themeColors.textSecondary }
+      : variantColors[variant];
   return (
     <View
       style={[

@@ -63,15 +63,12 @@ const ThemeContext = createContext<ThemeContextType>({
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem(THEME_KEY).then((value) => {
       if (value === 'dark') setIsDarkMode(true);
-      else if (value === 'light') setIsDarkMode(false);
-      // default: light for mobile
-      setIsLoaded(true);
-    }).catch(() => setIsLoaded(true));
+      // default: light — no state change needed
+    }).catch(() => {});
   }, []);
 
   const toggleTheme = () => {
@@ -80,9 +77,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(THEME_KEY, newMode ? 'dark' : 'light');
   };
 
-  const themeColors = isDarkMode ? darkColors : lightColors;
-
-  if (!isLoaded) return null; // prevent flash
+  const themeColors = (isDarkMode ? darkColors : lightColors) as typeof lightColors;
 
   return (
     <ThemeContext.Provider value={{ isDarkMode, toggleTheme, themeColors }}>

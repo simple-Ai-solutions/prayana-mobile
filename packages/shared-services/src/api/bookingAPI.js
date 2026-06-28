@@ -77,6 +77,43 @@ class BookingAPI {
       body: JSON.stringify({ amount, reason }),
     });
   }
+
+  // ===== Cancellation =====
+
+  async cancelBooking(bookingId, { reason } = {}) {
+    return makeAPICall(`/bookings/${bookingId}/cancel`, {
+      method: "PATCH",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  // ===== Reviews =====
+
+  async submitReview(bookingId, { rating, title, body, tags, photos } = {}) {
+    return makeAPICall(`/bookings/${bookingId}/review`, {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ rating, title, body, tags, photos }),
+    });
+  }
+
+  async getMyBookings(params = {}) {
+    const qs = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== "") qs.append(k, String(v));
+    });
+    const tail = qs.toString() ? `?${qs.toString()}` : "";
+    return makeAPICall(`/bookings/my${tail}`, {
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  async getBookingById(bookingId) {
+    return makeAPICall(`/bookings/${bookingId}`, {
+      headers: await getAuthHeaders(),
+    });
+  }
 }
 
 export const bookingAPI = new BookingAPI();

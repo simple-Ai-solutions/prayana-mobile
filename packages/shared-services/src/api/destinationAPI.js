@@ -939,6 +939,21 @@ export class DestinationAPI {
     });
   }
 
+  // Coordinate-based nearby search for the Explore Nearby screen.
+  // payload: { placeName, location: {lat, lng}, radius, limit }
+  async getNearbyByCoords({ placeName = "your location", location, radius = 10, limit = 30 } = {}) {
+    try {
+      return await makeAPICall("/destinations/nearby", {
+        method: "POST",
+        body: JSON.stringify({ placeName, location, radius, limit, timestamp: Date.now() }),
+        timeout: 30000,
+      });
+    } catch (error) {
+      console.warn("getNearbyByCoords failed:", error);
+      return { success: false, data: [] };
+    }
+  }
+
   async getTransportationOptions(placeName, location) {
     const cacheKey = `transport-${placeName.toLowerCase()}-${location.toLowerCase()}`;
 
@@ -1109,6 +1124,7 @@ export const destinationAPI = {
   getFeatured: (...args) => apiInstance.getFeatured(...args),
   getRecommended: (...args) => apiInstance.getRecommended(...args),
   getNearbyPlaces: (...args) => apiInstance.getNearbyPlaces(...args),
+  getNearbyByCoords: (...args) => apiInstance.getNearbyByCoords(...args),
   getTransportationOptions: (...args) => apiInstance.getTransportationOptions(...args),
   getPlaceImages: (...args) => apiInstance.getPlaceImages(...args),
   getWeatherInfo: (...args) => apiInstance.getWeatherInfo(...args),

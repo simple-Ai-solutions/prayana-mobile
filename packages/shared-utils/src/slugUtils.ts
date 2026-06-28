@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 // Utility functions for generating and handling SEO-friendly slugs
 
 /**

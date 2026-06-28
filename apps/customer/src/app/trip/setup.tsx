@@ -14,12 +14,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { createTripAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
+
+// Planner cyan palette (mirrors the PWA create-trip theme) — overrides the
+// app's global orange so the trip planner matches web.
+const P = {
+  50: '#ECFEFF', 100: '#CFFAFE', 200: '#A5F3FC', 300: '#67E8F9',
+  400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2', 700: '#0E7490',
+};
 
 const BUDGET_TIERS = [
   { key: 'budget', label: 'Budget', emoji: '\uD83D\uDCB0', description: 'Cost-effective' },
@@ -63,9 +70,11 @@ function formatDateShort(date: Date | null): { day: string; month: string; year:
 
 export default function TripSetupScreen() {
   const router = useRouter();
+  const { themeColors, isDarkMode } = useTheme();
 
   // Store state
   const name = useCreateTripStore((s) => s.name);
+  const description = useCreateTripStore((s) => s.description);
   const startDate = useCreateTripStore((s) => s.startDate);
   const endDate = useCreateTripStore((s) => s.endDate);
   const travelers = useCreateTripStore((s) => s.travelers);
@@ -78,6 +87,7 @@ export default function TripSetupScreen() {
 
   // Store actions
   const setName = useCreateTripStore((s) => s.setName);
+  const setDescription = useCreateTripStore((s) => s.setDescription);
   const setDates = useCreateTripStore((s) => s.setDates);
   const setTravelers = useCreateTripStore((s) => s.setTravelers);
   const setKids = useCreateTripStore((s) => s.setKids);
@@ -285,25 +295,25 @@ export default function TripSetupScreen() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* ── Header ── */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
+          <TouchableOpacity onPress={handleBack} style={[styles.backButton, { backgroundColor: themeColors.surface }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.stepIndicator}>Step 1 of 4</Text>
-            <Text style={styles.headerTitle}>Trip Setup</Text>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Trip Setup</Text>
           </View>
           <View style={styles.headerSpacer} />
         </View>
 
         {/* ── Step Navigation ── */}
-        <View style={styles.stepNav}>
+        <View style={[styles.stepNav, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
           {[
             { step: 1, label: 'Setup', route: null },
             { step: 2, label: 'Destinations', route: '/trip/destinations' },
@@ -348,11 +358,11 @@ export default function TripSetupScreen() {
         >
           {/* ── Trip Name ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Trip Name</Text>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Trip Name</Text>
             <TextInput
-              style={[styles.textInput, errors.name ? styles.inputError : null]}
+              style={[styles.textInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }, errors.name ? styles.inputError : null]}
               placeholder="My Adventure in..."
-              placeholderTextColor={colors.textTertiary}
+              placeholderTextColor={themeColors.textTertiary}
               value={name === 'My Trip' ? '' : name}
               onChangeText={(text) => {
                 setName(text || 'My Trip');
@@ -366,45 +376,63 @@ export default function TripSetupScreen() {
             {errors.name ? <Text style={styles.errorText}>{errors.name}</Text> : null}
           </View>
 
+          {/* ── Description (optional) — matches PWA create-trip ── */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>
+              Description <Text style={{ color: themeColors.textTertiary, fontWeight: '400' }}>(optional)</Text>
+            </Text>
+            <TextInput
+              style={[styles.textArea, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+              placeholder="What's this trip about? Add notes, goals, or a vibe…"
+              placeholderTextColor={themeColors.textTertiary}
+              value={description || ''}
+              onChangeText={(text) => setDescription(text)}
+              maxLength={400}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+
           {/* ── Date Range ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Travel Dates</Text>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Travel Dates</Text>
 
-            <View style={[styles.dateCard, errors.dates ? styles.dateCardError : null]}>
+            <View style={[styles.dateCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, errors.dates ? styles.dateCardError : null]}>
               {/* Start Date Row */}
               <TouchableOpacity
                 style={styles.dateCellBtn}
                 onPress={() => setShowStartPicker(true)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.dateCellIcon, { backgroundColor: colors.primary[50] }]}>
-                  <Ionicons name="airplane-outline" size={16} color={colors.primary[500]} />
+                <View style={[styles.dateCellIcon, { backgroundColor: P[50] }]}>
+                  <Ionicons name="airplane-outline" size={16} color={P[500]} />
                 </View>
                 <View style={styles.dateCellInfo}>
                   <Text style={styles.dateCellLabel}>Departure</Text>
                   {parsedStartDate ? (
                     <View style={styles.dateCellValueRow}>
-                      <Text style={styles.dateCellDay}>{formatDateShort(parsedStartDate).day}</Text>
+                      <Text style={[styles.dateCellDay, { color: themeColors.text }]}>{formatDateShort(parsedStartDate).day}</Text>
                       <View style={styles.dateCellRight}>
-                        <Text style={styles.dateCellMonth}>
+                        <Text style={[styles.dateCellMonth, { color: themeColors.text }]}>
                           {formatDateShort(parsedStartDate).month} {formatDateShort(parsedStartDate).year}
                         </Text>
-                        <Text style={styles.dateCellWeekday}>{formatDateShort(parsedStartDate).weekday}</Text>
+                        <Text style={[styles.dateCellWeekday, { color: themeColors.textSecondary }]}>{formatDateShort(parsedStartDate).weekday}</Text>
                       </View>
                     </View>
                   ) : (
-                    <Text style={styles.dateCellPlaceholder}>Select start date</Text>
+                    <Text style={[styles.dateCellPlaceholder, { color: themeColors.textTertiary }]}>Select start date</Text>
                   )}
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                <Ionicons name="chevron-forward" size={16} color={themeColors.textTertiary} />
               </TouchableOpacity>
 
               {/* Divider with duration */}
               <View style={styles.dateDivider}>
-                <View style={styles.dateDividerLine} />
+                <View style={[styles.dateDividerLine, { backgroundColor: themeColors.border }]} />
                 {parsedStartDate && parsedEndDate ? (
                   <View style={styles.dateDividerBadge}>
-                    <Ionicons name="time-outline" size={12} color={colors.primary[600]} />
+                    <Ionicons name="time-outline" size={12} color={P[600]} />
                     <Text style={styles.dateDividerText}>
                       {Math.ceil((parsedEndDate.getTime() - parsedStartDate.getTime()) / 86400000) + 1} days
                     </Text>
@@ -412,7 +440,7 @@ export default function TripSetupScreen() {
                 ) : (
                   <View style={styles.dateDividerDot} />
                 )}
-                <View style={styles.dateDividerLine} />
+                <View style={[styles.dateDividerLine, { backgroundColor: themeColors.border }]} />
               </View>
 
               {/* End Date Row */}
@@ -434,19 +462,19 @@ export default function TripSetupScreen() {
                   <Text style={styles.dateCellLabel}>Return</Text>
                   {parsedEndDate ? (
                     <View style={styles.dateCellValueRow}>
-                      <Text style={styles.dateCellDay}>{formatDateShort(parsedEndDate).day}</Text>
+                      <Text style={[styles.dateCellDay, { color: themeColors.text }]}>{formatDateShort(parsedEndDate).day}</Text>
                       <View style={styles.dateCellRight}>
-                        <Text style={styles.dateCellMonth}>
+                        <Text style={[styles.dateCellMonth, { color: themeColors.text }]}>
                           {formatDateShort(parsedEndDate).month} {formatDateShort(parsedEndDate).year}
                         </Text>
-                        <Text style={styles.dateCellWeekday}>{formatDateShort(parsedEndDate).weekday}</Text>
+                        <Text style={[styles.dateCellWeekday, { color: themeColors.textSecondary }]}>{formatDateShort(parsedEndDate).weekday}</Text>
                       </View>
                     </View>
                   ) : (
-                    <Text style={styles.dateCellPlaceholder}>Select end date</Text>
+                    <Text style={[styles.dateCellPlaceholder, { color: themeColors.textTertiary }]}>Select end date</Text>
                   )}
                 </View>
-                <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                <Ionicons name="chevron-forward" size={16} color={themeColors.textTertiary} />
               </TouchableOpacity>
             </View>
 
@@ -455,14 +483,14 @@ export default function TripSetupScreen() {
 
           {/* Date Pickers (conditionally rendered) */}
           {showStartPicker && (
-            <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
+            <View style={Platform.OS === 'ios' ? [styles.iosPickerContainer, { backgroundColor: themeColors.surface, borderColor: themeColors.border }] : undefined}>
               <DateTimePicker
                 value={parsedStartDate || new Date()}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 minimumDate={new Date()}
                 onChange={handleStartDateChange}
-                accentColor={colors.primary[500]}
+                accentColor={P[500]}
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
@@ -475,14 +503,14 @@ export default function TripSetupScreen() {
             </View>
           )}
           {showEndPicker && (
-            <View style={Platform.OS === 'ios' ? styles.iosPickerContainer : undefined}>
+            <View style={Platform.OS === 'ios' ? [styles.iosPickerContainer, { backgroundColor: themeColors.surface, borderColor: themeColors.border }] : undefined}>
               <DateTimePicker
                 value={parsedEndDate || minimumEndDate}
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 minimumDate={minimumEndDate}
                 onChange={handleEndDateChange}
-                accentColor={colors.primary[500]}
+                accentColor={P[500]}
               />
               {Platform.OS === 'ios' && (
                 <TouchableOpacity
@@ -497,8 +525,8 @@ export default function TripSetupScreen() {
 
           {/* ── Travelers Counter ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Travelers</Text>
-            <View style={styles.counterRow}>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Travelers</Text>
+            <View style={[styles.counterRow, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
               {/* Adults */}
               <View style={styles.counterBlock}>
                 <Text style={styles.counterLabel}>Adults</Text>
@@ -512,10 +540,10 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="remove"
                       size={20}
-                      color={travelers <= 1 ? colors.gray[300] : colors.primary[500]}
+                      color={travelers <= 1 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
-                  <Text style={styles.counterValue}>{travelers}</Text>
+                  <Text style={[styles.counterValue, { color: themeColors.text }]}>{travelers}</Text>
                   <TouchableOpacity
                     style={[styles.counterBtn, travelers >= 20 && styles.counterBtnDisabled]}
                     onPress={incrementTravelers}
@@ -525,14 +553,14 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="add"
                       size={20}
-                      color={travelers >= 20 ? colors.gray[300] : colors.primary[500]}
+                      color={travelers >= 20 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
                 </View>
               </View>
 
               {/* Divider */}
-              <View style={styles.counterDivider} />
+              <View style={[styles.counterDivider, { backgroundColor: themeColors.border }]} />
 
               {/* Children */}
               <View style={styles.counterBlock}>
@@ -547,10 +575,10 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="remove"
                       size={20}
-                      color={kids <= 0 ? colors.gray[300] : colors.primary[500]}
+                      color={kids <= 0 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
-                  <Text style={styles.counterValue}>{kids}</Text>
+                  <Text style={[styles.counterValue, { color: themeColors.text }]}>{kids}</Text>
                   <TouchableOpacity
                     style={[styles.counterBtn, kids >= 10 && styles.counterBtnDisabled]}
                     onPress={incrementKids}
@@ -560,7 +588,7 @@ export default function TripSetupScreen() {
                     <Ionicons
                       name="add"
                       size={20}
-                      color={kids >= 10 ? colors.gray[300] : colors.primary[500]}
+                      color={kids >= 10 ? colors.gray[300] : P[500]}
                     />
                   </TouchableOpacity>
                 </View>
@@ -570,22 +598,22 @@ export default function TripSetupScreen() {
 
           {/* ── Budget Tier ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Budget Tier</Text>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Budget Tier</Text>
             <View style={styles.budgetRow}>
               {BUDGET_TIERS.map((tier) => {
                 const isSelected = budget === tier.key;
                 return (
                   <TouchableOpacity
                     key={tier.key}
-                    style={[styles.budgetCard, isSelected && styles.budgetCardSelected]}
+                    style={[styles.budgetCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, isSelected && styles.budgetCardSelected]}
                     onPress={() => setBudget(tier.key)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.budgetEmoji}>{tier.emoji}</Text>
-                    <Text style={[styles.budgetLabel, isSelected && styles.budgetLabelSelected]}>
+                    <Text style={[styles.budgetLabel, { color: themeColors.text }, isSelected && styles.budgetLabelSelected]}>
                       {tier.label}
                     </Text>
-                    <Text style={styles.budgetDesc}>{tier.description}</Text>
+                    <Text style={[styles.budgetDesc, { color: themeColors.textTertiary }]}>{tier.description}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -594,23 +622,23 @@ export default function TripSetupScreen() {
 
           {/* ── Trip Type ── */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Trip Type</Text>
+            <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Trip Type</Text>
             <View style={styles.tripTypeGrid}>
               {TRIP_TYPES.map((type) => {
                 const isSelected = tripType === type.key;
                 return (
                   <TouchableOpacity
                     key={type.key}
-                    style={[styles.tripTypeChip, isSelected && styles.tripTypeChipSelected]}
+                    style={[styles.tripTypeChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, isSelected && styles.tripTypeChipSelected]}
                     onPress={() => setTripType(type.key)}
                     activeOpacity={0.7}
                   >
                     <Ionicons
                       name={type.icon}
                       size={16}
-                      color={isSelected ? '#ffffff' : colors.gray[600]}
+                      color={isSelected ? '#ffffff' : themeColors.textSecondary}
                     />
-                    <Text style={[styles.tripTypeLabel, isSelected && styles.tripTypeLabelSelected]}>
+                    <Text style={[styles.tripTypeLabel, { color: themeColors.textSecondary }, isSelected && styles.tripTypeLabelSelected]}>
                       {type.label}
                     </Text>
                   </TouchableOpacity>
@@ -624,10 +652,10 @@ export default function TripSetupScreen() {
         </ScrollView>
 
         {/* ── Next Button (fixed at bottom) ── */}
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
           {isSaving && (
             <View style={styles.savingBanner}>
-              <ActivityIndicator size="small" color={colors.primary[500]} />
+              <ActivityIndicator size="small" color={P[500]} />
               <Text style={styles.savingBannerText}>Saving trip...</Text>
             </View>
           )}
@@ -693,7 +721,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -780,6 +808,17 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? spacing.lg : spacing.md,
     fontSize: fontSize.md,
     color: colors.text,
+  },
+  textArea: {
+    backgroundColor: colors.gray[50],
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: fontSize.md,
+    color: colors.text,
+    minHeight: 80,
   },
   inputError: {
     borderColor: colors.error,
@@ -870,16 +909,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: colors.primary[100],
+    borderColor: P[100],
   },
   dateDividerText: {
     fontSize: 11,
-    color: colors.primary[600],
+    color: P[600],
     fontWeight: fontWeight.semibold,
   },
   dateDividerDot: {
@@ -907,7 +946,7 @@ const styles = StyleSheet.create({
   iosPickerDoneText: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
-    color: colors.primary[500],
+    color: P[500],
   },
 
   // Travelers Counter
@@ -943,7 +982,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.primary[300],
+    borderColor: P[300],
     backgroundColor: colors.background,
   },
   counterBtnDisabled: {
@@ -980,8 +1019,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   budgetCardSelected: {
-    borderColor: colors.primary[500],
-    backgroundColor: colors.primary[50],
+    borderColor: P[500],
+    backgroundColor: P[50],
   },
   budgetEmoji: {
     fontSize: 28,
@@ -993,7 +1032,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   budgetLabelSelected: {
-    color: colors.primary[700],
+    color: P[700],
   },
   budgetDesc: {
     fontSize: fontSize.xs,
@@ -1019,8 +1058,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   tripTypeChipSelected: {
-    borderColor: colors.primary[500],
-    backgroundColor: colors.primary[500],
+    borderColor: P[500],
+    backgroundColor: P[500],
   },
   tripTypeLabel: {
     fontSize: fontSize.sm,
@@ -1044,7 +1083,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     gap: spacing.sm,

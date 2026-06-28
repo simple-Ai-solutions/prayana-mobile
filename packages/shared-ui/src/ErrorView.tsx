@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, fontSize, fontWeight, spacing } from './theme';
+import { useTheme } from './ThemeProvider';
 import { Button } from './Button';
 
 interface ErrorViewProps {
@@ -16,11 +17,12 @@ export function ErrorView({
   onRetry,
   fullScreen = false,
 }: ErrorViewProps) {
+  const { themeColors } = useTheme();
   return (
-    <View style={[styles.container, fullScreen && styles.fullScreen]}>
+    <View style={[styles.container, fullScreen && [styles.fullScreen, { backgroundColor: themeColors.background }]]}>
       <Text style={styles.emoji}>!</Text>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.message}>{message}</Text>
+      <Text style={[styles.title, { color: themeColors.text }]}>{title}</Text>
+      <Text style={[styles.message, { color: themeColors.textSecondary }]}>{message}</Text>
       {onRetry && (
         <Button title="Try Again" onPress={onRetry} variant="outline" size="md" style={styles.button} />
       )}

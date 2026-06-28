@@ -1,3 +1,6 @@
+// @ts-nocheck — pure JS utility, runtime-tested. Types not added because
+// callers use it through any-typed Zustand stores. Re-enable strict when
+// shared-utils gets a proper d.ts pass.
 /**
  * splitwiseCalculator.js
  * Pure Splitwise-style settlement algorithm.

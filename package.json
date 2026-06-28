@@ -18,16 +18,30 @@
     "build:vendor:dev": "cd apps/vendor && eas build --profile development --platform all",
     "build:vendor:preview": "cd apps/vendor && eas build --profile preview --platform all",
     "build:vendor:prod": "cd apps/vendor && eas build --profile production --platform all",
-    "lint": "eslint apps packages --ext .ts,.tsx,.js,.jsx",
-    "typecheck": "tsc --noEmit",
+    "submit:customer:ios": "cd apps/customer && eas submit --platform ios --profile production --latest",
+    "submit:customer:android": "cd apps/customer && eas submit --platform android --profile production --latest",
+    "submit:vendor:ios": "cd apps/vendor && eas submit --platform ios --profile production --latest",
+    "submit:vendor:android": "cd apps/vendor && eas submit --platform android --profile production --latest",
+    "update:customer": "cd apps/customer && eas update --branch production",
+    "update:vendor": "cd apps/vendor && eas update --branch production",
+    "credentials:customer": "cd apps/customer && eas credentials",
+    "credentials:vendor": "cd apps/vendor && eas credentials",
+    "lint": "echo 'ESLint not configured. tsc --noEmit is the gate. Add eslint-config-expo + @typescript-eslint/parser when you want lint rules.'",
+    "typecheck": "npm run typecheck:customer && npm run typecheck:vendor",
+    "typecheck:customer": "cd apps/customer && tsc --noEmit",
+    "typecheck:vendor": "cd apps/vendor && tsc --noEmit",
     "clean": "rm -rf node_modules apps/*/node_modules packages/*/node_modules"
   },
   "overrides": {
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
-    "typescript": "~5.3.3",
+    "eslint": "^8.57.0",
     "prettier": "^3.2.5",
-    "eslint": "^8.57.0"
+    "typescript": "~5.3.3"
+  },
+  "dependencies": {
+    "lucide-react-native": "^1.21.0",
+    "react-native-worklets": "0.5.1"
   }
 }

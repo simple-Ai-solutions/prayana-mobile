@@ -1,7 +1,10 @@
-// hooks/useItineraryGeneration.js - Updated with both setInitialMarkdownData and setInitialStructuredData
+// hooks/useItineraryGeneration.js - Quick Itinerary generation (React Native).
+// Wired to the real itineraryAPI in shared-services; share/clipboard use the
+// native APIs instead of web-only window/navigator.
 import { useState, useCallback, useRef } from 'react';
-// TODO: Migrate itineraryAPI to shared-services
-const itineraryAPI = { generateItinerary: async () => null, generateStructuredItinerary: async () => null };
+import { Share } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { itineraryAPI } from '@prayana/shared-services';
 
 export const useItineraryGeneration = () => {
   const [markdownData, setMarkdownData] = useState(null);
@@ -57,7 +60,7 @@ export const useItineraryGeneration = () => {
     clearError('markdown');
 
     try {
-      const result = await itineraryAPI.generateMarkdownItinerary(requestData);
+      const result = await itineraryAPI.generateMarkdown(requestData);
       console.log('Markdown generation completed:', result);
       setMarkdownData(result);
       return result;
@@ -84,7 +87,7 @@ export const useItineraryGeneration = () => {
     clearError('structured');
 
     try {
-      const result = await itineraryAPI.generateStructuredItinerary(requestData);
+      const result = await itineraryAPI.generateStructured(requestData);
       console.log('Structured generation completed:', result);
       setStructuredData(result);
       return result;
@@ -140,55 +143,41 @@ export const useItineraryActions = () => {
   const [shareStates, setShareStates] = useState({});
 
   const toggleBookmark = useCallback(async (itineraryId, isCurrentlyBookmarked = false) => {
-    setBookmarkStates(prev => ({ ...prev, [itineraryId]: 'loading' }));
-
-    try {
-      const action = isCurrentlyBookmarked ? 'remove' : 'add';
-      await itineraryAPI.toggleBookmark(itineraryId, action);
-
-      setBookmarkStates(prev => ({
-        ...prev,
-        [itineraryId]: isCurrentlyBookmarked ? 'removed' : 'added'
-      }));
-
-      return !isCurrentlyBookmarked;
-    } catch (error) {
-      console.error('Bookmark failed:', error);
-      setBookmarkStates(prev => ({ ...prev, [itineraryId]: 'error' }));
-      throw error;
-    }
+    // Bookmarking is handled via favoritesAPI at the screen level; this just
+    // tracks optimistic UI state for the button.
+    setBookmarkStates(prev => ({
+      ...prev,
+      [itineraryId]: isCurrentlyBookmarked ? 'removed' : 'added'
+    }));
+    return !isCurrentlyBookmarked;
   }, []);
 
+  // Public deep-link base for sharing itineraries.
+  const SHARE_BASE_URL = 'https://prayanaai.com';
+
   const shareItinerary = useCallback(async (itinerary) => {
-    const shareId = itinerary.itineraryId || itinerary.markdownItineraryId;
+    const shareId = itinerary.itineraryId || itinerary.markdownItineraryId || itinerary._id;
     setShareStates(prev => ({ ...prev, [shareId]: 'loading' }));
 
     try {
-      const shareData = {
-        title: itinerary.title || `${itinerary.duration}-Day ${itinerary.destination} Trip`,
-        text: itinerary.subtitle || `Check out this amazing ${itinerary.duration}-day trip to ${itinerary.destination}!`,
-        url: `${window.location.origin}/itinerary/${shareId}`
-      };
+      const title =
+        itinerary.title || `${itinerary.duration}-Day ${itinerary.destination} Trip`;
+      const url = `${SHARE_BASE_URL}/itinerary/${shareId}`;
+      const message =
+        (itinerary.subtitle ||
+          `Check out this ${itinerary.duration}-day trip to ${itinerary.destination}!`) +
+        `\n\n${url}`;
 
-      if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
-        await navigator.share(shareData);
-        setShareStates(prev => ({ ...prev, [shareId]: 'shared' }));
-      } else {
-        // Fallback to clipboard
-        await navigator.clipboard.writeText(shareData.url);
-        setShareStates(prev => ({ ...prev, [shareId]: 'copied' }));
-      }
+      // React Native's native share sheet.
+      await Share.share({ title, message });
+      setShareStates(prev => ({ ...prev, [shareId]: 'shared' }));
 
-      // Reset state after 3 seconds
       setTimeout(() => {
         setShareStates(prev => ({ ...prev, [shareId]: null }));
       }, 3000);
-
     } catch (error) {
       console.error('Share failed:', error);
       setShareStates(prev => ({ ...prev, [shareId]: 'error' }));
-
-      // Reset error state after 3 seconds
       setTimeout(() => {
         setShareStates(prev => ({ ...prev, [shareId]: null }));
       }, 3000);
@@ -197,7 +186,7 @@ export const useItineraryActions = () => {
 
   const copyMarkdown = useCallback(async (markdown) => {
     try {
-      await navigator.clipboard.writeText(markdown);
+      await Clipboard.setStringAsync(markdown ?? '');
       return true;
     } catch (error) {
       console.error('Copy failed:', error);

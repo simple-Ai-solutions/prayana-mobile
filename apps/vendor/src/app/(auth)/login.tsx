@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,33 +13,126 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import { useAuth } from '@prayana/shared-hooks';
+import { useTheme } from '@prayana/shared-ui';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithCredential,
 } from 'firebase/auth';
-import { auth } from '@prayana/shared-services/src/firebase';
+import { auth } from '@prayana/shared-services';
+import { ENV } from '../../config/env';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function LoginScreen() {
-  const { setUser, setIsAuthenticated } = useAuth();
+  const { setUser, setIsAuthenticated, syncWithBackend } = useAuth();
+  const { themeColors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: ENV.googleAuth.webClientId || undefined,
+    iosClientId: ENV.googleAuth.iosClientId || undefined,
+    androidClientId: ENV.googleAuth.androidClientId || undefined,
+    redirectUri: makeRedirectUri({ scheme: 'prayanabiz' }),
+    scopes: ['openid', 'profile', 'email'],
+  });
+
+  // Handle the Google OAuth response (idToken or accessToken).
+  useEffect(() => {
+    if (!response) return;
+    if (response.type === 'success') {
+      const idToken = response.params?.id_token;
+      const accessToken = response.authentication?.accessToken;
+      if (idToken) {
+        completeGoogleSignIn(idToken, null);
+      } else if (accessToken) {
+        completeGoogleSignIn(null, accessToken);
+      } else {
+        setIsGoogleLoading(false);
+        Alert.alert('Sign-in failed', 'No token received from Google. Please try again.');
+      }
+    } else if (response.type === 'error') {
+      setIsGoogleLoading(false);
+      Alert.alert(
+        'Sign-in failed',
+        response.error?.message || 'Google sign-in failed.',
+      );
+    } else if (response.type === 'dismiss' || response.type === 'cancel') {
+      setIsGoogleLoading(false);
+    }
+  }, [response]);
+
+  const completeGoogleSignIn = async (
+    idToken: string | null,
+    accessToken: string | null,
+  ) => {
+    try {
+      const credential = idToken
+        ? GoogleAuthProvider.credential(idToken)
+        : GoogleAuthProvider.credential(null, accessToken);
+      const userCredential = await signInWithCredential(auth, credential);
+      setUser(userCredential.user);
+      setIsAuthenticated(true);
+      // Best-effort backend sync — don't block login on it.
+      try {
+        await syncWithBackend(userCredential.user, 'google');
+      } catch {}
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      let msg = 'Google sign-in failed. Please try again.';
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        msg = 'An account exists with this email using a different sign-in method.';
+      } else if (error.code === 'auth/invalid-credential') {
+        msg = 'Invalid credential. Please try again.';
+      }
+      Alert.alert('Sign-in failed', msg);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    if (!ENV.googleAuth.webClientId && !ENV.googleAuth.iosClientId) {
+      Alert.alert(
+        'Not configured',
+        'Google sign-in is not set up yet. Use email or phone login.',
+      );
+      return;
+    }
+    if (!request) {
+      Alert.alert('Not ready', 'Google sign-in is loading. Please try again.');
+      return;
+    }
+    setIsGoogleLoading(true);
+    await promptAsync();
+  };
+
   const handleEmailLogin = async () => {
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Missing Fields', 'Please enter both email and password.');
+      Alert.alert('Missing fields', 'Please enter both email and password.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await signInWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password,
+      );
       setUser(userCredential.user);
       setIsAuthenticated(true);
+      try {
+        await syncWithBackend(userCredential.user, 'email');
+      } catch {}
       router.replace('/(tabs)');
     } catch (error: any) {
       let message = 'Failed to sign in. Please try again.';
@@ -51,23 +144,12 @@ export default function LoginScreen() {
         message = 'Invalid email address.';
       } else if (error.code === 'auth/too-many-requests') {
         message = 'Too many attempts. Please try again later.';
+      } else if (error.code === 'auth/invalid-credential') {
+        message = 'Invalid email or password.';
       }
-      Alert.alert('Sign In Failed', message);
+      Alert.alert('Sign in failed', message);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsGoogleLoading(true);
-    try {
-      // TODO: Integrate with expo-auth-session or @react-native-google-signin
-      // For now, show a placeholder alert
-      Alert.alert('Coming Soon', 'Google sign-in will be available shortly.');
-    } catch (error) {
-      Alert.alert('Error', 'Google sign-in failed. Please try again.');
-    } finally {
-      setIsGoogleLoading(false);
     }
   };
 
@@ -76,7 +158,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -89,8 +171,8 @@ export default function LoginScreen() {
           {/* Brand Header */}
           <View style={styles.brandSection}>
             <Text style={styles.brandIcon}>&#128188;</Text>
-            <Text style={styles.brandTitle}>Prayana Business</Text>
-            <Text style={styles.brandSubtitle}>
+            <Text style={[styles.brandTitle, { color: themeColors.text }]}>Prayana Business</Text>
+            <Text style={[styles.brandSubtitle, { color: themeColors.textSecondary }]}>
               Manage your activities & bookings
             </Text>
           </View>
@@ -98,7 +180,7 @@ export default function LoginScreen() {
           {/* Social Login Buttons */}
           <View style={styles.socialSection}>
             <TouchableOpacity
-              style={styles.socialButton}
+              style={[styles.socialButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
               onPress={handleGoogleLogin}
               disabled={isGoogleLoading}
               activeOpacity={0.7}
@@ -108,7 +190,7 @@ export default function LoginScreen() {
               ) : (
                 <>
                   <Text style={styles.socialButtonIcon}>G</Text>
-                  <Text style={styles.socialButtonText}>
+                  <Text style={[styles.socialButtonText, { color: themeColors.text }]}>
                     Continue with Google
                   </Text>
                 </>
@@ -116,30 +198,30 @@ export default function LoginScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.socialButton}
+              style={[styles.socialButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
               onPress={handlePhoneLogin}
               activeOpacity={0.7}
             >
               <Text style={styles.socialButtonIcon}>&#128222;</Text>
-              <Text style={styles.socialButtonText}>Continue with Phone</Text>
+              <Text style={[styles.socialButtonText, { color: themeColors.text }]}>Continue with Phone</Text>
             </TouchableOpacity>
           </View>
 
           {/* Divider */}
           <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
+            <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
+            <Text style={[styles.dividerText, { color: themeColors.textTertiary }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
           </View>
 
           {/* Email + Password Form */}
           <View style={styles.formSection}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                 placeholder="you@business.com"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={themeColors.textTertiary}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -150,12 +232,12 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View style={styles.passwordContainer}>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Password</Text>
+              <View style={[styles.passwordContainer, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
                 <TextInput
-                  style={styles.passwordInput}
+                  style={[styles.passwordInput, { color: themeColors.text }]}
                   placeholder="Enter your password"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={themeColors.textTertiary}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -189,7 +271,7 @@ export default function LoginScreen() {
 
           {/* Register Link */}
           <View style={styles.footerSection}>
-            <Text style={styles.footerText}>New vendor? </Text>
+            <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>New vendor? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
               <Text style={styles.footerLink}>Register your business</Text>
             </TouchableOpacity>

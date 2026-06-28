@@ -13,10 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { createTripAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
+
+const P = {
+  50: '#ECFEFF', 100: '#CFFAFE', 200: '#A5F3FC', 300: '#67E8F9',
+  400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2', 700: '#0E7490',
+};
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -64,6 +69,7 @@ const TRIP_TYPE_LABELS: Record<string, string> = {
 export default function ReviewScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { themeColors } = useTheme();
 
   // Store state
   const tripId = useCreateTripStore((s) => s.tripId);
@@ -76,8 +82,8 @@ export default function ReviewScreen() {
   const budget = useCreateTripStore((s) => s.budget);
   const tripType = useCreateTripStore((s) => s.tripType);
   const currency = useCreateTripStore((s) => s.currency);
-  const destinations = useCreateTripStore((s) => s.destinations);
-  const days = useCreateTripStore((s) => s.days);
+  const destinations = useCreateTripStore((s: any) => s.destinations) as any[];
+  const days = useCreateTripStore((s: any) => s.days) as any[];
 
   // Store actions
   const setCurrentStep = useCreateTripStore((s) => s.setCurrentStep);
@@ -251,37 +257,37 @@ export default function ReviewScreen() {
   // ─── Render: Stats Row ───
 
   const renderStatsRow = () => (
-    <View style={styles.statsRow}>
+    <View style={[styles.statsRow, { backgroundColor: themeColors.surface }]}>
       <View style={styles.statItem}>
-        <View style={[styles.statIcon, { backgroundColor: colors.primary[50] }]}>
-          <Ionicons name="calendar-outline" size={18} color={colors.primary[500]} />
+        <View style={[styles.statIcon, { backgroundColor: P[50] }]}>
+          <Ionicons name="calendar-outline" size={18} color={P[500]} />
         </View>
-        <Text style={styles.statValue}>{tripDuration || totalDays}</Text>
-        <Text style={styles.statLabel}>Days</Text>
+        <Text style={[styles.statValue, { color: themeColors.text }]}>{tripDuration || totalDays}</Text>
+        <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Days</Text>
       </View>
-      <View style={styles.statDivider} />
+      <View style={[styles.statDivider, { backgroundColor: themeColors.border }]} />
       <View style={styles.statItem}>
         <View style={[styles.statIcon, { backgroundColor: colors.successLight }]}>
           <Ionicons name="checkmark-circle-outline" size={18} color={colors.success} />
         </View>
-        <Text style={styles.statValue}>{totalActivities}</Text>
-        <Text style={styles.statLabel}>Activities</Text>
+        <Text style={[styles.statValue, { color: themeColors.text }]}>{totalActivities}</Text>
+        <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Activities</Text>
       </View>
-      <View style={styles.statDivider} />
+      <View style={[styles.statDivider, { backgroundColor: themeColors.border }]} />
       <View style={styles.statItem}>
         <View style={[styles.statIcon, { backgroundColor: colors.infoLight }]}>
           <Ionicons name="location-outline" size={18} color={colors.info} />
         </View>
-        <Text style={styles.statValue}>{totalDestinations}</Text>
-        <Text style={styles.statLabel}>Places</Text>
+        <Text style={[styles.statValue, { color: themeColors.text }]}>{totalDestinations}</Text>
+        <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Places</Text>
       </View>
-      <View style={styles.statDivider} />
+      <View style={[styles.statDivider, { backgroundColor: themeColors.border }]} />
       <View style={styles.statItem}>
         <View style={[styles.statIcon, { backgroundColor: colors.warningLight }]}>
           <Ionicons name="people-outline" size={18} color={colors.warning} />
         </View>
-        <Text style={styles.statValue}>{travelers + kids}</Text>
-        <Text style={styles.statLabel}>Travelers</Text>
+        <Text style={[styles.statValue, { color: themeColors.text }]}>{travelers + kids}</Text>
+        <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Travelers</Text>
       </View>
     </View>
   );
@@ -289,23 +295,23 @@ export default function ReviewScreen() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* ── Header ── */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={handleBack} style={styles.backButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <TouchableOpacity onPress={handleBack} style={[styles.backButton, { backgroundColor: themeColors.surface }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <Text style={styles.stepIndicator}>Step 4 of 4</Text>
-          <Text style={styles.headerTitle}>Review Trip</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Review Trip</Text>
         </View>
         <TouchableOpacity onPress={handleShare} style={styles.shareButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="share-outline" size={22} color={colors.primary[500]} />
+          <Ionicons name="share-outline" size={22} color={P[500]} />
         </TouchableOpacity>
       </View>
 
       {/* ── Step Navigation ── */}
-      <View style={styles.stepNav}>
+      <View style={[styles.stepNav, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         {[
           { step: 1, label: 'Setup', route: '/trip/setup' },
           { step: 2, label: 'Destinations', route: '/trip/destinations' },
@@ -357,39 +363,39 @@ export default function ReviewScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Trip Summary Card ── */}
-        <View style={styles.summaryCard}>
-          <View style={styles.summaryHeader}>
-            <Ionicons name="airplane" size={22} color={colors.primary[500]} />
-            <Text style={styles.summaryTitle} numberOfLines={2}>
+        <View style={[styles.summaryCard, { backgroundColor: themeColors.surface }]}>
+          <View style={[styles.summaryHeader, { borderBottomColor: themeColors.border }]}>
+            <Ionicons name="airplane" size={22} color={P[500]} />
+            <Text style={[styles.summaryTitle, { color: themeColors.text }]} numberOfLines={2}>
               {name}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.summaryValue}>
+            <Ionicons name="calendar-outline" size={16} color={themeColors.textSecondary} />
+            <Text style={[styles.summaryValue, { color: themeColors.textSecondary }]}>
               {formatDate(startDate)} - {formatDate(endDate)}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Ionicons name="people-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.summaryValue}>
+            <Ionicons name="people-outline" size={16} color={themeColors.textSecondary} />
+            <Text style={[styles.summaryValue, { color: themeColors.textSecondary }]}>
               {travelers} {travelers === 1 ? 'Adult' : 'Adults'}
               {kids > 0 ? `, ${kids} ${kids === 1 ? 'Child' : 'Children'}` : ''}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Ionicons name="wallet-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.summaryValue}>
+            <Ionicons name="wallet-outline" size={16} color={themeColors.textSecondary} />
+            <Text style={[styles.summaryValue, { color: themeColors.textSecondary }]}>
               {BUDGET_EMOJIS[budget] || ''} {BUDGET_LABELS[budget] || budget}
             </Text>
           </View>
 
           <View style={styles.summaryRow}>
-            <Ionicons name="compass-outline" size={16} color={colors.textSecondary} />
-            <Text style={styles.summaryValue}>
+            <Ionicons name="compass-outline" size={16} color={themeColors.textSecondary} />
+            <Text style={[styles.summaryValue, { color: themeColors.textSecondary }]}>
               {TRIP_TYPE_LABELS[tripType] || tripType}
             </Text>
           </View>
@@ -400,15 +406,15 @@ export default function ReviewScreen() {
 
         {/* ── Destinations List ── */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Destinations</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Destinations</Text>
           {destinations.map((dest, index) => (
-            <View key={`${dest.name}-${index}`} style={styles.destItem}>
+            <View key={`${dest.name}-${index}`} style={[styles.destItem, { backgroundColor: themeColors.surface }]}>
               <View style={styles.destOrderBadge}>
                 <Text style={styles.destOrderText}>{index + 1}</Text>
               </View>
               <View style={styles.destItemInfo}>
-                <Text style={styles.destItemName}>{dest.name}</Text>
-                <Text style={styles.destItemMeta}>
+                <Text style={[styles.destItemName, { color: themeColors.text }]}>{dest.name}</Text>
+                <Text style={[styles.destItemMeta, { color: themeColors.textTertiary }]}>
                   {dest.country ? `${dest.country} - ` : ''}
                   {dest.duration || 1} {(dest.duration || 1) === 1 ? 'day' : 'days'}
                 </Text>
@@ -419,14 +425,14 @@ export default function ReviewScreen() {
 
         {/* ── Day-by-Day Summary ── */}
         <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Itinerary</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Itinerary</Text>
           {days.map((day, dayIndex) => {
             const actCount = day.activities?.length || 0;
             const isExpanded = expandedDays[dayIndex];
             const activities = day.activities || [];
 
             return (
-              <View key={dayIndex} style={styles.dayCard}>
+              <View key={dayIndex} style={[styles.dayCard, { backgroundColor: themeColors.surface }]}>
                 <TouchableOpacity
                   style={styles.dayCardHeader}
                   onPress={() => toggleDay(dayIndex)}
@@ -437,9 +443,9 @@ export default function ReviewScreen() {
                       <Text style={styles.dayNumberText}>{day.dayNumber}</Text>
                     </View>
                     <View>
-                      <Text style={styles.dayCardTitle}>{day.title}</Text>
+                      <Text style={[styles.dayCardTitle, { color: themeColors.text }]}>{day.title}</Text>
                       {day.date ? (
-                        <Text style={styles.dayCardDate}>{formatDateShort(day.date)}</Text>
+                        <Text style={[styles.dayCardDate, { color: themeColors.textTertiary }]}>{formatDateShort(day.date)}</Text>
                       ) : null}
                     </View>
                   </View>
@@ -452,23 +458,23 @@ export default function ReviewScreen() {
                     <Ionicons
                       name={isExpanded ? 'chevron-up' : 'chevron-down'}
                       size={18}
-                      color={colors.textTertiary}
+                      color={themeColors.textTertiary}
                     />
                   </View>
                 </TouchableOpacity>
 
                 {isExpanded && (
-                  <View style={styles.dayCardBody}>
+                  <View style={[styles.dayCardBody, { borderTopColor: themeColors.border }]}>
                     {activities.length === 0 ? (
-                      <Text style={styles.dayCardEmpty}>No activities planned for this day</Text>
+                      <Text style={[styles.dayCardEmpty, { color: themeColors.textTertiary }]}>No activities planned for this day</Text>
                     ) : (
                       activities.map((act: any, actIdx: number) => (
                         <View key={actIdx} style={styles.activityListItem}>
                           <View style={styles.activityListDot} />
                           <View style={styles.activityListContent}>
-                            <Text style={styles.activityListName}>{act.name}</Text>
+                            <Text style={[styles.activityListName, { color: themeColors.text }]}>{act.name}</Text>
                             <View style={styles.activityListMeta}>
-                              <Text style={styles.activityListSlot}>
+                              <Text style={[styles.activityListSlot, { color: themeColors.textTertiary }]}>
                                 {act.timeSlot === 'morning'
                                   ? '\u2600\uFE0F Morning'
                                   : act.timeSlot === 'afternoon'
@@ -478,7 +484,7 @@ export default function ReviewScreen() {
                                   : '\u2B50 Night'}
                               </Text>
                               {act.duration ? (
-                                <Text style={styles.activityListDuration}>{act.duration}h</Text>
+                                <Text style={[styles.activityListDuration, { color: themeColors.textTertiary }]}>{act.duration}h</Text>
                               ) : null}
                             </View>
                           </View>
@@ -497,9 +503,9 @@ export default function ReviewScreen() {
       </ScrollView>
 
       {/* ── Bottom Bar ── */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
         <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.7}>
-          <Ionicons name="share-social-outline" size={20} color={colors.primary[500]} />
+          <Ionicons name="share-social-outline" size={20} color={P[500]} />
           <Text style={styles.shareBtnText}>Share</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -562,7 +568,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -579,7 +585,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
 
   // Step Navigation
@@ -734,7 +740,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -781,14 +787,14 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayNumberText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.bold,
-    color: colors.primary[600],
+    color: P[600],
   },
   dayCardTitle: {
     fontSize: fontSize.sm,
@@ -843,7 +849,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.primary[400],
+    backgroundColor: P[400],
     marginTop: 6,
   },
   activityListContent: {
@@ -888,20 +894,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.xl,
     borderWidth: 1.5,
-    borderColor: colors.primary[300],
-    backgroundColor: colors.primary[50],
+    borderColor: P[300],
+    backgroundColor: P[50],
   },
   shareBtnText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-    color: colors.primary[500],
+    color: P[500],
   },
   saveButton: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     gap: spacing.sm,

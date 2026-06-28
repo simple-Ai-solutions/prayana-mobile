@@ -20,7 +20,7 @@ export default function SettingsLayout() {
         },
         headerTintColor: colors.text,
         headerShadowVisible: false,
-        headerBackTitleVisible: false,
+        headerBackTitle: '',
         headerLeft: () => (
           <TouchableOpacity
             onPress={() => router.back()}
@@ -51,6 +51,10 @@ export default function SettingsLayout() {
       <Stack.Screen
         name="help"
         options={{ title: 'Help Center' }}
+      />
+      <Stack.Screen
+        name="country"
+        options={{ title: 'Country & Currency' }}
       />
     </Stack>
   );

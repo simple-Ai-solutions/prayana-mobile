@@ -86,6 +86,13 @@ export default function MoreScreen() {
           route: '/messaging',
           color: colors.primary[500],
         },
+        {
+          icon: 'star-outline',
+          label: 'Reviews',
+          subtitle: 'Read & reply to customer reviews',
+          route: '/reviews',
+          color: colors.warning,
+        },
       ],
     },
     {
@@ -96,6 +103,13 @@ export default function MoreScreen() {
           label: 'Account Settings',
           subtitle: 'Profile, notifications & payouts',
           route: '/settings',
+        },
+        {
+          icon: 'help-buoy-outline',
+          label: 'Help & Support',
+          subtitle: 'Tickets, FAQ, contact us',
+          route: '/support',
+          color: colors.info,
         },
       ],
     },

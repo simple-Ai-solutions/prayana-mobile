@@ -13,12 +13,20 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { signInWithCustomToken } from 'firebase/auth';
 import { useAuth } from '@prayana/shared-hooks';
+import { useTheme } from '@prayana/shared-ui';
+import {
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  auth,
+} from '@prayana/shared-services';
 
 type Step = 'phone' | 'otp';
 
 export default function PhoneLoginScreen() {
-  const { setUser, setIsAuthenticated } = useAuth();
+  const { setUser, setIsAuthenticated, syncWithBackend } = useAuth();
+  const { themeColors } = useTheme();
   const [step, setStep] = useState<Step>('phone');
   const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
@@ -50,32 +58,33 @@ export default function PhoneLoginScreen() {
   };
 
   const handleSendOTP = async () => {
-    const cleanPhone = phone.replace(/\s/g, '');
+    const cleanPhone = phone.replace(/[\s()-]/g, '');
     if (cleanPhone.length < 10) {
-      Alert.alert('Invalid Phone', 'Please enter a valid phone number.');
+      Alert.alert('Invalid phone', 'Please enter a valid phone number.');
       return;
     }
+    const fullPhone = `${countryCode}${cleanPhone}`;
 
     setIsLoading(true);
     try {
-      // TODO: Integrate with Firebase Phone Auth
-      // const confirmation = await signInWithPhoneNumber(auth, `${countryCode}${cleanPhone}`);
-      // Store confirmation result for verification step
-
-      // Simulate OTP send
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const res = await sendPhoneOtp(fullPhone);
+      if (!res?.success) {
+        Alert.alert(
+          'Could not send OTP',
+          res?.message || 'Please try again in a moment.',
+        );
+        return;
+      }
       setStep('otp');
       startCountdown();
-      // Focus first OTP input after transition
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (error: any) {
-      let message = 'Failed to send OTP. Please try again.';
-      if (error.code === 'auth/invalid-phone-number') {
-        message = 'Invalid phone number format.';
-      } else if (error.code === 'auth/too-many-requests') {
-        message = 'Too many attempts. Please try again later.';
-      }
-      Alert.alert('Error', message);
+      // 429 = rate-limited
+      const msg =
+        error?.status === 429
+          ? 'Too many attempts. Please try again in a few minutes.'
+          : error?.message || 'Failed to send OTP. Please try again.';
+      Alert.alert('Error', msg);
     } finally {
       setIsLoading(false);
     }
@@ -123,28 +132,49 @@ export default function PhoneLoginScreen() {
       Alert.alert('Incomplete OTP', 'Please enter the full 6-digit code.');
       return;
     }
+    const cleanPhone = phone.replace(/[\s()-]/g, '');
+    const fullPhone = `${countryCode}${cleanPhone}`;
 
     setIsLoading(true);
     try {
-      // TODO: Verify with Firebase Phone Auth
-      // const result = await confirmationResult.confirm(otpCode);
-      // setUser(result.user);
-      // setIsAuthenticated(true);
-
-      // Simulate verification
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      Alert.alert(
-        'Verification',
-        'Phone authentication will be fully connected with Firebase Phone Auth integration.'
-      );
-    } catch (error: any) {
-      let message = 'Invalid OTP. Please try again.';
-      if (error.code === 'auth/invalid-verification-code') {
-        message = 'The verification code is incorrect.';
-      } else if (error.code === 'auth/code-expired') {
-        message = 'The code has expired. Please request a new one.';
+      const res = await verifyPhoneOtp(fullPhone, otpCode);
+      if (!res?.success) {
+        Alert.alert(
+          'Verification failed',
+          res?.message || 'The code is incorrect or expired. Please try again.',
+        );
+        return;
       }
-      Alert.alert('Verification Failed', message);
+
+      // Sign in to Firebase using the server-issued custom token. If the server
+      // could not issue one (Admin SDK unconfigured), we still proceed with a
+      // backend-only session — but auth state will be limited.
+      if (res.customToken) {
+        const credential = await signInWithCustomToken(auth, res.customToken);
+        setUser(credential.user);
+        setIsAuthenticated(true);
+        try {
+          await syncWithBackend(credential.user, 'phone');
+        } catch {}
+      } else {
+        // Fallback: shape a synthetic user object so app state moves forward.
+        const u: any = res.user || {};
+        setUser({
+          uid: `phone_${cleanPhone}`,
+          phoneNumber: fullPhone,
+          displayName: u.displayName || `User ${cleanPhone.slice(-4)}`,
+          email: u.email || null,
+          photoURL: u.avatar || null,
+          getIdToken: async () => '',
+        } as any);
+        setIsAuthenticated(true);
+      }
+      router.replace('/(tabs)');
+    } catch (error: any) {
+      Alert.alert(
+        'Verification failed',
+        error?.message || 'Could not verify the OTP. Please try again.',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -157,7 +187,7 @@ export default function PhoneLoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -170,7 +200,7 @@ export default function PhoneLoginScreen() {
           {/* Header */}
           <View style={styles.headerSection}>
             <TouchableOpacity
-              style={styles.backButton}
+              style={[styles.backButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
               onPress={() => {
                 if (step === 'otp') {
                   setStep('phone');
@@ -180,13 +210,13 @@ export default function PhoneLoginScreen() {
                 }
               }}
             >
-              <Text style={styles.backArrow}>&#8592;</Text>
+              <Text style={[styles.backArrow, { color: themeColors.text }]}>&#8592;</Text>
             </TouchableOpacity>
             <Text style={styles.brandLabel}>Prayana Business</Text>
-            <Text style={styles.headerTitle}>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>
               {step === 'phone' ? 'Phone Sign In' : 'Verify OTP'}
             </Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
               {step === 'phone'
                 ? 'Enter your phone number to receive a verification code'
                 : `We sent a 6-digit code to ${countryCode} ${phone}`}
@@ -196,11 +226,11 @@ export default function PhoneLoginScreen() {
           {step === 'phone' ? (
             /* Phone Input Step */
             <View style={styles.formSection}>
-              <Text style={styles.inputLabel}>Phone Number</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Phone Number</Text>
               <View style={styles.phoneRow}>
-                <View style={styles.countryCodeContainer}>
+                <View style={[styles.countryCodeContainer, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
                   <TextInput
-                    style={styles.countryCodeInput}
+                    style={[styles.countryCodeInput, { color: themeColors.text }]}
                     value={countryCode}
                     onChangeText={setCountryCode}
                     keyboardType="phone-pad"
@@ -208,9 +238,9 @@ export default function PhoneLoginScreen() {
                   />
                 </View>
                 <TextInput
-                  style={styles.phoneInput}
+                  style={[styles.phoneInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                   placeholder="98765 43210"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={themeColors.textTertiary}
                   value={phone}
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
@@ -244,6 +274,7 @@ export default function PhoneLoginScreen() {
                     }}
                     style={[
                       styles.otpInput,
+                      { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text },
                       digit ? styles.otpInputFilled : null,
                     ]}
                     value={digit}
@@ -274,7 +305,7 @@ export default function PhoneLoginScreen() {
 
               <View style={styles.resendRow}>
                 {countdown > 0 ? (
-                  <Text style={styles.resendCountdown}>
+                  <Text style={[styles.resendCountdown, { color: themeColors.textTertiary }]}>
                     Resend code in {countdown}s
                   </Text>
                 ) : (

@@ -11,6 +11,9 @@ export default function ActivityDetailLayout() {
       }}
     >
       <Stack.Screen name="edit" />
+      <Stack.Screen name="variants" />
+      <Stack.Screen name="time-slots" />
+      <Stack.Screen name="pricing" />
     </Stack>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,32 +18,39 @@ import type { ParsedItinerary } from '../../utils/markdownParser';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Color configs per time slot — matching web
+// Color configs per time slot — matching the PWA Activity Schedule design
+// (colored clock icon + slot label + time-range pill).
 interface TimeSlotStyle {
   bg: string; text: string; dot: string;
   iconBg: [string, string]; icon: string; label: string;
+  timeRange?: string; pillBg?: string;
 }
 
 const TIME_SLOT_CONFIG: Record<string, TimeSlotStyle> = {
   Morning: {
     bg: '#FFF7ED', text: '#EA580C', dot: '#F59E0B',
-    iconBg: ['#F59E0B', '#FB923C'], icon: 'sunny', label: 'Morning',
+    iconBg: ['#F59E0B', '#FB923C'], icon: 'time', label: 'Morning',
+    timeRange: '6:00 AM - 11:00 AM', pillBg: '#FFEDD5',
   },
   Afternoon: {
     bg: '#EFF6FF', text: '#2563EB', dot: '#3B82F6',
-    iconBg: ['#3B82F6', '#06B6D4'], icon: 'partly-sunny', label: 'Afternoon',
+    iconBg: ['#3B82F6', '#06B6D4'], icon: 'time', label: 'Afternoon',
+    timeRange: '2:00 PM - 5:00 PM', pillBg: '#DBEAFE',
   },
   Evening: {
     bg: '#F5F3FF', text: '#7C3AED', dot: '#8B5CF6',
-    iconBg: ['#8B5CF6', '#6366F1'], icon: 'moon', label: 'Evening',
+    iconBg: ['#8B5CF6', '#6366F1'], icon: 'time', label: 'Evening',
+    timeRange: '5:30 PM - 7:30 PM', pillBg: '#EDE9FE',
   },
   Night: {
     bg: '#EEF2FF', text: '#4338CA', dot: '#6366F1',
     iconBg: ['#6366F1', '#4338CA'], icon: 'moon-outline', label: 'Night',
+    timeRange: '8:00 PM - 10:00 PM', pillBg: '#E0E7FF',
   },
   Lunch: {
     bg: '#FFF1F2', text: '#E11D48', dot: '#FB7185',
     iconBg: ['#FB7185', '#F43F5E'], icon: 'restaurant', label: 'Lunch',
+    timeRange: '12:00 PM - 1:30 PM', pillBg: '#FFE4E6',
   },
   Activities: {
     bg: '#F0FDF4', text: '#16A34A', dot: '#22C55E',
@@ -59,6 +66,36 @@ const DEFAULT_TIME_SLOT: TimeSlotStyle = {
   bg: '#F0FDF4', text: '#16A34A', dot: '#22C55E',
   iconBg: ['#22C55E', '#10B981'], icon: 'compass', label: 'Activities',
 };
+
+// Extract a labeled tip from an activity description, matching the PWA's
+// extractSlotInfo (e.g. "Best Time: ..." → ⏰ Best Time card).
+const TIP_LABEL_MAP: Record<string, string> = {
+  'photography tip': '📸 Photography Tip',
+  'pro tip': '💡 Pro Tip',
+  'best time': '⏰ Best Time',
+  'dress code': '👔 Dress Code',
+  'entry fee': '🎟️ Entry Fee',
+  'must try': '🌟 Must Try',
+  "don't miss": '✨ Don’t Miss',
+  'warning': '⚠️ Warning',
+  'tip': '💡 Tip',
+  'note': '📝 Note',
+  'caution': '⚠️ Caution',
+  'cost': '💰 Cost',
+  'budget': '💰 Budget',
+  'carry': '🎒 Carry',
+  'timings': '🕐 Timings',
+};
+
+function extractSlotTip(text: string | undefined): { label: string; text: string } | null {
+  if (!text) return null;
+  const m = text.match(
+    /(Best\s+Time|Dress\s+Code|Pro\s+Tip|Photography\s+Tip|Tip|Note|Must[\s-]*Try|Don'?t\s+Miss|Entry\s+Fee|Timings?|Carry|Cost|Budget|Warning|Caution)\s*[:–-]\s*(.+)/i
+  );
+  if (!m) return null;
+  const key = m[1].trim().toLowerCase().replace(/\s+/g, ' ');
+  return { label: TIP_LABEL_MAP[key] || m[1].trim(), text: m[2].trim() };
+}
 
 // Tip card colors per category — matching web
 const TIP_STYLES: Record<string, { bg: string; border: string; dot: string; iconBg: [string, string] }> = {
@@ -98,13 +135,13 @@ const META_CARDS: Array<{
   label: string;
   gradient: [string, string];
 }> = [
-  { key: 'bestTime', emoji: '\u2B50', label: 'Best Time', gradient: ['#FF6B6B', '#F97316'] },
+  { key: 'bestTime', emoji: '\u2B50', label: 'Best Time', gradient: ['#06B6D4', '#F97316'] },
   { key: 'duration', emoji: '\uD83D\uDCC5', label: 'Duration', gradient: ['#3B82F6', '#06B6D4'] },
   { key: 'budget', emoji: '\uD83D\uDCB0', label: 'Budget', gradient: ['#EC4899', '#F43F5E'] },
   { key: 'transport', emoji: '\uD83D\uDE97', label: 'Transport', gradient: ['#14B8A6', '#06B6D4'] },
 ];
 
-const DAY_COLORS = ['#FF6B6B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
+const DAY_COLORS = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 interface MarkdownItineraryViewProps {
   parsed: ParsedItinerary;
@@ -122,6 +159,8 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
   const router = useRouter();
   const [expandedDays, setExpandedDays] = useState<Record<number, boolean>>({ 1: true });
   const [dayImages, setDayImages] = useState<Record<number, string>>({});
+  // Guard against double navigation (fast double-tap / re-render mid-tap pushing twice).
+  const isNavigatingRef = useRef(false);
 
   // Fetch hero images for each day using direct API call
   useEffect(() => {
@@ -197,6 +236,10 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
 
   // Navigate to destination detail page on activity press
   const handleActivityPress = useCallback((activityName: string) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => { isNavigatingRef.current = false; }, 800);
+
     const preview = JSON.stringify({
       name: activityName,
       category: '',
@@ -226,7 +269,7 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
     >
       {/* Hero Section */}
       <LinearGradient
-        colors={['#FF6B6B', '#ee5a5a', '#cc4444']}
+        colors={['#06B6D4', '#0EA5E9', '#0284C7']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.hero}
@@ -237,7 +280,7 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
             {transportLabel} {'\u2022'} {duration} {Number(duration) === 1 ? 'Day' : 'Days'}
           </Text>
           <View style={styles.heroBadge}>
-            <Ionicons name="sparkles" size={12} color="#FF6B6B" />
+            <Ionicons name="sparkles" size={12} color="#06B6D4" />
             <Text style={styles.heroBadgeText}>AI-Generated Guide</Text>
           </View>
         </View>
@@ -295,7 +338,7 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
           <Ionicons
             name={allExpanded ? 'contract-outline' : 'expand-outline'}
             size={16}
-            color="#FF6B6B"
+            color="#06B6D4"
           />
           <Text style={styles.expandAllText}>
             {allExpanded ? 'Collapse All' : 'Expand All Days'}
@@ -370,7 +413,8 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
 
                     return (
                       <View key={`${day.dayNumber}-${sIndex}`} style={styles.timeSection}>
-                        {/* Time Slot Header */}
+                        {/* Time Slot Header — PWA Activity Schedule style:
+                            colored clock icon + label + time-range pill */}
                         <View style={[styles.timeSlotHeader, { backgroundColor: config.bg }]}>
                           <LinearGradient
                             colors={config.iconBg}
@@ -381,6 +425,13 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
                           <Text style={[styles.timeSlotLabel, { color: config.text }]}>
                             {TIME_SLOT_CONFIG[section.timeSlot] ? config.label : section.timeSlot}
                           </Text>
+                          {config.timeRange ? (
+                            <View style={[styles.timeRangePill, { backgroundColor: config.pillBg || config.dot + '20' }]}>
+                              <Text style={[styles.timeRangePillText, { color: config.text }]}>
+                                {config.timeRange}
+                              </Text>
+                            </View>
+                          ) : null}
                           <View style={[styles.timeSlotCount, { backgroundColor: config.dot + '20' }]}>
                             <Text style={[styles.timeSlotCountText, { color: config.dot }]}>
                               {section.activities.length}
@@ -432,6 +483,24 @@ export const MarkdownItineraryView: React.FC<MarkdownItineraryViewProps> = ({
                             </View>
                           </TouchableOpacity>
                         ))}
+
+                        {/* Slot tip card — surfaced from the first activity's
+                            description (e.g. "Best Time: ...", "Pro Tip: ..."). */}
+                        {(() => {
+                          const tip = section.activities
+                            .map((a) => extractSlotTip(a.description))
+                            .find(Boolean);
+                          if (!tip) return null;
+                          return (
+                            <View style={[styles.slotTipCard, { backgroundColor: config.bg, borderLeftColor: config.dot }]}>
+                              <Ionicons name="information-circle" size={14} color={config.text} style={{ marginTop: 1 }} />
+                              <Text style={styles.slotTipText}>
+                                <Text style={[styles.slotTipLabel, { color: config.text }]}>{tip.label}: </Text>
+                                {tip.text}
+                              </Text>
+                            </View>
+                          );
+                        })()}
                       </View>
                     );
                   })
@@ -544,7 +613,7 @@ const styles = StyleSheet.create({
   heroBadgeText: {
     fontSize: 10,
     fontWeight: fontWeight.semibold,
-    color: '#FF6B6B',
+    color: '#06B6D4',
   },
 
   // Meta Info Cards
@@ -636,7 +705,7 @@ const styles = StyleSheet.create({
   },
   expandAllText: {
     fontSize: fontSize.xs,
-    color: '#FF6B6B',
+    color: '#06B6D4',
     fontWeight: fontWeight.semibold,
   },
 
@@ -747,6 +816,16 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     flex: 1,
   },
+  timeRangePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    marginRight: 6,
+  },
+  timeRangePillText: {
+    fontSize: 9.5,
+    fontWeight: fontWeight.semibold,
+  },
   timeSlotCount: {
     width: 22,
     height: 22,
@@ -756,6 +835,27 @@ const styles = StyleSheet.create({
   },
   timeSlotCountText: {
     fontSize: 10,
+    fontWeight: fontWeight.bold,
+  },
+
+  // Slot tip card (PWA "Best Time / Pro Tip" inline card)
+  slotTipCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+  slotTipText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#374151',
+    lineHeight: 18,
+  },
+  slotTipLabel: {
     fontWeight: fontWeight.bold,
   },
 

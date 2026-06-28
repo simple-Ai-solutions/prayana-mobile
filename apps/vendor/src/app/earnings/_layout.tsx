@@ -11,6 +11,7 @@ export default function EarningsLayout() {
       }}
     >
       <Stack.Screen name="index" />
+      <Stack.Screen name="[id]" />
     </Stack>
   );
 }

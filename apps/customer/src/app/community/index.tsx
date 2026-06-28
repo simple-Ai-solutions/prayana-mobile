@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fontSize, fontWeight, spacing, borderRadius } from "@prayana/shared-ui";
+import { colors, fontSize, fontWeight, spacing, borderRadius, useTheme } from "@prayana/shared-ui";
 import { communityAPI } from "@prayana/shared-services";
+import { resolveImageUrl } from "@prayana/shared-utils";
 
 type SortKey = "newest" | "top" | "unanswered";
 type Question = {
@@ -64,6 +66,7 @@ function timeAgo(date: string) {
 
 export default function CommunityFeedScreen() {
   const router = useRouter();
+  const { themeColors } = useTheme();
   const [items, setItems] = useState<Question[]>([]);
   const [sort, setSort] = useState<SortKey>("newest");
   const [category, setCategory] = useState("");
@@ -76,7 +79,7 @@ export default function CommunityFeedScreen() {
     try {
       const res = search
         ? await communityAPI.searchQuestions(search, 30)
-        : await communityAPI.listQuestions({ sort, category, limit: 30 });
+        : await communityAPI.listQuestions({ sort, category, limit: 30 } as any);
       setItems((res?.data as Question[]) || []);
     } catch (e) {
       setItems([]);
@@ -96,18 +99,18 @@ export default function CommunityFeedScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <View style={styles.header}>
-        <Text style={styles.title}>Community</Text>
+        <Text style={[styles.title, { color: themeColors.text }]}>Community</Text>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TouchableOpacity
-            style={styles.iconBtn}
+            style={[styles.iconBtn, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
             onPress={() => router.push("/community/visual")}
           >
-            <Ionicons name="images-outline" size={20} color={colors.gray[700]} />
+            <Ionicons name="images-outline" size={20} color={themeColors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.iconBtn, { backgroundColor: colors.brand[500] }]}
+            style={[styles.iconBtn, { backgroundColor: colors.primary[500] }]}
             onPress={() => router.push("/community/ask")}
           >
             <Ionicons name="add" size={20} color="white" />
@@ -115,11 +118,12 @@ export default function CommunityFeedScreen() {
         </View>
       </View>
 
-      <View style={styles.searchBar}>
-        <Ionicons name="search" size={16} color={colors.gray[400]} />
+      <View style={[styles.searchBar, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
+        <Ionicons name="search" size={16} color={themeColors.textTertiary} />
         <TextInput
-          style={styles.searchInput}
+          style={[styles.searchInput, { color: themeColors.text }]}
           placeholder="Search questions…"
+          placeholderTextColor={themeColors.textTertiary}
           value={search}
           onChangeText={setSearch}
           onSubmitEditing={load}
@@ -134,9 +138,9 @@ export default function CommunityFeedScreen() {
             <TouchableOpacity
               key={t.key}
               onPress={() => setSort(t.key)}
-              style={[styles.tab, active && styles.tabActive]}
+              style={[styles.tab, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, active && styles.tabActive]}
             >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{t.label}</Text>
+              <Text style={[styles.tabText, { color: themeColors.textSecondary }, active && styles.tabTextActive]}>{t.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -153,9 +157,9 @@ export default function CommunityFeedScreen() {
           return (
             <TouchableOpacity
               onPress={() => setCategory(c.value)}
-              style={[styles.catChip, active && styles.catChipActive]}
+              style={[styles.catChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, active && styles.catChipActive]}
             >
-              <Text style={[styles.catChipText, active && styles.catChipTextActive]}>
+              <Text style={[styles.catChipText, { color: themeColors.textSecondary }, active && styles.catChipTextActive]}>
                 {c.label}
               </Text>
             </TouchableOpacity>
@@ -165,11 +169,11 @@ export default function CommunityFeedScreen() {
 
       {loading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator color={colors.brand[500]} />
+          <ActivityIndicator color={colors.primary[500]} />
         </View>
       ) : items.length === 0 ? (
         <View style={styles.emptyWrap}>
-          <Text style={styles.emptyText}>No questions yet.</Text>
+          <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>No questions yet.</Text>
           <TouchableOpacity onPress={() => router.push("/community/ask")}>
             <Text style={styles.emptyCta}>Be the first to ask →</Text>
           </TouchableOpacity>
@@ -179,11 +183,11 @@ export default function CommunityFeedScreen() {
           data={items}
           keyExtractor={(q) => q._id}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand[500]} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
           }
           renderItem={({ item: q }) => (
             <TouchableOpacity
-              style={styles.card}
+              style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
               onPress={() => router.push(`/community/${q._id}` as any)}
             >
               <View style={styles.cardHeader}>
@@ -206,29 +210,42 @@ export default function CommunityFeedScreen() {
                 )}
               </View>
 
-              <Text style={styles.cardTitle} numberOfLines={2}>
-                {q.title}
-              </Text>
-              {q.description ? (
-                <Text style={styles.cardDesc} numberOfLines={2}>
-                  {q.description}
-                </Text>
-              ) : null}
+              {/* Body: text on the left, first image thumbnail on the right
+                  (mirrors the PWA QuestionCard layout). */}
+              <View style={styles.cardBodyRow}>
+                <View style={styles.cardBodyText}>
+                  <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={2}>
+                    {q.title}
+                  </Text>
+                  {q.description ? (
+                    <Text style={[styles.cardDesc, { color: themeColors.textSecondary }]} numberOfLines={2}>
+                      {q.description}
+                    </Text>
+                  ) : null}
+                </View>
+                {(q.images?.length ?? 0) > 0 && q.images?.[0]?.url ? (
+                  <Image
+                    source={{ uri: resolveImageUrl(q.images[0].url) || q.images[0].url }}
+                    style={styles.cardThumb}
+                    resizeMode="cover"
+                  />
+                ) : null}
+              </View>
 
               <View style={styles.cardFooter}>
                 <View style={styles.statRow}>
-                  <Ionicons name="arrow-up" size={12} color={colors.gray[500]} />
-                  <Text style={styles.statText}>{q.upvotes || 0}</Text>
+                  <Ionicons name="arrow-up" size={12} color={themeColors.textTertiary} />
+                  <Text style={[styles.statText, { color: themeColors.textTertiary }]}>{q.upvotes || 0}</Text>
                 </View>
                 <View style={styles.statRow}>
-                  <Ionicons name="chatbubble-outline" size={12} color={colors.gray[500]} />
-                  <Text style={styles.statText}>{q.answerCount || 0}</Text>
+                  <Ionicons name="chatbubble-outline" size={12} color={themeColors.textTertiary} />
+                  <Text style={[styles.statText, { color: themeColors.textTertiary }]}>{q.answerCount || 0}</Text>
                 </View>
                 <View style={styles.statRow}>
-                  <Ionicons name="eye-outline" size={12} color={colors.gray[500]} />
-                  <Text style={styles.statText}>{q.viewCount || 0}</Text>
+                  <Ionicons name="eye-outline" size={12} color={themeColors.textTertiary} />
+                  <Text style={[styles.statText, { color: themeColors.textTertiary }]}>{q.viewCount || 0}</Text>
                 </View>
-                <Text style={styles.metaText}>
+                <Text style={[styles.metaText, { color: themeColors.textTertiary }]}>
                   {q.userName} · {timeAgo(q.createdAt)}
                 </Text>
               </View>
@@ -279,7 +296,7 @@ const styles = StyleSheet.create({
     borderRadius: 999, backgroundColor: "white",
     borderWidth: 1, borderColor: colors.gray[200],
   },
-  tabActive: { backgroundColor: colors.brand[500], borderColor: colors.brand[500] },
+  tabActive: { backgroundColor: colors.primary[500], borderColor: colors.primary[500] },
   tabText: { fontSize: fontSize.xs, color: colors.gray[700], fontWeight: fontWeight.medium },
   tabTextActive: { color: "white" },
   catRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 6 },
@@ -288,13 +305,13 @@ const styles = StyleSheet.create({
     backgroundColor: "white", borderWidth: 1, borderColor: colors.gray[200],
     marginRight: 6,
   },
-  catChipActive: { backgroundColor: colors.brand[100], borderColor: colors.brand[300] },
+  catChipActive: { backgroundColor: colors.primary[100], borderColor: colors.primary[300] },
   catChipText: { fontSize: 11, color: colors.gray[700] },
-  catChipTextActive: { color: colors.brand[700], fontWeight: fontWeight.semibold as any },
+  catChipTextActive: { color: colors.primary[700], fontWeight: fontWeight.semibold as any },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   emptyWrap: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: 8 },
   emptyText: { color: colors.gray[600] },
-  emptyCta: { color: colors.brand[600], fontWeight: fontWeight.semibold as any },
+  emptyCta: { color: colors.primary[600], fontWeight: fontWeight.semibold as any },
   card: {
     backgroundColor: "white",
     marginHorizontal: spacing.md,
@@ -305,12 +322,15 @@ const styles = StyleSheet.create({
     borderColor: colors.gray[200],
   },
   cardHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" },
-  cardCategory: { fontSize: 10, color: colors.brand[600], fontWeight: fontWeight.bold as any, letterSpacing: 0.5 },
+  cardCategory: { fontSize: 10, color: colors.primary[600], fontWeight: fontWeight.bold as any, letterSpacing: 0.5 },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
   badgeText: { fontSize: 10, fontWeight: fontWeight.semibold as any },
   imageHint: { flexDirection: "row", alignItems: "center" },
   imageHintText: { fontSize: 10, color: colors.gray[500] },
-  cardTitle: { fontSize: fontSize.base, fontWeight: fontWeight.semibold as any, color: colors.gray[900], marginBottom: 4 },
+  cardBodyRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  cardBodyText: { flex: 1 },
+  cardThumb: { width: 72, height: 72, borderRadius: 10, backgroundColor: colors.gray[100] },
+  cardTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold as any, color: colors.gray[900], marginBottom: 4 },
   cardDesc: { fontSize: fontSize.sm, color: colors.gray[600], marginBottom: 8 },
   cardFooter: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
   statRow: { flexDirection: "row", alignItems: "center", gap: 3 },

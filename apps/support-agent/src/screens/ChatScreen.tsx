@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { useTheme } from "@prayana/shared-ui";
 import { useAgentStore } from "../state/agentStore";
 import { agentAPI } from "../lib/api";
 import type { RootStackParamList } from "../../App";
@@ -21,6 +22,7 @@ type Suggestion = { suggestion: string | null; hash?: string; reason?: string };
 type Hint = { kind: string; title: string; body: string; ctaLabel: string; ctaUrl: string; priority: number };
 
 export default function ChatScreen() {
+  const { themeColors } = useTheme();
   const route = useRoute<RouteProp<RootStackParamList, "Chat">>();
   const navigation = useNavigation();
   const { sessionId } = route.params;
@@ -150,7 +152,7 @@ export default function ChatScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={["bottom", "left", "right"]}>
+    <SafeAreaView style={[styles.root, { backgroundColor: themeColors.background }]} edges={["bottom", "left", "right"]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -177,18 +179,18 @@ export default function ChatScreen() {
 
         {/* AI Co-pilot card — only renders when there's something to show. */}
         {copilotOpen && (suggestion.suggestion || suggestionLoading || hints.length > 0) && (
-          <View style={styles.copilotCard}>
+          <View style={[styles.copilotCard, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
             <View style={styles.copilotHeader}>
               <Text style={styles.copilotTitle}>✨ AI Co-pilot</Text>
               <Pressable onPress={() => setCopilotOpen(false)} hitSlop={8}>
-                <Text style={styles.copilotDismiss}>Hide</Text>
+                <Text style={[styles.copilotDismiss, { color: themeColors.textSecondary }]}>Hide</Text>
               </Pressable>
             </View>
 
             {(suggestionLoading || suggestion.suggestion) && (
               <View style={styles.copilotSection}>
                 <View style={styles.copilotRow}>
-                  <Text style={styles.copilotLabel}>Suggested reply</Text>
+                  <Text style={[styles.copilotLabel, { color: themeColors.textSecondary }]}>Suggested reply</Text>
                   <Pressable onPress={fetchSuggestion} hitSlop={8}>
                     <Text style={styles.copilotRefresh}>{suggestionLoading ? "…" : "↻"}</Text>
                   </Pressable>
@@ -197,7 +199,7 @@ export default function ChatScreen() {
                   <ActivityIndicator size="small" color="#f97316" style={{ marginVertical: 8 }} />
                 ) : suggestion.suggestion ? (
                   <>
-                    <Text style={styles.copilotSuggestion}>{suggestion.suggestion}</Text>
+                    <Text style={[styles.copilotSuggestion, { backgroundColor: themeColors.surfaceElevated, color: themeColors.text }]}>{suggestion.suggestion}</Text>
                     <Pressable
                       style={styles.copilotUseBtn}
                       onPress={() => suggestion.suggestion && setDraft(suggestion.suggestion)}
@@ -211,15 +213,15 @@ export default function ChatScreen() {
 
             {hints.length > 0 && (
               <View style={styles.copilotSection}>
-                <Text style={styles.copilotLabel}>Smart pitches</Text>
+                <Text style={[styles.copilotLabel, { color: themeColors.textSecondary }]}>Smart pitches</Text>
                 {hints.map((h) => (
                   <Pressable
                     key={h.kind}
-                    style={styles.hintCard}
+                    style={[styles.hintCard, { backgroundColor: themeColors.surfaceElevated }]}
                     onPress={() => setDraft(`${h.title}: ${h.ctaUrl}`)}
                   >
-                    <Text style={styles.hintTitle}>{h.title}</Text>
-                    <Text style={styles.hintBody}>{h.body}</Text>
+                    <Text style={[styles.hintTitle, { color: themeColors.text }]}>{h.title}</Text>
+                    <Text style={[styles.hintBody, { color: themeColors.textSecondary }]}>{h.body}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -227,25 +229,25 @@ export default function ChatScreen() {
           </View>
         )}
         {!copilotOpen && (
-          <Pressable style={styles.copilotShowBtn} onPress={() => setCopilotOpen(true)}>
+          <Pressable style={[styles.copilotShowBtn, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]} onPress={() => setCopilotOpen(true)}>
             <Text style={styles.copilotShowText}>✨ Show AI co-pilot</Text>
           </Pressable>
         )}
 
-        <View style={styles.actionsBar}>
-          <Pressable onPress={onHandBack} style={styles.actionBtn}>
-            <Text style={styles.actionText}>Return to AI</Text>
+        <View style={[styles.actionsBar, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
+          <Pressable onPress={onHandBack} style={[styles.actionBtn, { backgroundColor: themeColors.surfaceElevated }]}>
+            <Text style={[styles.actionText, { color: themeColors.text }]}>Return to AI</Text>
           </Pressable>
           <Pressable onPress={onResolve} style={[styles.actionBtn, styles.resolveBtn]}>
             <Text style={[styles.actionText, { color: "white" }]}>Resolve</Text>
           </Pressable>
         </View>
 
-        <View style={styles.composer}>
+        <View style={[styles.composer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
           <TextInput
-            style={styles.composerInput}
+            style={[styles.composerInput, { backgroundColor: themeColors.inputBackground, color: themeColors.text }]}
             placeholder="Reply to customer…"
-            placeholderTextColor="#64748b"
+            placeholderTextColor={themeColors.textTertiary}
             value={draft}
             onChangeText={handleDraftChange}
             multiline

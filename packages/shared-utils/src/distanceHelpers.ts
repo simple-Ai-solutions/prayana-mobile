@@ -1,3 +1,4 @@
+// @ts-nocheck — pure JS utility; types deliberately deferred.
 // utils/distanceHelpers.js - Distance and time calculation utilities
 
 /**

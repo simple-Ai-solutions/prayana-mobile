@@ -128,7 +128,7 @@ export const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
         activeOpacity={0.7}
       >
         <View style={[styles.suggestionIcon, { backgroundColor: isDarkMode ? '#374151' : '#FEE2E2' }]}>
-          <Ionicons name="location" size={14} color="#FF6B6B" />
+          <Ionicons name="location" size={14} color="#06B6D4" />
         </View>
         <View style={styles.suggestionTextContainer}>
           <Text
@@ -165,7 +165,7 @@ export const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
           {
             backgroundColor: isDarkMode ? '#1F2937' : colors.surface,
             borderColor: value.trim()
-              ? '#FF6B6B'
+              ? '#06B6D4'
               : isDarkMode ? '#374151' : colors.border,
           },
         ]}
@@ -193,7 +193,7 @@ export const PlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
           }}
         />
         {isLoading && (
-          <ActivityIndicator size="small" color="#FF6B6B" style={styles.loader} />
+          <ActivityIndicator size="small" color="#06B6D4" style={styles.loader} />
         )}
         {value.length > 0 && !isLoading && (
           <TouchableOpacity onPress={handleClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>

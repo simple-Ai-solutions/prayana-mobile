@@ -16,13 +16,19 @@ import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { makeAPICall } from '@prayana/shared-services';
 import { useDebounce, useCollaboration } from '@prayana/shared-hooks';
 import type { BottomModalRef } from '../../components/common/BottomModal';
 import CollaboratorAvatars from '../../components/trip/CollaboratorAvatars';
 import InviteSheet from '../../components/trip/InviteSheet';
+
+// ─── Cyan/sky-blue accent palette (PWA theme) ────────────────────────────────
+const P = {
+  50: '#ECFEFF', 100: '#CFFAFE', 200: '#A5F3FC', 300: '#67E8F9',
+  400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2', 700: '#0E7490',
+};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -60,9 +66,10 @@ function normalizeSearchResult(item: any, fallbackQuery?: string): SearchResult 
 
 export default function DestinationsScreen() {
   const router = useRouter();
+  const { themeColors, isDarkMode } = useTheme();
 
   // Store state
-  const destinations = useCreateTripStore((s) => s.destinations);
+  const destinations = useCreateTripStore((s: any) => s.destinations) as any[];
   const startDate = useCreateTripStore((s) => s.startDate);
   const endDate = useCreateTripStore((s) => s.endDate);
 
@@ -349,19 +356,19 @@ export default function DestinationsScreen() {
         activeOpacity={0.7}
       >
         <View style={styles.searchResultIcon}>
-          <Ionicons name="location" size={18} color={colors.primary[500]} />
+          <Ionicons name="location" size={18} color={P[500]} />
         </View>
         <View style={styles.searchResultContent}>
-          <Text style={styles.searchResultName} numberOfLines={1}>
+          <Text style={[styles.searchResultName, { color: themeColors.text }]} numberOfLines={1}>
             {item.name}
           </Text>
           {item.country ? (
-            <Text style={styles.searchResultCountry} numberOfLines={1}>
+            <Text style={[styles.searchResultCountry, { color: themeColors.textTertiary }]} numberOfLines={1}>
               {item.country}
             </Text>
           ) : null}
         </View>
-        <Ionicons name="add-circle-outline" size={22} color={colors.primary[500]} />
+        <Ionicons name="add-circle-outline" size={22} color={P[500]} />
       </TouchableOpacity>
     ),
     [handleSelectResult]
@@ -370,19 +377,19 @@ export default function DestinationsScreen() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         {/* ── Header ── */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
+          <TouchableOpacity onPress={handleBack} style={[styles.backButton, { backgroundColor: themeColors.surface }]} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <Text style={styles.stepIndicator}>Step 2 of 4</Text>
-            <Text style={styles.headerTitle}>Destinations</Text>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Destinations</Text>
           </View>
           <View style={styles.headerRight}>
             <CollaboratorAvatars onPress={() => inviteSheetRef.current?.expand()} />
@@ -391,13 +398,13 @@ export default function DestinationsScreen() {
               onPress={() => inviteSheetRef.current?.expand()}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Ionicons name="person-add-outline" size={16} color={colors.primary[500]} />
+              <Ionicons name="person-add-outline" size={16} color={P[500]} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* ── Step Navigation ── */}
-        <View style={styles.stepNav}>
+        <View style={[styles.stepNav, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
           {[
             { step: 1, label: 'Setup', route: '/trip/setup' },
             { step: 2, label: 'Destinations', route: null },
@@ -445,13 +452,13 @@ export default function DestinationsScreen() {
 
         {/* ── Search Bar ── */}
         <View style={styles.searchContainer}>
-          <View style={styles.searchInputWrapper}>
-            <Ionicons name="search" size={18} color={colors.textTertiary} />
+          <View style={[styles.searchInputWrapper, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
+            <Ionicons name="search" size={18} color={themeColors.textTertiary} />
             <TextInput
               ref={searchInputRef}
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: themeColors.text }]}
               placeholder="Search destinations (e.g., Goa, Paris, Tokyo)"
-              placeholderTextColor={colors.textTertiary}
+              placeholderTextColor={themeColors.textTertiary}
               value={searchQuery}
               onChangeText={(text) => {
                 setSearchQuery(text);
@@ -460,7 +467,7 @@ export default function DestinationsScreen() {
               returnKeyType="search"
               autoCorrect={false}
             />
-            {isSearching && <ActivityIndicator size="small" color={colors.primary[500]} />}
+            {isSearching && <ActivityIndicator size="small" color={P[500]} />}
             {searchQuery.length > 0 && !isSearching && (
               <TouchableOpacity
                 onPress={() => {
@@ -470,14 +477,14 @@ export default function DestinationsScreen() {
                 }}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Ionicons name="close-circle" size={18} color={colors.textTertiary} />
+                <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
               </TouchableOpacity>
             )}
           </View>
 
           {/* ── Search Results Dropdown ── */}
           {showResults && (searchResults.length > 0 || (debouncedQuery.length >= 2 && !isSearching)) && (
-            <View style={styles.searchDropdown}>
+            <View style={[styles.searchDropdown, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
               {/* Add as custom destination (always shown when typing) */}
               {debouncedQuery.trim().length >= 2 && (
                 <TouchableOpacity
@@ -492,7 +499,7 @@ export default function DestinationsScreen() {
                     <Text style={styles.customAddText}>Add "{debouncedQuery.trim()}"</Text>
                     <Text style={styles.customAddSubtext}>as custom destination</Text>
                   </View>
-                  <Ionicons name="arrow-forward-circle" size={22} color={colors.primary[500]} />
+                  <Ionicons name="arrow-forward-circle" size={22} color={P[500]} />
                 </TouchableOpacity>
               )}
 
@@ -538,7 +545,7 @@ export default function DestinationsScreen() {
                   {
                     width: `${Math.min((assignedDays / totalTripDays) * 100, 100)}%`,
                     backgroundColor:
-                      assignedDays > totalTripDays ? colors.error : colors.primary[500],
+                      assignedDays > totalTripDays ? colors.error : P[500],
                   },
                 ]}
               />
@@ -546,6 +553,7 @@ export default function DestinationsScreen() {
             <Text
               style={[
                 styles.daysProgressText,
+                { color: themeColors.textSecondary },
                 assignedDays > totalTripDays && { color: colors.error },
               ]}
             >
@@ -566,14 +574,14 @@ export default function DestinationsScreen() {
           {destinations.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="map-outline" size={56} color={colors.gray[300]} />
-              <Text style={styles.emptyTitle}>No destinations yet</Text>
-              <Text style={styles.emptySubtitle}>
+              <Text style={[styles.emptyTitle, { color: themeColors.textSecondary }]}>No destinations yet</Text>
+              <Text style={[styles.emptySubtitle, { color: themeColors.textTertiary }]}>
                 Search and add destinations for your trip
               </Text>
             </View>
           ) : (
             destinations.map((dest, index) => (
-              <View key={`${dest.name}-${index}`} style={styles.destCard}>
+              <View key={`${dest.name}-${index}`} style={[styles.destCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <View style={styles.destCardHeader}>
                   {/* Destination image thumbnail with order badge overlay */}
                   <View style={styles.destImageContainer}>
@@ -587,7 +595,7 @@ export default function DestinationsScreen() {
                       />
                     ) : (
                       <View style={[styles.destImage, styles.destImagePlaceholder]}>
-                        <Ionicons name="location" size={22} color={colors.primary[400]} />
+                        <Ionicons name="location" size={22} color={P[400]} />
                       </View>
                     )}
                     <View style={styles.destOrderBadge}>
@@ -596,11 +604,11 @@ export default function DestinationsScreen() {
                   </View>
 
                   <View style={styles.destInfo}>
-                    <Text style={styles.destName} numberOfLines={1}>
+                    <Text style={[styles.destName, { color: themeColors.text }]} numberOfLines={1}>
                       {dest.name}
                     </Text>
                     {dest.country ? (
-                      <Text style={styles.destCountry} numberOfLines={1}>
+                      <Text style={[styles.destCountry, { color: themeColors.textTertiary }]} numberOfLines={1}>
                         {dest.country}
                       </Text>
                     ) : null}
@@ -615,9 +623,9 @@ export default function DestinationsScreen() {
                 </View>
 
                 {/* Duration Editor */}
-                <View style={styles.durationRow}>
-                  <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                  <Text style={styles.durationLabel}>Duration</Text>
+                <View style={[styles.durationRow, { borderTopColor: themeColors.border }]}>
+                  <Ionicons name="time-outline" size={16} color={themeColors.textSecondary} />
+                  <Text style={[styles.durationLabel, { color: themeColors.textSecondary }]}>Duration</Text>
                   <View style={styles.durationControls}>
                     <TouchableOpacity
                       style={[
@@ -631,10 +639,10 @@ export default function DestinationsScreen() {
                       <Ionicons
                         name="remove"
                         size={16}
-                        color={(dest.duration || 1) <= 1 ? colors.gray[300] : colors.primary[500]}
+                        color={(dest.duration || 1) <= 1 ? colors.gray[300] : P[500]}
                       />
                     </TouchableOpacity>
-                    <Text style={styles.durationValue}>
+                    <Text style={[styles.durationValue, { color: themeColors.text }]}>
                       {dest.duration || 1} {(dest.duration || 1) === 1 ? 'day' : 'days'}
                     </Text>
                     <TouchableOpacity
@@ -654,7 +662,7 @@ export default function DestinationsScreen() {
                         color={
                           totalTripDays > 0 && remainingDays <= 0
                             ? colors.gray[300]
-                            : colors.primary[500]
+                            : P[500]
                         }
                       />
                     </TouchableOpacity>
@@ -668,12 +676,12 @@ export default function DestinationsScreen() {
           {destinations.length > 0 && (aiSuggestions.length > 0 || isLoadingAI) && (
             <View style={styles.aiSection}>
               <View style={styles.aiSectionHeader}>
-                <Ionicons name="sparkles" size={16} color={colors.primary[500]} />
-                <Text style={styles.aiSectionTitle}>Suggested Destinations</Text>
-                {isLoadingAI && <ActivityIndicator size="small" color={colors.primary[500]} />}
+                <Ionicons name="sparkles" size={16} color={P[500]} />
+                <Text style={[styles.aiSectionTitle, { color: themeColors.textSecondary }]}>Suggested Destinations</Text>
+                {isLoadingAI && <ActivityIndicator size="small" color={P[500]} />}
               </View>
               {isLoadingAI && aiSuggestions.length === 0 && (
-                <Text style={styles.aiLoadingText}>Finding destinations that pair well...</Text>
+                <Text style={[styles.aiLoadingText, { color: themeColors.textTertiary }]}>Finding destinations that pair well...</Text>
               )}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.aiPills}>
                 {aiSuggestions.map((suggestion, idx) => (
@@ -683,7 +691,7 @@ export default function DestinationsScreen() {
                     onPress={() => handleAddAISuggestion(suggestion)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="add-circle" size={16} color={colors.primary[500]} />
+                    <Ionicons name="add-circle" size={16} color={P[500]} />
                     <Text style={styles.aiPillName}>{suggestion.name}</Text>
                     {suggestion.suggestedDays ? (
                       <Text style={styles.aiPillDays}>{suggestion.suggestedDays}d</Text>
@@ -692,7 +700,7 @@ export default function DestinationsScreen() {
                 ))}
               </ScrollView>
               {aiSuggestions.some((s) => s.reason) && (
-                <Text style={styles.aiReasonText}>
+                <Text style={[styles.aiReasonText, { color: themeColors.textTertiary }]}>
                   {aiSuggestions.find((s) => s.reason)?.reason}
                 </Text>
               )}
@@ -704,10 +712,10 @@ export default function DestinationsScreen() {
         </ScrollView>
 
         {/* ── Bottom Bar ── */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleBack} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={18} color={colors.textSecondary} />
-            <Text style={styles.backBtnText}>Back</Text>
+        <View style={[styles.bottomBar, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
+          <TouchableOpacity style={[styles.backBtn, { borderColor: themeColors.border }]} onPress={handleBack} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={18} color={themeColors.textSecondary} />
+            <Text style={[styles.backBtnText, { color: themeColors.textSecondary }]}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -765,7 +773,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -787,7 +795,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
 
   // Step Navigation
@@ -882,7 +890,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1007,7 +1015,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   destImagePlaceholder: {
-    backgroundColor: colors.primary[50] || '#e0f7f4',
+    backgroundColor: P[50] || '#ECFEFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1018,7 +1026,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1076,7 +1084,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: borderRadius.full,
     borderWidth: 1.5,
-    borderColor: colors.primary[300],
+    borderColor: P[300],
     backgroundColor: colors.background,
   },
   durationBtnDisabled: {
@@ -1123,7 +1131,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     gap: spacing.sm,
@@ -1145,24 +1153,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.md,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
   customAddIcon: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
   customAddText: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
-    color: colors.primary[600],
+    color: P[600],
   },
   customAddSubtext: {
     fontSize: fontSize.xs,
-    color: colors.primary[400],
+    color: P[400],
     marginTop: 1,
   },
 
@@ -1199,19 +1207,19 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.primary[200],
+    borderColor: P[200],
   },
   aiPillName: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
-    color: colors.primary[600],
+    color: P[600],
   },
   aiPillDays: {
     fontSize: fontSize.xs,
-    color: colors.primary[400],
+    color: P[400],
     fontWeight: fontWeight.medium,
   },
   aiReasonText: {

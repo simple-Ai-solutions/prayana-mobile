@@ -16,6 +16,7 @@ import {
   onIdTokenChanged,
   signOut as firebaseSignOut,
 } from "firebase/auth";
+import { useTheme } from "@prayana/shared-ui";
 import { useAgentStore } from "../state/agentStore";
 import { agentAPI } from "../lib/api";
 
@@ -25,6 +26,7 @@ import { agentAPI } from "../lib/api";
 // refreshes so the agent app always holds a fresh JWT for the Socket.IO
 // handshake — Firebase rotates the token roughly every hour.
 export default function LoginScreen() {
+  const { themeColors } = useTheme();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -100,20 +102,20 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={[styles.root, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.body}>
-          <Text style={styles.title}>Prayana Support</Text>
-          <Text style={styles.subtitle}>Sign in to claim conversations</Text>
+          <Text style={[styles.title, { color: themeColors.text }]}>Prayana Support</Text>
+          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Sign in to claim conversations</Text>
 
-          <Text style={styles.label}>Email</Text>
+          <Text style={[styles.label, { color: themeColors.textSecondary }]}>Email</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: themeColors.inputBackground, color: themeColors.text, borderColor: themeColors.border }]}
             placeholder="agent@prayanaai.com"
-            placeholderTextColor="#64748b"
+            placeholderTextColor={themeColors.textTertiary}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -122,11 +124,11 @@ export default function LoginScreen() {
             textContentType="emailAddress"
           />
 
-          <Text style={styles.label}>Password</Text>
+          <Text style={[styles.label, { color: themeColors.textSecondary }]}>Password</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, { backgroundColor: themeColors.inputBackground, color: themeColors.text, borderColor: themeColors.border }]}
             placeholder="Your password"
-            placeholderTextColor="#64748b"
+            placeholderTextColor={themeColors.textTertiary}
             value={password}
             onChangeText={setPassword}
             secureTextEntry

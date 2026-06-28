@@ -27,6 +27,7 @@ import {
   Badge,
   Button,
   StatusBadge,
+  useTheme,
 } from '@prayana/shared-ui';
 import { bookingAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
@@ -72,6 +73,18 @@ interface BookingDetail {
     status?: 'pending' | 'paid' | 'refunded' | 'failed';
     method?: string;
     transactionId?: string;
+    refund?: {
+      amount?: number;
+      status?: 'pending' | 'processing' | 'completed' | 'failed';
+      processedAt?: string;
+      eta?: string;
+    };
+  };
+  cancellation?: {
+    requestedAt?: string;
+    reason?: string;
+    refundAmount?: number;
+    refundStatus?: 'pending' | 'processing' | 'completed' | 'failed';
   };
   contactInfo?: {
     name: string;
@@ -210,6 +223,7 @@ function InfoRow({
   valueColor?: string;
   valueBold?: boolean;
 }) {
+  const { themeColors } = useTheme();
   const handleCopy = async () => {
     if (copyable) {
       await Clipboard.setStringAsync(value);
@@ -225,8 +239,8 @@ function InfoRow({
   return (
     <View style={infoRowStyles.container}>
       <View style={infoRowStyles.labelRow}>
-        <Ionicons name={icon} size={16} color={colors.textTertiary} />
-        <Text style={infoRowStyles.label}>{label}</Text>
+        <Ionicons name={icon} size={16} color={themeColors.textTertiary} />
+        <Text style={[infoRowStyles.label, { color: themeColors.textSecondary }]}>{label}</Text>
       </View>
       <TouchableOpacity
         onPress={copyable ? handleCopy : undefined}
@@ -237,6 +251,7 @@ function InfoRow({
         <Text
           style={[
             infoRowStyles.value,
+            { color: themeColors.text },
             valueColor ? { color: valueColor } : undefined,
             valueBold ? { fontWeight: fontWeight.bold } : undefined,
           ]}
@@ -248,7 +263,7 @@ function InfoRow({
           <Ionicons
             name="copy-outline"
             size={14}
-            color={colors.textTertiary}
+            color={themeColors.textTertiary}
             style={infoRowStyles.copyIcon}
           />
         )}
@@ -294,6 +309,7 @@ const infoRowStyles = StyleSheet.create({
 // ===== Main Component =====
 
 export default function BookingDetailScreen() {
+  const { themeColors } = useTheme();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
@@ -378,30 +394,34 @@ export default function BookingDetailScreen() {
   // ===== Navigate to Write Review =====
 
   const handleWriteReview = useCallback(() => {
-    // Navigate back to bookings list where the review modal lives
-    // Alternatively, you could implement a review modal here too
-    router.back();
-  }, [router]);
+    if (!booking?._id) return;
+    // Hand off to the bookings list, which already owns the review modal.
+    // Passing reviewBookingId auto-opens the modal on arrival.
+    router.replace({
+      pathname: '/bookings',
+      params: { reviewBookingId: booking._id },
+    });
+  }, [router, booking?._id]);
 
   // ===== Loading State =====
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.backgroundSecondary }]} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: themeColors.surface }]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
+            <Ionicons name="chevron-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Booking Details</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Booking Details</Text>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={styles.loadingText}>Loading booking details...</Text>
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading booking details...</Text>
         </View>
       </SafeAreaView>
     );
@@ -411,21 +431,21 @@ export default function BookingDetailScreen() {
 
   if (!booking) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
+      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.backgroundSecondary }]} edges={['top']}>
+        <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity
             onPress={() => router.back()}
-            style={styles.backButton}
+            style={[styles.backButton, { backgroundColor: themeColors.surface }]}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
-            <Ionicons name="chevron-back" size={24} color={colors.text} />
+            <Ionicons name="chevron-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Booking Details</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Booking Details</Text>
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.loadingContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color={colors.textTertiary} />
-          <Text style={styles.errorText}>Booking not found</Text>
+          <Ionicons name="alert-circle-outline" size={48} color={themeColors.textTertiary} />
+          <Text style={[styles.errorText, { color: themeColors.textSecondary }]}>Booking not found</Text>
           <Button
             title="Go Back"
             onPress={() => router.back()}
@@ -476,17 +496,17 @@ export default function BookingDetailScreen() {
   // ===== Main Render =====
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.backgroundSecondary }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
-          style={styles.backButton}
+          style={[styles.backButton, { backgroundColor: themeColors.surface }]}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons name="chevron-back" size={24} color={colors.text} />
+          <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Booking Details</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Booking Details</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -525,7 +545,7 @@ export default function BookingDetailScreen() {
         </View>
 
         {/* Activity Info Card */}
-        <Card style={styles.sectionCard} padding="sm">
+        <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]} padding="sm">
           {/* Activity Image */}
           {hasImage ? (
             <Image
@@ -544,17 +564,17 @@ export default function BookingDetailScreen() {
             </LinearGradient>
           )}
           <View style={styles.activityInfo}>
-            <Text style={styles.activityTitle}>{activity?.title || 'Activity'}</Text>
+            <Text style={[styles.activityTitle, { color: themeColors.text }]}>{activity?.title || 'Activity'}</Text>
             {locationText ? (
               <View style={styles.locationRow}>
-                <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-                <Text style={styles.locationText}>{locationText}</Text>
+                <Ionicons name="location-outline" size={14} color={themeColors.textSecondary} />
+                <Text style={[styles.locationText, { color: themeColors.textSecondary }]}>{locationText}</Text>
               </View>
             ) : null}
             {activity?.duration ? (
               <View style={styles.locationRow}>
-                <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-                <Text style={styles.locationText}>{activity.duration}</Text>
+                <Ionicons name="time-outline" size={14} color={themeColors.textSecondary} />
+                <Text style={[styles.locationText, { color: themeColors.textSecondary }]}>{activity.duration}</Text>
               </View>
             ) : null}
             {booking.variant?.name ? (
@@ -564,9 +584,9 @@ export default function BookingDetailScreen() {
         </Card>
 
         {/* Booking Info Card */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Booking Information</Text>
-          <View style={styles.divider} />
+        <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Booking Information</Text>
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
           <InfoRow
             icon="document-text-outline"
@@ -574,21 +594,21 @@ export default function BookingDetailScreen() {
             value={booking.bookingReference}
             copyable
           />
-          <View style={styles.infoSeparator} />
+          <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
 
           <InfoRow
             icon="calendar-outline"
             label="Date"
             value={formatDate(booking.bookingDate)}
           />
-          <View style={styles.infoSeparator} />
+          <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
 
           <InfoRow
             icon="time-outline"
             label="Time"
             value={timeText}
           />
-          <View style={styles.infoSeparator} />
+          <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
 
           <InfoRow
             icon="people-outline"
@@ -598,7 +618,7 @@ export default function BookingDetailScreen() {
 
           {booking.specialRequests ? (
             <>
-              <View style={styles.infoSeparator} />
+              <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
               <InfoRow
                 icon="chatbubble-ellipses-outline"
                 label="Special Requests"
@@ -609,22 +629,22 @@ export default function BookingDetailScreen() {
         </Card>
 
         {/* Pricing Card */}
-        <Card style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Payment Details</Text>
-          <View style={styles.divider} />
+        <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Payment Details</Text>
+          <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
           {subtotal > 0 && subtotal !== totalAmount && (
             <>
               <View style={styles.pricingRow}>
-                <Text style={styles.pricingLabel}>Subtotal</Text>
-                <Text style={styles.pricingValue}>{formatCurrency(subtotal)}</Text>
+                <Text style={[styles.pricingLabel, { color: themeColors.textSecondary }]}>Subtotal</Text>
+                <Text style={[styles.pricingValue, { color: themeColors.text }]}>{formatCurrency(subtotal)}</Text>
               </View>
             </>
           )}
 
           {discount > 0 && (
             <View style={styles.pricingRow}>
-              <Text style={styles.pricingLabel}>Discount</Text>
+              <Text style={[styles.pricingLabel, { color: themeColors.textSecondary }]}>Discount</Text>
               <Text style={[styles.pricingValue, { color: colors.success }]}>
                 -{formatCurrency(discount)}
               </Text>
@@ -633,21 +653,21 @@ export default function BookingDetailScreen() {
 
           {tax > 0 && (
             <View style={styles.pricingRow}>
-              <Text style={styles.pricingLabel}>Tax / GST</Text>
-              <Text style={styles.pricingValue}>{formatCurrency(tax)}</Text>
+              <Text style={[styles.pricingLabel, { color: themeColors.textSecondary }]}>Tax / GST</Text>
+              <Text style={[styles.pricingValue, { color: themeColors.text }]}>{formatCurrency(tax)}</Text>
             </View>
           )}
 
-          <View style={[styles.divider, { marginTop: spacing.sm }]} />
+          <View style={[styles.divider, { marginTop: spacing.sm, backgroundColor: themeColors.border }]} />
 
           <View style={[styles.pricingRow, { paddingTop: spacing.md }]}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>{formatCurrency(totalAmount)}</Text>
+            <Text style={[styles.totalLabel, { color: themeColors.text }]}>Total Amount</Text>
+            <Text style={[styles.totalValue, { color: themeColors.text }]}>{formatCurrency(totalAmount)}</Text>
           </View>
 
           {/* Payment Status */}
           <View style={styles.paymentStatusRow}>
-            <Text style={styles.pricingLabel}>Payment Status</Text>
+            <Text style={[styles.pricingLabel, { color: themeColors.textSecondary }]}>Payment Status</Text>
             <View style={[styles.paymentBadge, { backgroundColor: paymentColors.bg }]}>
               <Text style={[styles.paymentBadgeText, { color: paymentColors.text }]}>
                 {paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}
@@ -657,31 +677,31 @@ export default function BookingDetailScreen() {
 
           {booking.payment?.method && (
             <View style={styles.pricingRow}>
-              <Text style={styles.pricingLabel}>Payment Method</Text>
-              <Text style={styles.pricingValue}>{booking.payment.method}</Text>
+              <Text style={[styles.pricingLabel, { color: themeColors.textSecondary }]}>Payment Method</Text>
+              <Text style={[styles.pricingValue, { color: themeColors.text }]}>{booking.payment.method}</Text>
             </View>
           )}
         </Card>
 
         {/* Contact Info Card */}
         {booking.contactInfo && (
-          <Card style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Contact Information</Text>
-            <View style={styles.divider} />
+          <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Contact Information</Text>
+            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
             <InfoRow
               icon="person-outline"
               label="Name"
               value={booking.contactInfo.name}
             />
-            <View style={styles.infoSeparator} />
+            <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
 
             <InfoRow
               icon="mail-outline"
               label="Email"
               value={booking.contactInfo.email}
             />
-            <View style={styles.infoSeparator} />
+            <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
 
             <InfoRow
               icon="call-outline"
@@ -691,11 +711,95 @@ export default function BookingDetailScreen() {
           </Card>
         )}
 
+        {/* Cancellation & Refund Section */}
+        {(booking.status === 'cancelled' || booking.status === 'refunded') && (
+          <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Cancellation & Refund</Text>
+            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
+
+            {booking.cancellation?.requestedAt ? (
+              <InfoRow
+                icon="calendar-outline"
+                label="Cancelled on"
+                value={new Date(booking.cancellation.requestedAt).toLocaleDateString(
+                  'en-IN',
+                  { day: 'numeric', month: 'short', year: 'numeric' },
+                )}
+              />
+            ) : null}
+            {booking.cancellation?.reason ? (
+              <>
+                <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
+                <InfoRow
+                  icon="chatbubble-ellipses-outline"
+                  label="Reason"
+                  value={booking.cancellation.reason}
+                />
+              </>
+            ) : null}
+
+            {(booking.payment?.refund?.amount || booking.cancellation?.refundAmount) ? (
+              <>
+                <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
+                <InfoRow
+                  icon="cash-outline"
+                  label="Refund amount"
+                  value={`₹${(
+                    booking.payment?.refund?.amount ??
+                    booking.cancellation?.refundAmount ??
+                    0
+                  ).toLocaleString('en-IN')}`}
+                />
+              </>
+            ) : null}
+
+            {(() => {
+              const refundStatus =
+                booking.payment?.refund?.status ||
+                booking.cancellation?.refundStatus ||
+                (booking.payment?.status === 'refunded' ? 'completed' : 'pending');
+              const refundLabels: Record<string, { label: string; color: string }> = {
+                pending: { label: 'Initiated', color: colors.warning },
+                processing: { label: 'Processing', color: colors.info },
+                completed: { label: 'Refunded to source', color: colors.success },
+                failed: { label: 'Failed — contact support', color: colors.error },
+              };
+              const cfg = refundLabels[refundStatus] || refundLabels.pending;
+              return (
+                <>
+                  <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
+                  <View style={styles.refundStatusRow}>
+                    <View
+                      style={[styles.refundStatusDot, { backgroundColor: cfg.color }]}
+                    />
+                    <Text style={[styles.refundStatusText, { color: themeColors.text }]}>
+                      Refund status: {cfg.label}
+                    </Text>
+                  </View>
+                  {refundStatus !== 'completed' ? (
+                    <Text style={[styles.refundEta, { color: themeColors.textTertiary }]}>
+                      Refunds usually reach your account in 5–7 business days.
+                    </Text>
+                  ) : booking.payment?.refund?.processedAt ? (
+                    <Text style={[styles.refundEta, { color: themeColors.textTertiary }]}>
+                      Processed on{' '}
+                      {new Date(booking.payment.refund.processedAt).toLocaleDateString(
+                        'en-IN',
+                        { day: 'numeric', month: 'short', year: 'numeric' },
+                      )}
+                    </Text>
+                  ) : null}
+                </>
+              );
+            })()}
+          </Card>
+        )}
+
         {/* Review Section (if completed and reviewed) */}
         {booking.review && (
-          <Card style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Your Review</Text>
-            <View style={styles.divider} />
+          <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Your Review</Text>
+            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
             <View style={styles.reviewContent}>
               <View style={styles.reviewStarsRow}>
                 {Array.from({ length: 5 }, (_, i) => (
@@ -707,13 +811,13 @@ export default function BookingDetailScreen() {
                     style={{ marginRight: 2 }}
                   />
                 ))}
-                <Text style={styles.reviewRatingText}>{booking.review.rating}/5</Text>
+                <Text style={[styles.reviewRatingText, { color: themeColors.textSecondary }]}>{booking.review.rating}/5</Text>
               </View>
               {booking.review.title ? (
-                <Text style={styles.reviewTitle}>{booking.review.title}</Text>
+                <Text style={[styles.reviewTitle, { color: themeColors.text }]}>{booking.review.title}</Text>
               ) : null}
               {booking.review.body ? (
-                <Text style={styles.reviewBody}>{booking.review.body}</Text>
+                <Text style={[styles.reviewBody, { color: themeColors.textSecondary }]}>{booking.review.body}</Text>
               ) : null}
             </View>
           </Card>
@@ -771,7 +875,7 @@ export default function BookingDetailScreen() {
         </View>
 
         {/* Booked On */}
-        <Text style={styles.bookedOnText}>
+        <Text style={[styles.bookedOnText, { color: themeColors.textTertiary }]}>
           Booked on {formatShortDate(booking.createdAt)}
         </Text>
       </ScrollView>
@@ -1001,6 +1105,30 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
     lineHeight: 20,
+  },
+
+  // Cancellation & refund
+  refundStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  refundStatusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: spacing.sm,
+  },
+  refundStatusText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  refundEta: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    paddingLeft: 18,
+    marginTop: -spacing.xs,
   },
 
   // Actions

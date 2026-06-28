@@ -1,6 +1,6 @@
 // Nested route for place details: /destination/[location]/[place]
 // Supports preview data for instant rendering + progressive enrichment
-import React, { Component, useEffect, useState, useCallback, useRef } from 'react';
+import React, { Component, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -100,18 +100,28 @@ function PlaceDetailContent() {
   const placeName = decodeURIComponent(rawPlace);
   const location = decodeURIComponent(rawLocation);
 
-  // Parse preview data passed from destination page (instant display)
-  const previewData = React.useMemo(() => {
+  // Parse preview data passed from destination page (instant display).
+  // Parsed ONCE and cached in a ref: expo-router can hand back a new
+  // params.preview string identity on every render (URL re-encoding), which
+  // through useMemo would yield a fresh object each render and feed an
+  // infinite re-render loop downstream. The preview is immutable for the life
+  // of this screen, so parse it a single time.
+  const previewRef = useRef<any>(undefined);
+  if (previewRef.current === undefined) {
     try {
       const raw = Array.isArray(params.preview) ? params.preview[0] : params.preview;
       if (raw) {
-        // expo-router may already decode the param, try parsing directly first
-        try { return JSON.parse(raw); } catch {}
-        return JSON.parse(decodeURIComponent(raw));
+        let parsed: any = null;
+        try { parsed = JSON.parse(raw); } catch { parsed = JSON.parse(decodeURIComponent(raw)); }
+        previewRef.current = parsed;
+      } else {
+        previewRef.current = null;
       }
-    } catch {}
-    return null;
-  }, [params.preview]);
+    } catch {
+      previewRef.current = null;
+    }
+  }
+  const previewData = previewRef.current;
 
   // Initialize placeData with preview so the page renders immediately
   const [placeData, setPlaceData] = useState<any>(() => {
@@ -162,6 +172,9 @@ function PlaceDetailContent() {
     const loc = location || placeName;
     const baseURL = getBaseURL(); // e.g. "http://192.168.31.185:5000/api"
 
+    // RN doesn't support AbortSignal.timeout(); use an AbortController + setTimeout.
+    const abortController = new AbortController();
+    const abortTimer = setTimeout(() => abortController.abort(), 90000);
     try {
       console.log('[PlaceDetail] Starting progressive stream for:', placeName, 'in', loc);
 
@@ -169,8 +182,9 @@ function PlaceDetailContent() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson, application/json' },
         body: JSON.stringify({ placeName: placeName.trim(), location: loc.trim() }),
-        signal: AbortSignal.timeout(90000),
+        signal: abortController.signal,
       });
+      clearTimeout(abortTimer);
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
@@ -256,6 +270,7 @@ function PlaceDetailContent() {
         throw new Error('Response body not available for streaming');
       }
     } catch (err: any) {
+      clearTimeout(abortTimer);
       console.warn('[PlaceDetail] Progressive stream failed, falling back to unified endpoint:', err?.message);
       // Fallback to non-streaming unified endpoint
       try {
@@ -281,9 +296,14 @@ function PlaceDetailContent() {
     }
   }, [placeName, location, previewData]);
 
+  // Fetch once per place/location. Depending on `fetchPlaceDetails` (which changes
+  // identity as previewData/params re-resolve during streaming re-renders) would
+  // re-run this effect repeatedly. Keying on the primitive place+location values
+  // keeps it to a single fetch per screen.
   useEffect(() => {
     fetchPlaceDetails();
-  }, [fetchPlaceDetails]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeName, location]);
 
   // Resolve images safely — unified endpoint returns [{url, caption}], legacy returns strings
   const resolveImages = (data: any): string[] => {
@@ -307,7 +327,14 @@ function PlaceDetailContent() {
     }
   };
 
-  const allImages = placeData ? resolveImages(placeData) : [];
+  // Memoize so children (GalleryTab, hero pager) receive a stable array
+  // reference unless the underlying image data actually changes — a fresh
+  // array every render is one of the inputs that can drive a re-render loop.
+  const allImages = useMemo(
+    () => (placeData ? resolveImages(placeData) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [placeData?.images, placeData?.imageUrls, placeData?.image]
+  );
 
   const openInMaps = useCallback(() => {
     try {

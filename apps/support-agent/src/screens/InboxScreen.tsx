@@ -11,11 +11,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { useTheme } from "@prayana/shared-ui";
 import { useAgentStore } from "../state/agentStore";
 import { agentAPI } from "../lib/api";
 import type { RootStackParamList } from "../../App";
 
 export default function InboxScreen() {
+  const { themeColors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { isOnline, goOnline, goOffline, pendingHandoffs, agentName, signOut, firebaseToken, loadActive, claim } =
     useAgentStore();
@@ -46,29 +48,29 @@ export default function InboxScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={["bottom", "left", "right"]}>
-      <View style={styles.toolbar}>
+    <SafeAreaView style={[styles.root, { backgroundColor: themeColors.background }]} edges={["bottom", "left", "right"]}>
+      <View style={[styles.toolbar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <View>
-          <Text style={styles.greeting}>Hi {agentName}</Text>
-          <Text style={styles.subline}>{isOnline ? "Receiving handoffs" : "You're offline"}</Text>
+          <Text style={[styles.greeting, { color: themeColors.text }]}>Hi {agentName}</Text>
+          <Text style={[styles.subline, { color: themeColors.textSecondary }]}>{isOnline ? "Receiving handoffs" : "You're offline"}</Text>
         </View>
         <View style={styles.toolbarRight}>
           <Switch value={isOnline} onValueChange={(v) => (v ? goOnline() : goOffline())} />
           <Pressable onPress={signOut} style={styles.signOutBtn}>
-            <Text style={styles.signOutText}>Sign out</Text>
+            <Text style={[styles.signOutText, { color: themeColors.textSecondary }]}>Sign out</Text>
           </Pressable>
         </View>
       </View>
 
       {!isOnline ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>You're offline</Text>
-          <Text style={styles.emptyBody}>Flip the toggle above to start receiving handoff requests.</Text>
+          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>You're offline</Text>
+          <Text style={[styles.emptyBody, { color: themeColors.textSecondary }]}>Flip the toggle above to start receiving handoff requests.</Text>
         </View>
       ) : handoffs.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>No pending handoffs</Text>
-          <Text style={styles.emptyBody}>You're online. New escalations will show up here in real time.</Text>
+          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No pending handoffs</Text>
+          <Text style={[styles.emptyBody, { color: themeColors.textSecondary }]}>You're online. New escalations will show up here in real time.</Text>
         </View>
       ) : (
         <FlatList
@@ -76,9 +78,9 @@ export default function InboxScreen() {
           keyExtractor={(h) => h.sessionId}
           contentContainerStyle={{ padding: 16 }}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <View style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
               <View style={styles.cardHeader}>
-                <Text style={styles.cardName}>{item.customer.name}</Text>
+                <Text style={[styles.cardName, { color: themeColors.text }]}>{item.customer.name}</Text>
                 {item.escalationReason ? (
                   <View style={styles.chip}>
                     <Text style={styles.chipText}>{item.escalationReason}</Text>
@@ -86,11 +88,11 @@ export default function InboxScreen() {
                 ) : null}
               </View>
               {item.destination ? (
-                <Text style={styles.cardMeta}>Destination: {item.destination}</Text>
+                <Text style={[styles.cardMeta, { color: themeColors.textSecondary }]}>Destination: {item.destination}</Text>
               ) : null}
               {item.recentMessages.slice(-3).map((m) => (
-                <Text key={m.messageId} style={styles.cardLine} numberOfLines={2}>
-                  <Text style={{ color: m.role === "user" ? "#f97316" : "#64748b" }}>
+                <Text key={m.messageId} style={[styles.cardLine, { color: themeColors.text }]} numberOfLines={2}>
+                  <Text style={{ color: m.role === "user" ? "#f97316" : themeColors.textSecondary }}>
                     {m.role === "user" ? "Customer: " : m.senderType === "agent" ? "Agent: " : "AI: "}
                   </Text>
                   {m.content}

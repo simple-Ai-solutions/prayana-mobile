@@ -13,16 +13,29 @@ import {
   Animated,
   Pressable,
   Alert,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  MapPin as ExpMapPin,
+  Compass as ExpCompass,
+  Sparkles as ExpSparkles,
+  BookOpen as ExpBookOpen,
+  Navigation as ExpCompass2,
+  Heart as ExpHeart,
+} from 'lucide-react-native';
 import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';
-import { useAuth } from '@prayana/shared-hooks';
+import { useAuth, useAutoLocationDetection } from '@prayana/shared-hooks';
+import { useAppStore } from '@prayana/shared-stores';
 import { resolveImageUrl, canGuestUse, incrementGuestUsage, GUEST_LIMITS } from '@prayana/shared-utils';
 import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
+import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
+import { RecentItineraries } from '../../components/home/RecentItineraries';
+import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -37,10 +50,31 @@ const getImageUrl = (img: any): string | null => {
 // ============================================================
 // SECTION 1: HERO - SERVICE TABS (matching web 9 service types)
 // ============================================================
-const SERVICES_BAR = [
-  { label: 'Hotels', icon: 'bed-outline' as const, color: '#3B82F6', bg: '#DBEAFE', route: '/hotels' },
-  { label: 'Activities', icon: 'ticket-outline' as const, color: '#F97316', bg: '#FFF7ED', route: '/activities' },
-  { label: 'eSIM', icon: 'phone-portrait-outline' as const, color: '#6366F1', bg: '#E0E7FF', route: '/esim' },
+// Hero service tabs — mirrors the PWA mobile home (4 visible + "More").
+// Uses the PWA's brand SVG icons (extracted to PNG in assets/hero-icons).
+const HERO_TABS = [
+  { id: 'quick-itinerary', label: 'Quick Itinerary', icon: require('../../../assets/hero-icons/quick-itinerary.png'), route: '/quick-itinerary' },
+  { id: 'plan-trip', label: 'Trip Planner', icon: require('../../../assets/hero-icons/plan-trip.png'), route: '/trip/setup' },
+  { id: 'esim', label: 'eSIM', icon: require('../../../assets/hero-icons/esim.png'), route: '/esim' },
+  { id: 'global-experiences', label: 'Global Experiences', icon: require('../../../assets/hero-icons/global-experiences.png'), route: '/global-experiences' },
+];
+
+// Hidden behind "More" (matches PWA overflow sheet).
+const HERO_TABS_MORE = [
+  { id: 'activities', label: 'Activities', icon: require('../../../assets/hero-icons/activities.png'), route: '/activities' },
+  { id: 'holiday-packages', label: 'Holiday Packages', icon: require('../../../assets/hero-icons/holiday-packages.png'), route: '/packages' },
+  { id: 'divya-darshana', label: 'Divya Darshana', icon: require('../../../assets/hero-icons/divya-darshana.png'), route: '/divya-darshana' },
+];
+const MORE_ICON = require('../../../assets/hero-icons/more.png');
+
+// Feature shortcuts shown in the home "Explore more" row.
+const EXPLORE_MORE = [
+  { label: 'India\nExperiences', Icon: ExpMapPin, color: '#F97316', bg: '#FFF7ED', route: '/india-experiences' },
+  { label: 'Explore\nNearby', Icon: ExpCompass, color: '#10B981', bg: '#D1FAE5', route: '/explore-nearby' },
+  { label: 'Theme\nItineraries', Icon: ExpSparkles, color: '#8B5CF6', bg: '#EDE9FE', route: '/theme-itineraries' },
+  { label: 'Travel\nGuides', Icon: ExpBookOpen, color: '#3B82F6', bg: '#DBEAFE', route: '/travel-guides' },
+  { label: 'Captain\nTours', Icon: ExpCompass2, color: '#EF4444', bg: '#FEE2E2', route: '/captain-tours' },
+  { label: 'Favorites', Icon: ExpHeart, color: '#EC4899', bg: '#FCE7F3', route: '/favorites' },
 ];
 
 // ============================================================
@@ -254,6 +288,11 @@ export default function HomeScreen() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
 
+  // Auto-detect country and adapt home screen content
+  const { country, countryName, region, isEuropean } = useAutoLocationDetection();
+  const userPreferences = useAppStore((state) => state.userPreferences);
+  const isIndiaUser = userPreferences.country === 'IN';
+
   // requireAuth with guest free-tier limit support
   // feature: 'PLAN_TRIP' | null (null = hard require, no free uses)
   const requireAuth = useCallback(
@@ -324,6 +363,8 @@ export default function HomeScreen() {
   const [showAllTop, setShowAllTop] = useState(false);
   const [showAllPilgrimage, setShowAllPilgrimage] = useState(false);
   const [showAllVisaFree, setShowAllVisaFree] = useState(false);
+  const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [showQuickItinerary, setShowQuickItinerary] = useState(false);
 
   // Animated floating orbs
   const orbAnim1 = useRef(new Animated.Value(0)).current;
@@ -443,23 +484,42 @@ export default function HomeScreen() {
             Your next adventure awaits
           </Text>
 
-          {/* Services Bar */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.servicesBar}>
-            {SERVICES_BAR.map((svc) => (
+          {/* Hero Service Tabs — 4 brand icons + More (matches PWA mobile home) */}
+          <View style={styles.heroTabsRow}>
+            {HERO_TABS.map((tab) => (
               <TouchableOpacity
-                key={svc.label}
-                style={[styles.serviceBtn, {
-                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.08)' : '#ffffff',
-                  borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : '#E5E7EB',
-                }]}
-                onPress={() => router.push(svc.route as any)}
+                key={tab.id}
+                style={styles.heroTab}
+                onPress={() =>
+                  tab.id === 'quick-itinerary'
+                    ? setShowQuickItinerary(true)
+                    : router.push(tab.route as any)
+                }
                 activeOpacity={0.7}
               >
-                <Ionicons name={svc.icon} size={14} color={svc.color} />
-                <Text style={[styles.serviceBtnText, { color: isDarkMode ? '#ffffff' : '#374151' }]}>{svc.label}</Text>
+                <Image source={tab.icon} style={styles.heroTabIcon} resizeMode="contain" />
+                <Text
+                  style={[styles.heroTabLabel, { color: isDarkMode ? '#FFFFFF' : '#1F2937' }]}
+                  numberOfLines={2}
+                >
+                  {tab.label}
+                </Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+            <TouchableOpacity
+              style={styles.heroTab}
+              onPress={() => setShowMoreSheet(true)}
+              activeOpacity={0.7}
+            >
+              <Image source={MORE_ICON} style={styles.heroTabIcon} resizeMode="contain" />
+              <Text
+                style={[styles.heroTabLabel, { color: isDarkMode ? '#FFFFFF' : '#1F2937' }]}
+                numberOfLines={2}
+              >
+                More
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Search Bar */}
           <TouchableOpacity
@@ -479,30 +539,49 @@ export default function HomeScreen() {
             </View>
           </TouchableOpacity>
 
-          {/* Quick Action Buttons: Plan a Trip + Create a Trip */}
-          <View style={styles.heroActions}>
-            <TouchableOpacity
-              style={styles.heroActionBtn}
-              onPress={() => requireAuth(() => router.push('/trip/plan'), 'PLAN_TRIP')}
-              activeOpacity={0.85}
-            >
-              <LinearGradient colors={['#FF6B6B', '#EE5A5A']} style={styles.heroActionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                <Ionicons name="calendar-outline" size={16} color="#ffffff" />
-                <Text style={styles.heroActionText}>Plan a Trip</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.heroActionBtn}
-              onPress={() => requireAuth(() => router.push('/trip/setup'))}
-              activeOpacity={0.85}
-            >
-              <LinearGradient colors={['#06B6D4', '#0891b2']} style={styles.heroActionGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-                <Ionicons name="add-circle-outline" size={16} color="#ffffff" />
-                <Text style={styles.heroActionText}>Create a Trip</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
         </LinearGradient>
+
+        {/* Recent AI-generated itineraries (Plan-a-Trip + Quick Itinerary) */}
+        <RecentItineraries />
+
+        {/* ============================================================ */}
+        {/* COUNTRY-SPECIFIC CONTENT                                      */}
+        {/* India users see curated hardcoded content                      */}
+        {/* Other countries see dynamic API-driven content                 */}
+        {/* ============================================================ */}
+        {!isIndiaUser ? (
+          <DynamicHomeContent
+            countryCode={userPreferences.country}
+            countryName={userPreferences.countryName}
+            region={userPreferences.region}
+            isEuropean={userPreferences.isEuropean}
+          />
+        ) : (
+        <>
+        {/* ============================================================ */}
+        {/* EXPLORE MORE — feature shortcuts                              */}
+        {/* ============================================================ */}
+        <View style={[styles.section, { backgroundColor: themeColors.background }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Explore more</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingTop: spacing.md }}>
+            {EXPLORE_MORE.map((f) => {
+              const Icon = f.Icon;
+              return (
+                <TouchableOpacity
+                  key={f.route}
+                  style={[styles.exploreChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                  activeOpacity={0.8}
+                  onPress={() => router.push(f.route as any)}
+                >
+                  <View style={[styles.exploreChipIcon, { backgroundColor: f.bg }]}>
+                    <Icon size={20} color={f.color} />
+                  </View>
+                  <Text style={[styles.exploreChipText, { color: themeColors.text }]} numberOfLines={2}>{f.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
 
         {/* ============================================================ */}
         {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
@@ -896,6 +975,8 @@ export default function HomeScreen() {
             ))}
           </ScrollView>
         </View>
+        </>
+        )}
 
         {/* ============================================================ */}
         {/* FEATURED ACTIVITIES (matching web ActivitiesHomepageSection)   */}
@@ -1106,8 +1187,55 @@ export default function HomeScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
+      {/* More services bottom sheet — at root so the Modal portals correctly on Android */}
+      <Modal
+        visible={showMoreSheet}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setShowMoreSheet(false)}
+      >
+        <Pressable style={styles.sheetBackdrop} onPress={() => setShowMoreSheet(false)}>
+          <Pressable
+            style={[styles.sheet, { backgroundColor: isDarkMode ? '#1F2937' : '#FFFFFF' }]}
+            onPress={(e) => e.stopPropagation?.()}
+          >
+            <View style={styles.sheetHandle} />
+            <Text style={[styles.sheetTitle, { color: isDarkMode ? '#FFFFFF' : '#111827' }]}>
+              More travel services
+            </Text>
+            <View style={styles.sheetGrid}>
+              {HERO_TABS_MORE.map((tab) => (
+                <TouchableOpacity
+                  key={tab.id}
+                  style={styles.sheetItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setShowMoreSheet(false);
+                    router.push(tab.route as any);
+                  }}
+                >
+                  <Image source={tab.icon} style={styles.heroTabIcon} resizeMode="contain" />
+                  <Text
+                    style={[styles.heroTabLabel, { color: isDarkMode ? '#FFFFFF' : '#1F2937' }]}
+                    numberOfLines={2}
+                  >
+                    {tab.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Floating AI Chat Button (matching web FloatingChatButton) */}
-      <FloatingChatFAB />
+      {/* Hide the floating chat FAB while the Quick Itinerary popup is open
+          so it doesn't overlap the form/keyboard. */}
+      {!showQuickItinerary && <FloatingChatFAB />}
+
+      {/* Quick Itinerary generate popup (opens from the hero tab) */}
+      <QuickItineraryModal visible={showQuickItinerary} onClose={() => setShowQuickItinerary(false)} />
     </SafeAreaView>
   );
 }
@@ -1155,7 +1283,89 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Services Bar
+  // Hero Service Tabs (PWA-style: 4 brand icons + More)
+  heroTabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingHorizontal: 2,
+  },
+  heroTab: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+  },
+  heroTabIcon: {
+    width: 52,
+    height: 52,
+  },
+  heroTabLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+  sheetBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 36,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#9CA3AF',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  sheetGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  sheetItem: {
+    width: '25%',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+
+  // Explore more feature chips
+  exploreChip: {
+    width: 84,
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  exploreChipIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exploreChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+
+  // Services Bar (legacy)
   servicesBar: {
     gap: 8,
     marginBottom: 14,

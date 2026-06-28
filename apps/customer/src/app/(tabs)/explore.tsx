@@ -27,6 +27,7 @@ import {
   shadow,
   Badge,
   StarRating,
+  useTheme,
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
 
@@ -91,6 +92,7 @@ interface ActivityCardProps {
 }
 
 function ActivityCard({ activity, onPress }: ActivityCardProps) {
+  const { themeColors } = useTheme();
   const imageUrl =
     activity.images?.[0]?.url ||
     activity.images?.[0] ||
@@ -110,7 +112,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
 
   return (
     <TouchableOpacity
-      style={[styles.card, shadow.md]}
+      style={[styles.card, shadow.md, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
       activeOpacity={0.85}
       onPress={onPress}
     >
@@ -140,7 +142,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
 
       {/* Card Content */}
       <View style={styles.cardContent}>
-        <Text style={styles.cardTitle} numberOfLines={2}>
+        <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={2}>
           {activity.title || activity.name || 'Untitled Activity'}
         </Text>
 
@@ -148,16 +150,16 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
         <View style={styles.cardMeta}>
           {city ? (
             <View style={styles.metaItem}>
-              <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.metaText} numberOfLines={1}>
+              <Ionicons name="location-outline" size={14} color={themeColors.textSecondary} />
+              <Text style={[styles.metaText, { color: themeColors.textSecondary }]} numberOfLines={1}>
                 {city}
               </Text>
             </View>
           ) : null}
           {duration ? (
             <View style={styles.metaItem}>
-              <Ionicons name="time-outline" size={14} color={colors.textSecondary} />
-              <Text style={styles.metaText} numberOfLines={1}>
+              <Ionicons name="time-outline" size={14} color={themeColors.textSecondary} />
+              <Text style={[styles.metaText, { color: themeColors.textSecondary }]} numberOfLines={1}>
                 {duration}
               </Text>
             </View>
@@ -168,7 +170,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
         {rating > 0 && (
           <View style={styles.ratingRow}>
             <StarRating rating={Math.round(rating)} size={14} />
-            <Text style={styles.ratingText}>
+            <Text style={[styles.ratingText, { color: themeColors.textSecondary }]}>
               {rating.toFixed(1)} ({reviewCount})
             </Text>
           </View>
@@ -177,7 +179,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
         {/* Footer: Price */}
         <View style={styles.cardFooter}>
           <View>
-            <Text style={styles.priceLabel}>From</Text>
+            <Text style={[styles.priceLabel, { color: themeColors.textTertiary }]}>From</Text>
             <Text style={styles.priceValue}>
               {'\u20B9'}{basePrice.toLocaleString('en-IN')}
             </Text>
@@ -196,6 +198,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
 // ============================================================
 export default function ExploreScreen() {
   const router = useRouter();
+  const { themeColors } = useTheme();
   const params = useLocalSearchParams<{ category?: string; query?: string }>();
 
   // --- State ---
@@ -414,21 +417,21 @@ export default function ExploreScreen() {
       <View>
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <View style={[styles.searchBar, shadow.sm]}>
-            <Ionicons name="search-outline" size={20} color={colors.textTertiary} />
+          <View style={[styles.searchBar, shadow.sm, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
+            <Ionicons name="search-outline" size={20} color={themeColors.textTertiary} />
             <TextInput
-              style={styles.searchInput}
+              style={[styles.searchInput, { color: themeColors.text }]}
               value={searchQuery}
               onChangeText={handleSearchChange}
               onSubmitEditing={handleSearchSubmit}
               placeholder="Search activities..."
-              placeholderTextColor={colors.textTertiary}
+              placeholderTextColor={themeColors.textTertiary}
               returnKeyType="search"
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={handleSearchClear} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name="close-circle" size={20} color={colors.textTertiary} />
+                <Ionicons name="close-circle" size={20} color={themeColors.textTertiary} />
               </TouchableOpacity>
             )}
           </View>
@@ -448,6 +451,7 @@ export default function ExploreScreen() {
                 key={cat.key}
                 style={[
                   styles.categoryPill,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                   isSelected && styles.categoryPillActive,
                 ]}
                 onPress={() => handleCategorySelect(cat.key)}
@@ -456,12 +460,13 @@ export default function ExploreScreen() {
                 <Ionicons
                   name={cat.icon}
                   size={16}
-                  color={isSelected ? '#ffffff' : colors.textSecondary}
+                  color={isSelected ? '#ffffff' : themeColors.textSecondary}
                   style={{ marginRight: spacing.xs }}
                 />
                 <Text
                   style={[
                     styles.categoryPillText,
+                    { color: themeColors.textSecondary },
                     isSelected && styles.categoryPillTextActive,
                   ]}
                 >
@@ -474,7 +479,7 @@ export default function ExploreScreen() {
 
         {/* Sort & Results Count Row */}
         <View style={styles.sortRow}>
-          <Text style={styles.resultsCount}>
+          <Text style={[styles.resultsCount, { color: themeColors.textSecondary }]}>
             {loading ? 'Searching...' : `${totalResults} activities`}
           </Text>
           <TouchableOpacity
@@ -496,6 +501,7 @@ export default function ExploreScreen() {
       currentSortLabel,
       totalResults,
       loading,
+      themeColors,
       handleSearchChange,
       handleSearchSubmit,
       handleSearchClear,
@@ -509,10 +515,10 @@ export default function ExploreScreen() {
     return (
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={colors.primary[500]} />
-        <Text style={styles.footerLoaderText}>Loading more...</Text>
+        <Text style={[styles.footerLoaderText, { color: themeColors.textSecondary }]}>Loading more...</Text>
       </View>
     );
-  }, [loadingMore]);
+  }, [loadingMore, themeColors]);
 
   // --- Empty State ---
   const ListEmptyComponent = useMemo(() => {
@@ -528,8 +534,8 @@ export default function ExploreScreen() {
     return (
       <View style={styles.emptyState}>
         <Ionicons name="search-outline" size={64} color={colors.gray[300]} />
-        <Text style={styles.emptyTitle}>No activities found</Text>
-        <Text style={styles.emptySubtitle}>
+        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No activities found</Text>
+        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
           {searchQuery
             ? `No results for "${searchQuery}". Try a different search.`
             : 'Try changing your filters or category.'}
@@ -549,17 +555,17 @@ export default function ExploreScreen() {
         </TouchableOpacity>
       </View>
     );
-  }, [loading, searchQuery, fetchActivities]);
+  }, [loading, searchQuery, themeColors, fetchActivities]);
 
   // ============================================================
   // RENDER
   // ============================================================
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Explore</Text>
-        <Text style={styles.headerSubtitle}>Discover amazing experiences</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Explore</Text>
+        <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>Discover amazing experiences</Text>
       </View>
 
       {/* Activity List */}
@@ -601,11 +607,11 @@ export default function ExploreScreen() {
           activeOpacity={1}
           onPress={() => setSortModalVisible(false)}
         >
-          <View style={[styles.sortModal, shadow.lg]}>
-            <View style={styles.sortModalHeader}>
-              <Text style={styles.sortModalTitle}>Sort By</Text>
+          <View style={[styles.sortModal, shadow.lg, { backgroundColor: themeColors.surface }]}>
+            <View style={[styles.sortModalHeader, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.sortModalTitle, { color: themeColors.text }]}>Sort By</Text>
               <TouchableOpacity onPress={() => setSortModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
+                <Ionicons name="close" size={24} color={themeColors.text} />
               </TouchableOpacity>
             </View>
             {SORT_OPTIONS.map((option) => {
@@ -615,6 +621,7 @@ export default function ExploreScreen() {
                   key={option.key}
                   style={[
                     styles.sortOption,
+                    { borderBottomColor: themeColors.border },
                     isActive && styles.sortOptionActive,
                   ]}
                   onPress={() => handleSortSelect(option.key)}
@@ -623,6 +630,7 @@ export default function ExploreScreen() {
                   <Text
                     style={[
                       styles.sortOptionText,
+                      { color: themeColors.text },
                       isActive && styles.sortOptionTextActive,
                     ]}
                   >

@@ -46,7 +46,7 @@ export function Avatar({ uri, name, size = 40, style }: AvatarProps) {
             height: size,
             borderRadius: size / 2,
           },
-          style,
+          style as any,
         ]}
         contentFit="cover"
         transition={200}

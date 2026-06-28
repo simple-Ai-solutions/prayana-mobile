@@ -7,8 +7,12 @@ import {
   Dimensions,
   Platform,
   ActivityIndicator,
+  // Use RN's own TouchableOpacity here: react-native-gesture-handler's
+  // touchables do NOT receive taps inside a React Native <Modal> (they need a
+  // GestureHandlerRootView wrapper that the Modal doesn't provide), which is
+  // why the map's close button was unresponsive.
+  TouchableOpacity,
 } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontWeight, shadow } from '@prayana/shared-ui';
@@ -36,7 +40,7 @@ interface ItineraryMapProps {
   destinationName?: string;
 }
 
-const MARKER_COLORS = ['#FF6B6B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444'];
+const MARKER_COLORS = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444'];
 
 function isValidCoord(p: Place) {
   return (
@@ -204,11 +208,16 @@ export const ItineraryMap: React.FC<ItineraryMapProps> = ({
 
   // ─── Full-screen Modal Mode ───
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen">
+    <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       <View style={styles.container}>
         {/* Header */}
         <View style={[styles.header, shadow.md]}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeButton}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
             <Ionicons name="close" size={24} color={colors.text} />
           </TouchableOpacity>
           <View style={styles.headerTextContainer}>
@@ -472,7 +481,7 @@ const styles = StyleSheet.create({
   },
   calloutTime: {
     fontSize: fontSize.xs,
-    color: '#FF6B6B',
+    color: '#06B6D4',
     fontWeight: fontWeight.medium,
     marginBottom: 2,
   },

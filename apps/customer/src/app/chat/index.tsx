@@ -814,6 +814,8 @@ export default function ChatScreen() {
     if (!activeSessionId) return undefined;
     let cancelled = false;
     let cleanup: (() => void) | null = null;
+    // socketService is untyped JS; its connect* methods return a teardown fn typed as `Function`.
+    const asCleanup = (fn: unknown): (() => void) => fn as () => void;
 
     (async () => {
       let token: string | null = null;
@@ -824,7 +826,7 @@ export default function ChatScreen() {
       }
       if (cancelled) return;
 
-      cleanup = socketService.connectCustomerChat(token, activeSessionId, {
+      cleanup = asCleanup(socketService.connectCustomerChat(token, activeSessionId, {
         onModeChanged: (payload: any) => {
           if (cancelled) return;
           setHandoffMode((payload?.mode as any) || 'ai');
@@ -857,7 +859,7 @@ export default function ChatScreen() {
             visibilityTime: 6000,
           });
         },
-      });
+      }));
     })();
 
     return () => {

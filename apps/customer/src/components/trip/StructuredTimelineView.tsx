@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -34,11 +34,20 @@ interface Place {
   openingHours?: string;
 }
 
+interface FoodRecommendation {
+  name: string;
+  description?: string;
+  restaurant?: string;
+  mealSlot?: string;
+  isLocalSpecialty?: boolean;
+}
+
 interface StructuredDay {
   dayNumber: number;
   title?: string;
   theme?: string;
   mainPlaces: Place[];
+  foodRecommendations?: FoodRecommendation[];
 }
 
 interface StructuredTimelineViewProps {
@@ -78,7 +87,7 @@ function assignPlaceTimes(places: Place[]): Place[] {
   });
 }
 
-const TIMELINE_COLORS = ['#FF6B6B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
+const TIMELINE_COLORS = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4'];
 
 // Extract image URL from place data (handles string[], {url}[] formats)
 function extractPlaceImage(place: Place): string | null {
@@ -194,6 +203,9 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
   // Store fetched image URLs so we can pass them in preview
   const [fetchedImages, setFetchedImages] = useState<Record<string, string>>({});
+  // Guard against double navigation — a fast double-tap (or re-render mid-tap)
+  // would otherwise push the place-detail screen twice, making it "reopen in a loop".
+  const isNavigatingRef = useRef(false);
 
   const days = useMemo(() => {
     if (!structuredData?.days) return [];
@@ -221,12 +233,21 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
   }, [fetchedImages]);
 
   const handlePlacePress = useCallback((place: Place) => {
+    // Block re-entrant navigation so a single place can't open twice.
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => { isNavigatingRef.current = false; }, 800);
+
+    // NOTE: do NOT pass the resolved image URL in the route param. S3/CDN URLs
+    // contain &/?/= which expo-router re-encodes on each render, churning
+    // useLocalSearchParams → previewData → an infinite re-render ("flicker")
+    // loop on the detail screen. The detail screen fetches its own images.
     const preview = JSON.stringify({
       name: place.name,
       category: place.type || (place.tags && place.tags[0]) || '',
       rating: null,
       shortDescription: place.description || '',
-      image: getPlaceImageForPreview(place),
+      image: '',
       duration: place.visitDuration || '',
     });
 
@@ -253,7 +274,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
     return (
       <View style={styles.generateContainer}>
         <View style={styles.generateContent}>
-          <LinearGradient colors={['#FF6B6B', '#ee5a5a']} style={styles.generateIcon}>
+          <LinearGradient colors={['#06B6D4', '#0EA5E9']} style={styles.generateIcon}>
             <Ionicons name="git-branch-outline" size={32} color="#ffffff" />
           </LinearGradient>
           <Text style={styles.generateTitle}>Generate Timeline</Text>
@@ -261,7 +282,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
             Create a structured timeline with place details, timings, and map coordinates for your {destination} trip.
           </Text>
           <TouchableOpacity style={[styles.generateButton, shadow.md]} onPress={onGenerateStructured} activeOpacity={0.85}>
-            <LinearGradient colors={['#FF6B6B', '#ee5a5a']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.generateButtonGradient}>
+            <LinearGradient colors={['#06B6D4', '#0EA5E9']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.generateButtonGradient}>
               <Ionicons name="sparkles" size={18} color="#ffffff" />
               <Text style={styles.generateButtonText}>Generate Timeline</Text>
             </LinearGradient>
@@ -274,7 +295,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B6B" />
+        <ActivityIndicator size="large" color="#06B6D4" />
         <Text style={styles.loadingTitle}>Generating Timeline...</Text>
         <Text style={styles.loadingSubtitle}>AI is creating a detailed day-by-day plan with timings and coordinates</Text>
       </View>
@@ -433,9 +454,9 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
 
                             {/* Expand/collapse toggle inline */}
                             {hasExtra && (
-                              <TouchableOpacity style={styles.expandToggle} onPress={(e) => { e.stopPropagation?.(); toggleExpand(cardKey); }} activeOpacity={0.7}>
+                              <TouchableOpacity style={styles.expandToggle} onPress={() => { toggleExpand(cardKey); }} activeOpacity={0.7}>
                                 <Text style={styles.expandToggleText}>{isExpanded ? 'Show less' : 'More'}</Text>
-                                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} color="#FF6B6B" />
+                                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={12} color="#06B6D4" />
                               </TouchableOpacity>
                             )}
                           </View>
@@ -449,6 +470,46 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
           })}
         </View>
 
+        {/* Local Food to Try — matches the PWA "🍽️ Local Food to Try" card */}
+        {currentDay?.foodRecommendations && currentDay.foodRecommendations.length > 0 && (
+          <View style={styles.foodCard}>
+            <View style={styles.foodHeader}>
+              <LinearGradient colors={['#F97316', '#EF4444']} style={styles.foodIcon}>
+                <Text style={styles.foodEmoji}>{'🍽️'}</Text>
+              </LinearGradient>
+              <Text style={styles.foodTitle}>Local Food to Try</Text>
+            </View>
+            {currentDay.foodRecommendations.map((food, fIdx) => (
+              <View key={`food-${selectedDay}-${fIdx}`} style={styles.foodItem}>
+                <View style={styles.foodBullet} />
+                <View style={styles.foodItemContent}>
+                  <View style={styles.foodNameRow}>
+                    <Text style={styles.foodName}>{food.name}</Text>
+                    {food.mealSlot ? (
+                      <View style={styles.foodSlotBadge}>
+                        <Text style={styles.foodSlotText}>{food.mealSlot}</Text>
+                      </View>
+                    ) : food.isLocalSpecialty ? (
+                      <View style={styles.foodSpecialtyBadge}>
+                        <Text style={styles.foodSpecialtyText}>Local</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {food.restaurant ? (
+                    <View style={styles.foodRestaurantRow}>
+                      <Ionicons name="storefront-outline" size={11} color="#C2410C" />
+                      <Text style={styles.foodRestaurant}>{food.restaurant}</Text>
+                    </View>
+                  ) : null}
+                  {food.description ? (
+                    <Text style={styles.foodDesc} numberOfLines={2}>{food.description}</Text>
+                  ) : null}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         {/* Day Navigation */}
         <View style={styles.dayNavigation}>
           <TouchableOpacity
@@ -457,7 +518,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
             disabled={selectedDay === 0}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={16} color={selectedDay === 0 ? colors.gray[300] : '#FF6B6B'} />
+            <Ionicons name="chevron-back" size={16} color={selectedDay === 0 ? colors.gray[300] : '#06B6D4'} />
             <Text style={[styles.navButtonText, selectedDay === 0 && styles.navButtonTextDisabled]}>Previous Day</Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -467,7 +528,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
             activeOpacity={0.7}
           >
             <Text style={[styles.navButtonText, selectedDay === days.length - 1 && styles.navButtonTextDisabled]}>Next Day</Text>
-            <Ionicons name="chevron-forward" size={16} color={selectedDay === days.length - 1 ? colors.gray[300] : '#FF6B6B'} />
+            <Ionicons name="chevron-forward" size={16} color={selectedDay === days.length - 1 ? colors.gray[300] : '#06B6D4'} />
           </TouchableOpacity>
         </View>
 
@@ -476,7 +537,7 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
 
       {/* Map FAB */}
       <TouchableOpacity style={[styles.mapFab, shadow.lg]} onPress={() => setShowMap(true)} activeOpacity={0.85}>
-        <LinearGradient colors={['#FF6B6B', '#ee5a5a']} style={styles.mapFabGradient}>
+        <LinearGradient colors={['#06B6D4', '#0EA5E9']} style={styles.mapFabGradient}>
           <Ionicons name="map" size={22} color="#ffffff" />
         </LinearGradient>
       </TouchableOpacity>
@@ -579,7 +640,7 @@ const styles = StyleSheet.create({
   daySelectorScroll: { maxHeight: 52, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.gray[200] },
   daySelector: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm, gap: 8 },
   dayPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999, backgroundColor: colors.gray[100] },
-  dayPillActive: { backgroundColor: '#FF6B6B' },
+  dayPillActive: { backgroundColor: '#06B6D4' },
   dayPillText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.text },
   dayPillTextActive: { color: '#ffffff', fontWeight: fontWeight.semibold },
 
@@ -652,7 +713,7 @@ const styles = StyleSheet.create({
 
   // Expand toggle (inline)
   expandToggle: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
-  expandToggleText: { fontSize: 10, fontWeight: fontWeight.semibold, color: '#FF6B6B' },
+  expandToggleText: { fontSize: 10, fontWeight: fontWeight.semibold, color: '#06B6D4' },
 
   // Tips
   tipRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 4, backgroundColor: '#FFFBEB', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
@@ -665,11 +726,38 @@ const styles = StyleSheet.create({
   mealBreakEmoji: { fontSize: 14 },
   mealBreakText: { fontSize: 11, color: '#EA580C', fontWeight: fontWeight.medium },
 
+  // Local Food to Try
+  foodCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    borderRadius: 14,
+    backgroundColor: '#FFF7ED',
+    borderLeftWidth: 4,
+    borderLeftColor: '#F97316',
+  },
+  foodHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  foodIcon: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  foodEmoji: { fontSize: 16 },
+  foodTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#9A3412' },
+  foodItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 },
+  foodBullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#F97316', marginTop: 6, marginRight: 10 },
+  foodItemContent: { flex: 1 },
+  foodNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  foodName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#7C2D12' },
+  foodSpecialtyBadge: { backgroundColor: '#FED7AA', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  foodSpecialtyText: { fontSize: 9, color: '#C2410C', fontWeight: fontWeight.semibold },
+  foodSlotBadge: { backgroundColor: '#FFEDD5', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 },
+  foodSlotText: { fontSize: 9, color: '#C2410C', fontWeight: fontWeight.semibold, textTransform: 'capitalize' },
+  foodRestaurantRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
+  foodRestaurant: { fontSize: 11, color: '#C2410C', fontWeight: fontWeight.medium },
+  foodDesc: { fontSize: 12, color: '#9A3412', lineHeight: 17, marginTop: 2 },
+
   // Day Navigation
   dayNavigation: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: spacing.xl, marginTop: spacing.xl },
   navButton: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: spacing.sm, paddingHorizontal: spacing.md },
   navButtonDisabled: { opacity: 0.5 },
-  navButtonText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#FF6B6B' },
+  navButtonText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#06B6D4' },
   navButtonTextDisabled: { color: colors.gray[300] },
 
   // Map FAB

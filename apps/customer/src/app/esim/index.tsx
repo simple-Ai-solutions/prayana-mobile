@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, fontWeight, spacing, shadow, borderRadius } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
+import { esimAPI } from '@prayana/shared-services';
+import Toast from 'react-native-toast-message';
+import { useRequireAuth } from '../../lib/useRequireAuth';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -77,13 +80,50 @@ const TAB_OPTIONS = ['Country', 'Regional', 'Global'] as const;
 
 export default function ESIMPage() {
   const router = useRouter();
+  const requireAuth = useRequireAuth();
+  const { themeColors } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState(0);
 
+  // Live catalogue. Falls back to ESIM_PLANS if the server is unreachable
+  // so the screen never looks broken in dev or offline mode.
+  const [livePlans, setLivePlans] = useState<typeof ESIM_PLANS | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await esimAPI.getCatalogue({ limit: 60 });
+        const items = res?.data || res?.bundles || [];
+        if (mounted && Array.isArray(items) && items.length > 0) {
+          // Adapt server shape → local plan shape used by the existing card UI.
+          const mapped = items.map((b: any, idx: number) => ({
+            id: b.bundleName || b._id || `bundle-${idx}`,
+            country: b.countryName || b.country || b.regionName || 'Global',
+            flag: b.flag || '\u{1F310}',
+            name: b.displayName || b.bundleName || 'Plan',
+            data: b.data || b.dataAmount || '—',
+            validity: typeof b.validity === 'number' ? `${b.validity} days` : (b.validity || '—'),
+            price: b.sellingPrice || b.price || 0,
+            currency: b.currency || 'INR',
+            popular: !!b.isPopular,
+            bundleName: b.bundleName,
+          }));
+          setLivePlans(mapped as any);
+        }
+      } catch {
+        // Silent: keep mock data so the screen still renders.
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // --- Filtered plans ---
   const filteredPlans = useMemo(() => {
-    let plans = ESIM_PLANS;
+    let plans: any[] = livePlans || ESIM_PLANS;
     if (selectedCountry) {
       plans = plans.filter((p) => p.country === selectedCountry);
     }
@@ -91,12 +131,12 @@ export default function ESIMPage() {
       const q = searchQuery.toLowerCase();
       plans = plans.filter(
         (p) =>
-          p.country.toLowerCase().includes(q) ||
-          p.name.toLowerCase().includes(q)
+          (p.country || '').toLowerCase().includes(q) ||
+          (p.name || '').toLowerCase().includes(q)
       );
     }
     return plans;
-  }, [searchQuery, selectedCountry]);
+  }, [livePlans, searchQuery, selectedCountry]);
 
   // --- Handlers ---
   const handleCountrySelect = useCallback((name: string) => {
@@ -110,25 +150,29 @@ export default function ESIMPage() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* ======= HEADER ======= */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
           onPress={() => router.back()}
           style={styles.backBtn}
           activeOpacity={0.7}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Travel eSIM</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Travel eSIM</Text>
         <View style={styles.headerRight}>
           <TouchableOpacity
             style={styles.headerIconBtn}
             activeOpacity={0.7}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            onPress={() => {
+              if (!requireAuth({ reason: 'Sign in to view your eSIM orders and QR codes.', redirectAfter: '/esim/my-orders' })) return;
+              router.push('/esim/my-orders');
+            }}
           >
-            <Ionicons name="help-circle-outline" size={24} color={colors.textSecondary} />
+            <Ionicons name="receipt-outline" size={22} color={themeColors.textSecondary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -208,7 +252,7 @@ export default function ESIMPage() {
         {/* ======= POPULAR DESTINATIONS ======= */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Popular Destinations</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Popular Destinations</Text>
           </View>
           <ScrollView
             horizontal
@@ -220,12 +264,16 @@ export default function ESIMPage() {
               return (
                 <TouchableOpacity
                   key={c.code}
-                  style={[styles.countryChip, isActive && styles.countryChipActive]}
+                  style={[
+                    styles.countryChip,
+                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                    isActive && styles.countryChipActive,
+                  ]}
                   onPress={() => handleCountrySelect(c.name)}
                   activeOpacity={0.7}
                 >
                   <Text style={styles.countryFlag}>{c.flag}</Text>
-                  <Text style={[styles.countryName, isActive && styles.countryNameActive]}>
+                  <Text style={[styles.countryName, { color: themeColors.text }, isActive && styles.countryNameActive]}>
                     {c.name}
                   </Text>
                 </TouchableOpacity>
@@ -237,7 +285,7 @@ export default function ESIMPage() {
         {/* ======= PLANS ======= */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
               {selectedCountry ? `${selectedCountry} Plans` : 'Available Plans'}
             </Text>
             {selectedCountry && (
@@ -248,10 +296,10 @@ export default function ESIMPage() {
           </View>
 
           {filteredPlans.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="search-outline" size={48} color={colors.gray[300]} />
-              <Text style={styles.emptyTitle}>No plans found</Text>
-              <Text style={styles.emptySubtitle}>
+            <View style={[styles.emptyState, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+              <Ionicons name="search-outline" size={48} color={themeColors.textTertiary} />
+              <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No plans found</Text>
+              <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
                 Try a different country or search term.
               </Text>
               <TouchableOpacity
@@ -267,7 +315,7 @@ export default function ESIMPage() {
             filteredPlans.map((plan) => (
               <TouchableOpacity
                 key={plan.id}
-                style={[styles.planCard, shadow.md]}
+                style={[styles.planCard, shadow.md, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                 activeOpacity={0.85}
               >
                 {/* Plan header row */}
@@ -275,8 +323,8 @@ export default function ESIMPage() {
                   <View style={styles.planCountryRow}>
                     <Text style={styles.planFlag}>{plan.flag}</Text>
                     <View style={styles.planNameCol}>
-                      <Text style={styles.planName} numberOfLines={1}>{plan.name}</Text>
-                      <Text style={styles.planCountry}>{plan.country}</Text>
+                      <Text style={[styles.planName, { color: themeColors.text }]} numberOfLines={1}>{plan.name}</Text>
+                      <Text style={[styles.planCountry, { color: themeColors.textSecondary }]}>{plan.country}</Text>
                     </View>
                   </View>
                   {plan.popular && (
@@ -288,29 +336,39 @@ export default function ESIMPage() {
                 </View>
 
                 {/* Divider */}
-                <View style={styles.planDivider} />
+                <View style={[styles.planDivider, { backgroundColor: themeColors.border }]} />
 
                 {/* Plan details: 3-column row */}
                 <View style={styles.planDetails}>
                   <View style={styles.planDetail}>
                     <Ionicons name="cloud-download-outline" size={16} color={colors.primary[500]} />
-                    <Text style={styles.planDetailLabel}>Data</Text>
-                    <Text style={styles.planDetailValue}>{plan.data}</Text>
+                    <Text style={[styles.planDetailLabel, { color: themeColors.textTertiary }]}>Data</Text>
+                    <Text style={[styles.planDetailValue, { color: themeColors.text }]}>{plan.data}</Text>
                   </View>
-                  <View style={[styles.planDetail, styles.planDetailCenter]}>
+                  <View style={[styles.planDetail, styles.planDetailCenter, { borderColor: themeColors.border }]}>
                     <Ionicons name="time-outline" size={16} color={colors.primary[500]} />
-                    <Text style={styles.planDetailLabel}>Validity</Text>
-                    <Text style={styles.planDetailValue}>{plan.validity}</Text>
+                    <Text style={[styles.planDetailLabel, { color: themeColors.textTertiary }]}>Validity</Text>
+                    <Text style={[styles.planDetailValue, { color: themeColors.text }]}>{plan.validity}</Text>
                   </View>
                   <View style={styles.planDetail}>
                     <Ionicons name="pricetag-outline" size={16} color={colors.primary[500]} />
-                    <Text style={styles.planDetailLabel}>Price</Text>
+                    <Text style={[styles.planDetailLabel, { color: themeColors.textTertiary }]}>Price</Text>
                     <Text style={styles.planPriceValue}>${plan.price.toFixed(2)}</Text>
                   </View>
                 </View>
 
                 {/* Buy button */}
-                <TouchableOpacity style={styles.buyBtn} activeOpacity={0.8}>
+                <TouchableOpacity
+                  style={styles.buyBtn}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    const target = (plan as any).bundleName || plan.id;
+                    if (!target) return;
+                    const path = `/esim/checkout/${encodeURIComponent(target)}`;
+                    if (!requireAuth({ reason: 'Sign in to buy an eSIM. KYC, payment, and your QR code will be tied to your account.', redirectAfter: path })) return;
+                    router.push(path);
+                  }}
+                >
                   <Text style={styles.buyBtnText}>Buy Now</Text>
                   <Ionicons name="arrow-forward" size={16} color="#ffffff" />
                 </TouchableOpacity>
@@ -322,7 +380,7 @@ export default function ESIMPage() {
         {/* ======= HOW IT WORKS ======= */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>How It Works</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>How It Works</Text>
           </View>
           <View style={styles.stepsContainer}>
             {HOW_IT_WORKS.map((item, idx) => (
@@ -339,13 +397,13 @@ export default function ESIMPage() {
                 </View>
 
                 {/* Step content */}
-                <View style={[styles.stepContent, shadow.sm]}>
+                <View style={[styles.stepContent, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                   <View style={styles.stepIconWrapper}>
                     <Ionicons name={item.icon} size={22} color={colors.primary[500]} />
                   </View>
                   <View style={styles.stepTextCol}>
-                    <Text style={styles.stepTitle}>{item.title}</Text>
-                    <Text style={styles.stepDesc}>{item.desc}</Text>
+                    <Text style={[styles.stepTitle, { color: themeColors.text }]}>{item.title}</Text>
+                    <Text style={[styles.stepDesc, { color: themeColors.textSecondary }]}>{item.desc}</Text>
                   </View>
                 </View>
               </View>
@@ -356,16 +414,16 @@ export default function ESIMPage() {
         {/* ======= BENEFITS ======= */}
         <View style={[styles.section, { marginBottom: spacing['4xl'] }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Why Choose eSIM?</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Why Choose eSIM?</Text>
           </View>
           <View style={styles.benefitsGrid}>
             {BENEFITS.map((b) => (
-              <View key={b.title} style={[styles.benefitCard, shadow.sm]}>
+              <View key={b.title} style={[styles.benefitCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
                 <View style={styles.benefitIconWrapper}>
                   <Ionicons name={b.icon} size={24} color={colors.primary[500]} />
                 </View>
-                <Text style={styles.benefitTitle}>{b.title}</Text>
-                <Text style={styles.benefitDesc}>{b.desc}</Text>
+                <Text style={[styles.benefitTitle, { color: themeColors.text }]}>{b.title}</Text>
+                <Text style={[styles.benefitDesc, { color: themeColors.textSecondary }]}>{b.desc}</Text>
               </View>
             ))}
           </View>
@@ -384,7 +442,17 @@ export default function ESIMPage() {
             <Text style={styles.ctaSubtitle}>
               Most phones released after 2020 support eSIM. Check your device settings or tap below.
             </Text>
-            <TouchableOpacity style={styles.ctaBtn} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.ctaBtn}
+              activeOpacity={0.8}
+              onPress={() =>
+                Toast.show({
+                  type: 'info',
+                  text1: 'eSIM compatibility',
+                  text2: 'Most phones from 2018+ support eSIM. Check Settings → About → eSIM/EID on your device.',
+                })
+              }
+            >
               <Text style={styles.ctaBtnText}>Check Compatibility</Text>
               <Ionicons name="arrow-forward" size={16} color="#ffffff" />
             </TouchableOpacity>

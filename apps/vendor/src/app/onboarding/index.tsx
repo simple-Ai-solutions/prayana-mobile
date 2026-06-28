@@ -30,6 +30,7 @@ import {
   spacing,
   borderRadius,
   shadow,
+  useTheme,
 } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
 import { businessAPI } from '@prayana/shared-services';
@@ -213,6 +214,7 @@ function maskAccountNumber(value: string): string {
 export default function OnboardingWizardScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { themeColors } = useTheme();
 
   const {
     onboardingStep,
@@ -676,8 +678,8 @@ export default function OnboardingWizardScreen() {
   const renderBusinessTypeStep = useMemo(
     () => (
       <View style={styles.stepContainer}>
-        <Text style={styles.stepTitle}>What type of business are you?</Text>
-        <Text style={styles.stepSubtitle}>
+        <Text style={[styles.stepTitle, { color: themeColors.text }]}>What type of business are you?</Text>
+        <Text style={[styles.stepSubtitle, { color: themeColors.textSecondary }]}>
           Select the category that best describes your offerings
         </Text>
 
@@ -694,30 +696,33 @@ export default function OnboardingWizardScreen() {
                 }}
                 style={[
                   styles.businessTypeCard,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                   isSelected && styles.businessTypeCardSelected,
                 ]}
               >
                 <View
                   style={[
                     styles.businessTypeIconWrapper,
+                    { backgroundColor: themeColors.inputBackground },
                     isSelected && styles.businessTypeIconWrapperSelected,
                   ]}
                 >
                   <Ionicons
                     name={type.icon}
                     size={28}
-                    color={isSelected ? colors.primary[500] : colors.textSecondary}
+                    color={isSelected ? colors.primary[500] : themeColors.textSecondary}
                   />
                 </View>
                 <Text
                   style={[
                     styles.businessTypeTitle,
+                    { color: themeColors.text },
                     isSelected && styles.businessTypeTitleSelected,
                   ]}
                 >
                   {type.title}
                 </Text>
-                <Text style={styles.businessTypeDescription}>{type.description}</Text>
+                <Text style={[styles.businessTypeDescription, { color: themeColors.textSecondary }]}>{type.description}</Text>
                 {isSelected && (
                   <View style={styles.selectedBadge}>
                     <Ionicons name="checkmark-circle" size={20} color={colors.primary[500]} />
@@ -733,7 +738,7 @@ export default function OnboardingWizardScreen() {
         )}
       </View>
     ),
-    [selectedBusinessType, errors.businessType]
+    [selectedBusinessType, errors.businessType, themeColors]
   );
 
   // ---- Step 2: Business Details ----
@@ -741,8 +746,8 @@ export default function OnboardingWizardScreen() {
   const renderBusinessDetailsStep = useMemo(
     () => (
       <View style={styles.stepContainer}>
-        <Text style={styles.stepTitle}>Business Details</Text>
-        <Text style={styles.stepSubtitle}>
+        <Text style={[styles.stepTitle, { color: themeColors.text }]}>Business Details</Text>
+        <Text style={[styles.stepSubtitle, { color: themeColors.textSecondary }]}>
           Tell us about your business so we can set up your account
         </Text>
 
@@ -843,7 +848,7 @@ export default function OnboardingWizardScreen() {
         />
       </View>
     ),
-    [businessDetails, errors, updateBusinessField]
+    [businessDetails, errors, updateBusinessField, themeColors]
   );
 
   // ---- Step 3: Document Upload ----
@@ -876,13 +881,13 @@ export default function OnboardingWizardScreen() {
                 <Ionicons
                   name={hasFile ? 'document-text' : 'cloud-upload-outline'}
                   size={20}
-                  color={hasFile ? colors.success : colors.textSecondary}
+                  color={hasFile ? colors.success : themeColors.textSecondary}
                 />
-                <Text style={styles.documentTitle}>
+                <Text style={[styles.documentTitle, { color: themeColors.text }]}>
                   {title} {required ? '*' : '(optional)'}
                 </Text>
               </View>
-              <Text style={styles.documentSubtitle}>{subtitle}</Text>
+              <Text style={[styles.documentSubtitle, { color: themeColors.textSecondary }]}>{subtitle}</Text>
             </View>
             {hasFile && (
               <View style={styles.uploadedBadge}>
@@ -893,7 +898,7 @@ export default function OnboardingWizardScreen() {
           </View>
 
           {hasFile && doc.file ? (
-            <View style={styles.filePreview}>
+            <View style={[styles.filePreview, { backgroundColor: themeColors.inputBackground }]}>
               {isImage ? (
                 <Image source={{ uri: doc.file.uri }} style={styles.thumbnailImage} />
               ) : (
@@ -902,11 +907,11 @@ export default function OnboardingWizardScreen() {
                 </View>
               )}
               <View style={styles.fileDetails}>
-                <Text style={styles.fileName} numberOfLines={1}>
+                <Text style={[styles.fileName, { color: themeColors.text }]} numberOfLines={1}>
                   {doc.file.name}
                 </Text>
                 {doc.file.size && (
-                  <Text style={styles.fileSize}>
+                  <Text style={[styles.fileSize, { color: themeColors.textTertiary }]}>
                     {(doc.file.size / 1024).toFixed(1)} KB
                   </Text>
                 )}
@@ -946,14 +951,14 @@ export default function OnboardingWizardScreen() {
         </Card>
       );
     },
-    [documents, errors, pickImage, pickDocument, removeDocument]
+    [documents, errors, pickImage, pickDocument, removeDocument, themeColors]
   );
 
   const renderDocumentUploadStep = useMemo(
     () => (
       <View style={styles.stepContainer}>
-        <Text style={styles.stepTitle}>Document Upload</Text>
-        <Text style={styles.stepSubtitle}>
+        <Text style={[styles.stepTitle, { color: themeColors.text }]}>Document Upload</Text>
+        <Text style={[styles.stepSubtitle, { color: themeColors.textSecondary }]}>
           Upload your business documents for verification. Supported formats: PDF, JPG, PNG.
         </Text>
 
@@ -979,7 +984,7 @@ export default function OnboardingWizardScreen() {
         )}
       </View>
     ),
-    [renderDocumentUploadCard]
+    [renderDocumentUploadCard, themeColors]
   );
 
   // ---- Step 4: First Activity ----
@@ -987,8 +992,8 @@ export default function OnboardingWizardScreen() {
   const renderFirstActivityStep = useMemo(
     () => (
       <View style={styles.stepContainer}>
-        <Text style={styles.stepTitle}>Your First Activity</Text>
-        <Text style={styles.stepSubtitle}>
+        <Text style={[styles.stepTitle, { color: themeColors.text }]}>Your First Activity</Text>
+        <Text style={[styles.stepSubtitle, { color: themeColors.textSecondary }]}>
           Set up a quick listing to get started. You can edit all details later.
         </Text>
 
@@ -1003,10 +1008,11 @@ export default function OnboardingWizardScreen() {
 
         {/* Category Selector */}
         <View style={styles.inputContainer}>
-          <Text style={styles.fieldLabel}>Category *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Category *</Text>
           <TouchableOpacity
             style={[
               styles.categorySelector,
+              { backgroundColor: themeColors.surface, borderColor: themeColors.border },
               errors.category ? styles.categorySelectorError : undefined,
             ]}
             onPress={() => setShowCategoryPicker(!showCategoryPicker)}
@@ -1015,7 +1021,8 @@ export default function OnboardingWizardScreen() {
             <Text
               style={[
                 styles.categorySelectorText,
-                !firstActivity.category && styles.categorySelectorPlaceholder,
+                { color: themeColors.text },
+                !firstActivity.category && { color: themeColors.textTertiary },
               ]}
             >
               {firstActivity.category || 'Select a category'}
@@ -1023,13 +1030,13 @@ export default function OnboardingWizardScreen() {
             <Ionicons
               name={showCategoryPicker ? 'chevron-up' : 'chevron-down'}
               size={20}
-              color={colors.textSecondary}
+              color={themeColors.textSecondary}
             />
           </TouchableOpacity>
           {errors.category && <Text style={styles.fieldError}>{errors.category}</Text>}
 
           {showCategoryPicker && (
-            <View style={styles.categoryDropdown}>
+            <View style={[styles.categoryDropdown, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
               {ACTIVITY_CATEGORIES.map((cat) => {
                 const isSelected = firstActivity.category === cat;
                 return (
@@ -1037,6 +1044,7 @@ export default function OnboardingWizardScreen() {
                     key={cat}
                     style={[
                       styles.categoryOption,
+                      { borderBottomColor: themeColors.border },
                       isSelected && styles.categoryOptionSelected,
                     ]}
                     onPress={() => {
@@ -1048,6 +1056,7 @@ export default function OnboardingWizardScreen() {
                     <Text
                       style={[
                         styles.categoryOptionText,
+                        { color: themeColors.text },
                         isSelected && styles.categoryOptionTextSelected,
                       ]}
                     >
@@ -1078,14 +1087,15 @@ export default function OnboardingWizardScreen() {
 
         {/* Price input with rupee prefix */}
         <View style={styles.inputContainer}>
-          <Text style={styles.fieldLabel}>Base Price (per person) *</Text>
+          <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Base Price (per person) *</Text>
           <View
             style={[
               styles.priceInputWrapper,
+              { backgroundColor: themeColors.surface, borderColor: themeColors.border },
               errors.basePrice ? styles.priceInputWrapperError : undefined,
             ]}
           >
-            <Text style={styles.currencyPrefix}>&#8377;</Text>
+            <Text style={[styles.currencyPrefix, { color: themeColors.text }]}>&#8377;</Text>
             <TextInput
               placeholder="e.g. 1500"
               value={firstActivity.basePrice}
@@ -1112,7 +1122,7 @@ export default function OnboardingWizardScreen() {
               error={errors.duration}
               keyboardType="decimal-pad"
               rightIcon={
-                <Text style={styles.unitLabel}>hrs</Text>
+                <Text style={[styles.unitLabel, { color: themeColors.textTertiary }]}>hrs</Text>
               }
             />
           </View>
@@ -1127,14 +1137,14 @@ export default function OnboardingWizardScreen() {
               error={errors.maxParticipants}
               keyboardType="number-pad"
               rightIcon={
-                <Text style={styles.unitLabel}>people</Text>
+                <Text style={[styles.unitLabel, { color: themeColors.textTertiary }]}>people</Text>
               }
             />
           </View>
         </View>
       </View>
     ),
-    [firstActivity, errors, showCategoryPicker, updateActivityField]
+    [firstActivity, errors, showCategoryPicker, updateActivityField, themeColors]
   );
 
   // ---- Step 5: Payout Setup ----
@@ -1142,8 +1152,8 @@ export default function OnboardingWizardScreen() {
   const renderPayoutSetupStep = useMemo(
     () => (
       <View style={styles.stepContainer}>
-        <Text style={styles.stepTitle}>Payout Setup</Text>
-        <Text style={styles.stepSubtitle}>
+        <Text style={[styles.stepTitle, { color: themeColors.text }]}>Payout Setup</Text>
+        <Text style={[styles.stepSubtitle, { color: themeColors.textSecondary }]}>
           Add your bank details so we can transfer your earnings securely
         </Text>
 
@@ -1183,7 +1193,7 @@ export default function OnboardingWizardScreen() {
               <Ionicons
                 name={showAccountNumber ? 'eye-off-outline' : 'eye-outline'}
                 size={20}
-                color={colors.textSecondary}
+                color={themeColors.textSecondary}
               />
             </TouchableOpacity>
           }
@@ -1232,7 +1242,7 @@ export default function OnboardingWizardScreen() {
         />
       </View>
     ),
-    [payoutDetails, errors, showAccountNumber, updatePayoutField, handleIFSCBlur]
+    [payoutDetails, errors, showAccountNumber, updatePayoutField, handleIFSCBlur, themeColors]
   );
 
   // ---- Step content switcher ----
@@ -1265,31 +1275,31 @@ export default function OnboardingWizardScreen() {
 
   if (isSubmitting) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
+      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: themeColors.background }]}>
         <LoadingSpinner size="large" message="Submitting your registration..." />
-        <Text style={styles.loadingSubtext}>This may take a moment</Text>
+        <Text style={[styles.loadingSubtext, { color: themeColors.textTertiary }]}>This may take a moment</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <View style={styles.headerTop}>
             {currentStep > 0 ? (
-              <TouchableOpacity onPress={handleBack} style={styles.backButton} activeOpacity={0.7}>
-                <Ionicons name="arrow-back" size={24} color={colors.text} />
+              <TouchableOpacity onPress={handleBack} style={[styles.backButton, { backgroundColor: themeColors.inputBackground }]} activeOpacity={0.7}>
+                <Ionicons name="arrow-back" size={24} color={themeColors.text} />
               </TouchableOpacity>
             ) : (
               <View style={styles.backButtonPlaceholder} />
             )}
-            <Text style={styles.headerTitle}>Business Registration</Text>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Business Registration</Text>
             <View style={styles.backButtonPlaceholder} />
           </View>
           <Stepper steps={STEP_LABELS} currentStep={currentStep} />
@@ -1306,7 +1316,7 @@ export default function OnboardingWizardScreen() {
         </ScrollView>
 
         {/* Bottom navigation */}
-        <View style={styles.bottomBar}>
+        <View style={[styles.bottomBar, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
           {currentStep > 0 && (
             <Button
               title="Back"

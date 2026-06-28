@@ -18,6 +18,7 @@ import {
   spacing,
   borderRadius,
   shadow,
+  useTheme,
 } from '@prayana/shared-ui';
 import Toast from 'react-native-toast-message';
 
@@ -43,24 +44,31 @@ const LINK_ITEMS: LinkItem[] = [
   {
     label: 'Terms of Service',
     icon: 'document-text-outline',
-    url: 'https://prayana.ai/terms',
+    url: 'https://prayanaai.com/terms',
     iconColor: '#3b82f6',
     iconBg: '#eff6ff',
   },
   {
     label: 'Privacy Policy',
     icon: 'shield-checkmark-outline',
-    url: 'https://prayana.ai/privacy',
+    url: 'https://prayanaai.com/privacy',
     iconColor: '#059669',
     iconBg: '#ecfdf5',
+  },
+  {
+    label: 'User Agreement',
+    icon: 'reader-outline',
+    url: 'https://prayanaai.com/user-agreement',
+    iconColor: '#7c3aed',
+    iconBg: '#f5f3ff',
   },
   {
     label: 'Rate App',
     icon: 'star-outline',
     url: Platform.select({
-      ios: 'https://apps.apple.com/app/prayana-ai',
-      android: 'https://play.google.com/store/apps/details?id=com.prayana.ai',
-      default: 'https://prayana.ai',
+      ios: 'https://apps.apple.com/app/id-REPLACE',
+      android: 'https://play.google.com/store/apps/details?id=com.prayanaai.customer',
+      default: 'https://prayanaai.com',
     }),
     iconColor: '#f59e0b',
     iconBg: '#fffbeb',
@@ -78,6 +86,7 @@ const LINK_ITEMS: LinkItem[] = [
 // ABOUT SCREEN
 // ============================================================
 export default function AboutScreen() {
+  const { themeColors, isDarkMode } = useTheme();
   // ============================================================
   // HANDLE LINK PRESS
   // ============================================================
@@ -115,7 +124,7 @@ export default function AboutScreen() {
   // ============================================================
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: themeColors.background }]}
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
@@ -129,26 +138,26 @@ export default function AboutScreen() {
         >
           <Ionicons name="airplane" size={40} color="#ffffff" />
         </LinearGradient>
-        <Text style={styles.appName}>Prayana AI</Text>
-        <Text style={styles.tagline}>Your Intelligent Journey Companion</Text>
+        <Text style={[styles.appName, { color: themeColors.text }]}>Prayana AI</Text>
+        <Text style={[styles.tagline, { color: themeColors.textSecondary }]}>Your Intelligent Journey Companion</Text>
       </View>
 
       {/* ====== VERSION INFO ====== */}
-      <Card style={styles.versionCard}>
+      <Card style={[styles.versionCard, { backgroundColor: themeColors.card }]}>
         <View style={styles.versionRow}>
           <View style={styles.versionInfo}>
-            <Text style={styles.versionLabel}>Version</Text>
-            <Text style={styles.versionValue}>{APP_VERSION}</Text>
+            <Text style={[styles.versionLabel, { color: themeColors.textSecondary }]}>Version</Text>
+            <Text style={[styles.versionValue, { color: themeColors.text }]}>{APP_VERSION}</Text>
           </View>
-          <View style={styles.versionDivider} />
+          <View style={[styles.versionDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.versionInfo}>
-            <Text style={styles.versionLabel}>Build</Text>
-            <Text style={styles.versionValue}>{BUILD_NUMBER}</Text>
+            <Text style={[styles.versionLabel, { color: themeColors.textSecondary }]}>Build</Text>
+            <Text style={[styles.versionValue, { color: themeColors.text }]}>{BUILD_NUMBER}</Text>
           </View>
-          <View style={styles.versionDivider} />
+          <View style={[styles.versionDivider, { backgroundColor: themeColors.border }]} />
           <View style={styles.versionInfo}>
-            <Text style={styles.versionLabel}>Platform</Text>
-            <Text style={styles.versionValue}>
+            <Text style={[styles.versionLabel, { color: themeColors.textSecondary }]}>Platform</Text>
+            <Text style={[styles.versionValue, { color: themeColors.text }]}>
               {Platform.OS === 'ios' ? 'iOS' : 'Android'}
             </Text>
           </View>
@@ -156,9 +165,9 @@ export default function AboutScreen() {
       </Card>
 
       {/* ====== DESCRIPTION ====== */}
-      <Card style={styles.descriptionCard}>
-        <Text style={styles.descriptionTitle}>About Prayana AI</Text>
-        <Text style={styles.descriptionText}>
+      <Card style={[styles.descriptionCard, { backgroundColor: themeColors.card }]}>
+        <Text style={[styles.descriptionTitle, { color: themeColors.text }]}>About Prayana AI</Text>
+        <Text style={[styles.descriptionText, { color: themeColors.textSecondary }]}>
           Prayana AI is your intelligent travel companion, powered by advanced AI to
           help you plan unforgettable trips. From discovering hidden gems to
           building day-by-day itineraries, booking activities, and collaborating
@@ -179,20 +188,21 @@ export default function AboutScreen() {
                 size={18}
                 color={colors.primary[500]}
               />
-              <Text style={styles.featureText}>{feature}</Text>
+              <Text style={[styles.featureText, { color: themeColors.text }]}>{feature}</Text>
             </View>
           ))}
         </View>
       </Card>
 
       {/* ====== LINKS ====== */}
-      <Card style={styles.linksCard}>
+      <Card style={[styles.linksCard, { backgroundColor: themeColors.card }]}>
         {LINK_ITEMS.map((item, index) => (
           <TouchableOpacity
             key={item.label}
             style={[
               styles.linkItem,
               index < LINK_ITEMS.length - 1 && styles.linkItemBorder,
+              index < LINK_ITEMS.length - 1 && { borderBottomColor: themeColors.border },
             ]}
             onPress={() => handleLinkPress(item)}
             activeOpacity={0.7}
@@ -206,12 +216,12 @@ export default function AboutScreen() {
               >
                 <Ionicons name={item.icon} size={20} color={item.iconColor} />
               </View>
-              <Text style={styles.linkLabel}>{item.label}</Text>
+              <Text style={[styles.linkLabel, { color: themeColors.text }]}>{item.label}</Text>
             </View>
             <Ionicons
               name="open-outline"
               size={18}
-              color={colors.textTertiary}
+              color={themeColors.textTertiary}
             />
           </TouchableOpacity>
         ))}
@@ -230,7 +240,7 @@ export default function AboutScreen() {
             <Text style={styles.aiBadgeText}>Simple AI Solutions</Text>
           </LinearGradient>
         </View>
-        <Text style={styles.copyrightText}>
+        <Text style={[styles.copyrightText, { color: themeColors.textTertiary }]}>
           {'\u00A9'} 2024-2026 Prayana AI. All rights reserved.
         </Text>
       </View>

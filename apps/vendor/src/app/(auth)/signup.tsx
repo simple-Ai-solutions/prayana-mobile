@@ -14,11 +14,13 @@ import {
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@prayana/shared-hooks';
+import { useTheme } from '@prayana/shared-ui';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { auth } from '@prayana/shared-services/src/firebase';
+import { auth } from '@prayana/shared-services';
 
 export default function SignupScreen() {
   const { setUser, setIsAuthenticated } = useAuth();
+  const { themeColors } = useTheme();
   const [businessName, setBusinessName] = useState('');
   const [contactName, setContactName] = useState('');
   const [email, setEmail] = useState('');
@@ -97,7 +99,7 @@ export default function SignupScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -110,13 +112,13 @@ export default function SignupScreen() {
           {/* Header */}
           <View style={styles.headerSection}>
             <TouchableOpacity
-              style={styles.backButton}
+              style={[styles.backButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
               onPress={() => router.back()}
             >
-              <Text style={styles.backArrow}>&#8592;</Text>
+              <Text style={[styles.backArrow, { color: themeColors.text }]}>&#8592;</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Register Your Business</Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Register Your Business</Text>
+            <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
               Join Prayana Business and start listing your activities
             </Text>
           </View>
@@ -124,11 +126,11 @@ export default function SignupScreen() {
           {/* Form */}
           <View style={styles.formSection}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Business Name</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Business Name</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                 placeholder="e.g., Hampi Adventure Tours"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={themeColors.textTertiary}
                 value={businessName}
                 onChangeText={setBusinessName}
                 autoCapitalize="words"
@@ -137,11 +139,11 @@ export default function SignupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Contact Name</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Contact Name</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                 placeholder="Your full name"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={themeColors.textTertiary}
                 value={contactName}
                 onChangeText={setContactName}
                 autoCapitalize="words"
@@ -150,11 +152,11 @@ export default function SignupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                 placeholder="business@example.com"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={themeColors.textTertiary}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -165,11 +167,11 @@ export default function SignupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Phone</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Phone</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                 placeholder="+91 98765 43210"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={themeColors.textTertiary}
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
@@ -178,12 +180,12 @@ export default function SignupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Password</Text>
-              <View style={styles.passwordContainer}>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Password</Text>
+              <View style={[styles.passwordContainer, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
                 <TextInput
-                  style={styles.passwordInput}
+                  style={[styles.passwordInput, { color: themeColors.text }]}
                   placeholder="At least 6 characters"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={themeColors.textTertiary}
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={!showPassword}
@@ -202,11 +204,11 @@ export default function SignupScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Confirm Password</Text>
+              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Confirm Password</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
                 placeholder="Re-enter your password"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={themeColors.textTertiary}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showPassword}
@@ -228,7 +230,7 @@ export default function SignupScreen() {
               )}
             </TouchableOpacity>
 
-            <Text style={styles.noteText}>
+            <Text style={[styles.noteText, { color: themeColors.textTertiary }]}>
               After registration, you'll complete your business onboarding to
               start listing activities.
             </Text>
@@ -236,7 +238,7 @@ export default function SignupScreen() {
 
           {/* Footer */}
           <View style={styles.footerSection}>
-            <Text style={styles.footerText}>Already registered? </Text>
+            <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>Already registered? </Text>
             <TouchableOpacity onPress={() => router.back()}>
               <Text style={styles.footerLink}>Sign In</Text>
             </TouchableOpacity>

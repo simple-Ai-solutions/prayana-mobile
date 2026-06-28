@@ -19,6 +19,7 @@ import {
   spacing,
   shadow,
   borderRadius,
+  useTheme,
 } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { createTripAPI } from '@prayana/shared-services';
@@ -74,9 +75,10 @@ const TEMPLATES = [
 export default function CreateTripScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const resetTrip = useCreateTripStore((s) => s.resetTrip);
+  const { themeColors } = useTheme();
+  const resetTrip = useCreateTripStore((s: any) => s.resetTrip);
 
-  const [recentDrafts, setRecentDrafts] = useState([]);
+  const [recentDrafts, setRecentDrafts] = useState<any[]>([]);
   const [loadingDrafts, setLoadingDrafts] = useState(false);
 
   // --- Fetch recent drafts ---
@@ -93,8 +95,8 @@ export default function CreateTripScreen() {
         );
         setRecentDrafts(drafts.slice(0, 2));
       }
-    } catch (err) {
-      console.warn('[CreateTrip] Failed to fetch drafts:', err.message);
+    } catch (err: any) {
+      console.warn('[CreateTrip] Failed to fetch drafts:', err?.message);
     } finally {
       setLoadingDrafts(false);
     }
@@ -106,8 +108,8 @@ export default function CreateTripScreen() {
 
   // --- Handle template selection ---
   const handleTemplatePress = useCallback(
-    (template) => {
-      const store = useCreateTripStore.getState();
+    (template: any) => {
+      const store: any = useCreateTripStore.getState();
       store.resetTrip();
       store.setName(template.name);
       store.setBudget(template.budget);
@@ -125,7 +127,7 @@ export default function CreateTripScreen() {
 
   // --- Handle continue draft ---
   const handleContinueDraft = useCallback(
-    (draft) => {
+    (draft: any) => {
       const id = draft._id || draft.tripId;
       if (id) {
         router.push(`/trip/${id}`);
@@ -135,7 +137,7 @@ export default function CreateTripScreen() {
   );
 
   // --- Format date ---
-  const formatDate = useCallback((dateStr) => {
+  const formatDate = useCallback((dateStr: string | null | undefined) => {
     if (!dateStr) return '';
     return new Date(dateStr).toLocaleDateString('en-US', {
       month: 'short',
@@ -144,12 +146,12 @@ export default function CreateTripScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* ======= HEADER ======= */}
         <View style={styles.header}>
-          <Text style={styles.title}>Create a Trip</Text>
-          <Text style={styles.subtitle}>Plan your perfect journey with AI</Text>
+          <Text style={[styles.title, { color: themeColors.text }]}>Trip Planner</Text>
+          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Plan your perfect journey with AI</Text>
         </View>
 
         {/* ======= START NEW TRIP CTA ======= */}
@@ -177,14 +179,14 @@ export default function CreateTripScreen() {
 
         {/* ======= TEMPLATES SECTION ======= */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Start from a Template</Text>
-          <Text style={styles.sectionSubtitle}>Pick a template and customize it your way</Text>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Start from a Template</Text>
+          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>Pick a template and customize it your way</Text>
 
           <View style={styles.templateGrid}>
             {TEMPLATES.map((template) => (
               <TouchableOpacity
                 key={template.id}
-                style={[styles.templateCard, shadow.sm]}
+                style={[styles.templateCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                 activeOpacity={0.85}
                 onPress={() => handleTemplatePress(template)}
               >
@@ -197,10 +199,10 @@ export default function CreateTripScreen() {
                   <Text style={styles.templateEmoji}>{template.emoji}</Text>
                 </LinearGradient>
                 <View style={styles.templateInfo}>
-                  <Text style={styles.templateName} numberOfLines={1}>
+                  <Text style={[styles.templateName, { color: themeColors.text }]} numberOfLines={1}>
                     {template.name}
                   </Text>
-                  <Text style={styles.templateMeta}>
+                  <Text style={[styles.templateMeta, { color: themeColors.textTertiary }]}>
                     {template.duration} &middot;{' '}
                     {template.budget.charAt(0).toUpperCase() + template.budget.slice(1)}
                   </Text>
@@ -220,8 +222,8 @@ export default function CreateTripScreen() {
           </View>
         ) : recentDrafts.length > 0 ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Continue Planning</Text>
-            <Text style={styles.sectionSubtitle}>Pick up where you left off</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Continue Planning</Text>
+            <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>Pick up where you left off</Text>
 
             {recentDrafts.map((draft, idx) => {
               const destCount = draft.destinations?.length || 0;
@@ -233,7 +235,7 @@ export default function CreateTripScreen() {
               return (
                 <TouchableOpacity
                   key={draft._id || draft.tripId || String(idx)}
-                  style={[styles.draftCard, shadow.sm]}
+                  style={[styles.draftCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
                   activeOpacity={0.85}
                   onPress={() => handleContinueDraft(draft)}
                 >
@@ -246,10 +248,10 @@ export default function CreateTripScreen() {
                     </LinearGradient>
                   </View>
                   <View style={styles.draftInfo}>
-                    <Text style={styles.draftName} numberOfLines={1}>
+                    <Text style={[styles.draftName, { color: themeColors.text }]} numberOfLines={1}>
                       {draft.name || 'Untitled Trip'}
                     </Text>
-                    <Text style={styles.draftMeta}>
+                    <Text style={[styles.draftMeta, { color: themeColors.textTertiary }]}>
                       {dateRange}
                       {destCount > 0 ? ` \u00B7 ${destCount} dest${destCount !== 1 ? 's' : ''}` : ''}
                     </Text>

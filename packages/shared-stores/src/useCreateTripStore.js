@@ -153,7 +153,9 @@ const useCreateTripStore = create()(
         addExpense: (expense) => {
           const state = get();
           const newExpense = {
-            id: Date.now().toString(),
+            // Collision-proof id: Date.now() alone collides for two expenses
+            // added in the same millisecond (delete-one-removes-both + dup React keys).
+            id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             date: new Date().toISOString(),
             ...expense,
           };

@@ -8,11 +8,20 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
   signOut,
-  PhoneAuthProvider,
-  signInWithCredential,
-  RecaptchaVerifier,
+  signInWithCustomToken,
 } from 'firebase/auth';
-import { auth, setAuthTokenProvider, syncUserWithBackend, fetchUserProfile, updateUserProfile as updateProfileAPI } from '@prayana/shared-services';
+import {
+  auth,
+  setAuthTokenProvider,
+  syncUserWithBackend,
+  fetchUserProfile,
+  updateUserProfile as updateProfileAPI,
+  sendPhoneOtp,
+  verifyPhoneOtp,
+  linkPhoneToAccount,
+  sendEmailOtp,
+  verifyEmailOtp,
+} from '@prayana/shared-services';
 
 // ---------------------------------------------------------------------------
 // Context
@@ -190,48 +199,124 @@ export function AuthProvider({ children }) {
   }, [syncWithBackend]);
 
   /**
-   * Start phone number sign-in. Returns a confirmation result whose
-   * `.confirm(code)` method completes the flow, but we also expose
-   * `verifyOTP` as a convenience.
-   *
-   * NOTE: Phone auth with the JS SDK in React Native requires a
-   * RecaptchaVerifier, which needs a web view. For production, consider
-   * using expo-auth-session or a custom backend phone auth flow.
+   * Start phone number sign-in via the backend SMS cascade
+   * (MSG91 → 2Factor SMS → 2Factor Voice → WhatsApp).
+   * No reCAPTCHA, no Firebase phone auth — server-side OTP only.
    *
    * @param {string} phoneNumber - E.164 format (e.g., "+919876543210")
-   * @param {Object} recaptchaVerifier - A RecaptchaVerifier instance (must be set up in the calling component)
-   * @returns {Promise<Object>} Confirmation result with `.verificationId`
+   * @returns {Promise<{success: boolean, message?: string}>}
    */
-  const loginWithPhone = useCallback(async (phoneNumber, recaptchaVerifier) => {
+  const loginWithPhone = useCallback(async (phoneNumber) => {
     setError(null);
     try {
-      const provider = new PhoneAuthProvider(auth);
-      const verificationId = await provider.verifyPhoneNumber(phoneNumber, recaptchaVerifier);
-      return { verificationId };
+      const resp = await sendPhoneOtp(phoneNumber);
+      if (!resp?.success) {
+        const msg = resp?.message || 'Failed to send OTP';
+        setError(msg);
+        return { success: false, error: msg };
+      }
+      return { success: true, message: resp.message };
     } catch (err) {
       setError(err.message);
-      throw err;
+      return { success: false, error: err.message };
     }
   }, []);
 
   /**
    * Complete phone auth by verifying the OTP code.
-   * @param {string} verificationId - From loginWithPhone result
+   * Backend returns a Firebase custom token; we sign in with that.
+   *
+   * @param {string} phoneNumber
    * @param {string} code - The 6-digit OTP code
-   * @returns {Promise<Object>} Firebase user
+   * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
    */
-  const verifyOTP = useCallback(async (verificationId, code) => {
+  const verifyOTP = useCallback(async (phoneNumber, code) => {
     setError(null);
     try {
-      const credential = PhoneAuthProvider.credential(verificationId, code);
-      const result = await signInWithCredential(auth, credential);
-      await syncWithBackend(result.user, 'phone');
-      return result.user;
+      const resp = await verifyPhoneOtp(phoneNumber, code);
+      if (!resp?.success) {
+        const msg = resp?.message || 'Invalid OTP';
+        setError(msg);
+        return { success: false, error: msg };
+      }
+      if (resp.customToken) {
+        await signInWithCustomToken(auth, resp.customToken);
+      }
+      // Backend has already synced the user — but kick off a refresh anyway so
+      // backendUser state is current.
+      if (auth.currentUser) {
+        await syncWithBackend(auth.currentUser, 'phone');
+      }
+      return { success: true, user: auth.currentUser, userData: resp.user };
     } catch (err) {
       setError(err.message);
-      throw err;
+      return { success: false, error: err.message };
     }
   }, [syncWithBackend]);
+
+  /**
+   * Send email OTP for passwordless email login.
+   */
+  const sendLoginEmailOtp = useCallback(async (email, name) => {
+    setError(null);
+    try {
+      const resp = await sendEmailOtp(email, name);
+      return resp?.success
+        ? { success: true, message: resp.message }
+        : { success: false, error: resp?.message || 'Failed to send OTP' };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  }, []);
+
+  /**
+   * Verify email OTP and sign into Firebase.
+   */
+  const verifyEmailLogin = useCallback(async (email, otp, name) => {
+    setError(null);
+    try {
+      const resp = await verifyEmailOtp(email, otp, name);
+      if (!resp?.success) {
+        return { success: false, error: resp?.message || 'Invalid OTP', code: resp?.code };
+      }
+      if (resp.customToken) {
+        await signInWithCustomToken(auth, resp.customToken);
+      }
+      if (auth.currentUser) {
+        await syncWithBackend(auth.currentUser, 'email-otp');
+      }
+      return { success: true, user: auth.currentUser, userData: resp.user };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  }, [syncWithBackend]);
+
+  /**
+   * Link a verified phone to the currently signed-in user. The user must already be authenticated;
+   * the OTP must have been requested via loginWithPhone right before this call.
+   */
+  const linkPhone = useCallback(async (phoneNumber, otp) => {
+    setError(null);
+    try {
+      const resp = await linkPhoneToAccount(phoneNumber, otp);
+      return resp?.success
+        ? { success: true, user: resp.user }
+        : { success: false, error: resp?.message, code: resp?.code };
+    } catch (err) {
+      setError(err.message);
+      return { success: false, error: err.message };
+    }
+  }, []);
+
+  /**
+   * Link a verified email to the currently signed-in user. Same backend route as login,
+   * but called with auth header → backend treats as link.
+   */
+  const linkEmail = useCallback(async (email, otp, name) => {
+    return verifyEmailLogin(email, otp, name);
+  }, [verifyEmailLogin]);
 
   /**
    * Google sign-in placeholder.
@@ -334,6 +419,10 @@ export function AuthProvider({ children }) {
     signUpWithEmail,
     loginWithPhone,
     verifyOTP,
+    sendLoginEmailOtp,
+    verifyEmailLogin,
+    linkPhone,
+    linkEmail,
     loginWithGoogle,
     logout,
     getIdToken,

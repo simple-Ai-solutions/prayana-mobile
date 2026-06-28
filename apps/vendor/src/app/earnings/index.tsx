@@ -23,7 +23,7 @@ import {
   borderRadius,
   shadow,
 } from '@prayana/shared-ui';
-import { makeAPICall, businessAPI } from '@prayana/shared-services';
+import { makeAPICall, businessAPI, payoutAPI } from '@prayana/shared-services';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -55,7 +55,13 @@ const PAYOUT_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
 
 // ─── Payout Item ──────────────────────────────────────────────────────────────
 
-function PayoutItem({ payout }: { payout: EarningsData['payoutHistory'][0] }) {
+function PayoutItem({
+  payout,
+  onPress,
+}: {
+  payout: EarningsData['payoutHistory'][0];
+  onPress?: () => void;
+}) {
   const statusColor = PAYOUT_STATUS_COLORS[payout.status] || PAYOUT_STATUS_COLORS.pending;
   const date = new Date(payout.createdAt).toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -64,7 +70,12 @@ function PayoutItem({ payout }: { payout: EarningsData['payoutHistory'][0] }) {
   });
 
   return (
-    <View style={styles.payoutItem}>
+    <TouchableOpacity
+      style={styles.payoutItem}
+      activeOpacity={0.7}
+      onPress={onPress}
+      disabled={!onPress}
+    >
       <View style={styles.payoutLeft}>
         <View style={[styles.payoutIcon, { backgroundColor: statusColor.bg }]}>
           <Ionicons
@@ -96,7 +107,7 @@ function PayoutItem({ payout }: { payout: EarningsData['payoutHistory'][0] }) {
           {payout.status.charAt(0).toUpperCase() + payout.status.slice(1)}
         </Text>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -114,25 +125,41 @@ export default function EarningsScreen() {
   const fetchEarnings = useCallback(async () => {
     if (!businessAccount?._id) return;
     try {
-      // Fetch dashboard for earnings data
-      const res = await businessAPI.getDashboard();
-      const d = res?.data || res?.dashboard || res;
+      // Prefer the richer /payouts/business/* endpoints over /business/dashboard.
+      // Run in parallel to keep the screen snappy on first load.
+      const [summaryRes, historyRes, payoutCfgRes] = await Promise.all([
+        payoutAPI.getPayoutSummary().catch(() => null),
+        payoutAPI.getPayoutHistory({ limit: 30 }).catch(() => null),
+        businessAPI.getPayoutConfig().catch(() => null),
+      ]);
 
-      // Also try payout config
-      let bankInfo = null;
-      try {
-        const payoutRes = await businessAPI.getPayoutConfig();
-        bankInfo = payoutRes?.data || payoutRes;
-      } catch (_) {
-        // Payout config may not exist yet
+      const summary = summaryRes?.data || summaryRes;
+      const history = historyRes?.data || historyRes?.payouts || [];
+      const bank = payoutCfgRes?.data?.bankAccount || payoutCfgRes?.bankAccount;
+
+      // Fallback: use /business/dashboard if summary endpoint hasn't shipped yet.
+      if (!summary) {
+        const dashRes = await businessAPI.getDashboard();
+        const d = dashRes?.data || dashRes?.dashboard || dashRes;
+        setData({
+          availableBalance: d?.earnings?.available ?? d?.availableBalance ?? 0,
+          pendingPayouts: d?.earnings?.pending ?? d?.pendingPayouts ?? 0,
+          totalEarnings: d?.earnings?.total ?? d?.totalEarnings ?? d?.monthlyRevenue ?? 0,
+          bankAccount: bank || null,
+          payoutHistory: history.length ? history : (d?.payoutHistory || []),
+        });
+        return;
       }
 
       setData({
-        availableBalance: d?.earnings?.available ?? d?.availableBalance ?? 0,
-        pendingPayouts: d?.earnings?.pending ?? d?.pendingPayouts ?? 0,
-        totalEarnings: d?.earnings?.total ?? d?.totalEarnings ?? d?.monthlyRevenue ?? 0,
-        bankAccount: bankInfo?.bankAccount || bankInfo?.payoutDetails || null,
-        payoutHistory: d?.payoutHistory || [],
+        availableBalance:
+          summary?.availableBalance ?? summary?.balances?.available ?? 0,
+        pendingPayouts:
+          summary?.pendingPayouts ?? summary?.balances?.pending ?? 0,
+        totalEarnings:
+          summary?.totalEarnings ?? summary?.totalEarned ?? summary?.lifetime?.gross ?? 0,
+        bankAccount: bank || null,
+        payoutHistory: history,
       });
     } catch (err) {
       console.warn('[Earnings] fetch error:', err);
@@ -282,7 +309,10 @@ export default function EarningsScreen() {
               <Card padding="sm">
                 {data.payoutHistory.map((payout, i) => (
                   <React.Fragment key={payout._id}>
-                    <PayoutItem payout={payout} />
+                    <PayoutItem
+                      payout={payout}
+                      onPress={() => router.push(`/earnings/${payout._id}`)}
+                    />
                     {i < data.payoutHistory.length - 1 && <View style={styles.divider} />}
                   </React.Fragment>
                 ))}

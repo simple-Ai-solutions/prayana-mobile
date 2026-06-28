@@ -18,6 +18,19 @@ dist/
 *.mobileprovision
 *.orig.*
 
+# Native build artifacts
+ios/
+android/
+
+# Firebase / Google service config (per-app, contains keys)
+**/GoogleService-Info.plist
+**/google-services.json
+
+# Apple/Play Store credentials
+keystores/
+*.keystore
+play-store-service-account*.json
+
 # Metro
 .metro-health-check*
 

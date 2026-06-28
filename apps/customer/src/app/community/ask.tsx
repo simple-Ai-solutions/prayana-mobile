@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, fontSize, fontWeight, spacing, borderRadius } from "@prayana/shared-ui";
+import { colors, fontSize, fontWeight, spacing, borderRadius, useTheme } from "@prayana/shared-ui";
 import { communityAPI } from "@prayana/shared-services";
 
 const CATEGORIES = [
@@ -35,6 +35,7 @@ type ImageRecord = { url: string; s3Key: string; mimeType?: string; visionTags?:
 
 export default function AskScreen() {
   const router = useRouter();
+  const { themeColors } = useTheme();
   const params = useLocalSearchParams<{
     destination?: string;
     category?: string;
@@ -155,26 +156,27 @@ export default function AskScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={colors.gray[700]} />
+          <Ionicons name="arrow-back" size={20} color={themeColors.textSecondary} />
         </TouchableOpacity>
-        <Text style={styles.title}>Ask a Question</Text>
+        <Text style={[styles.title, { color: themeColors.text }]}>Ask a Question</Text>
         <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
-          <Text style={styles.label}>Question title</Text>
+          <Text style={[styles.label, { color: themeColors.text }]}>Question title</Text>
           <TextInput
             value={title}
             onChangeText={setTitle}
             placeholder="e.g. Best month to visit Hampi for photography?"
-            style={styles.input}
+            placeholderTextColor={themeColors.textTertiary}
+            style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
             maxLength={200}
           />
-          <Text style={styles.counter}>{title.length}/200</Text>
+          <Text style={[styles.counter, { color: themeColors.textTertiary }]}>{title.length}/200</Text>
         </View>
 
         {similar.length > 0 && (
@@ -199,19 +201,20 @@ export default function AskScreen() {
         )}
 
         <View style={styles.field}>
-          <Text style={styles.label}>Details (optional)</Text>
+          <Text style={[styles.label, { color: themeColors.text }]}>Details (optional)</Text>
           <TextInput
             value={description}
             onChangeText={setDescription}
             placeholder="Add context, dates, what you've already tried…"
-            style={[styles.input, styles.textarea]}
+            placeholderTextColor={themeColors.textTertiary}
+            style={[styles.input, styles.textarea, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
             multiline
             maxLength={5000}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Category</Text>
+          <Text style={[styles.label, { color: themeColors.text }]}>Category</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
             {CATEGORIES.map((c) => {
               const active = category === c.value;
@@ -219,9 +222,9 @@ export default function AskScreen() {
                 <TouchableOpacity
                   key={c.value}
                   onPress={() => setCategory(c.value)}
-                  style={[styles.catChip, active && styles.catChipActive]}
+                  style={[styles.catChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, active && styles.catChipActive]}
                 >
-                  <Text style={[styles.catChipText, active && styles.catChipTextActive]}>
+                  <Text style={[styles.catChipText, { color: themeColors.textSecondary }, active && styles.catChipTextActive]}>
                     {c.label}
                   </Text>
                 </TouchableOpacity>
@@ -231,17 +234,18 @@ export default function AskScreen() {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Tags (comma-separated)</Text>
+          <Text style={[styles.label, { color: themeColors.text }]}>Tags (comma-separated)</Text>
           <TextInput
             value={tagInput}
             onChangeText={setTagInput}
             placeholder="hampi, karnataka, photography"
-            style={styles.input}
+            placeholderTextColor={themeColors.textTertiary}
+            style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
           />
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Photos (optional, max 4)</Text>
+          <Text style={[styles.label, { color: themeColors.text }]}>Photos (optional, max 4)</Text>
           <View style={styles.imageGrid}>
             {images.map((img, i) => (
               <View key={img.s3Key} style={styles.imageThumbWrap}>
@@ -256,14 +260,14 @@ export default function AskScreen() {
             ))}
             {images.length < 4 && (
               <TouchableOpacity
-                style={[styles.imageThumb, styles.imageAdd]}
+                style={[styles.imageThumb, styles.imageAdd, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}
                 onPress={pickImage}
                 disabled={uploadingImage}
               >
                 {uploadingImage ? (
-                  <ActivityIndicator color={colors.brand[500]} />
+                  <ActivityIndicator color={colors.primary[500]} />
                 ) : (
-                  <Ionicons name="add" size={24} color={colors.gray[400]} />
+                  <Ionicons name="add" size={24} color={themeColors.textTertiary} />
                 )}
               </TouchableOpacity>
             )}
@@ -274,10 +278,10 @@ export default function AskScreen() {
           onPress={() => setIsAnonymous(!isAnonymous)}
           style={styles.checkboxRow}
         >
-          <View style={[styles.checkbox, isAnonymous && styles.checkboxChecked]}>
+          <View style={[styles.checkbox, { borderColor: themeColors.border }, isAnonymous && styles.checkboxChecked]}>
             {isAnonymous && <Ionicons name="checkmark" size={14} color="white" />}
           </View>
-          <Text style={styles.checkboxLabel}>Ask anonymously (your name won't be shown)</Text>
+          <Text style={[styles.checkboxLabel, { color: themeColors.textSecondary }]}>Ask anonymously (your name won't be shown)</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -337,9 +341,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999,
     backgroundColor: "white", borderWidth: 1, borderColor: colors.gray[200],
   },
-  catChipActive: { backgroundColor: colors.brand[100], borderColor: colors.brand[300] },
+  catChipActive: { backgroundColor: colors.primary[100], borderColor: colors.primary[300] },
   catChipText: { fontSize: 11, color: colors.gray[700] },
-  catChipTextActive: { color: colors.brand[700], fontWeight: fontWeight.semibold as any },
+  catChipTextActive: { color: colors.primary[700], fontWeight: fontWeight.semibold as any },
   imageGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   imageThumb: {
     width: 72, height: 72, borderRadius: borderRadius.md,
@@ -357,14 +361,14 @@ const styles = StyleSheet.create({
     width: 18, height: 18, borderRadius: 4, borderWidth: 2,
     borderColor: colors.gray[300], alignItems: "center", justifyContent: "center",
   },
-  checkboxChecked: { backgroundColor: colors.brand[500], borderColor: colors.brand[500] },
+  checkboxChecked: { backgroundColor: colors.primary[500], borderColor: colors.primary[500] },
   checkboxLabel: { fontSize: fontSize.sm, color: colors.gray[700] },
   submitBtn: {
     marginTop: spacing.md,
-    backgroundColor: colors.brand[500],
+    backgroundColor: colors.primary[500],
     borderRadius: borderRadius.md,
     paddingVertical: spacing.md,
     alignItems: "center",
   },
-  submitText: { color: "white", fontWeight: fontWeight.semibold as any, fontSize: fontSize.base },
+  submitText: { color: "white", fontWeight: fontWeight.semibold as any, fontSize: fontSize.md },
 });

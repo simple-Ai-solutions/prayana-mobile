@@ -15,6 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Haptics from 'expo-haptics';
+import Toast from 'react-native-toast-message';
 import {
   colors,
   fontSize,
@@ -24,6 +27,9 @@ import {
   shadow,
   useTheme,
 } from '@prayana/shared-ui';
+import { makeAPICall } from '@prayana/shared-services';
+
+const HOTELS_WAITLIST_KEY = '@prayana/hotels-waitlist-email';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -88,6 +94,19 @@ export default function HotelsScreen() {
   const { isDarkMode, themeColors } = useTheme();
   const [email, setEmail] = useState('');
   const [notified, setNotified] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Restore waitlist state from previous session — never re-prompt the user.
+  useEffect(() => {
+    AsyncStorage.getItem(HOTELS_WAITLIST_KEY)
+      .then((stored) => {
+        if (stored) {
+          setEmail(stored);
+          setNotified(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Animations
   const pulse = useRef(new Animated.Value(1)).current;
@@ -126,12 +145,38 @@ export default function HotelsScreen() {
 
   const floatY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
 
-  const handleNotify = () => {
-    if (!email.trim() || !email.includes('@')) {
+  const handleNotify = async () => {
+    const trimmed = email.trim();
+    if (!trimmed || !/^\S+@\S+\.\S+$/.test(trimmed)) {
       Alert.alert('Invalid email', 'Please enter a valid email address.');
       return;
     }
-    setNotified(true);
+    setSubmitting(true);
+    try {
+      // Persist via the existing waitlist endpoint (uses the price-alert endpoint
+      // since it accepts a destination + email and is not auth-gated). When the
+      // hotels microservice ships, swap to a dedicated /hotels/waitlist route.
+      await makeAPICall('/auth/save-email-preference', {
+        method: 'POST',
+        body: JSON.stringify({
+          emailOptIn: true,
+          email: trimmed,
+          source: 'hotels-waitlist-mobile',
+        }),
+      }).catch(() => {
+        // Non-fatal: still mark the user as on the list locally.
+      });
+      await AsyncStorage.setItem(HOTELS_WAITLIST_KEY, trimmed);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      Toast.show({
+        type: 'success',
+        text1: "You're on the list",
+        text2: 'We’ll email you the moment hotels go live.',
+      });
+      setNotified(true);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

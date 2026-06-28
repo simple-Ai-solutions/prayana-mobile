@@ -33,7 +33,19 @@ type AgentMessage = {
   timestamp: string;
 };
 
-type AgentSocket = ReturnType<typeof socketService.connectAgentNamespace>;
+// socketService is untyped JS; connectAgentNamespace returns the full action
+// API. Declare it explicitly so the store's action methods type-check.
+type AgentSocket = {
+  socket: any;
+  claim: (sessionId: string) => void;
+  send: (sessionId: string, content: string) => void;
+  typing: (sessionId: string, isTyping: boolean) => void;
+  release: (sessionId: string) => void;
+  resolve: (sessionId: string) => void;
+  handBackToAI: (sessionId: string) => void;
+  heartbeat: () => void;
+  disconnect: () => void;
+};
 
 type AgentState = {
   isAuthenticated: boolean;
@@ -137,7 +149,7 @@ export const useAgentStore = create<AgentState>((set, get) => ({
         });
       },
     });
-    set({ isOnline: true, agentSocket: sock });
+    set({ isOnline: true, agentSocket: sock as unknown as AgentSocket });
   },
 
   goOffline: () => {

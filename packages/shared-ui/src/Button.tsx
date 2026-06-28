@@ -6,8 +6,10 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
+  StyleProp,
 } from 'react-native';
 import { colors, borderRadius, fontSize, fontWeight, spacing } from './theme';
+import { useTheme } from './ThemeProvider';
 
 interface ButtonProps {
   title: string;
@@ -17,8 +19,8 @@ interface ButtonProps {
   loading?: boolean;
   disabled?: boolean;
   icon?: React.ReactNode;
-  style?: ViewStyle;
-  textStyle?: TextStyle;
+  style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   fullWidth?: boolean;
 }
 
@@ -35,6 +37,7 @@ export function Button({
   fullWidth = false,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const { themeColors } = useTheme();
 
   return (
     <TouchableOpacity
@@ -44,6 +47,7 @@ export function Button({
       style={[
         styles.base,
         styles[variant],
+        variant === 'secondary' && { backgroundColor: themeColors.backgroundSecondary },
         styles[`size_${size}`],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
@@ -62,6 +66,7 @@ export function Button({
             style={[
               styles.text,
               styles[`text_${variant}`],
+              variant === 'secondary' && { color: themeColors.text },
               styles[`textSize_${size}`],
               icon ? { marginLeft: spacing.sm } : undefined,
               textStyle,

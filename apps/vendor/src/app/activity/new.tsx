@@ -25,6 +25,7 @@ import {
   spacing,
   borderRadius,
   shadow,
+  useTheme,
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI } from '@prayana/shared-services';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
@@ -68,10 +69,11 @@ const MAX_IMAGES = 8;
 // ─── Section Header ──────────────────────────────────────────────────────────
 
 function SectionHeader({ title, icon }: { title: string; icon: keyof typeof Ionicons.glyphMap }) {
+  const { themeColors } = useTheme();
   return (
     <View style={styles.sectionHeader}>
       <Ionicons name={icon} size={20} color={colors.primary[500]} />
-      <Text style={styles.sectionTitle}>{title}</Text>
+      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{title}</Text>
     </View>
   );
 }
@@ -89,6 +91,7 @@ function ChipSelector({
   onToggle: (val: string) => void;
   multi?: boolean;
 }) {
+  const { themeColors } = useTheme();
   const isSelected = (val: string) =>
     multi ? (selected as string[]).includes(val) : selected === val;
 
@@ -97,11 +100,11 @@ function ChipSelector({
       {options.map((opt) => (
         <TouchableOpacity
           key={opt}
-          style={[styles.chip, isSelected(opt) && styles.chipSelected]}
+          style={[styles.chip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, isSelected(opt) && styles.chipSelected]}
           onPress={() => onToggle(opt)}
           activeOpacity={0.7}
         >
-          <Text style={[styles.chipText, isSelected(opt) && styles.chipTextSelected]}>
+          <Text style={[styles.chipText, { color: themeColors.textSecondary }, isSelected(opt) && styles.chipTextSelected]}>
             {opt}
           </Text>
         </TouchableOpacity>
@@ -123,6 +126,7 @@ function ListEditor({
   onRemove: (index: number) => void;
   placeholder: string;
 }) {
+  const { themeColors } = useTheme();
   const [input, setInput] = useState('');
 
   const handleAdd = () => {
@@ -140,8 +144,8 @@ function ListEditor({
           value={input}
           onChangeText={setInput}
           placeholder={placeholder}
-          placeholderTextColor={colors.textTertiary}
-          style={styles.listEditorTextInput}
+          placeholderTextColor={themeColors.textTertiary}
+          style={[styles.listEditorTextInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
           onSubmitEditing={handleAdd}
           returnKeyType="done"
         />
@@ -152,8 +156,8 @@ function ListEditor({
       {items.length > 0 && (
         <View style={styles.listEditorItems}>
           {items.map((item, i) => (
-            <View key={i} style={styles.listEditorItem}>
-              <Text style={styles.listEditorItemText}>{item}</Text>
+            <View key={i} style={[styles.listEditorItem, { backgroundColor: themeColors.inputBackground }]}>
+              <Text style={[styles.listEditorItemText, { color: themeColors.text }]}>{item}</Text>
               <TouchableOpacity onPress={() => onRemove(i)}>
                 <Ionicons name="close-circle" size={18} color={colors.error} />
               </TouchableOpacity>
@@ -169,6 +173,7 @@ function ListEditor({
 
 export default function NewActivityScreen() {
   const router = useRouter();
+  const { themeColors } = useTheme();
   const { businessAccount, addListingToStore } = useBusinessStore();
 
   // Form state
@@ -317,14 +322,18 @@ export default function NewActivityScreen() {
 
   // ── Render ───────────────────────────────────────────────────────────────
 
+  // Theme overrides for repeated style fragments (StyleSheet kept static).
+  const labelStyle = [styles.label, { color: themeColors.textSecondary }];
+  const inputStyle = [styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }];
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>New Activity</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.text }]}>New Activity</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -341,35 +350,35 @@ export default function NewActivityScreen() {
           <Card style={styles.formSection}>
             <SectionHeader title="Basic Info" icon="information-circle-outline" />
 
-            <Text style={styles.label}>Activity Name *</Text>
+            <Text style={labelStyle}>Activity Name *</Text>
             <RNTextInput
               value={name}
               onChangeText={setName}
               placeholder="e.g. Sunset Kayaking in Goa"
-              placeholderTextColor={colors.textTertiary}
-              style={styles.input}
+              placeholderTextColor={themeColors.textTertiary}
+              style={inputStyle}
             />
 
-            <Text style={styles.label}>Category *</Text>
+            <Text style={labelStyle}>Category *</Text>
             <ChipSelector
               options={CATEGORIES}
               selected={category}
               onToggle={(val) => setCategory(val === category ? '' : val)}
             />
 
-            <Text style={styles.label}>Description *</Text>
+            <Text style={labelStyle}>Description *</Text>
             <RNTextInput
               value={description}
               onChangeText={setDescription}
               placeholder="Describe your activity in detail..."
-              placeholderTextColor={colors.textTertiary}
-              style={[styles.input, styles.inputMultiline]}
+              placeholderTextColor={themeColors.textTertiary}
+              style={[...inputStyle, styles.inputMultiline]}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
             />
 
-            <Text style={styles.label}>Highlights</Text>
+            <Text style={labelStyle}>Highlights</Text>
             <ListEditor
               items={highlights}
               onAdd={(val) => setHighlights((prev) => [...prev, val])}
@@ -381,7 +390,7 @@ export default function NewActivityScreen() {
           {/* Media */}
           <Card style={styles.formSection}>
             <SectionHeader title="Media" icon="camera-outline" />
-            <Text style={styles.label}>
+            <Text style={labelStyle}>
               Photos ({images.length}/{MAX_IMAGES})
             </Text>
             <View style={styles.imageGrid}>
@@ -408,24 +417,24 @@ export default function NewActivityScreen() {
 
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <Text style={styles.label}>Adult Price ({'\u20B9'}) *</Text>
+                <Text style={labelStyle}>Adult Price ({'\u20B9'}) *</Text>
                 <RNTextInput
                   value={adultPrice}
                   onChangeText={setAdultPrice}
                   placeholder="0"
-                  placeholderTextColor={colors.textTertiary}
-                  style={styles.input}
+                  placeholderTextColor={themeColors.textTertiary}
+                  style={inputStyle}
                   keyboardType="numeric"
                 />
               </View>
               <View style={styles.halfField}>
-                <Text style={styles.label}>Child Price ({'\u20B9'})</Text>
+                <Text style={labelStyle}>Child Price ({'\u20B9'})</Text>
                 <RNTextInput
                   value={childPrice}
                   onChangeText={setChildPrice}
                   placeholder="0"
-                  placeholderTextColor={colors.textTertiary}
-                  style={styles.input}
+                  placeholderTextColor={themeColors.textTertiary}
+                  style={inputStyle}
                   keyboardType="numeric"
                 />
               </View>
@@ -439,9 +448,9 @@ export default function NewActivityScreen() {
               <Ionicons
                 name={groupDiscount ? 'checkbox' : 'square-outline'}
                 size={22}
-                color={groupDiscount ? colors.primary[500] : colors.textTertiary}
+                color={groupDiscount ? colors.primary[500] : themeColors.textTertiary}
               />
-              <Text style={styles.checkboxLabel}>Enable group discounts</Text>
+              <Text style={[styles.checkboxLabel, { color: themeColors.text }]}>Enable group discounts</Text>
             </TouchableOpacity>
           </Card>
 
@@ -451,30 +460,30 @@ export default function NewActivityScreen() {
 
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <Text style={styles.label}>Duration (hours) *</Text>
+                <Text style={labelStyle}>Duration (hours) *</Text>
                 <RNTextInput
                   value={duration}
                   onChangeText={setDuration}
                   placeholder="e.g. 3"
-                  placeholderTextColor={colors.textTertiary}
-                  style={styles.input}
+                  placeholderTextColor={themeColors.textTertiary}
+                  style={inputStyle}
                   keyboardType="numeric"
                 />
               </View>
               <View style={styles.halfField}>
-                <Text style={styles.label}>Max Participants</Text>
+                <Text style={labelStyle}>Max Participants</Text>
                 <RNTextInput
                   value={maxParticipants}
                   onChangeText={setMaxParticipants}
                   placeholder="e.g. 20"
-                  placeholderTextColor={colors.textTertiary}
-                  style={styles.input}
+                  placeholderTextColor={themeColors.textTertiary}
+                  style={inputStyle}
                   keyboardType="numeric"
                 />
               </View>
             </View>
 
-            <Text style={styles.label}>Languages Offered</Text>
+            <Text style={labelStyle}>Languages Offered</Text>
             <ChipSelector
               options={LANGUAGES}
               selected={languages}
@@ -482,7 +491,7 @@ export default function NewActivityScreen() {
               multi
             />
 
-            <Text style={styles.label}>What's Included</Text>
+            <Text style={labelStyle}>What's Included</Text>
             <ListEditor
               items={includes}
               onAdd={(val) => setIncludes((prev) => [...prev, val])}
@@ -490,7 +499,7 @@ export default function NewActivityScreen() {
               placeholder="e.g. Equipment rental"
             />
 
-            <Text style={styles.label}>What to Bring</Text>
+            <Text style={labelStyle}>What to Bring</Text>
             <ListEditor
               items={whatToBring}
               onAdd={(val) => setWhatToBring((prev) => [...prev, val])}
@@ -503,31 +512,31 @@ export default function NewActivityScreen() {
           <Card style={styles.formSection}>
             <SectionHeader title="Location" icon="location-outline" />
 
-            <Text style={styles.label}>Meeting Point Address</Text>
+            <Text style={labelStyle}>Meeting Point Address</Text>
             <RNTextInput
               value={meetingPoint}
               onChangeText={setMeetingPoint}
               placeholder="Where participants should meet"
-              placeholderTextColor={colors.textTertiary}
-              style={styles.input}
+              placeholderTextColor={themeColors.textTertiary}
+              style={inputStyle}
             />
 
-            <Text style={styles.label}>City *</Text>
+            <Text style={labelStyle}>City *</Text>
             <RNTextInput
               value={city}
               onChangeText={setCity}
               placeholder="e.g. Goa"
-              placeholderTextColor={colors.textTertiary}
-              style={styles.input}
+              placeholderTextColor={themeColors.textTertiary}
+              style={inputStyle}
             />
 
-            <Text style={styles.label}>Google Maps Link (optional)</Text>
+            <Text style={labelStyle}>Google Maps Link (optional)</Text>
             <RNTextInput
               value={mapsLink}
               onChangeText={setMapsLink}
               placeholder="https://maps.google.com/..."
-              placeholderTextColor={colors.textTertiary}
-              style={styles.input}
+              placeholderTextColor={themeColors.textTertiary}
+              style={inputStyle}
               autoCapitalize="none"
               keyboardType="url"
             />
@@ -541,6 +550,7 @@ export default function NewActivityScreen() {
                 key={policy.key}
                 style={[
                   styles.policyOption,
+                  { borderBottomColor: themeColors.border },
                   cancellationPolicy === policy.key && styles.policyOptionSelected,
                 ]}
                 onPress={() => setCancellationPolicy(policy.key)}
@@ -554,12 +564,12 @@ export default function NewActivityScreen() {
                   }
                   size={20}
                   color={
-                    cancellationPolicy === policy.key ? colors.primary[500] : colors.textTertiary
+                    cancellationPolicy === policy.key ? colors.primary[500] : themeColors.textTertiary
                   }
                 />
                 <View style={styles.policyText}>
-                  <Text style={styles.policyLabel}>{policy.label}</Text>
-                  <Text style={styles.policyDesc}>{policy.desc}</Text>
+                  <Text style={[styles.policyLabel, { color: themeColors.text }]}>{policy.label}</Text>
+                  <Text style={[styles.policyDesc, { color: themeColors.textSecondary }]}>{policy.desc}</Text>
                 </View>
               </TouchableOpacity>
             ))}

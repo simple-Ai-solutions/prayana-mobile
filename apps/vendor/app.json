@@ -8,6 +8,14 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "prayanabiz",
+    "owner": "prayanaai",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/REPLACE_WITH_VENDOR_PROJECT_ID",
+      "fallbackToCacheTimeout": 0
+    },
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -16,9 +24,20 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prayanaai.business",
+      "buildNumber": "1",
+      "associatedDomains": [
+        "applinks:business.prayanaai.com"
+      ],
       "infoPlist": {
-        "NSCameraUsageDescription": "Take photos of your activities and documents.",
-        "NSPhotoLibraryUsageDescription": "Upload activity images and business documents."
+        "NSCameraUsageDescription": "Take photos of your activities, listings, and KYC documents.",
+        "NSPhotoLibraryUsageDescription": "Upload activity images and business documents from your library.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": ["tel", "mailto", "whatsapp"],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": ["prayanabiz"]
+          }
+        ]
       }
     },
     "android": {
@@ -27,23 +46,42 @@
         "backgroundColor": "#f97316"
       },
       "package": "com.prayanaai.business",
+      "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "CAMERA"
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "ACCESS_BACKGROUND_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            { "scheme": "https", "host": "business.prayanaai.com", "pathPrefix": "/app" }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"],
+          "autoVerify": true
+        }
       ]
     },
     "plugins": [
       ["expo-router", { "root": "./src/app" }],
       "expo-secure-store",
       "expo-image-picker",
-      "expo-document-picker"
+      "expo-document-picker",
+      "@sentry/react-native/expo"
     ],
     "extra": {
       "router": {
         "origin": false
       },
       "eas": {
-        "projectId": ""
+        "projectId": "REPLACE_WITH_VENDOR_EAS_PROJECT_ID"
       }
     }
   }
