@@ -72,6 +72,8 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
   const removeOfflineMember = useCreateTripStore((s) => s.removeOfflineMember);
   const markSettled = useCreateTripStore((s) => s.markSettled);
   const unmarkSettled = useCreateTripStore((s) => s.unmarkSettled);
+  const updateExpense = useCreateTripStore((s) => s.updateExpense);
+  const days = useCreateTripStore((s) => s.days) || [];
   const getTotalSpent = useCreateTripStore((s) => s.getTotalSpent);
   const getSpentByCategory = useCreateTripStore((s) => s.getSpentByCategory);
 
@@ -81,12 +83,18 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [newMemberName, setNewMemberName] = useState('');
 
-  // Add-expense form
+  // Add/edit-expense form
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [expCategory, setExpCategory] = useState<CategoryKey>('food');
   const [expAmount, setExpAmount] = useState('');
   const [expNote, setExpNote] = useState('');
   const [expPaidBy, setExpPaidBy] = useState<string>('');
   const [expSplitAmong, setExpSplitAmong] = useState<string[]>([]);
+  // Custom split modes (mirrors the PWA: equal | byAmount | byPercent | byShares)
+  const [splitMode, setSplitMode] = useState<'equal' | 'byAmount' | 'byPercent' | 'byShares'>('equal');
+  const [customAmounts, setCustomAmounts] = useState<Record<string, string>>({});
+  const [customPercents, setCustomPercents] = useState<Record<string, string>>({});
+  const [customShares, setCustomShares] = useState<Record<string, string>>({});
 
   const fmt = useCallback((n: number) => formatCurrency(Math.round(n), currency), [currency]);
 
@@ -136,13 +144,74 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
     setEditingBudget(false);
   }, [budgetInput, setBudgetAmount]);
 
+  const resetForm = useCallback(() => {
+    setEditingId(null);
+    setExpAmount('');
+    setExpNote('');
+    setExpCategory('food');
+    setSplitMode('equal');
+    setCustomAmounts({});
+    setCustomPercents({});
+    setCustomShares({});
+  }, []);
+
   const openAddForm = useCallback(() => {
     // Default payer = me; default split = everyone.
-    const meId = user?.uid || 'me';
-    setExpPaidBy(meId);
+    resetForm();
+    setExpPaidBy(user?.uid || 'me');
     setExpSplitAmong(participants.map((p) => p.userId));
     setActiveTab('add');
+  }, [user?.uid, participants, resetForm]);
+
+  const openEditForm = useCallback((e: any) => {
+    setEditingId(e.id);
+    setExpCategory(e.category || 'food');
+    setExpAmount(String(e.amount ?? ''));
+    setExpNote(e.note || '');
+    setExpPaidBy(e.paidBy || user?.uid || 'me');
+    setExpSplitAmong(e.splitAmong?.length ? e.splitAmong : participants.map((p) => p.userId));
+    // Reconstruct split mode/inputs from a saved custom split (best-effort: amounts).
+    if (e.splitType === 'custom' && e.customSplits) {
+      setSplitMode('byAmount');
+      const amts: Record<string, string> = {};
+      Object.entries(e.customSplits).forEach(([uid, v]) => { amts[uid] = String(v); });
+      setCustomAmounts(amts);
+    } else {
+      setSplitMode('equal');
+      setCustomAmounts({}); setCustomPercents({}); setCustomShares({});
+    }
+    setActiveTab('add');
   }, [user?.uid, participants]);
+
+  // Resolve customSplits for the active mode (mirrors the PWA buildCustomSplits).
+  const buildCustomSplits = useCallback((amount: number): Record<string, number> => {
+    const splits: Record<string, number> = {};
+    if (splitMode === 'byAmount') {
+      expSplitAmong.forEach((uid) => {
+        const v = parseFloat(customAmounts[uid] || '0');
+        if (v > 0) splits[uid] = v;
+      });
+    } else if (splitMode === 'byPercent') {
+      expSplitAmong.forEach((uid) => {
+        const pct = parseFloat(customPercents[uid] || '0');
+        if (pct > 0 && amount > 0) splits[uid] = Math.round((pct / 100) * amount * 100) / 100;
+      });
+    } else if (splitMode === 'byShares') {
+      const totalShares = expSplitAmong.reduce((s, uid) => s + parseFloat(customShares[uid] || '1'), 0);
+      expSplitAmong.forEach((uid) => {
+        const sh = parseFloat(customShares[uid] || '1');
+        if (totalShares > 0 && amount > 0) splits[uid] = Math.round((sh / totalShares) * amount * 100) / 100;
+      });
+    }
+    return splits;
+  }, [splitMode, expSplitAmong, customAmounts, customPercents, customShares]);
+
+  // Validation sums for byAmount / byPercent.
+  const totalAmount = parseFloat(expAmount || '0');
+  const customAmountsSum = expSplitAmong.reduce((s, uid) => s + parseFloat(customAmounts[uid] || '0'), 0);
+  const customPercentSum = expSplitAmong.reduce((s, uid) => s + parseFloat(customPercents[uid] || '0'), 0);
+  const amountDiff = Math.round((totalAmount - customAmountsSum) * 100) / 100;
+  const percentDiff = Math.round((100 - customPercentSum) * 100) / 100;
 
   const handleAddExpense = useCallback(() => {
     const amount = parseFloat(expAmount);
@@ -150,22 +219,40 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
       Alert.alert('Invalid Amount', 'Please enter a valid amount');
       return;
     }
+    if (isShared) {
+      if (splitMode === 'byAmount' && Math.abs(amountDiff) >= 0.02) {
+        Alert.alert('Split mismatch', `Amounts must add up to ${fmt(amount)} (off by ${fmt(Math.abs(amountDiff))}).`);
+        return;
+      }
+      if (splitMode === 'byPercent' && Math.abs(percentDiff) >= 0.5) {
+        Alert.alert('Split mismatch', `Percentages must add up to 100% (off by ${percentDiff.toFixed(1)}%).`);
+        return;
+      }
+    }
     const exp: any = {
       category: expCategory,
       amount,
       note: expNote.trim() || `${CATEGORIES.find((c) => c.key === expCategory)?.label} expense`,
-      date: new Date().toISOString(),
     };
     if (isShared) {
       exp.paidBy = expPaidBy || participants[0]?.userId;
       exp.splitAmong = expSplitAmong.length ? expSplitAmong : participants.map((p) => p.userId);
-      exp.splitType = 'equal';
+      if (splitMode === 'equal') {
+        exp.splitType = 'equal';
+        exp.customSplits = {};
+      } else {
+        exp.splitType = 'custom';
+        exp.customSplits = buildCustomSplits(amount);
+      }
     }
-    addExpense(exp);
-    setExpAmount('');
-    setExpNote('');
+    if (editingId) {
+      updateExpense(editingId, exp);
+    } else {
+      addExpense({ ...exp, date: new Date().toISOString() });
+    }
+    resetForm();
     setActiveTab(isShared ? 'settle' : 'overview');
-  }, [expCategory, expAmount, expNote, expPaidBy, expSplitAmong, isShared, participants, addExpense]);
+  }, [editingId, expCategory, expAmount, expNote, expPaidBy, expSplitAmong, isShared, splitMode, amountDiff, percentDiff, buildCustomSplits, participants, addExpense, updateExpense, resetForm, fmt]);
 
   const handleRemoveExpense = useCallback((expense: Expense) => {
     Alert.alert('Remove Expense', 'Delete this expense?', [
@@ -173,6 +260,29 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
       { text: 'Delete', style: 'destructive', onPress: () => removeExpense((expense as any).id) },
     ]);
   }, [removeExpense]);
+
+  // Daily breakdown (group expenses by dayIndex, fallback to date).
+  const dailyBreakdown = useMemo<Array<{ idx: number; title: string; total: number }>>(() => {
+    if (!days.length || !expenses.length) return [];
+    return days
+      .map((day: any, idx: number) => {
+        const dayExps = expenses.filter((e: any) => {
+          if (e.dayIndex !== undefined && e.dayIndex !== null) return e.dayIndex === idx;
+          if (e.date && day.date) return new Date(e.date).toDateString() === new Date(day.date).toDateString();
+          return false;
+        });
+        const total = dayExps.reduce((s: number, e: any) => s + (e.amount || 0), 0);
+        return { idx, title: day.title || `Day ${idx + 1}`, total };
+      })
+      .filter((d: { idx: number; title: string; total: number }) => d.total > 0);
+  }, [expenses, days]);
+
+  // "You owe / you're owed" banner figure for the current user.
+  const myNet = useMemo(() => {
+    if (!isShared) return 0;
+    const me = personSummary.find((s) => s.userId === (user?.uid || 'me'));
+    return me?.netBalance || 0;
+  }, [personSummary, isShared, user?.uid]);
 
   const toggleSplitMember = useCallback((uid: string) => {
     setExpSplitAmong((prev) => (prev.includes(uid) ? prev.filter((x) => x !== uid) : [...prev, uid]));
@@ -272,6 +382,21 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
         </View>
       </View>
 
+      {/* You owe / you're owed banner (shared trips) */}
+      {isShared && Math.abs(myNet) > 0.01 && (
+        <TouchableOpacity
+          style={[styles.owedBanner, { backgroundColor: (myNet > 0 ? colors.success : colors.error) + '15', borderColor: (myNet > 0 ? colors.success : colors.error) + '40' }]}
+          onPress={() => setActiveTab('settle')}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={myNet > 0 ? 'arrow-down-circle' : 'arrow-up-circle'} size={20} color={myNet > 0 ? colors.success : colors.error} />
+          <Text style={[styles.owedText, { color: myNet > 0 ? colors.success : colors.error }]}>
+            {myNet > 0 ? `You're owed ${fmt(myNet)}` : `You owe ${fmt(Math.abs(myNet))}`}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={myNet > 0 ? colors.success : colors.error} />
+        </TouchableOpacity>
+      )}
+
       <Text style={styles.sectionTitle}>By Category</Text>
       <View style={styles.categoryGrid}>
         {CATEGORIES.map((cat) => {
@@ -288,6 +413,22 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
           );
         })}
       </View>
+
+      {/* Daily breakdown */}
+      {dailyBreakdown.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>By Day</Text>
+          <View style={styles.dailyWrap}>
+            {dailyBreakdown.map((d) => (
+              <View key={d.idx} style={styles.dailyRow}>
+                <View style={[styles.dailyDot, { backgroundColor: ACCENT }]} />
+                <Text style={styles.dailyTitle} numberOfLines={1}>{d.title}</Text>
+                <Text style={styles.dailyTotal}>{fmt(d.total)}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
     </View>
   );
 
@@ -320,7 +461,10 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
                 </Text>
               </View>
               <Text style={styles.expenseAmount}>{fmt(expense.amount)}</Text>
-              <TouchableOpacity onPress={() => handleRemoveExpense(expense)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <TouchableOpacity onPress={() => openEditForm(expense)} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
+                <Ionicons name="create-outline" size={17} color={colors.gray[400]} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleRemoveExpense(expense)} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }}>
                 <Ionicons name="close-circle" size={18} color={colors.gray[400]} />
               </TouchableOpacity>
             </View>
@@ -332,7 +476,7 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
 
   const renderAddForm = () => (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.addFormContainer}>
-      <Text style={styles.sectionTitle}>Add Expense</Text>
+      <Text style={styles.sectionTitle}>{editingId ? 'Edit Expense' : 'Add Expense'}</Text>
 
       {/* Category */}
       <View style={styles.categoryPicker}>
@@ -396,9 +540,10 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
 
           <View style={styles.inputRow}>
             <View style={styles.splitHeaderRow}>
-              <Text style={styles.inputLabel}>Split equally among</Text>
+              <Text style={styles.inputLabel}>Split among</Text>
               <Text style={styles.splitHint}>{expSplitAmong.length} selected</Text>
             </View>
+            {/* Who's in the split */}
             <View style={styles.memberWrap}>
               {participants.map((p) => {
                 const on = expSplitAmong.includes(p.userId);
@@ -414,18 +559,81 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
                 );
               })}
             </View>
-            {Number(expAmount) > 0 && expSplitAmong.length > 0 ? (
-              <Text style={styles.splitPreview}>
-                {fmt(Number(expAmount) / expSplitAmong.length)} each
-              </Text>
+
+            {/* Split mode selector */}
+            <View style={styles.splitModeRow}>
+              {([
+                { id: 'equal', label: 'Equal ÷' },
+                { id: 'byAmount', label: 'Amount' },
+                { id: 'byPercent', label: '%' },
+                { id: 'byShares', label: 'Shares' },
+              ] as const).map((m) => (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.splitModeBtn, splitMode === m.id && styles.splitModeBtnActive]}
+                  onPress={() => setSplitMode(m.id)}
+                >
+                  <Text style={[styles.splitModeText, splitMode === m.id && styles.splitModeTextActive]}>{m.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Equal preview */}
+            {splitMode === 'equal' && Number(expAmount) > 0 && expSplitAmong.length > 0 ? (
+              <Text style={styles.splitPreview}>{fmt(Number(expAmount) / expSplitAmong.length)} each</Text>
             ) : null}
+
+            {/* Per-person inputs for custom modes */}
+            {splitMode !== 'equal' && expSplitAmong.length > 0 && (
+              <View style={styles.customSplitWrap}>
+                {expSplitAmong.map((uid) => {
+                  const p = participants.find((x) => x.userId === uid);
+                  const val =
+                    splitMode === 'byAmount' ? (customAmounts[uid] ?? '')
+                    : splitMode === 'byPercent' ? (customPercents[uid] ?? '')
+                    : (customShares[uid] ?? '');
+                  const onChange = (t: string) => {
+                    if (splitMode === 'byAmount') setCustomAmounts((s) => ({ ...s, [uid]: t }));
+                    else if (splitMode === 'byPercent') setCustomPercents((s) => ({ ...s, [uid]: t }));
+                    else setCustomShares((s) => ({ ...s, [uid]: t }));
+                  };
+                  return (
+                    <View key={uid} style={styles.customSplitRow}>
+                      <Text style={styles.customSplitName} numberOfLines={1}>{p?.userName || 'Member'}</Text>
+                      <TextInput
+                        style={styles.customSplitInput}
+                        value={val}
+                        onChangeText={onChange}
+                        keyboardType="numeric"
+                        placeholder={splitMode === 'byShares' ? '1' : '0'}
+                        placeholderTextColor={colors.textTertiary}
+                      />
+                      <Text style={styles.customSplitUnit}>
+                        {splitMode === 'byPercent' ? '%' : splitMode === 'byShares' ? 'sh' : ''}
+                      </Text>
+                    </View>
+                  );
+                })}
+                {/* Running total / validation hint */}
+                {splitMode === 'byAmount' && (
+                  <Text style={[styles.splitHint, Math.abs(amountDiff) < 0.02 ? { color: colors.success } : { color: colors.error }]}>
+                    {fmt(customAmountsSum)} of {fmt(totalAmount || 0)}{Math.abs(amountDiff) >= 0.02 ? `  ·  ${amountDiff > 0 ? 'short' : 'over'} ${fmt(Math.abs(amountDiff))}` : '  ·  ✓'}
+                  </Text>
+                )}
+                {splitMode === 'byPercent' && (
+                  <Text style={[styles.splitHint, Math.abs(percentDiff) < 0.5 ? { color: colors.success } : { color: colors.error }]}>
+                    {customPercentSum.toFixed(0)}% of 100%{Math.abs(percentDiff) >= 0.5 ? `  ·  ${percentDiff > 0 ? 'short' : 'over'} ${Math.abs(percentDiff).toFixed(0)}%` : '  ·  ✓'}
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
         </>
       )}
 
       <TouchableOpacity style={styles.saveBtn} onPress={handleAddExpense} activeOpacity={0.8}>
         <Ionicons name="checkmark" size={18} color="#ffffff" />
-        <Text style={styles.saveBtnText}>Save Expense</Text>
+        <Text style={styles.saveBtnText}>{editingId ? 'Update Expense' : 'Save Expense'}</Text>
       </TouchableOpacity>
     </KeyboardAvoidingView>
   );
@@ -648,6 +856,27 @@ const styles = StyleSheet.create({
   splitHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   splitHint: { fontSize: fontSize.xs, color: colors.textTertiary },
   splitPreview: { fontSize: fontSize.xs, color: ACCENT, fontWeight: fontWeight.semibold, marginTop: 6 },
+  splitModeRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
+  splitModeBtn: { flex: 1, paddingVertical: 6, borderRadius: borderRadius.lg, backgroundColor: colors.gray[100], alignItems: 'center' },
+  splitModeBtnActive: { backgroundColor: ACCENT },
+  splitModeText: { fontSize: 11, fontWeight: fontWeight.medium, color: colors.textSecondary },
+  splitModeTextActive: { color: '#fff', fontWeight: fontWeight.semibold },
+  customSplitWrap: { marginTop: 10, gap: 6 },
+  customSplitRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  customSplitName: { flex: 1, fontSize: fontSize.sm, color: colors.text },
+  customSplitInput: { width: 80, fontSize: fontSize.sm, color: colors.text, paddingVertical: 6, paddingHorizontal: 10, backgroundColor: colors.gray[50], borderRadius: borderRadius.md, borderWidth: 1, borderColor: colors.border, textAlign: 'right' },
+  customSplitUnit: { width: 22, fontSize: fontSize.xs, color: colors.textTertiary },
+
+  // You-owe banner
+  owedBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: borderRadius.lg, borderWidth: 1 },
+  owedText: { flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+
+  // Daily breakdown
+  dailyWrap: { gap: 2 },
+  dailyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.gray[100] },
+  dailyDot: { width: 7, height: 7, borderRadius: 4 },
+  dailyTitle: { flex: 1, fontSize: fontSize.sm, color: colors.text },
+  dailyTotal: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text },
 
   // Settle tab
   settleContainer: { gap: spacing.md },
