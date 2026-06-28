@@ -27,6 +27,12 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+// A React Native <Modal> renders in a separate native hierarchy with no
+// GestureHandlerRootView, so react-native-gesture-handler touchables inside it
+// don't receive taps (dead buttons). Wrapping the sheet content in
+// GestureHandlerRootView restores taps for ALL BottomModal sheets at once
+// (InviteSheet, TripChatSheet, SOSButton, SmartItineraryBuilder, BudgetTracker).
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { colors, borderRadius, shadow } from '@prayana/shared-ui';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -111,17 +117,19 @@ const BottomModal = forwardRef<BottomModalRef, BottomModalProps>(
                 : { maxHeight, transform: [{ translateY: slideAnim }] },
             ]}
           >
-            {/* Handle */}
-            <View style={styles.handleContainer}>
-              <View style={styles.handle} />
-            </View>
+            <GestureHandlerRootView style={fillHeight ? { flex: 1 } : undefined}>
+              {/* Handle */}
+              <View style={styles.handleContainer}>
+                <View style={styles.handle} />
+              </View>
 
-            {/* Content - flex:1 when fillHeight so children can expand */}
-            {fillHeight ? (
-              <View style={{ flex: 1 }}>{children}</View>
-            ) : (
-              children
-            )}
+              {/* Content - flex:1 when fillHeight so children can expand */}
+              {fillHeight ? (
+                <View style={{ flex: 1 }}>{children}</View>
+              ) : (
+                children
+              )}
+            </GestureHandlerRootView>
           </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
