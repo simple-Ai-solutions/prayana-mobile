@@ -18,6 +18,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fontSize, fontWeight, spacing, borderRadius, useTheme } from "@prayana/shared-ui";
 import { communityAPI } from "@prayana/shared-services";
+import { resolveImageUrl } from "@prayana/shared-utils";
 
 const URL_PATTERN = /^https?:\/\/[^\s<>")]+$/;
 
@@ -125,6 +126,31 @@ export default function QuestionDetailScreen() {
     }
   };
 
+  // ── Nested replies under an answer (PWA parity) ──
+  const [replyOpen, setReplyOpen] = useState<string | null>(null); // answerId being replied to
+  const [replyText, setReplyText] = useState("");
+  const [replyPosting, setReplyPosting] = useState(false);
+
+  const postReply = async (answerId: string) => {
+    if (replyText.trim().length < 2) return;
+    setReplyPosting(true);
+    try {
+      const res = await communityAPI.replyToAnswer(answerId, { content: replyText.trim() });
+      const newReply = res?.data || { content: replyText.trim(), createdAt: new Date().toISOString() };
+      setAnswers((prev) =>
+        prev.map((a) =>
+          a._id === answerId ? { ...a, replies: [...(a.replies || []), newReply] } : a
+        )
+      );
+      setReplyText("");
+      setReplyOpen(null);
+    } catch (e: any) {
+      Alert.alert("Failed to reply", e?.message || "Please try again");
+    } finally {
+      setReplyPosting(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -190,9 +216,20 @@ export default function QuestionDetailScreen() {
           {(question.images?.length ?? 0) > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
               {question.images.map((img: any, i: number) => (
-                <Image key={img.s3Key || i} source={{ uri: img.url }} style={styles.questionImage} />
+                <Image key={img.s3Key || i} source={{ uri: resolveImageUrl(img.url) || img.url }} style={styles.questionImage} />
               ))}
             </ScrollView>
+          )}
+
+          {/* Tags (PWA parity) */}
+          {(question.tags?.length ?? 0) > 0 && (
+            <View style={styles.tagRow}>
+              {question.tags.map((t: string, i: number) => (
+                <View key={i} style={[styles.tagChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                  <Text style={[styles.tagChipText, { color: themeColors.textSecondary }]}>#{t}</Text>
+                </View>
+              ))}
+            </View>
           )}
 
           {/* SmartCTA-mini: deep-link to relevant product when destination known */}
@@ -276,7 +313,7 @@ export default function QuestionDetailScreen() {
             {(a.images?.length ?? 0) > 0 && (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
                 {a.images.map((img: any, i: number) => (
-                  <Image key={img.s3Key || i} source={{ uri: img.url }} style={styles.answerImage} />
+                  <Image key={img.s3Key || i} source={{ uri: resolveImageUrl(img.url) || img.url }} style={styles.answerImage} />
                 ))}
               </ScrollView>
             )}
@@ -286,7 +323,57 @@ export default function QuestionDetailScreen() {
                 <Ionicons name="arrow-up" size={14} color={themeColors.textSecondary} />
                 <Text style={[styles.actionPillText, { color: themeColors.textSecondary }]}>{a.upvotes || 0}</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => { setReplyOpen(replyOpen === a._id ? null : a._id); setReplyText(""); }}
+                style={[styles.actionPill, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+              >
+                <Ionicons name="chatbubble-outline" size={13} color={themeColors.textSecondary} />
+                <Text style={[styles.actionPillText, { color: themeColors.textSecondary }]}>
+                  Reply{(a.replies?.length ?? 0) > 0 ? ` · ${a.replies.length}` : ""}
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            {/* Nested replies */}
+            {(a.replies?.length ?? 0) > 0 && (
+              <View style={[styles.repliesWrap, { borderLeftColor: themeColors.border }]}>
+                {a.replies.map((r: any, ri: number) => (
+                  <View key={r._id || ri} style={styles.replyItem}>
+                    <View style={styles.replyHead}>
+                      <Text style={[styles.replyAuthor, { color: themeColors.text }]}>
+                        {r.displayName || r.userName || "User"}
+                      </Text>
+                      <Text style={[styles.replyMeta, { color: themeColors.textTertiary }]}>
+                        {r.createdAt ? timeAgo(r.createdAt) : ""}
+                      </Text>
+                    </View>
+                    <RichText text={r.content} style={[styles.replyContent, { color: themeColors.textSecondary }]} />
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* Reply composer (toggled) */}
+            {replyOpen === a._id && (
+              <View style={styles.replyComposer}>
+                <TextInput
+                  value={replyText}
+                  onChangeText={setReplyText}
+                  placeholder="Write a reply…"
+                  placeholderTextColor={themeColors.textTertiary}
+                  multiline
+                  style={[styles.replyInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                  maxLength={2000}
+                />
+                <TouchableOpacity
+                  onPress={() => postReply(a._id)}
+                  disabled={replyPosting || replyText.trim().length < 2}
+                  style={[styles.replyBtn, (replyPosting || replyText.trim().length < 2) && { opacity: 0.5 }]}
+                >
+                  <Text style={styles.replyBtnText}>{replyPosting ? "Posting…" : "Post Reply"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         ))}
 
@@ -378,8 +465,22 @@ const styles = StyleSheet.create({
   answerMeta: { fontSize: 11, color: colors.gray[400] },
   answerContent: { fontSize: fontSize.sm, color: colors.gray[700], lineHeight: 20 },
   answerImage: { width: 130, height: 100, borderRadius: borderRadius.md, marginRight: 6 },
+  // Nested replies
+  repliesWrap: { marginTop: 10, marginLeft: 8, paddingLeft: 10, borderLeftWidth: 2 },
+  replyItem: { marginBottom: 8 },
+  replyHead: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
+  replyAuthor: { fontSize: 12, fontWeight: fontWeight.semibold as any },
+  replyMeta: { fontSize: 10 },
+  replyContent: { fontSize: 13, lineHeight: 18 },
+  replyComposer: { marginTop: 10, gap: 8 },
+  replyInput: { borderWidth: 1, borderRadius: borderRadius.md, padding: 10, fontSize: 13, minHeight: 56, textAlignVertical: "top" },
+  replyBtn: { alignSelf: "flex-start", backgroundColor: "#06B6D4", paddingHorizontal: 16, paddingVertical: 8, borderRadius: 999 },
+  replyBtnText: { color: "white", fontWeight: fontWeight.semibold as any, fontSize: 13 },
   badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
   badgeText: { fontSize: 10, fontWeight: fontWeight.semibold as any },
+  tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 12 },
+  tagChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
+  tagChipText: { fontSize: 11, fontWeight: fontWeight.medium as any },
   composer: {
     backgroundColor: "white",
     padding: spacing.md,

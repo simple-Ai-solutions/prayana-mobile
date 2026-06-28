@@ -9,12 +9,14 @@ import {
   ActivityIndicator,
   RefreshControl,
   TextInput,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fontSize, fontWeight, spacing, borderRadius, useTheme } from "@prayana/shared-ui";
 import { communityAPI } from "@prayana/shared-services";
+import { resolveImageUrl } from "@prayana/shared-utils";
 
 type SortKey = "newest" | "top" | "unanswered";
 type Question = {
@@ -208,14 +210,27 @@ export default function CommunityFeedScreen() {
                 )}
               </View>
 
-              <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={2}>
-                {q.title}
-              </Text>
-              {q.description ? (
-                <Text style={[styles.cardDesc, { color: themeColors.textSecondary }]} numberOfLines={2}>
-                  {q.description}
-                </Text>
-              ) : null}
+              {/* Body: text on the left, first image thumbnail on the right
+                  (mirrors the PWA QuestionCard layout). */}
+              <View style={styles.cardBodyRow}>
+                <View style={styles.cardBodyText}>
+                  <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={2}>
+                    {q.title}
+                  </Text>
+                  {q.description ? (
+                    <Text style={[styles.cardDesc, { color: themeColors.textSecondary }]} numberOfLines={2}>
+                      {q.description}
+                    </Text>
+                  ) : null}
+                </View>
+                {(q.images?.length ?? 0) > 0 && q.images?.[0]?.url ? (
+                  <Image
+                    source={{ uri: resolveImageUrl(q.images[0].url) || q.images[0].url }}
+                    style={styles.cardThumb}
+                    resizeMode="cover"
+                  />
+                ) : null}
+              </View>
 
               <View style={styles.cardFooter}>
                 <View style={styles.statRow}>
@@ -312,6 +327,9 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: fontWeight.semibold as any },
   imageHint: { flexDirection: "row", alignItems: "center" },
   imageHintText: { fontSize: 10, color: colors.gray[500] },
+  cardBodyRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  cardBodyText: { flex: 1 },
+  cardThumb: { width: 72, height: 72, borderRadius: 10, backgroundColor: colors.gray[100] },
   cardTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold as any, color: colors.gray[900], marginBottom: 4 },
   cardDesc: { fontSize: fontSize.sm, color: colors.gray[600], marginBottom: 8 },
   cardFooter: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
