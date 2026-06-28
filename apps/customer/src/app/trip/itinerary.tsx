@@ -306,7 +306,7 @@ export default function ItineraryScreen() {
           <Ionicons
             name={isBookmarked ? 'bookmark' : 'bookmark-outline'}
             size={20}
-            color={isBookmarked ? '#FF6B6B' : themeColors.text}
+            color={isBookmarked ? '#06B6D4' : themeColors.text}
           />
         </TouchableOpacity>
       </View>
@@ -321,7 +321,7 @@ export default function ItineraryScreen() {
           <Ionicons
             name="book-outline"
             size={16}
-            color={activeTab === 'guide' ? '#FF6B6B' : themeColors.textSecondary}
+            color={activeTab === 'guide' ? '#06B6D4' : themeColors.textSecondary}
           />
           <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'guide' && styles.tabTextActive]}>
             Travel Guide
@@ -336,7 +336,7 @@ export default function ItineraryScreen() {
           <Ionicons
             name="git-branch-outline"
             size={16}
-            color={activeTab === 'timeline' ? '#FF6B6B' : themeColors.textSecondary}
+            color={activeTab === 'timeline' ? '#06B6D4' : themeColors.textSecondary}
           />
           <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'timeline' && styles.tabTextActive]}>
             Timeline
@@ -351,7 +351,7 @@ export default function ItineraryScreen() {
           <Ionicons
             name="briefcase-outline"
             size={16}
-            color={activeTab === 'essentials' ? '#FF6B6B' : themeColors.textSecondary}
+            color={activeTab === 'essentials' ? '#06B6D4' : themeColors.textSecondary}
           />
           <Text style={[styles.tabText, { color: themeColors.textSecondary }, activeTab === 'essentials' && styles.tabTextActive]}>
             Essentials
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: '#FF6B6B',
+    borderBottomColor: '#06B6D4',
   },
   tabText: {
     fontSize: fontSize.sm,
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   tabTextActive: {
-    color: '#FF6B6B',
+    color: '#06B6D4',
     fontWeight: fontWeight.semibold,
   },
 });

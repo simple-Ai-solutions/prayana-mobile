@@ -9,6 +9,10 @@ import {
   ActivityIndicator,
   Dimensions,
   Alert,
+  // RN's own TouchableOpacity for use INSIDE <Modal>s — gesture-handler's
+  // touchables don't receive taps inside a React Native Modal (no
+  // GestureHandlerRootView), which made the schedule/map modal close buttons dead.
+  TouchableOpacity as RNTouchableOpacity,
 } from 'react-native';
 import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
@@ -33,6 +37,12 @@ import InviteSheet from '../../components/trip/InviteSheet';
 import TripChatSheet from '../../components/trip/TripChatSheet';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+// PWA cyan/sky-blue accent palette (overrides app's orange brand for this screen)
+const P = {
+  50: '#ECFEFF', 100: '#CFFAFE', 200: '#A5F3FC', 300: '#67E8F9',
+  400: '#22D3EE', 500: '#06B6D4', 600: '#0891B2', 700: '#0E7490',
+};
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -908,14 +918,14 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             onPress={() => inviteSheetRef.current?.expand()}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="person-add-outline" size={16} color={colors.primary[500]} />
+            <Ionicons name="person-add-outline" size={16} color={P[500]} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.budgetHeaderBtn}
             onPress={() => budgetSheetRef.current?.expand()}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Ionicons name="wallet-outline" size={20} color={colors.primary[500]} />
+            <Ionicons name="wallet-outline" size={20} color={P[500]} />
           </TouchableOpacity>
         </View>
       </View>
@@ -1066,7 +1076,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             {/* Searching indicator */}
             {addSearching && (
               <View style={styles.addPanelSearchingRow}>
-                <ActivityIndicator size="small" color={colors.primary[500]} />
+                <ActivityIndicator size="small" color={P[500]} />
                 <Text style={[styles.addPanelSearchingText, { color: themeColors.textTertiary }]}>Searching in {currentDestination?.name}...</Text>
               </View>
             )}
@@ -1090,7 +1100,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                         <Image source={{ uri: rImg }} style={styles.addPanelResultImg} contentFit="cover" />
                       ) : (
                         <View style={styles.addPanelResultImgPlaceholder}>
-                          <Ionicons name="location" size={14} color={colors.primary[400]} />
+                          <Ionicons name="location" size={14} color={P[400]} />
                         </View>
                       )}
                       <View style={styles.addPanelResultInfo}>
@@ -1102,7 +1112,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                           <Text style={styles.addPanelDuplicateText}>Added</Text>
                         </View>
                       ) : (
-                        <Ionicons name="add-circle" size={22} color={colors.primary[500]} />
+                        <Ionicons name="add-circle" size={22} color={P[500]} />
                       )}
                     </TouchableOpacity>
                   );
@@ -1119,9 +1129,9 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                 activeOpacity={0.7}
               >
                 {loadingPopular ? (
-                  <ActivityIndicator size="small" color={colors.primary[500]} />
+                  <ActivityIndicator size="small" color={P[500]} />
                 ) : (
-                  <Ionicons name="location" size={14} color={colors.primary[500]} />
+                  <Ionicons name="location" size={14} color={P[500]} />
                 )}
                 <Text style={styles.addPanelPopularBtnText}>
                   {loadingPopular ? 'Loading...' : `Browse popular in ${currentDestination?.name || 'destination'}`}
@@ -1153,7 +1163,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                         <Image source={{ uri: pImg }} style={styles.addPanelResultImg} contentFit="cover" />
                       ) : (
                         <View style={styles.addPanelResultImgPlaceholder}>
-                          <Ionicons name="location" size={14} color={colors.primary[400]} />
+                          <Ionicons name="location" size={14} color={P[400]} />
                         </View>
                       )}
                       <View style={styles.addPanelResultInfo}>
@@ -1165,7 +1175,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                           <Text style={styles.addPanelDuplicateText}>Added</Text>
                         </View>
                       ) : (
-                        <Ionicons name="add-circle" size={22} color={colors.primary[500]} />
+                        <Ionicons name="add-circle" size={22} color={P[500]} />
                       )}
                     </TouchableOpacity>
                   );
@@ -1187,7 +1197,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
               onPress={() => { closeAddPanel(); handleOpenAddPanel(addPanelSlot); }}
               activeOpacity={0.7}
             >
-              <Ionicons name="grid-outline" size={14} color={colors.primary[500]} />
+              <Ionicons name="grid-outline" size={14} color={P[500]} />
               <Text style={styles.addPanelBrowseText}>Browse all places</Text>
             </TouchableOpacity>
 
@@ -1202,7 +1212,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             onPress={() => openAddPanel()}
             activeOpacity={0.7}
           >
-            <Ionicons name="add-circle-outline" size={20} color={colors.primary[500]} />
+            <Ionicons name="add-circle-outline" size={20} color={P[500]} />
             <Text style={styles.addActivityText}>Add Activity</Text>
           </TouchableOpacity>
         )}
@@ -1283,12 +1293,13 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                 {currentActivities.length} places{currentDestination?.name ? ` · ${currentDestination.name}` : ''}
               </Text>
             </View>
-            <TouchableOpacity
+            <RNTouchableOpacity
               onPress={() => setShowMapModal(false)}
               style={[styles.mapModalCloseBtn, { backgroundColor: themeColors.surface }]}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <Ionicons name="close" size={22} color={themeColors.textSecondary} />
-            </TouchableOpacity>
+            </RNTouchableOpacity>
           </View>
           <View style={styles.mapModalContent}>
             <ItineraryMap
@@ -1326,9 +1337,12 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity onPress={() => setShowScheduleModal(false)}>
+              <RNTouchableOpacity
+                onPress={() => setShowScheduleModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
                 <Ionicons name="close" size={22} color={themeColors.textSecondary} />
-              </TouchableOpacity>
+              </RNTouchableOpacity>
             </View>
 
             <ScrollView style={styles.scheduleBody}>
@@ -1440,16 +1454,19 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                   <Text style={[styles.editTitle, { color: themeColors.text }]} numberOfLines={1}>
                     {editingActivity.activity.name}
                   </Text>
-                  <TouchableOpacity onPress={() => setEditingActivity(null)}>
+                  <RNTouchableOpacity
+                    onPress={() => setEditingActivity(null)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
                     <Ionicons name="close" size={22} color={themeColors.textSecondary} />
-                  </TouchableOpacity>
+                  </RNTouchableOpacity>
                 </View>
 
                 {/* Time Slot Picker */}
                 <Text style={[styles.editSectionLabel, { color: themeColors.textSecondary }]}>Time Slot</Text>
                 <View style={styles.editSlotRow}>
                   {TIME_SLOTS.map((slot) => (
-                    <TouchableOpacity
+                    <RNTouchableOpacity
                       key={slot.key}
                       style={[
                         styles.editSlotBtn,
@@ -1469,7 +1486,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                       >
                         {slot.label}
                       </Text>
-                    </TouchableOpacity>
+                    </RNTouchableOpacity>
                   ))}
                 </View>
 
@@ -1487,13 +1504,13 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                 />
 
                 {/* Save Button */}
-                <TouchableOpacity
+                <RNTouchableOpacity
                   style={styles.editSaveBtn}
                   onPress={handleSaveNotes}
                   activeOpacity={0.8}
                 >
                   <Text style={styles.editSaveBtnText}>Save Notes</Text>
-                </TouchableOpacity>
+                </RNTouchableOpacity>
 
                 {/* Activity Details */}
                 {editingActivity.activity.description ? (
@@ -1552,7 +1569,7 @@ const styles = StyleSheet.create({
   },
   stepIndicator: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.semibold,
     textTransform: 'uppercase',
     letterSpacing: 1,
@@ -1577,7 +1594,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
   budgetHeaderBtn: {
     width: 34,
@@ -1585,7 +1602,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: borderRadius.full,
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
   },
   dayInfoSubRow: {
     flexDirection: 'row',
@@ -1831,15 +1848,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: borderRadius.lg,
     borderWidth: 1.5,
-    borderColor: colors.primary[200],
+    borderColor: P[200],
     borderStyle: 'dashed',
-    backgroundColor: colors.primary[50],
+    backgroundColor: P[50],
     marginTop: spacing.xs,
   },
   addActivityText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
-    color: colors.primary[500],
+    color: P[500],
   },
 
   // ── Inline Add Activity Panel ──
@@ -1847,8 +1864,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     borderRadius: borderRadius.xl,
     borderWidth: 1,
-    borderColor: colors.primary[200],
-    backgroundColor: colors.primary[50],
+    borderColor: P[200],
+    backgroundColor: P[50],
     padding: spacing.md,
     gap: spacing.md,
   },
@@ -1920,8 +1937,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   addPanelResultItemDuplicate: {
-    borderColor: colors.primary[200],
-    backgroundColor: colors.primary[50],
+    borderColor: P[200],
+    backgroundColor: P[50],
   },
   addPanelResultImg: {
     width: 44,
@@ -1932,7 +1949,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: borderRadius.md,
-    backgroundColor: colors.primary[100],
+    backgroundColor: P[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1951,14 +1968,14 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   addPanelDuplicateBadge: {
-    backgroundColor: colors.primary[100],
+    backgroundColor: P[100],
     borderRadius: borderRadius.full,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
   addPanelDuplicateText: {
     fontSize: 11,
-    color: colors.primary[600],
+    color: P[600],
     fontWeight: fontWeight.semibold,
   },
   addPanelPopularBtn: {
@@ -1970,11 +1987,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.primary[200],
+    borderColor: P[200],
   },
   addPanelPopularBtnText: {
     fontSize: fontSize.xs,
-    color: colors.primary[600],
+    color: P[600],
     fontWeight: fontWeight.medium,
   },
   addPanelPopularHeader: {
@@ -2016,7 +2033,7 @@ const styles = StyleSheet.create({
   },
   addPanelBrowseText: {
     fontSize: fontSize.xs,
-    color: colors.primary[500],
+    color: P[500],
     fontWeight: fontWeight.medium,
   },
   addPanelCancel: {
@@ -2391,7 +2408,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing['2xl'],
     paddingVertical: spacing.md,
     borderRadius: borderRadius.xl,
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     marginTop: spacing.md,
   },
   emptyDaysBtnText: {
@@ -2432,7 +2449,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
     gap: spacing.sm,
@@ -2532,7 +2549,7 @@ const styles = StyleSheet.create({
     minHeight: 80,
   },
   editSaveBtn: {
-    backgroundColor: colors.primary[500],
+    backgroundColor: P[500],
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.md,
     alignItems: 'center',

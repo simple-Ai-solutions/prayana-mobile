@@ -40,7 +40,7 @@ interface ItineraryMapProps {
   destinationName?: string;
 }
 
-const MARKER_COLORS = ['#FF6B6B', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444'];
+const MARKER_COLORS = ['#06B6D4', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899', '#06B6D4', '#EF4444'];
 
 function isValidCoord(p: Place) {
   return (
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   },
   calloutTime: {
     fontSize: fontSize.xs,
-    color: '#FF6B6B',
+    color: '#06B6D4',
     fontWeight: fontWeight.medium,
     marginBottom: 2,
   },
