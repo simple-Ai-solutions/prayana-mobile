@@ -253,7 +253,7 @@ export default function BookingDetailScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await bookingAPI.cancelBooking(id, 'Cancelled by business');
+              await bookingAPI.cancelBooking(id, { reason: 'Cancelled by business' });
               setBooking((prev) => (prev ? { ...prev, status: 'cancelled' } : prev));
               updateBookingInStore(id, { status: 'cancelled' });
               Toast.show({ type: 'success', text1: 'Booking cancelled and refund initiated' });

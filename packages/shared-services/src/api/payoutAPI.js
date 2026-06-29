@@ -26,6 +26,9 @@ class PayoutAPI {
     });
   }
 
+  /**
+   * @param {{ status?: string, page?: number, limit?: number }} [opts]
+   */
   async getPayoutHistory({ status, page = 1, limit = 20 } = {}) {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
