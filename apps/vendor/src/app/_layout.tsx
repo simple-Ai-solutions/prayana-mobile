@@ -92,6 +92,14 @@ function RootNavigator() {
         <Stack.Screen name="reviews" />
         <Stack.Screen name="support" />
         <Stack.Screen name="settings" />
+        <Stack.Screen name="finance" />
+        <Stack.Screen name="payout" />
+        <Stack.Screen name="performance" />
+        <Stack.Screen name="coupons" />
+        <Stack.Screen name="verification" />
+        <Stack.Screen name="packages" />
+        <Stack.Screen name="transport" />
+        <Stack.Screen name="drivers" />
       </Stack>
       <Toast />
     </>

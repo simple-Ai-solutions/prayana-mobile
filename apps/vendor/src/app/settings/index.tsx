@@ -237,7 +237,7 @@ export default function SettingsScreen() {
             icon="document-text-outline"
             label="Documents & KYC"
             subtitle="Verify your business documents"
-            onPress={() => router.push('/onboarding')}
+            onPress={() => router.push('/verification')}
           />
           <View style={styles.menuDivider} />
           <MenuItem
