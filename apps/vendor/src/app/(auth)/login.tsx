@@ -37,13 +37,27 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: ENV.googleAuth.webClientId || undefined,
-    iosClientId: ENV.googleAuth.iosClientId || undefined,
-    androidClientId: ENV.googleAuth.androidClientId || undefined,
-    redirectUri: makeRedirectUri({ scheme: 'prayanabiz' }),
-    scopes: ['openid', 'profile', 'email'],
-  });
+  // Only hand Google.useAuthRequest a config when at least one platform client
+  // ID is actually set. On Android the hook throws synchronously if androidClientId
+  // is undefined, which would crash the whole login screen — so when nothing is
+  // configured we pass an empty object (hook returns a null request) and the
+  // Google button degrades gracefully to "not configured".
+  const googleAuthConfigured = Boolean(
+    ENV.googleAuth.webClientId ||
+      ENV.googleAuth.iosClientId ||
+      ENV.googleAuth.androidClientId,
+  );
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    googleAuthConfigured
+      ? {
+          clientId: ENV.googleAuth.webClientId || undefined,
+          iosClientId: ENV.googleAuth.iosClientId || undefined,
+          androidClientId: ENV.googleAuth.androidClientId || undefined,
+          redirectUri: makeRedirectUri({ scheme: 'prayanabiz' }),
+          scopes: ['openid', 'profile', 'email'],
+        }
+      : {},
+  );
 
   // Handle the Google OAuth response (idToken or accessToken).
   useEffect(() => {
