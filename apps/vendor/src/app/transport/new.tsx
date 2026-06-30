@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 import {
   Card,
   Button,
+  Stepper,
   colors,
   fontSize,
   fontWeight,
@@ -24,6 +25,10 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { vehicleAPI } from '@prayana/shared-services';
+
+// ─── Wizard steps ───────────────────────────────────────────────────────────────
+
+const STEPS = ['Vehicle', 'Pricing', 'Policies'];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -142,6 +147,8 @@ export default function NewVehicleScreen() {
   const [cancellationPolicy, setCancellationPolicy] = useState('flexible');
 
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState(0);
+  const isLastStep = step === STEPS.length - 1;
 
   const vehicleTypeOptions = useMemo(
     () => (VEHICLE_TYPES[serviceType] || []).map((t) => ({ key: t, label: t })),
@@ -155,19 +162,49 @@ export default function NewVehicleScreen() {
     setVehicleType('');
   }, []);
 
-  const validate = (): string | null => {
-    if (!title.trim()) return 'Vehicle title is required';
-    if (!description.trim()) return 'Description is required';
-    if (!make.trim()) return 'Make is required';
-    if (!model.trim()) return 'Model is required';
-    if (!city.trim()) return 'City is required';
-    if (!vehicleType) return 'Please select a vehicle type';
-    if (serviceType === 'chauffeur_driven') {
-      if (!hourlyRate || isNaN(Number(hourlyRate))) return 'Valid hourly rate is required';
-    } else if (!dailyRate || isNaN(Number(dailyRate))) {
-      return 'Valid daily rate is required';
+  // Per-step validation — returns an error for the given step, or null.
+  const validateStep = (s: number): string | null => {
+    if (s === 0) {
+      if (!title.trim()) return 'Vehicle title is required';
+      if (!description.trim()) return 'Description is required';
+      if (!make.trim()) return 'Make is required';
+      if (!model.trim()) return 'Model is required';
+      if (!vehicleType) return 'Please select a vehicle type';
+    }
+    if (s === 1) {
+      if (!city.trim()) return 'City is required';
+      if (serviceType === 'chauffeur_driven') {
+        if (!hourlyRate || isNaN(Number(hourlyRate))) return 'Valid hourly rate is required';
+      } else if (!dailyRate || isNaN(Number(dailyRate))) {
+        return 'Valid daily rate is required';
+      }
     }
     return null;
+  };
+
+  const validate = (): string | null => {
+    for (let s = 0; s < STEPS.length; s++) {
+      const err = validateStep(s);
+      if (err) return err;
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const err = validateStep(step);
+    if (err) {
+      Toast.show({ type: 'error', text1: err });
+      return;
+    }
+    if (!isLastStep) setStep((s) => s + 1);
+  };
+
+  const goBack = () => {
+    if (step === 0) {
+      router.back();
+    } else {
+      setStep((s) => s - 1);
+    }
   };
 
   const handleSubmit = useCallback(async () => {
@@ -248,11 +285,16 @@ export default function NewVehicleScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={goBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>New Vehicle</Text>
         <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Wizard progress */}
+      <View style={[styles.stepperWrap, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <Stepper steps={STEPS} currentStep={step} />
       </View>
 
       <KeyboardAvoidingView
@@ -264,7 +306,9 @@ export default function NewVehicleScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Service & Basics */}
+          {/* ───── Step 0: Vehicle (Service & Basics + Details) ───── */}
+          {step === 0 && (
+          <>
           <Card style={styles.formSection}>
             <SectionHeader title="Service Type" icon="car-sport-outline" />
             <ChipSelector options={SERVICE_TYPES} selected={serviceType} onSelect={onServiceChange} />
@@ -379,8 +423,12 @@ export default function NewVehicleScreen() {
               </TouchableOpacity>
             ) : null}
           </Card>
+          </>
+          )}
 
-          {/* Inventory & Location */}
+          {/* ───── Step 1: Pricing (Inventory & Location + Pricing) ───── */}
+          {step === 1 && (
+          <>
           <Card style={styles.formSection}>
             <SectionHeader title="Inventory & Location" icon="location-outline" />
 
@@ -500,8 +548,11 @@ export default function NewVehicleScreen() {
             <Text style={labelStyle}>Fuel Policy</Text>
             <ChipSelector options={FUEL_POLICIES} selected={fuelPolicy} onSelect={setFuelPolicy} />
           </Card>
+          </>
+          )}
 
-          {/* Cancellation Policy */}
+          {/* ───── Step 2: Policies (Cancellation + review) ───── */}
+          {step === 2 && (
           <Card style={styles.formSection}>
             <SectionHeader title="Cancellation Policy" icon="shield-checkmark-outline" />
             {CANCELLATION_POLICIES.map((policy) => (
@@ -527,18 +578,39 @@ export default function NewVehicleScreen() {
               </TouchableOpacity>
             ))}
           </Card>
+          )}
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <Button
-              title="List Vehicle"
-              onPress={handleSubmit}
-              size="lg"
-              fullWidth
-              loading={submitting}
-              icon={<Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />}
-            />
-          </View>
+          {/* Navigation / Actions */}
+          {isLastStep ? (
+            <View style={styles.actionsRow}>
+              <Button
+                title="Back"
+                onPress={goBack}
+                variant="outline"
+                size="lg"
+                style={styles.actionBtn}
+              />
+              <Button
+                title="List Vehicle"
+                onPress={handleSubmit}
+                size="lg"
+                loading={submitting}
+                style={styles.actionBtn}
+                icon={<Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" />}
+              />
+            </View>
+          ) : (
+            <View style={styles.actionsRow}>
+              <Button
+                title="Back"
+                onPress={goBack}
+                variant="outline"
+                size="lg"
+                style={styles.actionBtn}
+              />
+              <Button title="Next" onPress={goNext} size="lg" style={styles.actionBtn} />
+            </View>
+          )}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -582,6 +654,13 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 36,
+  },
+  stepperWrap: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
   },
   scrollContent: {
     padding: spacing.xl,
@@ -705,6 +784,14 @@ const styles = StyleSheet.create({
   // Actions
   actions: {
     marginTop: spacing.xl,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.xl,
+  },
+  actionBtn: {
+    flex: 1,
   },
 
   bottomSpacer: {

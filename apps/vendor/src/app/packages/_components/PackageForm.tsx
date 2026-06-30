@@ -16,6 +16,7 @@ import Toast from 'react-native-toast-message';
 import {
   Card,
   Button,
+  Stepper,
   colors,
   fontSize,
   fontWeight,
@@ -24,6 +25,10 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { packageAPI } from '@prayana/shared-services';
+
+// ─── Wizard steps ───────────────────────────────────────────────────────────────
+
+const STEPS = ['Basics', 'Route', 'Pricing', 'Review'];
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -362,6 +367,8 @@ export default function PackageForm({
   const [values, setValues] = useState<PackageFormValues>(initialValues);
   const [submitting, setSubmitting] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  const [step, setStep] = useState(0);
+  const isLastStep = step === STEPS.length - 1;
 
   const set = useCallback(<K extends keyof PackageFormValues>(key: K, val: PackageFormValues[K]) => {
     setValues((prev) => ({ ...prev, [key]: val }));
@@ -398,14 +405,47 @@ export default function PackageForm({
     });
   }, []);
 
-  const validate = (): string | null => {
-    if (!values.title.trim()) return 'Package title is required';
-    if (values.categories.length === 0) return 'Select at least one category';
-    if (!values.nights || isNaN(Number(values.nights))) return 'Valid number of nights is required';
-    const hasDestination = values.destinations.some((d) => d.name.trim() || d.city.trim());
-    if (!hasDestination) return 'At least one destination is required';
-    if (!values.basePrice || isNaN(Number(values.basePrice))) return 'Valid base price is required';
+  // Per-step validation — returns an error message for the given step, or null.
+  const validateStep = (s: number): string | null => {
+    if (s === 0) {
+      if (!values.title.trim()) return 'Package title is required';
+      if (values.categories.length === 0) return 'Select at least one category';
+    }
+    if (s === 1) {
+      if (!values.nights || isNaN(Number(values.nights))) return 'Valid number of nights is required';
+      const hasDestination = values.destinations.some((d) => d.name.trim() || d.city.trim());
+      if (!hasDestination) return 'At least one destination is required';
+    }
+    if (s === 2) {
+      if (!values.basePrice || isNaN(Number(values.basePrice))) return 'Valid base price is required';
+    }
     return null;
+  };
+
+  // Full validation across all steps (used on submit).
+  const validate = (): string | null => {
+    for (let s = 0; s < STEPS.length; s++) {
+      const err = validateStep(s);
+      if (err) return err;
+    }
+    return null;
+  };
+
+  const goNext = () => {
+    const err = validateStep(step);
+    if (err) {
+      Toast.show({ type: 'error', text1: err });
+      return;
+    }
+    if (!isLastStep) setStep((s) => s + 1);
+  };
+
+  const goBack = () => {
+    if (step === 0) {
+      router.back();
+    } else {
+      setStep((s) => s - 1);
+    }
   };
 
   const handleSave = useCallback(
@@ -475,11 +515,16 @@ export default function PackageForm({
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity onPress={goBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>{headerTitle}</Text>
         <View style={styles.headerSpacer} />
+      </View>
+
+      {/* Wizard progress */}
+      <View style={[styles.stepperWrap, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <Stepper steps={STEPS} currentStep={step} />
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.flex}>
@@ -488,7 +533,8 @@ export default function PackageForm({
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Basic Info */}
+          {/* ───── Step 0: Basics ───── */}
+          {step === 0 && (
           <Card style={styles.formSection}>
             <SectionHeader title="Basic Info" icon="information-circle-outline" />
 
@@ -534,8 +580,10 @@ export default function PackageForm({
             </Text>
             <ChipSelector options={CATEGORIES} selected={values.categories} onToggle={toggleCategory} />
           </Card>
+          )}
 
-          {/* Duration & Destinations */}
+          {/* ───── Step 1: Route (Duration & Destinations) ───── */}
+          {step === 1 && (
           <Card style={styles.formSection}>
             <SectionHeader title="Duration & Destinations" icon="map-outline" />
 
@@ -596,8 +644,10 @@ export default function PackageForm({
               <Text style={styles.addRowText}>Add destination</Text>
             </TouchableOpacity>
           </Card>
+          )}
 
-          {/* Pricing & Inclusions */}
+          {/* ───── Step 2: Pricing & Plan ───── */}
+          {step === 2 && (
           <Card style={styles.formSection}>
             <SectionHeader title="Pricing & Plan" icon="pricetag-outline" />
 
@@ -668,6 +718,44 @@ export default function PackageForm({
               placeholder="e.g. Airfare"
             />
           </Card>
+          )}
+
+          {/* ───── Step 3: Review (Cancellation + summary) ───── */}
+          {step === 3 && (
+          <>
+          <Card style={styles.formSection}>
+            <SectionHeader title="Summary" icon="reader-outline" />
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Title</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]} numberOfLines={1}>
+                {values.title || '—'}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Categories</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]} numberOfLines={1}>
+                {values.categories.join(', ') || '—'}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Duration</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]}>
+                {values.nights ? `${values.nights} nights` : '—'}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Destinations</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]} numberOfLines={1}>
+                {values.destinations.map((d) => d.name || d.city).filter(Boolean).join(', ') || '—'}
+              </Text>
+            </View>
+            <View style={styles.summaryRow}>
+              <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Base Price</Text>
+              <Text style={[styles.summaryValue, { color: themeColors.text }]}>
+                {values.basePrice ? `${'₹'}${Number(values.basePrice).toLocaleString('en-IN')}` : '—'}
+              </Text>
+            </View>
+          </Card>
 
           {/* Cancellation Policy */}
           <Card style={styles.formSection}>
@@ -698,27 +786,42 @@ export default function PackageForm({
               );
             })}
           </Card>
+          </>
+          )}
 
-          {/* Actions */}
-          <View style={styles.actions}>
-            <Button
-              title={mode === 'edit' ? 'Save Changes' : 'Save as Draft'}
-              onPress={() => handleSave(false)}
-              variant="outline"
-              size="lg"
-              loading={savingDraft}
-              disabled={submitting}
-              style={styles.actionBtn}
-            />
-            <Button
-              title={mode === 'edit' ? 'Save & Submit' : 'Submit for Review'}
-              onPress={() => handleSave(true)}
-              size="lg"
-              loading={submitting}
-              disabled={savingDraft}
-              style={styles.actionBtn}
-            />
-          </View>
+          {/* Navigation / Actions */}
+          {isLastStep ? (
+            <View style={styles.actions}>
+              <Button
+                title={mode === 'edit' ? 'Save Changes' : 'Save as Draft'}
+                onPress={() => handleSave(false)}
+                variant="outline"
+                size="lg"
+                loading={savingDraft}
+                disabled={submitting}
+                style={styles.actionBtn}
+              />
+              <Button
+                title={mode === 'edit' ? 'Save & Submit' : 'Submit for Review'}
+                onPress={() => handleSave(true)}
+                size="lg"
+                loading={submitting}
+                disabled={savingDraft}
+                style={styles.actionBtn}
+              />
+            </View>
+          ) : (
+            <View style={styles.actions}>
+              <Button
+                title="Back"
+                onPress={goBack}
+                variant="outline"
+                size="lg"
+                style={styles.actionBtn}
+              />
+              <Button title="Next" onPress={goNext} size="lg" style={styles.actionBtn} />
+            </View>
+          )}
 
           <View style={styles.bottomSpacer} />
         </ScrollView>
@@ -756,9 +859,29 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerSpacer: { width: 36 },
+  stepperWrap: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surface,
+  },
   scrollContent: { padding: spacing.xl },
 
   formSection: { marginBottom: spacing.lg },
+
+  // Review summary
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    gap: spacing.md,
+  },
+  summaryLabel: { fontSize: fontSize.sm, color: colors.textSecondary },
+  summaryValue: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text, flexShrink: 1, textAlign: 'right' },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
