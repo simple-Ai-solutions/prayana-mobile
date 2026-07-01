@@ -19,14 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  MapPin as ExpMapPin,
-  Compass as ExpCompass,
-  Sparkles as ExpSparkles,
-  BookOpen as ExpBookOpen,
-  Navigation as ExpCompass2,
-  Heart as ExpHeart,
-} from 'lucide-react-native';
 import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';
 import { useAuth, useAutoLocationDetection } from '@prayana/shared-hooks';
@@ -66,16 +58,6 @@ const HERO_TABS_MORE = [
   { id: 'divya-darshana', label: 'Divya Darshana', icon: require('../../../assets/hero-icons/divya-darshana.png'), route: '/divya-darshana' },
 ];
 const MORE_ICON = require('../../../assets/hero-icons/more.png');
-
-// Feature shortcuts shown in the home "Explore more" row.
-const EXPLORE_MORE = [
-  { label: 'India\nExperiences', Icon: ExpMapPin, color: '#F97316', bg: '#FFF7ED', route: '/india-experiences' },
-  { label: 'Explore\nNearby', Icon: ExpCompass, color: '#10B981', bg: '#D1FAE5', route: '/explore-nearby' },
-  { label: 'Theme\nItineraries', Icon: ExpSparkles, color: '#8B5CF6', bg: '#EDE9FE', route: '/theme-itineraries' },
-  { label: 'Travel\nGuides', Icon: ExpBookOpen, color: '#3B82F6', bg: '#DBEAFE', route: '/travel-guides' },
-  { label: 'Captain\nTours', Icon: ExpCompass2, color: '#EF4444', bg: '#FEE2E2', route: '/captain-tours' },
-  { label: 'Favorites', Icon: ExpHeart, color: '#EC4899', bg: '#FCE7F3', route: '/favorites' },
-];
 
 // ============================================================
 // SECTION 2: DISCOVER BY INTEREST (matching web DiscoverByInterest)
@@ -558,31 +540,6 @@ export default function HomeScreen() {
           />
         ) : (
         <>
-        {/* ============================================================ */}
-        {/* EXPLORE MORE — feature shortcuts                              */}
-        {/* ============================================================ */}
-        <View style={[styles.section, { backgroundColor: themeColors.background }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Explore more</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingTop: spacing.md }}>
-            {EXPLORE_MORE.map((f) => {
-              const Icon = f.Icon;
-              return (
-                <TouchableOpacity
-                  key={f.route}
-                  style={[styles.exploreChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                  activeOpacity={0.8}
-                  onPress={() => router.push(f.route as any)}
-                >
-                  <View style={[styles.exploreChipIcon, { backgroundColor: f.bg }]}>
-                    <Icon size={20} color={f.color} />
-                  </View>
-                  <Text style={[styles.exploreChipText, { color: themeColors.text }]} numberOfLines={2}>{f.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
         {/* ============================================================ */}
         {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
         {/* ============================================================ */}
@@ -1339,30 +1296,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginBottom: 16,
-  },
-
-  // Explore more feature chips
-  exploreChip: {
-    width: 84,
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  exploreChipIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  exploreChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 13,
   },
 
   // Services Bar (legacy)
