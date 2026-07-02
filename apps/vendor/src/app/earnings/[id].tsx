@@ -13,14 +13,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
+import { Card, Badge } from '@prayana/shared-ui';
 import {
-  Card,
-  Badge,
   colors,
   spacing,
   fontSize,
   fontWeight,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { payoutAPI } from '@prayana/shared-services';
 
 type Payout = {

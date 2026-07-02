@@ -24,13 +24,15 @@ import {
   StarRating,
   EmptyState,
   LoadingSpinner,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { businessAPI } from '@prayana/shared-services';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 

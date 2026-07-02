@@ -17,12 +17,14 @@ import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import {
   Badge,
+} from '@prayana/shared-ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
   borderRadius,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { supportAPI } from '@prayana/shared-services';
 
 type Message = {

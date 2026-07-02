@@ -22,14 +22,16 @@ import {
   TextInput,
   StatusBadge,
   EmptyState,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
   shadow,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { businessAPI, activityMarketplaceAPI } from '@prayana/shared-services';
 
 // ---------------------------------------------------------------------------

@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@prayana/shared-hooks';
 import { useTheme } from '@prayana/shared-ui';
+import { colors } from '../../theme/vendorColors';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '@prayana/shared-services';
 
@@ -341,12 +342,12 @@ const styles = StyleSheet.create({
   eyeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
   },
   registerButton: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#f97316',
+    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -380,6 +381,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
   },
 });

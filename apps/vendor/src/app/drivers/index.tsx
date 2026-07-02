@@ -22,13 +22,15 @@ import {
   Badge,
   EmptyState,
   LoadingSpinner,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { driverAPI } from '@prayana/shared-services';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

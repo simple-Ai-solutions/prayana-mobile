@@ -18,13 +18,15 @@ import {
   StatusBadge,
   EmptyState,
   LoadingSpinner,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
   borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { packageAPI } from '@prayana/shared-services';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

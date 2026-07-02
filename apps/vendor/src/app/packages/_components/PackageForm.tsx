@@ -17,13 +17,15 @@ import {
   Card,
   Button,
   Stepper,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../../theme/vendorColors';
 import { packageAPI } from '@prayana/shared-services';
 
 // ─── Wizard steps ───────────────────────────────────────────────────────────────

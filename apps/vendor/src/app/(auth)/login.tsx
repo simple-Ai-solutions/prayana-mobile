@@ -18,6 +18,7 @@ import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuth } from '@prayana/shared-hooks';
 import { useTheme } from '@prayana/shared-ui';
+import { colors } from '../../theme/vendorColors';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
@@ -200,7 +201,7 @@ export default function LoginScreen() {
               activeOpacity={0.7}
             >
               {isGoogleLoading ? (
-                <ActivityIndicator size="small" color="#f97316" />
+                <ActivityIndicator size="small" color={colors.primary[500]} />
               ) : (
                 <>
                   <Text style={styles.socialButtonIcon}>G</Text>
@@ -351,7 +352,7 @@ const styles = StyleSheet.create({
   socialButtonIcon: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#f97316',
+    color: colors.primary[500],
   },
   socialButtonText: {
     fontSize: 15,
@@ -422,12 +423,12 @@ const styles = StyleSheet.create({
   eyeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
   },
   signInButton: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#f97316',
+    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
@@ -454,6 +455,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
   },
 });

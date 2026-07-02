@@ -11,16 +11,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Card, LoadingSpinner } from '@prayana/shared-ui';
 import {
-  Card,
-  LoadingSpinner,
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
   shadow,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { makeAPICall } from '@prayana/shared-services';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 

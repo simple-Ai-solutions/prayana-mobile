@@ -7,12 +7,14 @@ import {
   Button,
   EmptyState,
   LoadingSpinner,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { packageAPI } from '@prayana/shared-services';
 import PackageForm, {
   packageToFormValues,

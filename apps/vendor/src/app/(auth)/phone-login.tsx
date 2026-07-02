@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { signInWithCustomToken } from 'firebase/auth';
 import { useAuth } from '@prayana/shared-hooks';
 import { useTheme } from '@prayana/shared-ui';
+import { colors } from '../../theme/vendorColors';
 import {
   sendPhoneOtp,
   verifyPhoneOtp,
@@ -359,7 +360,7 @@ const styles = StyleSheet.create({
   brandLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 8,
@@ -442,15 +443,15 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
   },
   otpInputFilled: {
-    borderColor: '#f97316',
-    backgroundColor: '#fff7ed',
+    borderColor: colors.primary[500],
+    backgroundColor: colors.primary[50],
   },
 
   // Buttons
   primaryButton: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#f97316',
+    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -474,6 +475,6 @@ const styles = StyleSheet.create({
   resendLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
   },
 });

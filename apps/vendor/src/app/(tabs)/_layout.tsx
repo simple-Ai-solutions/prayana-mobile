@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
-import { colors, useTheme } from '@prayana/shared-ui';
+import { useTheme } from '@prayana/shared-ui';
+import { colors } from '../../theme/vendorColors';
 
 function DashboardIcon({ color, size }: { color: string; size: number }) {
   return (

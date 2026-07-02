@@ -24,12 +24,14 @@ import {
   Badge,
   EmptyState,
   TextInput,
+} from '@prayana/shared-ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
   borderRadius,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { supportAPI } from '@prayana/shared-services';
 
 type Ticket = {
