@@ -8,12 +8,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "prayana",
-    "owner": "prayanaai",
+    "owner": "srikanthvaijapur",
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/REPLACE_WITH_PROJECT_ID",
+      "url": "https://u.expo.dev/2f4a4824-92d4-4f23-8a57-f3900b0f98a6",
       "fallbackToCacheTimeout": 0
     },
     "splash": {
@@ -138,14 +138,16 @@
           "userTrackingPermission": "Lets us measure ad performance and personalize travel recommendations. You can decline and still use Prayana fully."
         }
       ],
-      "@sentry/react-native/expo"
+      "@sentry/react-native/expo",
+      "./plugins/withSentryHermesFix"
     ],
     "extra": {
       "router": {
-        "origin": "https://prayanaai.com"
+        "origin": "https://prayanaai.com",
+        "root": "./src/app"
       },
       "eas": {
-        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+        "projectId": "2f4a4824-92d4-4f23-8a57-f3900b0f98a6"
       }
     }
   }
