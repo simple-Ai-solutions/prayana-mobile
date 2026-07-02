@@ -37,7 +37,16 @@ export function Button({
   fullWidth = false,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
-  const { themeColors } = useTheme();
+  const { themeColors, brand } = useTheme();
+
+  // Brand-colored backgrounds/borders come from the theme's brand ramp so the
+  // vendor app (blue) and customer app (orange) share one component.
+  const brandBg =
+    variant === 'primary' ? { backgroundColor: brand[500] } :
+    variant === 'outline' ? { borderColor: brand[500] } :
+    undefined;
+  const brandText =
+    variant === 'outline' || variant === 'ghost' ? { color: brand[500] } : undefined;
 
   return (
     <TouchableOpacity
@@ -48,6 +57,7 @@ export function Button({
         styles.base,
         styles[variant],
         variant === 'secondary' && { backgroundColor: themeColors.backgroundSecondary },
+        brandBg,
         styles[`size_${size}`],
         fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
@@ -57,7 +67,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'outline' || variant === 'ghost' ? colors.primary[500] : '#fff'}
+          color={variant === 'outline' || variant === 'ghost' ? brand[500] : '#fff'}
         />
       ) : (
         <>
@@ -67,6 +77,7 @@ export function Button({
               styles.text,
               styles[`text_${variant}`],
               variant === 'secondary' && { color: themeColors.text },
+              brandText,
               styles[`textSize_${size}`],
               icon ? { marginLeft: spacing.sm } : undefined,
               textStyle,

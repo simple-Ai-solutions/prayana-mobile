@@ -1,7 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
-import { colors, borderRadius, fontSize, fontWeight } from './theme';
+import { borderRadius, fontSize, fontWeight } from './theme';
+import { useTheme } from './ThemeProvider';
 
 interface AvatarProps {
   uri?: string | null;
@@ -20,8 +21,9 @@ function getInitials(name?: string): string {
     .toUpperCase();
 }
 
-const avatarColors = [
-  colors.primary[500],
+// The first swatch is the brand accent, injected at render time from the theme's
+// brand ramp so vendor (blue) and customer (orange) apps share one component.
+const nonBrandAvatarColors = [
   '#8b5cf6',
   '#06B6D4',
   '#ec4899',
@@ -29,13 +31,16 @@ const avatarColors = [
   '#6366f1',
 ];
 
-function getColorForName(name?: string): string {
+function getColorForName(name: string | undefined, brandColor: string): string {
+  const avatarColors = [brandColor, ...nonBrandAvatarColors];
   if (!name) return avatarColors[0];
   const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   return avatarColors[hash % avatarColors.length];
 }
 
 export function Avatar({ uri, name, size = 40, style }: AvatarProps) {
+  const { brand } = useTheme();
+
   if (uri) {
     return (
       <Image
@@ -61,7 +66,7 @@ export function Avatar({ uri, name, size = 40, style }: AvatarProps) {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: getColorForName(name),
+          backgroundColor: getColorForName(name, brand[500]),
           alignItems: 'center',
           justifyContent: 'center',
         },

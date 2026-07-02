@@ -21,37 +21,45 @@ import {
 } from '@prayana/shared-ui';
 
 // Tailwind indigo ramp — 600 (#4F46E5) is the PWA's brand color.
-const indigo = {
-  50: '#eef2ff',
-  100: '#e0e7ff',
-  200: '#c7d2fe',
-  300: '#a5b4fc',
-  400: '#818cf8',
-  500: '#6366f1',
-  600: '#4f46e5', // PWA Business Portal brand
-  700: '#4338ca',
-  800: '#3730a3',
-  900: '#312e81',
+// Tailwind blue ramp — 600 (#2563eb) is the web Partner Portal's brand
+// (app/business/page.js uses blue-600 buttons, blue-300 accents, and a
+// slate-950 -> blue-950 dark hero).
+const blue = {
+  50: '#eff6ff',
+  100: '#dbeafe',
+  200: '#bfdbfe',
+  300: '#93c5fd',
+  400: '#60a5fa',
+  500: '#3b82f6',
+  600: '#2563eb', // web Partner Portal brand
+  700: '#1d4ed8',
+  800: '#1e40af',
+  900: '#1e3a8a',
 } as const;
 
 export const colors = {
   ...sharedColors,
-  // Override the brand ramp with indigo. We keep the [500]-as-main convention the
-  // screens use, but map it to indigo-600 so `colors.primary[500]` == #4f46e5
-  // (the exact PWA brand). The rest of the ramp shifts one step for depth.
+  // Override the brand ramp with blue. Keep the [500]-as-main convention the
+  // screens use, but map it to blue-600 so `colors.primary[500]` == #2563eb
+  // (the exact web brand). The rest of the ramp shifts one step for depth.
   primary: {
-    50: indigo[50],
-    100: indigo[100],
-    200: indigo[200],
-    300: indigo[300],
-    400: indigo[500],
-    500: indigo[600], // main = #4f46e5, the PWA brand
-    600: indigo[700],
-    700: indigo[800],
-    800: indigo[900],
-    900: '#232066',
+    50: blue[50],
+    100: blue[100],
+    200: blue[200],
+    300: blue[300],
+    400: blue[500],
+    500: blue[600], // main = #2563eb, the web Partner Portal brand
+    600: blue[700],
+    700: blue[800],
+    800: blue[900],
+    900: '#172554',
   },
-  borderFocused: indigo[600],
+  borderFocused: blue[600],
+  // Dark-hero palette for the landing/marketing surfaces (web hero is a
+  // slate-950 -> blue-950 -> slate-900 gradient with blue-300 accent text).
+  heroGradient: ['#020617', '#172554', '#0f172a'] as const, // slate-950, blue-950, slate-900
+  heroAccent: blue[300],   // "Grow with PrayanaAI" gradient text + icon accents
+  heroGlow: '#3b82f6',     // blur orb glow
 } as const;
 
 // Re-export the untouched shared tokens so vendor screens can import everything

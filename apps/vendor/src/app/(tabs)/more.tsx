@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Card, Avatar } from '@prayana/shared-ui';
+import { Card, Avatar } from '../../components/ui';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '../../theme/vendorColors';
 import { useAuth } from '@prayana/shared-hooks';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
@@ -50,55 +50,79 @@ export default function MoreScreen() {
   const businessName = businessAccount?.businessName || businessAccount?.name || 'Business';
   const email = businessAccount?.contact?.email || user?.email || '';
 
+  // Grouped to mirror the web Business Portal sidebar
+  // (components/business/dashboard/DashboardSidebar.jsx):
+  // Workspace(Overview=Dashboard tab) · Listings · Operations · Growth · Account.
   const menuSections: MenuSection[] = [
     {
-      title: 'Business',
+      title: 'Listings',
       items: [
         {
-          icon: 'bar-chart-outline',
-          label: 'Analytics',
-          subtitle: 'Revenue, bookings & performance',
-          route: '/analytics',
+          icon: 'ticket-outline',
+          label: 'Activities',
+          subtitle: 'Your listed experiences',
+          route: '/(tabs)/activities',
+          color: colors.primary[500],
+        },
+        {
+          icon: 'cube-outline',
+          label: 'Holiday Packages',
+          subtitle: 'Multi-day packages & departures',
+          route: '/packages',
           color: colors.info,
         },
         {
-          icon: 'diamond-outline',
-          label: 'Quality Score',
-          subtitle: 'Seller quality metrics & tier',
-          route: '/quality',
-          color: colors.warning,
-        },
-        {
-          icon: 'wallet-outline',
-          label: 'Earnings',
-          subtitle: 'Balance, payouts & bank details',
-          route: '/earnings',
+          icon: 'car-outline',
+          label: 'Transport',
+          subtitle: 'Vehicle rentals & drivers',
+          route: '/transport',
           color: colors.success,
         },
       ],
     },
     {
-      title: 'Communication',
+      title: 'Operations',
       items: [
+        {
+          icon: 'calendar-outline',
+          label: 'Bookings',
+          subtitle: 'Incoming & past orders',
+          route: '/(tabs)/orders',
+          color: colors.primary[500],
+        },
         {
           icon: 'chatbubbles-outline',
           label: 'Messages',
           subtitle: 'Customer conversations',
           route: '/messaging',
-          color: colors.primary[500],
+          color: colors.info,
         },
         {
-          icon: 'star-outline',
-          label: 'Reviews',
-          subtitle: 'Read & reply to customer reviews',
-          route: '/reviews',
-          color: colors.warning,
+          icon: 'today-outline',
+          label: 'Calendar',
+          subtitle: 'Availability & schedule',
+          route: '/(tabs)/calendar',
+          color: colors.success,
         },
       ],
     },
     {
-      title: 'Sales',
+      title: 'Growth',
       items: [
+        {
+          icon: 'bar-chart-outline',
+          label: 'Analytics',
+          subtitle: 'Revenue, bookings & trends',
+          route: '/analytics',
+          color: colors.info,
+        },
+        {
+          icon: 'star-outline',
+          label: 'Performance',
+          subtitle: 'Quality score & reviews',
+          route: '/performance',
+          color: colors.warning,
+        },
         {
           icon: 'pricetag-outline',
           label: 'Coupons',
@@ -106,45 +130,17 @@ export default function MoreScreen() {
           route: '/coupons',
           color: colors.primary[500],
         },
-        {
-          icon: 'cube-outline',
-          label: 'Packages',
-          subtitle: 'Holiday packages & departures',
-          route: '/packages',
-          color: colors.info,
-        },
-        {
-          icon: 'car-outline',
-          label: 'Transport',
-          subtitle: 'Vehicle rentals & bookings',
-          route: '/transport',
-          color: colors.success,
-        },
-        {
-          icon: 'people-outline',
-          label: 'Drivers',
-          subtitle: 'Manage drivers & availability',
-          route: '/drivers',
-          color: colors.warning,
-        },
       ],
     },
     {
-      title: 'Finance & Compliance',
+      title: 'Account',
       items: [
         {
-          icon: 'cash-outline',
+          icon: 'wallet-outline',
           label: 'Finance',
-          subtitle: 'Earnings, payouts & settings',
+          subtitle: 'Earnings, payouts & bank details',
           route: '/finance',
           color: colors.success,
-        },
-        {
-          icon: 'trending-up-outline',
-          label: 'Performance',
-          subtitle: 'Quality score & reviews',
-          route: '/performance',
-          color: colors.info,
         },
         {
           icon: 'shield-checkmark-outline',
@@ -153,17 +149,17 @@ export default function MoreScreen() {
           route: '/verification',
           color: colors.warning,
         },
-      ],
-    },
-    {
-      title: 'Settings',
-      items: [
         {
           icon: 'settings-outline',
-          label: 'Account Settings',
+          label: 'Settings',
           subtitle: 'Profile, notifications & payouts',
           route: '/settings',
         },
+      ],
+    },
+    {
+      title: 'Support',
+      items: [
         {
           icon: 'help-buoy-outline',
           label: 'Help & Support',

@@ -12,14 +12,14 @@ interface LoadingSpinnerProps {
 
 export function LoadingSpinner({
   size = 'large',
-  color = colors.primary[500],
+  color,
   message,
   fullScreen = false,
 }: LoadingSpinnerProps) {
-  const { themeColors } = useTheme();
+  const { themeColors, brand } = useTheme();
   const content = (
     <View style={[styles.container, fullScreen && [styles.fullScreen, { backgroundColor: themeColors.background }]]}>
-      <ActivityIndicator size={size} color={color} />
+      <ActivityIndicator size={size} color={color ?? brand[500]} />
       {message && <Text style={[styles.message, { color: themeColors.textSecondary }]}>{message}</Text>}
     </View>
   );

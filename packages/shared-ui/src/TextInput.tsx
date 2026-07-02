@@ -30,7 +30,7 @@ export function TextInput({
   ...props
 }: TextInputProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const { themeColors } = useTheme();
+  const { themeColors, brand } = useTheme();
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -39,7 +39,7 @@ export function TextInput({
         style={[
           styles.inputWrapper,
           { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border },
-          isFocused && styles.inputFocused,
+          isFocused && [styles.inputFocused, { borderColor: brand[500] }],
           error && styles.inputError,
         ]}
       >
@@ -89,9 +89,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     backgroundColor: colors.surface,
   },
-  inputFocused: {
-    borderColor: colors.primary[500],
-  },
+  inputFocused: {},
   inputError: {
     borderColor: colors.error,
   },

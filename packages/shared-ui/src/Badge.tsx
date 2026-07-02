@@ -12,9 +12,10 @@ interface BadgeProps {
   style?: ViewStyle;
 }
 
-const variantColors: Record<BadgeVariant, { bg: string; text: string }> = {
-  default: { bg: colors.gray[100], text: colors.gray[700] },
-  primary: { bg: colors.primary[100], text: colors.primary[700] },
+// Semantic (non-brand) variant colors live at module scope. The `primary`
+// variant is brand-colored, so it is resolved from the theme's brand ramp at
+// render time instead (see below).
+const variantColors: Record<Exclude<BadgeVariant, 'default' | 'primary'>, { bg: string; text: string }> = {
   success: { bg: colors.successLight, text: '#15803d' },
   warning: { bg: colors.warningLight, text: '#a16207' },
   error: { bg: colors.errorLight, text: '#b91c1c' },
@@ -22,11 +23,13 @@ const variantColors: Record<BadgeVariant, { bg: string; text: string }> = {
 };
 
 export function Badge({ label, variant = 'default', size = 'sm', style }: BadgeProps) {
-  const { themeColors } = useTheme();
+  const { themeColors, brand } = useTheme();
   const vc =
     variant === 'default'
       ? { bg: themeColors.backgroundSecondary, text: themeColors.textSecondary }
-      : variantColors[variant];
+      : variant === 'primary'
+        ? { bg: brand[100], text: brand[700] }
+        : variantColors[variant];
   return (
     <View
       style={[

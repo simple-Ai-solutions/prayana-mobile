@@ -9,7 +9,7 @@ interface StepperProps {
 }
 
 export function Stepper({ steps, currentStep }: StepperProps) {
-  const { themeColors } = useTheme();
+  const { themeColors, brand } = useTheme();
   return (
     <View style={styles.container}>
       {steps.map((step, index) => {
@@ -23,7 +23,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
                 style={[
                   styles.circle,
                   { backgroundColor: themeColors.border },
-                  isActive && styles.circleActive,
+                  isActive && [styles.circleActive, { backgroundColor: brand[500] }],
                   isCompleted && styles.circleCompleted,
                 ]}
               >
@@ -41,7 +41,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
                 style={[
                   styles.label,
                   { color: themeColors.textTertiary },
-                  isActive && styles.labelActive,
+                  isActive && [styles.labelActive, { color: brand[500] }],
                   isCompleted && styles.labelCompleted,
                 ]}
                 numberOfLines={1}
@@ -84,9 +84,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleActive: {
-    backgroundColor: colors.primary[500],
-  },
+  circleActive: {},
   circleCompleted: {
     backgroundColor: colors.success,
   },
@@ -106,7 +104,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   labelActive: {
-    color: colors.primary[500],
     fontWeight: fontWeight.semibold,
   },
   labelCompleted: {

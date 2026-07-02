@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { colors, spacing } from './theme';
+import { spacing } from './theme';
 import { useTheme } from './ThemeProvider';
 
 interface StarRatingProps {
@@ -34,15 +34,16 @@ export function StarRating({
   size = 20,
   interactive = false,
   onRatingChange,
-  color = colors.primary[500],
+  color,
 }: StarRatingProps) {
-  const { themeColors } = useTheme();
+  const { themeColors, brand } = useTheme();
+  const starColor = color ?? brand[500];
   return (
     <View style={styles.container}>
       {Array.from({ length: maxRating }, (_, i) => {
         const starValue = i + 1;
         const filled = starValue <= rating;
-        const star = <StarIcon filled={filled} size={size} color={color} emptyColor={themeColors.border} />;
+        const star = <StarIcon filled={filled} size={size} color={starColor} emptyColor={themeColors.border} />;
 
         if (interactive) {
           return (

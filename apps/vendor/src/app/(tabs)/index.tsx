@@ -17,7 +17,7 @@ import {
   StatusBadge,
   LoadingSpinner,
   Button,
-} from '@prayana/shared-ui';
+} from '../../components/ui';
 import {
   colors,
   fontSize,
