@@ -127,7 +127,8 @@
       ],
       "@sentry/react-native/expo",
       "./plugins/withSentryHermesFix",
-      "./plugins/withModularHeaders"
+      "./plugins/withModularHeaders",
+      "./plugins/withStripPushEntitlements"
     ],
     "extra": {
       "router": {
