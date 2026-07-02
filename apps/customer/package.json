@@ -40,12 +40,14 @@
     "expo-linking": "~8.0.11",
     "expo-location": "~19.0.8",
     "expo-notifications": "~0.32.16",
+    "expo-print": "~15.0.8",
     "expo-router": "~6.0.23",
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-tracking-transparency": "~6.0.7",
+    "expo-updates": "~29.0.18",
     "expo-web-browser": "~15.0.10",
     "firebase": "^12.9.0",
     "react": "19.1.0",
@@ -62,8 +64,7 @@
     "react-native-toast-message": "^2.2.1",
     "socket.io-client": "^4.7.5",
     "zod": "^3.23.0",
-    "zustand": "^4.5.2",
-    "expo-print": "~15.0.8"
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
