@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,7 +26,7 @@ import {
   spacing,
   borderRadius,
 } from '../../theme/vendorColors';
-import { payoutAPI } from '@prayana/shared-services';
+import { payoutAPI, businessAPI } from '@prayana/shared-services';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,24 @@ interface PayoutRow {
     commissionAmount?: number;
     tdsAmount?: number;
     netPayout?: number;
+  };
+}
+
+interface PayoutConfig {
+  isPayoutConfigured?: boolean;
+  method?: 'bank_transfer' | 'upi';
+  bankDetails?: {
+    accountHolderName?: string;
+    accountNumber?: string;
+    maskedAccountNumber?: string;
+    ifscCode?: string;
+    bankName?: string;
+    branchName?: string;
+  };
+  upiId?: string;
+  razorpayRoute?: {
+    status?: string;
+    lastError?: string;
   };
 }
 
@@ -125,6 +144,11 @@ function parseHistory(raw: any): PayoutRow[] {
       },
     };
   });
+}
+
+function maskAccountNumber(accNum?: string): string {
+  if (!accNum || accNum.length < 4) return accNum ?? '—';
+  return 'X'.repeat(Math.max(0, accNum.length - 4)) + ' ' + accNum.slice(-4);
 }
 
 function formatDate(value?: string): string {
@@ -231,6 +255,25 @@ export default function FinanceScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  const [payoutConfig, setPayoutConfig] = useState<PayoutConfig | null>(null);
+  const [payoutLoading, setPayoutLoading] = useState(true);
+
+  const loadPayoutConfig = useCallback(async () => {
+    setPayoutLoading(true);
+    try {
+      const res: any = await businessAPI.getPayoutConfig().catch(() => null);
+      if (res?.success) {
+        setPayoutConfig(res.data ?? null);
+      } else if (res?.data) {
+        setPayoutConfig(res.data);
+      }
+    } catch (err: any) {
+      console.warn('[Finance] payout config error:', err?.message);
+    } finally {
+      setPayoutLoading(false);
+    }
+  }, []);
+
   const fetchData = useCallback(
     async (status: StatusFilter) => {
       try {
@@ -264,6 +307,13 @@ export default function FinanceScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Load payout config lazily the first time the Payout Settings tab opens.
+  useEffect(() => {
+    if (tab === 'payout' && payoutConfig === null && payoutLoading) {
+      loadPayoutConfig();
+    }
+  }, [tab, payoutConfig, payoutLoading, loadPayoutConfig]);
 
   const nextPayoutLabel = useMemo(() => {
     const d = summary?.nextPayout?.scheduledFor;
@@ -325,27 +375,271 @@ export default function FinanceScreen() {
       </View>
 
       {tab === 'payout' ? (
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <Card style={styles.payoutPrompt}>
-            <View style={styles.payoutPromptIcon}>
-              <Ionicons name="card-outline" size={28} color={colors.primary[500]} />
-            </View>
-            <Text style={[styles.payoutPromptTitle, { color: themeColors.text }]}>
-              Manage Payout Method
-            </Text>
-            <Text style={[styles.payoutPromptText, { color: themeColors.textSecondary }]}>
-              Configure your bank account or UPI ID to receive payouts.
-            </Text>
-            <Button
-              title="Open Payout Settings"
-              onPress={() => router.push('/payout')}
-              size="lg"
-              fullWidth
-              style={styles.payoutPromptBtn}
-              icon={<Ionicons name="settings-outline" size={20} color="#ffffff" />}
-            />
-          </Card>
-        </ScrollView>
+        payoutLoading ? (
+          <LoadingSpinner fullScreen message="Loading payout settings..." />
+        ) : (
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={async () => {
+                  setRefreshing(true);
+                  await loadPayoutConfig();
+                  setRefreshing(false);
+                }}
+                tintColor={colors.primary[500]}
+              />
+            }
+          >
+            {/* Header card */}
+            <Card style={styles.payoutHeaderCard}>
+              <View style={styles.payoutHeaderRow}>
+                <View style={styles.payoutHeaderIcon}>
+                  <Ionicons name="wallet-outline" size={22} color={colors.primary[500]} />
+                </View>
+                <View style={styles.payoutHeaderText}>
+                  <Text style={[styles.payoutHeaderTitle, { color: themeColors.text }]}>
+                    Payout Settings
+                  </Text>
+                  <Text
+                    style={[styles.payoutHeaderSub, { color: themeColors.textSecondary }]}
+                  >
+                    Manage how you receive your earnings from bookings
+                  </Text>
+                </View>
+              </View>
+              <Button
+                title={payoutConfig?.isPayoutConfigured ? 'Edit' : 'Set Up'}
+                onPress={() => router.push('/payout')}
+                size="md"
+                fullWidth
+                style={styles.payoutEditBtn}
+                icon={
+                  <Ionicons name="create-outline" size={18} color="#ffffff" />
+                }
+              />
+            </Card>
+
+            {payoutConfig?.isPayoutConfigured ? (
+              <Card style={styles.payoutDetailCard}>
+                {/* Active badge */}
+                <View style={styles.activeRow}>
+                  <View style={styles.activeBadge}>
+                    <Ionicons name="checkmark-circle" size={15} color={colors.success} />
+                    <Text style={styles.activeBadgeText}>Active</Text>
+                  </View>
+                  <Text
+                    style={[styles.activeCaption, { color: themeColors.textSecondary }]}
+                  >
+                    Payouts are configured and ready
+                  </Text>
+                </View>
+
+                {/* Method details */}
+                {payoutConfig.method === 'bank_transfer' && payoutConfig.bankDetails ? (
+                  <View style={styles.methodBlock}>
+                    <View style={styles.methodHead}>
+                      <Ionicons name="card-outline" size={18} color={colors.primary[500]} />
+                      <Text style={[styles.methodTitle, { color: themeColors.text }]}>
+                        Bank Transfer
+                      </Text>
+                    </View>
+                    <View style={styles.detailGrid}>
+                      <View
+                        style={[styles.detailTile, { backgroundColor: themeColors.backgroundSecondary }]}
+                      >
+                        <Text
+                          style={[styles.detailLabel, { color: themeColors.textTertiary }]}
+                        >
+                          Account Holder
+                        </Text>
+                        <Text style={[styles.detailValue, { color: themeColors.text }]}>
+                          {payoutConfig.bankDetails.accountHolderName || '—'}
+                        </Text>
+                      </View>
+                      <View
+                        style={[styles.detailTile, { backgroundColor: themeColors.backgroundSecondary }]}
+                      >
+                        <Text
+                          style={[styles.detailLabel, { color: themeColors.textTertiary }]}
+                        >
+                          Account Number
+                        </Text>
+                        <Text
+                          style={[styles.detailValueMono, { color: themeColors.text }]}
+                        >
+                          {payoutConfig.bankDetails.maskedAccountNumber ||
+                            maskAccountNumber(payoutConfig.bankDetails.accountNumber)}
+                        </Text>
+                      </View>
+                      <View
+                        style={[styles.detailTile, { backgroundColor: themeColors.backgroundSecondary }]}
+                      >
+                        <Text
+                          style={[styles.detailLabel, { color: themeColors.textTertiary }]}
+                        >
+                          IFSC Code
+                        </Text>
+                        <Text
+                          style={[styles.detailValueMono, { color: themeColors.text }]}
+                        >
+                          {payoutConfig.bankDetails.ifscCode || '—'}
+                        </Text>
+                      </View>
+                      <View
+                        style={[styles.detailTile, { backgroundColor: themeColors.backgroundSecondary }]}
+                      >
+                        <Text
+                          style={[styles.detailLabel, { color: themeColors.textTertiary }]}
+                        >
+                          Bank
+                        </Text>
+                        <Text style={[styles.detailValue, { color: themeColors.text }]}>
+                          {payoutConfig.bankDetails.bankName || '—'}
+                        </Text>
+                        {payoutConfig.bankDetails.branchName ? (
+                          <Text
+                            style={[styles.detailSub, { color: themeColors.textTertiary }]}
+                          >
+                            {payoutConfig.bankDetails.branchName}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  </View>
+                ) : null}
+
+                {payoutConfig.method === 'upi' ? (
+                  <View style={styles.methodBlock}>
+                    <View style={styles.methodHead}>
+                      <Ionicons name="phone-portrait-outline" size={18} color={colors.primary[500]} />
+                      <Text style={[styles.methodTitle, { color: themeColors.text }]}>
+                        UPI
+                      </Text>
+                    </View>
+                    <View
+                      style={[styles.detailTile, { backgroundColor: themeColors.backgroundSecondary }]}
+                    >
+                      <Text
+                        style={[styles.detailLabel, { color: themeColors.textTertiary }]}
+                      >
+                        UPI ID
+                      </Text>
+                      <Text style={[styles.detailValueMono, { color: themeColors.text }]}>
+                        {payoutConfig.upiId || '—'}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
+
+                {/* Razorpay Route auto-payout status (bank_transfer only) */}
+                {payoutConfig.method === 'bank_transfer' && payoutConfig.razorpayRoute
+                  ? (() => {
+                      const st = payoutConfig.razorpayRoute?.status;
+                      const err = payoutConfig.razorpayRoute?.lastError;
+                      if (st === 'active') {
+                        return (
+                          <View style={[styles.notice, styles.noticeSuccess]}>
+                            <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                            <View style={styles.noticeBody}>
+                              <Text style={[styles.noticeTitle, { color: colors.success }]}>
+                                Automated payouts active
+                              </Text>
+                              <Text style={[styles.noticeText, { color: themeColors.textSecondary }]}>
+                                Earnings transfer directly to your bank after the 48h hold
+                                via Razorpay.
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      }
+                      if (st === 'failed') {
+                        return (
+                          <View style={[styles.notice, styles.noticeWarning]}>
+                            <Ionicons name="alert-circle" size={18} color={colors.warning} />
+                            <View style={styles.noticeBody}>
+                              <Text style={[styles.noticeTitle, { color: colors.warning }]}>
+                                Auto-payout setup needs attention
+                              </Text>
+                              <Text style={[styles.noticeText, { color: themeColors.textSecondary }]}>
+                                Your bank details are saved, but Razorpay registration
+                                failed{err ? `: ${err}` : ''}. Your payouts will be processed
+                                manually by the team until this is resolved.
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      }
+                      if (st === 'skipped' || st === 'not_registered') {
+                        return (
+                          <View style={[styles.notice, styles.noticeInfo]}>
+                            <Ionicons name="information-circle" size={18} color={colors.info} />
+                            <View style={styles.noticeBody}>
+                              <Text style={[styles.noticeTitle, { color: colors.info }]}>
+                                Manual payouts
+                              </Text>
+                              <Text style={[styles.noticeText, { color: themeColors.textSecondary }]}>
+                                Earnings will be transferred manually by our finance team
+                                after the 48h hold. Automated payouts will activate once
+                                platform setup is complete.
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      }
+                      return null;
+                    })()
+                  : null}
+
+                {/* How payouts work */}
+                <View style={[styles.notice, styles.noticeInfo]}>
+                  <Ionicons name="information-circle" size={18} color={colors.info} />
+                  <View style={styles.noticeBody}>
+                    <Text style={[styles.noticeTitle, { color: colors.info }]}>
+                      How payouts work
+                    </Text>
+                    <Text style={[styles.noticeBullet, { color: themeColors.textSecondary }]}>
+                      • Payouts are processed after a 48-hour hold post activity completion
+                    </Text>
+                    <Text style={[styles.noticeBullet, { color: themeColors.textSecondary }]}>
+                      • Platform commission is deducted automatically based on your quality
+                      tier
+                    </Text>
+                    <Text style={[styles.noticeBullet, { color: themeColors.textSecondary }]}>
+                      • Bank transfers take 2-3 business days; UPI is near-instant
+                    </Text>
+                  </View>
+                </View>
+              </Card>
+            ) : (
+              /* Not configured */
+              <Card style={styles.payoutPrompt}>
+                <View style={styles.payoutPromptIconWarn}>
+                  <Ionicons name="alert-circle-outline" size={30} color={colors.warning} />
+                </View>
+                <Text style={[styles.payoutPromptTitle, { color: themeColors.text }]}>
+                  Payout not configured
+                </Text>
+                <Text style={[styles.payoutPromptText, { color: themeColors.textSecondary }]}>
+                  Set up your bank account or UPI to start receiving earnings from your
+                  bookings. You won't receive payouts until this is configured.
+                </Text>
+                <Button
+                  title="Set Up Payout"
+                  onPress={() => router.push('/payout')}
+                  size="lg"
+                  fullWidth
+                  style={styles.payoutPromptBtn}
+                  icon={<Ionicons name="arrow-forward" size={20} color="#ffffff" />}
+                />
+              </Card>
+            )}
+
+            <View style={styles.bottomSpacer} />
+          </ScrollView>
+        )
       ) : loading ? (
         <LoadingSpinner fullScreen message="Loading earnings..." />
       ) : (
@@ -696,16 +990,158 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 
-  // Payout tab prompt
+  // Payout Settings tab — header card
+  payoutHeaderCard: {
+    marginBottom: spacing.lg,
+  },
+  payoutHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  payoutHeaderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  payoutHeaderText: {
+    flex: 1,
+  },
+  payoutHeaderTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: fontWeight.bold,
+  },
+  payoutHeaderSub: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  payoutEditBtn: {
+    marginTop: spacing.lg,
+  },
+
+  // Payout Settings tab — detail card
+  payoutDetailCard: {
+    padding: spacing.lg,
+    gap: spacing.lg,
+  },
+  activeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
+  activeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.success + '1A',
+  },
+  activeBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    color: colors.success,
+  },
+  activeCaption: {
+    fontSize: fontSize.xs,
+    flexShrink: 1,
+  },
+  methodBlock: {
+    gap: spacing.md,
+  },
+  methodHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  methodTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  detailTile: {
+    flexGrow: 1,
+    flexBasis: '46%',
+    minWidth: 0,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+  },
+  detailLabel: {
+    fontSize: fontSize.xs,
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  detailValueMono: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+  },
+  detailSub: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+
+  // Notices (auto-payout status + how payouts work)
+  notice: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+  },
+  noticeBody: {
+    flex: 1,
+  },
+  noticeTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    marginBottom: 2,
+  },
+  noticeText: {
+    fontSize: fontSize.xs,
+    lineHeight: 17,
+  },
+  noticeBullet: {
+    fontSize: fontSize.xs,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  noticeSuccess: {
+    backgroundColor: colors.success + '14',
+    borderColor: colors.success + '33',
+  },
+  noticeWarning: {
+    backgroundColor: colors.warning + '14',
+    borderColor: colors.warning + '33',
+  },
+  noticeInfo: {
+    backgroundColor: colors.info + '14',
+    borderColor: colors.info + '33',
+  },
+
+  // Payout tab prompt (not configured)
   payoutPrompt: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
   },
-  payoutPromptIcon: {
+  payoutPromptIconWarn: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: colors.primary[50],
+    backgroundColor: colors.warning + '1A',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,

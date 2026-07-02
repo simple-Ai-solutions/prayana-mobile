@@ -380,23 +380,25 @@ export default function CouponsScreen() {
 
   // ---- Delete ----
 
-  const handleDelete = useCallback(
+  const handleDeactivate = useCallback(
     (coupon: Coupon) => {
       Alert.alert(
-        'Delete coupon',
-        `Remove coupon "${coupon.code}"? This cannot be undone.`,
+        'Deactivate coupon',
+        `Deactivate coupon "${coupon.code}"? It can no longer be applied to new bookings.`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
-            text: 'Delete',
+            text: 'Deactivate',
             style: 'destructive',
             onPress: async () => {
               try {
                 await businessAPI.deleteCoupon(coupon._id);
-                setCoupons((prev) => prev.filter((c) => c._id !== coupon._id));
-                Toast.show({ type: 'success', text1: 'Coupon deleted' });
+                setCoupons((prev) =>
+                  prev.map((c) => (c._id === coupon._id ? { ...c, isActive: false } : c)),
+                );
+                Toast.show({ type: 'success', text1: 'Coupon deactivated' });
               } catch (err: any) {
-                Toast.show({ type: 'error', text1: 'Delete failed', text2: err?.message });
+                Toast.show({ type: 'error', text1: 'Deactivate failed', text2: err?.message });
               }
             },
           },
@@ -425,7 +427,12 @@ export default function CouponsScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={26} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Coupons</Text>
+        <View style={styles.topBarTitleWrap}>
+          <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Coupons</Text>
+          <Text style={[styles.topBarSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>
+            Promo codes customers apply at checkout
+          </Text>
+        </View>
         <TouchableOpacity onPress={openCreate} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="add" size={28} color={colors.primary[500]} />
         </TouchableOpacity>
@@ -443,10 +450,10 @@ export default function CouponsScreen() {
           <EmptyState
             icon={<Ionicons name="pricetags-outline" size={56} color={colors.gray[300]} />}
             title="No coupons yet"
-            description="Create discount codes to attract more bookings for your activities."
+            description="Create a promo code that travelers can apply at checkout to drive more bookings."
           />
           <View style={styles.emptyButtonWrap}>
-            <Button title="New Coupon" onPress={openCreate} variant="primary" size="lg" />
+            <Button title="Create your first coupon" onPress={openCreate} variant="primary" size="lg" />
           </View>
         </ScrollView>
       ) : (
@@ -554,14 +561,16 @@ export default function CouponsScreen() {
                       </>
                     )}
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn]}
-                    onPress={() => handleDelete(coupon)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="trash-outline" size={16} color={colors.error} />
-                    <Text style={[styles.actionBtnText, { color: colors.error }]}>Delete</Text>
-                  </TouchableOpacity>
+                  {coupon.isActive ? (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.deleteBtn]}
+                      onPress={() => handleDeactivate(coupon)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={colors.error} />
+                      <Text style={[styles.actionBtnText, { color: colors.error }]}>Deactivate</Text>
+                    </TouchableOpacity>
+                  ) : null}
                 </View>
               </Card>
             );
@@ -654,6 +663,11 @@ export default function CouponsScreen() {
                   );
                 })}
               </View>
+              <Text style={[styles.fieldHint, { color: themeColors.textTertiary }]}>
+                {form.discountType === 'percent'
+                  ? '% off the order subtotal'
+                  : `Fixed ${RUPEE} off the order subtotal`}
+              </Text>
 
               <TextInput
                 label={form.discountType === 'percent' ? 'Discount Value (%) *' : `Discount Value (${RUPEE}) *`}
@@ -777,6 +791,20 @@ export default function CouponsScreen() {
                 </View>
               )}
 
+              {/* GST info note */}
+              <View style={styles.infoNote}>
+                <Ionicons
+                  name="information-circle-outline"
+                  size={18}
+                  color={colors.primary[600]}
+                  style={{ marginTop: 1 }}
+                />
+                <Text style={[styles.infoNoteText, { color: colors.primary[700] }]}>
+                  Discount is applied to the booking subtotal before GST. Customers see the
+                  discount, then GST is calculated on the reduced amount.
+                </Text>
+              </View>
+
               <View style={styles.modalActions}>
                 <Button
                   title={editingCoupon ? 'Save changes' : 'Create coupon'}
@@ -815,7 +843,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  topBarTitleWrap: { flex: 1, alignItems: 'center', paddingHorizontal: spacing.sm },
   topBarTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+  topBarSubtitle: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 1 },
 
   emptyScroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: spacing.lg },
   emptyButtonWrap: { marginTop: spacing.lg, paddingHorizontal: spacing.xl },
@@ -946,5 +976,23 @@ const styles = StyleSheet.create({
   activityChipText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, flexShrink: 1 },
   noActivities: { fontSize: fontSize.sm, color: colors.textTertiary, marginTop: spacing.xs },
 
-  modalActions: { marginTop: spacing.xl },
+  modalActions: { marginTop: spacing.lg },
+
+  infoNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary[200],
+    backgroundColor: colors.primary[50],
+  },
+  infoNoteText: {
+    flex: 1,
+    fontSize: fontSize.xs,
+    lineHeight: 18,
+    color: colors.primary[700],
+  },
 });

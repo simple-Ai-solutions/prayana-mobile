@@ -6,19 +6,14 @@ import {
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
-  Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import {
-  Card,
-  StatusBadge,
-  SearchBar,
-  LoadingSpinner,
-  EmptyState,
-} from '@prayana/shared-ui';
+import { Card, SearchBar, EmptyState } from '@prayana/shared-ui';
+import { StatusBadge, LoadingSpinner } from '../../components/ui';
 import {
   colors,
   fontSize,
@@ -43,8 +38,18 @@ interface Booking {
   date?: string;
   bookingDate?: string;
   totalAmount?: number;
-  payment?: { total?: number };
+  payment?: { total?: number; status?: string };
   participants?: { adults?: number; children?: number };
+  totalParticipants?: number;
+  timeSlot?: { startTime?: string };
+  specialRequests?: string;
+  activitySnapshot?: { title?: string };
+  pricing?: {
+    totalAmount?: number;
+    creditsApplied?: number;
+    couponDiscount?: number;
+    tierDiscount?: { tier?: string; amount?: number };
+  };
   createdAt?: string;
 }
 
@@ -132,62 +137,187 @@ function StatsBar({ counts }: { counts: StatusCounts }) {
 
 // ─── Order Card ───────────────────────────────────────────────────────────────
 
-function OrderCard({ booking, onPress }: { booking: Booking; onPress: () => void }) {
+function DiscountBadge({
+  label,
+  amount,
+  variant,
+}: {
+  label: string;
+  amount: number;
+  variant: 'coupon' | 'tier' | 'credits';
+}) {
+  const palette = {
+    coupon: { bg: '#f0fdf4', border: '#bbf7d0', text: '#15803d' },
+    tier: { bg: '#fdf4ff', border: '#f5d0fe', text: '#a21caf' },
+    credits: { bg: '#fffbeb', border: '#fde68a', text: '#b45309' },
+  }[variant];
+  return (
+    <View
+      style={[
+        styles.discountBadge,
+        { backgroundColor: palette.bg, borderColor: palette.border },
+      ]}
+    >
+      <Text style={[styles.discountBadgeText, { color: palette.text }]}>
+        {label} {'\u2212\u20B9'}
+        {amount.toLocaleString('en-IN')}
+      </Text>
+    </View>
+  );
+}
+
+function OrderCard({
+  booking,
+  onPress,
+  onAction,
+  busy,
+}: {
+  booking: Booking;
+  onPress: () => void;
+  onAction: (status: string) => void;
+  busy: boolean;
+}) {
   const activityName =
-    booking.activityName || booking.activity?.title || booking.activity?.name || 'Activity';
+    booking.activitySnapshot?.title ||
+    booking.activityName ||
+    booking.activity?.title ||
+    booking.activity?.name ||
+    'Activity';
   const customerName =
     booking.customerName ||
     [booking.customer?.firstName, booking.customer?.lastName].filter(Boolean).join(' ') ||
     booking.customer?.name ||
     'Customer';
-  const amount = booking.totalAmount || booking.payment?.total || 0;
-  const dateStr = booking.date || booking.bookingDate || '';
+  const amount =
+    booking.pricing?.totalAmount || booking.totalAmount || booking.payment?.total || 0;
+  const dateStr = booking.bookingDate || booking.date || '';
   const formattedDate = dateStr
     ? new Date(dateStr).toLocaleDateString('en-IN', {
+        weekday: 'short',
         day: 'numeric',
         month: 'short',
         year: 'numeric',
       })
     : '-';
+  const timeStr = booking.timeSlot?.startTime ? ` at ${booking.timeSlot.startTime}` : '';
   const totalParticipants =
+    booking.totalParticipants ??
     (booking.participants?.adults || 0) + (booking.participants?.children || 0);
+
+  const p = booking.pricing;
+  const hasDiscounts =
+    !!p &&
+    ((p.creditsApplied || 0) > 0 ||
+      (p.tierDiscount?.amount || 0) > 0 ||
+      (p.couponDiscount || 0) > 0);
 
   return (
     <TouchableOpacity activeOpacity={0.7} onPress={onPress}>
       <Card style={styles.orderCard}>
+        {/* Title + status */}
         <View style={styles.orderHeader}>
-          <Text style={styles.orderRef}>
-            {booking.bookingReference || `#${booking._id?.slice(-6)}`}
+          <Text style={styles.orderActivity} numberOfLines={1}>
+            {activityName}
           </Text>
           <StatusBadge status={booking.status} />
         </View>
 
-        <Text style={styles.orderActivity} numberOfLines={1}>
-          {activityName}
-        </Text>
-
-        <View style={styles.orderDetails}>
+        {/* Meta line: reference \u00B7 customer \u00B7 participants */}
+        <View style={styles.orderMetaRow}>
+          <Text style={styles.orderRef}>
+            {booking.bookingReference || `#${booking._id?.slice(-6)}`}
+          </Text>
+          <Text style={styles.orderMetaDot}>\u00B7</Text>
+          <Text style={styles.orderMetaText}>{customerName}</Text>
+          <Text style={styles.orderMetaDot}>\u00B7</Text>
           <View style={styles.orderDetailItem}>
-            <Ionicons name="person-outline" size={14} color={colors.textTertiary} />
-            <Text style={styles.orderDetailText}>{customerName}</Text>
-          </View>
-          <View style={styles.orderDetailItem}>
-            <Ionicons name="calendar-outline" size={14} color={colors.textTertiary} />
-            <Text style={styles.orderDetailText}>{formattedDate}</Text>
-          </View>
-        </View>
-
-        <View style={styles.orderFooter}>
-          <View style={styles.orderDetailItem}>
-            <Ionicons name="people-outline" size={14} color={colors.textTertiary} />
-            <Text style={styles.orderDetailText}>
-              {totalParticipants || '-'} participant{totalParticipants !== 1 ? 's' : ''}
+            <Ionicons name="people-outline" size={13} color={colors.textTertiary} />
+            <Text style={styles.orderMetaText}>
+              {totalParticipants || 0} {totalParticipants === 1 ? 'person' : 'people'}
             </Text>
           </View>
-          <Text style={styles.orderAmount}>
-            {'\u20B9'}{amount.toLocaleString('en-IN')}
+        </View>
+
+        {/* Date + time */}
+        <View style={styles.orderDetailItem}>
+          <Ionicons name="time-outline" size={14} color={colors.textTertiary} />
+          <Text style={styles.orderDetailText}>
+            {formattedDate}
+            {timeStr}
           </Text>
         </View>
+
+        {/* Special requests */}
+        {booking.specialRequests ? (
+          <View style={styles.specialRequests}>
+            <Text style={styles.specialRequestsText} numberOfLines={3}>
+              {'\u201C'}
+              {booking.specialRequests}
+              {'\u201D'}
+            </Text>
+          </View>
+        ) : null}
+
+        {/* Footer: amount + loyalty badges */}
+        <View style={styles.orderFooter}>
+          <Text style={styles.orderAmount}>
+            {'\u20B9'}
+            {amount.toLocaleString('en-IN')}
+          </Text>
+          {hasDiscounts && (
+            <View style={styles.discountRow}>
+              {(p!.couponDiscount || 0) > 0 && (
+                <DiscountBadge label="Coupon" amount={p!.couponDiscount!} variant="coupon" />
+              )}
+              {(p!.tierDiscount?.amount || 0) > 0 && (
+                <DiscountBadge
+                  label={p!.tierDiscount!.tier || 'Tier'}
+                  amount={p!.tierDiscount!.amount!}
+                  variant="tier"
+                />
+              )}
+              {(p!.creditsApplied || 0) > 0 && (
+                <DiscountBadge label="Credits" amount={p!.creditsApplied!} variant="credits" />
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Status actions */}
+        {booking.status === 'pending' && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionConfirm]}
+              onPress={() => onAction('confirmed')}
+              disabled={busy}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="checkmark" size={15} color="#ffffff" />
+              <Text style={styles.actionConfirmText}>Confirm</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionCancel]}
+              onPress={() => onAction('cancelled')}
+              disabled={busy}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="close" size={15} color={colors.error} />
+              <Text style={styles.actionCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {booking.status === 'confirmed' && (
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionBtn, styles.actionComplete]}
+              onPress={() => onAction('completed')}
+              disabled={busy}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.actionCompleteText}>Mark Completed</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </Card>
     </TouchableOpacity>
   );
@@ -205,6 +335,7 @@ export default function OrdersScreen() {
   const [activeFilter, setActiveFilter] = useState('all');
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [actioningId, setActioningId] = useState<string | null>(null);
 
   // ── Fetch ────────────────────────────────────────────────────────────────
 
@@ -260,16 +391,65 @@ export default function OrdersScreen() {
     setActiveFilter(key);
   }, []);
 
+  // ── Status Actions ─────────────────────────────────────────────────────────
+
+  const applyStatus = useCallback(async (bookingId: string, status: string) => {
+    setActioningId(bookingId);
+    try {
+      const res = await businessAPI.updateBookingStatus(bookingId, status);
+      if (res?.success !== false) {
+        setBookings((prev) =>
+          prev.map((b) => (b._id === bookingId ? { ...b, status } : b))
+        );
+        const label =
+          status === 'confirmed'
+            ? 'Booking confirmed!'
+            : status === 'cancelled'
+            ? 'Booking cancelled'
+            : 'Booking marked as completed';
+        Toast.show({ type: 'success', text1: label });
+      } else {
+        Toast.show({ type: 'error', text1: 'Failed to update booking' });
+      }
+    } catch (err) {
+      console.warn('[Orders] status update error:', err);
+      Toast.show({ type: 'error', text1: 'Failed to update booking' });
+    } finally {
+      setActioningId(null);
+    }
+  }, []);
+
+  const handleStatusAction = useCallback(
+    (bookingId: string, status: string) => {
+      // Guard the destructive action, mirroring the PWA confirm() prompt.
+      if (status === 'cancelled') {
+        Alert.alert('Cancel booking?', 'This will cancel the reservation for the customer.', [
+          { text: 'Keep', style: 'cancel' },
+          {
+            text: 'Cancel booking',
+            style: 'destructive',
+            onPress: () => applyStatus(bookingId, status),
+          },
+        ]);
+        return;
+      }
+      applyStatus(bookingId, status);
+    },
+    [applyStatus]
+  );
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   const renderOrderItem = useCallback(
     ({ item }: { item: Booking }) => (
       <OrderCard
         booking={item}
+        busy={actioningId === item._id}
+        onAction={(status) => handleStatusAction(item._id, status)}
         onPress={() => router.push(`/booking/${item._id}`)}
       />
     ),
-    [router]
+    [router, actioningId, handleStatusAction]
   );
 
   const keyExtractor = useCallback((item: Booking) => item._id, []);
@@ -318,7 +498,10 @@ export default function OrdersScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Order Management</Text>
+        <View style={styles.headerTitleWrap}>
+          <Text style={styles.title}>Bookings</Text>
+          <Text style={styles.subtitle}>Review and manage incoming reservations</Text>
+        </View>
         <TouchableOpacity
           style={styles.searchToggle}
           onPress={() => setShowSearch(!showSearch)}
@@ -331,6 +514,16 @@ export default function OrdersScreen() {
           />
         </TouchableOpacity>
       </View>
+
+      {/* Pending needs-action banner */}
+      {counts.pending > 0 && (
+        <View style={styles.needsActionBanner}>
+          <Ionicons name="sparkles-outline" size={16} color={colors.warning} />
+          <Text style={styles.needsActionText}>
+            {counts.pending} need{counts.pending === 1 ? 's' : ''} action
+          </Text>
+        </View>
+      )}
 
       {/* Filter Tabs */}
       <FlatList
@@ -382,10 +575,37 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerTitleWrap: {
+    flex: 1,
+  },
   title: {
     fontSize: fontSize['2xl'],
     fontWeight: fontWeight.bold,
     color: colors.text,
+  },
+  subtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
+    marginTop: 2,
+  },
+  needsActionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.xs,
+    marginHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  needsActionText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: '#b45309',
   },
   searchToggle: {
     width: 40,
@@ -496,7 +716,21 @@ const styles = StyleSheet.create({
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  orderActivity: {
+    flex: 1,
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  orderMetaRow: {
+    flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
     marginBottom: spacing.sm,
   },
   orderRef: {
@@ -504,16 +738,13 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
     color: colors.primary[600],
   },
-  orderActivity: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    color: colors.text,
-    marginBottom: spacing.sm,
+  orderMetaDot: {
+    fontSize: fontSize.sm,
+    color: colors.textTertiary,
   },
-  orderDetails: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    marginBottom: spacing.sm,
+  orderMetaText: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
   },
   orderDetailItem: {
     flexDirection: 'row',
@@ -524,18 +755,89 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     color: colors.textSecondary,
   },
+  specialRequests: {
+    marginTop: spacing.sm,
+    paddingLeft: spacing.md,
+    paddingVertical: spacing.xs,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.primary[300],
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.sm,
+  },
+  specialRequestsText: {
+    fontSize: fontSize.sm,
+    fontStyle: 'italic',
+    color: colors.textSecondary,
+  },
   orderFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.sm,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   orderAmount: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.text,
+  },
+  discountRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  discountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+  },
+  discountBadgeText: {
+    fontSize: 10.5,
+    fontWeight: fontWeight.medium,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  actionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+  },
+  actionConfirm: {
+    backgroundColor: colors.primary[500],
+  },
+  actionConfirmText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: '#ffffff',
+  },
+  actionCancel: {
+    backgroundColor: '#fef2f2',
+  },
+  actionCancelText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.error,
+  },
+  actionComplete: {
+    backgroundColor: colors.primary[50],
+  },
+  actionCompleteText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary[600],
   },
 });

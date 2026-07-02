@@ -3,11 +3,12 @@ import {
   View,
   Text,
   ScrollView,
-  FlatList,
   TouchableOpacity,
   RefreshControl,
   StyleSheet,
   Dimensions,
+  Image,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -35,26 +36,35 @@ const STAT_CARD_WIDTH = (SCREEN_WIDTH - spacing.xl * 2 - spacing.md) / 2;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface DashboardStats {
-  todaysBookings: number;
-  pendingConfirmation: number;
-  monthlyRevenue: number;
-  avgRating: number;
+interface DashboardData {
+  listings?: { total?: number; active?: number; draft?: number; paused?: number };
+  bookings?: {
+    total?: number;
+    pending?: number;
+    confirmed?: number;
+    completed?: number;
+    cancelled?: number;
+  };
+  totalRevenue?: number; // paise
+  recentBookings?: RecentBooking[];
+  topListings?: TopListing[];
 }
 
 interface RecentBooking {
   _id: string;
-  bookingReference: string;
   status: string;
-  activityName?: string;
-  activity?: { title?: string; name?: string };
   customerName?: string;
-  customer?: { name?: string; firstName?: string };
-  date?: string;
   bookingDate?: string;
-  totalAmount?: number;
-  payment?: { total?: number };
-  participants?: { adults?: number; children?: number };
+  activity?: { title?: string; images?: { url?: string }[] };
+  activitySnapshot?: { title?: string };
+  pricing?: { totalAmount?: number };
+}
+
+interface TopListing {
+  _id: string;
+  title: string;
+  stats?: { totalBookings?: number };
+  rating?: { average?: number };
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -62,21 +72,77 @@ interface RecentBooking {
 interface StatCardProps {
   label: string;
   value: string;
+  subtitle?: string;
   icon: keyof typeof Ionicons.glyphMap;
   accentColor: string;
   bgColor: string;
 }
 
-function StatCard({ label, value, icon, accentColor, bgColor }: StatCardProps) {
+function StatCard({ label, value, subtitle, icon, accentColor, bgColor }: StatCardProps) {
   return (
     <Card style={styles.statCard}>
-      <View style={[styles.statIconWrap, { backgroundColor: bgColor }]}>
-        <Ionicons name={icon} size={20} color={accentColor} />
+      <View style={styles.statTop}>
+        <View style={styles.statTextCol}>
+          <Text style={styles.statLabel} numberOfLines={1}>
+            {label}
+          </Text>
+          <Text style={styles.statValue} numberOfLines={1}>
+            {value}
+          </Text>
+        </View>
+        <View style={[styles.statIconWrap, { backgroundColor: bgColor }]}>
+          <Ionicons name={icon} size={20} color={accentColor} />
+        </View>
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-      <View style={[styles.statAccent, { backgroundColor: accentColor }]} />
+      {!!subtitle && (
+        <Text style={styles.statSubtitle} numberOfLines={1}>
+          {subtitle}
+        </Text>
+      )}
     </Card>
+  );
+}
+
+// ─── Alert Banner ─────────────────────────────────────────────────────────────
+
+interface AlertBannerProps {
+  icon: keyof typeof Ionicons.glyphMap;
+  tone: 'warning' | 'error' | 'info';
+  title: string;
+  message: string;
+  ctaLabel?: string;
+  onPress?: () => void;
+  onDismiss?: () => void;
+}
+
+const TONE_MAP = {
+  warning: { accent: colors.warning, bg: colors.warningLight },
+  error: { accent: colors.error, bg: colors.errorLight },
+  info: { accent: colors.primary[500], bg: colors.primary[50] },
+} as const;
+
+function AlertBanner({ icon, tone, title, message, ctaLabel, onPress, onDismiss }: AlertBannerProps) {
+  const t = TONE_MAP[tone];
+  return (
+    <View style={[styles.alertBanner, { backgroundColor: t.bg, borderColor: t.accent + '40' }]}>
+      <View style={[styles.alertIcon, { backgroundColor: t.accent }]}>
+        <Ionicons name={icon} size={18} color="#fff" />
+      </View>
+      <View style={styles.alertBody}>
+        <Text style={[styles.alertTitle, { color: t.accent }]}>{title}</Text>
+        <Text style={styles.alertMessage}>{message}</Text>
+        {!!ctaLabel && onPress && (
+          <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+            <Text style={[styles.alertCta, { color: t.accent }]}>{ctaLabel} →</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {onDismiss && (
+        <TouchableOpacity onPress={onDismiss} hitSlop={8} style={styles.alertDismiss}>
+          <Ionicons name="close" size={16} color={t.accent} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 }
 
@@ -85,16 +151,24 @@ function StatCard({ label, value, icon, accentColor, bgColor }: StatCardProps) {
 interface QuickActionProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  desc: string;
+  trailing?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }
 
-function QuickAction({ icon, label, onPress }: QuickActionProps) {
+function QuickAction({ icon, label, desc, trailing = 'arrow-forward', onPress }: QuickActionProps) {
   return (
     <TouchableOpacity style={styles.quickAction} onPress={onPress} activeOpacity={0.7}>
       <View style={styles.quickActionIcon}>
-        <Ionicons name={icon} size={22} color={colors.primary[500]} />
+        <Ionicons name={icon} size={20} color={colors.primary[500]} />
       </View>
-      <Text style={styles.quickActionLabel}>{label}</Text>
+      <View style={styles.quickActionText}>
+        <Text style={styles.quickActionLabel}>{label}</Text>
+        <Text style={styles.quickActionDesc} numberOfLines={1}>
+          {desc}
+        </Text>
+      </View>
+      <Ionicons name={trailing} size={16} color={colors.textTertiary} />
     </TouchableOpacity>
   );
 }
@@ -103,38 +177,38 @@ function QuickAction({ icon, label, onPress }: QuickActionProps) {
 
 function BookingRow({ booking, onPress }: { booking: RecentBooking; onPress: () => void }) {
   const activityName =
-    booking.activityName ||
-    booking.activity?.title ||
-    booking.activity?.name ||
-    'Activity';
-  const customerName =
-    booking.customerName ||
-    booking.customer?.name ||
-    booking.customer?.firstName ||
-    'Customer';
-  const amount = booking.totalAmount || booking.payment?.total || 0;
-  const dateStr = booking.date || booking.bookingDate || '';
+    booking.activitySnapshot?.title || booking.activity?.title || 'Activity';
+  const customerName = booking.customerName || 'Customer';
+  const amount = booking.pricing?.totalAmount ?? 0;
+  const dateStr = booking.bookingDate || '';
   const formattedDate = dateStr
     ? new Date(dateStr).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-    : '-';
+    : '';
+  const imageUrl = booking.activity?.images?.[0]?.url;
 
   return (
     <TouchableOpacity style={styles.bookingRow} onPress={onPress} activeOpacity={0.7}>
+      {imageUrl ? (
+        <Image source={{ uri: imageUrl }} style={styles.bookingThumb} />
+      ) : (
+        <View style={[styles.bookingThumb, styles.bookingThumbFallback]}>
+          <Ionicons name="ticket-outline" size={18} color={colors.primary[500]} />
+        </View>
+      )}
       <View style={styles.bookingLeft}>
-        <Text style={styles.bookingRef}>{booking.bookingReference || booking._id?.slice(-8)}</Text>
         <Text style={styles.bookingActivity} numberOfLines={1}>
           {activityName}
         </Text>
         <Text style={styles.bookingCustomer} numberOfLines={1}>
           {customerName}
+          {formattedDate ? ` · ${formattedDate}` : ''}
         </Text>
       </View>
       <View style={styles.bookingRight}>
-        <StatusBadge status={booking.status} />
         <Text style={styles.bookingAmount}>
-          {'\u20B9'}{amount.toLocaleString('en-IN')}
+          {'₹'}{amount.toLocaleString('en-IN')}
         </Text>
-        <Text style={styles.bookingDate}>{formattedDate}</Text>
+        <StatusBadge status={booking.status} />
       </View>
     </TouchableOpacity>
   );
@@ -145,9 +219,9 @@ function BookingRow({ booking, onPress }: { booking: RecentBooking; onPress: () 
 function SkeletonStatCard() {
   return (
     <Card style={styles.statCard}>
-      <View style={[styles.skeletonBox, { width: 36, height: 36, borderRadius: borderRadius.md }]} />
-      <View style={[styles.skeletonBox, { width: 60, height: 24, marginTop: spacing.md }]} />
-      <View style={[styles.skeletonBox, { width: 80, height: 12, marginTop: spacing.sm }]} />
+      <View style={[styles.skeletonBox, { width: 70, height: 12 }]} />
+      <View style={[styles.skeletonBox, { width: 60, height: 24, marginTop: spacing.sm }]} />
+      <View style={[styles.skeletonBox, { width: 90, height: 11, marginTop: spacing.sm }]} />
     </Card>
   );
 }
@@ -159,12 +233,13 @@ export default function DashboardScreen() {
   const { user } = useAuth();
   const { businessAccount } = useBusinessStore();
 
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [recentBookings, setRecentBookings] = useState<RecentBooking[]>([]);
+  const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [payoutNudgeDismissed, setPayoutNudgeDismissed] = useState(false);
 
   const businessName = businessAccount?.businessName || businessAccount?.name || '';
+  const firstName = (businessAccount?.contactName || businessName || '').split(' ')[0];
 
   // ── Fetch Dashboard ──────────────────────────────────────────────────────
 
@@ -172,16 +247,10 @@ export default function DashboardScreen() {
     if (!businessAccount?._id) return;
     try {
       const res = await businessAPI.getDashboard();
-      if (res?.data || res?.dashboard) {
-        const d = res.data || res.dashboard || res;
-        setStats({
-          todaysBookings: d.todaysBookings ?? d.todayBookings ?? 0,
-          pendingConfirmation: d.pendingConfirmation ?? d.pendingCount ?? 0,
-          monthlyRevenue: d.monthlyRevenue ?? d.revenue?.monthly ?? 0,
-          avgRating: d.avgRating ?? d.averageRating ?? 0,
-        });
-        const bookings = d.recentBookings || d.latestBookings || [];
-        setRecentBookings(bookings.slice(0, 5));
+      if (res?.success && res.data) {
+        setData(res.data as DashboardData);
+      } else if (res?.data || res?.dashboard) {
+        setData((res.data || res.dashboard || res) as DashboardData);
       }
     } catch (err) {
       console.warn('[Dashboard] fetch error:', err);
@@ -203,6 +272,23 @@ export default function DashboardScreen() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // ── Derived ──────────────────────────────────────────────────────────────
+
+  const activeBookings =
+    (data?.bookings?.pending ?? 0) + (data?.bookings?.confirmed ?? 0);
+  const totalRevenueRupees = (data?.totalRevenue ?? 0) / 100;
+  const avgRating = businessAccount?.stats?.averageRating;
+  const totalReviews = businessAccount?.stats?.totalReviews ?? 0;
+  const draftCount = data?.listings?.draft ?? 0;
+  const verificationStatus = businessAccount?.verificationStatus;
+  const payoutMissing =
+    !businessAccount?.payoutDetails ||
+    Object.keys(businessAccount.payoutDetails || {}).length === 0;
+  const showPayoutNudge = payoutMissing && !payoutNudgeDismissed && !!businessAccount?._id;
+
+  const recentBookings = data?.recentBookings ?? [];
+  const topListings = data?.topListings ?? [];
 
   // ── No Business Account ──────────────────────────────────────────────────
 
@@ -229,31 +315,99 @@ export default function DashboardScreen() {
 
   // ── Render ───────────────────────────────────────────────────────────────
 
+  const greetingWord =
+    new Date().getHours() < 12
+      ? 'Good morning'
+      : new Date().getHours() < 17
+      ? 'Good afternoon'
+      : 'Good evening';
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />}
       >
-        {/* Header */}
+        {/* Header — greeting + primary CTA */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerText}>
             <Text style={styles.greeting}>
-              Good {new Date().getHours() < 12 ? 'morning' : new Date().getHours() < 17 ? 'afternoon' : 'evening'}
-              {businessName ? `, ${businessName}` : ''}!
+              {greetingWord}
+              {firstName ? `, ${firstName}` : ''} 👋
             </Text>
-            <Text style={styles.title}>Dashboard</Text>
+            <Text style={styles.title} numberOfLines={1}>
+              {businessName || 'Business overview'}
+            </Text>
+            <Text style={styles.subtitle}>Here&apos;s what&apos;s happening with your listings today.</Text>
           </View>
           <TouchableOpacity
             style={styles.notifBtn}
             onPress={() => router.push('/messaging')}
             activeOpacity={0.7}
           >
-            <Ionicons name="notifications-outline" size={24} color={colors.text} />
+            <Ionicons name="notifications-outline" size={22} color={colors.text} />
           </TouchableOpacity>
         </View>
 
-        {/* Stats Grid */}
+        <View style={styles.addActivityWrap}>
+          <Button
+            title="Add Activity"
+            onPress={() => router.push('/activity/new')}
+            size="md"
+            icon={<Ionicons name="add" size={18} color="#fff" />}
+          />
+        </View>
+
+        {/* Alert banners */}
+        <View style={styles.alertsWrap}>
+          {showPayoutNudge && (
+            <AlertBanner
+              icon="wallet-outline"
+              tone="info"
+              title="Add bank details to receive payouts"
+              message="You can take bookings now, but payouts won't release until your bank account is on file."
+              ctaLabel="Setup Payout"
+              onPress={() => router.push('/finance')}
+              onDismiss={() => setPayoutNudgeDismissed(true)}
+            />
+          )}
+
+          {verificationStatus === 'pending' && (
+            <AlertBanner
+              icon="time-outline"
+              tone="warning"
+              title="Account verification pending"
+              message="Your account is under review. You can set up listings but they won't go live until approved (24–48 hours)."
+            />
+          )}
+
+          {verificationStatus === 'rejected' && (
+            <AlertBanner
+              icon="alert-circle-outline"
+              tone="error"
+              title="Verification rejected"
+              message={
+                businessAccount?.verificationNote ||
+                'Please resubmit your documents from Settings.'
+              }
+              ctaLabel="Re-upload"
+              onPress={() => router.push('/settings')}
+            />
+          )}
+
+          {draftCount > 0 && (
+            <AlertBanner
+              icon="document-text-outline"
+              tone="info"
+              title={`${draftCount} draft listing${draftCount > 1 ? 's' : ''} need${draftCount === 1 ? 's' : ''} attention`}
+              message="Complete photos, description, and pricing to submit for approval. Listings won't go live until reviewed."
+              ctaLabel="View draft listings"
+              onPress={() => router.push('/(tabs)/activities')}
+            />
+          )}
+        </View>
+
+        {/* Stat cards */}
         {loading ? (
           <View style={styles.statsGrid}>
             <SkeletonStatCard />
@@ -264,70 +418,78 @@ export default function DashboardScreen() {
         ) : (
           <View style={styles.statsGrid}>
             <StatCard
-              label="Today's Bookings"
-              value={String(stats?.todaysBookings ?? 0)}
-              icon="calendar-outline"
+              label="Total Listings"
+              value={String(data?.listings?.total ?? 0)}
+              subtitle={`${data?.listings?.active ?? 0} active · ${data?.listings?.draft ?? 0} draft`}
+              icon="ticket-outline"
               accentColor={colors.primary[500]}
               bgColor={colors.primary[50]}
             />
             <StatCard
-              label="Pending"
-              value={String(stats?.pendingConfirmation ?? 0)}
-              icon="time-outline"
-              accentColor={colors.warning}
-              bgColor={colors.warningLight}
+              label="Active Bookings"
+              value={String(activeBookings)}
+              subtitle={`${data?.bookings?.pending ?? 0} pending confirmation`}
+              icon="calendar-outline"
+              accentColor={colors.info}
+              bgColor={colors.infoLight}
             />
             <StatCard
-              label="Monthly Revenue"
-              value={`\u20B9${(stats?.monthlyRevenue ?? 0).toLocaleString('en-IN')}`}
+              label="Total Revenue"
+              value={`₹${totalRevenueRupees.toLocaleString('en-IN')}`}
+              subtitle={`${data?.bookings?.completed ?? 0} completed bookings`}
               icon="wallet-outline"
               accentColor={colors.success}
               bgColor={colors.successLight}
             />
             <StatCard
-              label="Avg Rating"
-              value={stats?.avgRating ? stats.avgRating.toFixed(1) : '-'}
+              label="Average Rating"
+              value={avgRating ? `${avgRating} ★` : '—'}
+              subtitle={`${totalReviews} review${totalReviews === 1 ? '' : 's'}`}
               icon="star-outline"
-              accentColor={colors.info}
-              bgColor={colors.infoLight}
+              accentColor={colors.warning}
+              bgColor={colors.warningLight}
             />
           </View>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick actions */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsRow}>
+          <Card padding="sm">
             <QuickAction
               icon="add-circle-outline"
-              label="New Activity"
+              label="Add New Activity"
+              desc="Create a new listing"
               onPress={() => router.push('/activity/new')}
             />
-            <QuickAction
-              icon="receipt-outline"
-              label="View Orders"
-              onPress={() => router.push('/(tabs)/orders')}
-            />
+            <View style={styles.divider} />
             <QuickAction
               icon="calendar-outline"
-              label="Calendar"
-              onPress={() => router.push('/(tabs)/calendar')}
+              label="View All Bookings"
+              desc="Manage reservations"
+              onPress={() => router.push('/(tabs)/orders')}
             />
+            <View style={styles.divider} />
             <QuickAction
-              icon="bar-chart-outline"
-              label="Analytics"
-              onPress={() => router.push('/analytics')}
+              icon="eye-outline"
+              label="View Marketplace"
+              desc="See how you appear to travelers"
+              trailing="open-outline"
+              onPress={() => Linking.openURL('https://prayanaai.com/activities')}
             />
-          </View>
+          </Card>
         </View>
 
-        {/* Recent Bookings */}
+        {/* Recent bookings */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Bookings</Text>
+            <View>
+              <Text style={styles.sectionTitle}>Recent Bookings</Text>
+              <Text style={styles.sectionSubtitle}>Latest reservations across your listings</Text>
+            </View>
             {recentBookings.length > 0 && (
               <TouchableOpacity onPress={() => router.push('/(tabs)/orders')}>
-                <Text style={styles.viewAll}>View All</Text>
+                <Text style={styles.viewAll}>View all</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -336,10 +498,13 @@ export default function DashboardScreen() {
             <LoadingSpinner size="small" message="Loading bookings..." />
           ) : recentBookings.length === 0 ? (
             <Card>
-              <View style={styles.emptyBookings}>
-                <Ionicons name="document-text-outline" size={40} color={colors.textTertiary} />
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIcon}>
+                  <Ionicons name="calendar-outline" size={26} color={colors.textTertiary} />
+                </View>
+                <Text style={styles.emptyTitle}>No bookings yet</Text>
                 <Text style={styles.emptyText}>
-                  No bookings yet. Create your first activity listing to start receiving bookings.
+                  Bookings will appear here once travelers book your activities.
                 </Text>
               </View>
             </Card>
@@ -352,6 +517,47 @@ export default function DashboardScreen() {
                     onPress={() => router.push(`/booking/${booking._id}`)}
                   />
                   {index < recentBookings.length - 1 && <View style={styles.divider} />}
+                </React.Fragment>
+              ))}
+            </Card>
+          )}
+        </View>
+
+        {/* Top activities */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Top Activities</Text>
+          <Text style={styles.sectionSubtitle}>Your best performers</Text>
+          {loading ? (
+            <LoadingSpinner size="small" />
+          ) : topListings.length === 0 ? (
+            <Card>
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No activity data yet</Text>
+                <Text style={styles.emptyText}>Top performers will appear here.</Text>
+              </View>
+            </Card>
+          ) : (
+            <Card padding="sm">
+              {topListings.map((listing, index) => (
+                <React.Fragment key={listing._id}>
+                  <TouchableOpacity
+                    style={styles.topRow}
+                    onPress={() => router.push(`/activity/${listing._id}`)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.topRank}>
+                      <Text style={styles.topRankText}>{index + 1}</Text>
+                    </View>
+                    <View style={styles.topBody}>
+                      <Text style={styles.topTitle} numberOfLines={1}>
+                        {listing.title}
+                      </Text>
+                      <Text style={styles.topMeta}>
+                        {listing.stats?.totalBookings || 0} bookings · {listing.rating?.average || 0} ★
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                  {index < topListings.length - 1 && <View style={styles.divider} />}
                 </React.Fragment>
               ))}
             </Card>
@@ -375,10 +581,14 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing.sm,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerText: {
+    flex: 1,
+    marginRight: spacing.md,
   },
   greeting: {
     fontSize: fontSize.sm,
@@ -390,6 +600,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginTop: spacing.xs,
   },
+  subtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
   notifBtn: {
     width: 40,
     height: 40,
@@ -399,6 +614,53 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     ...shadow.sm,
   },
+  addActivityWrap: {
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.sm,
+  },
+
+  // Alerts
+  alertsWrap: {
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  alertBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  alertIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertBody: {
+    flex: 1,
+  },
+  alertTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.bold,
+  },
+  alertMessage: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+  alertCta: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    marginTop: spacing.xs,
+  },
+  alertDismiss: {
+    padding: 2,
+  },
 
   // Stats
   statsGrid: {
@@ -406,12 +668,19 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: spacing.xl,
     gap: spacing.md,
-    marginTop: spacing.sm,
+    marginTop: spacing.lg,
   },
   statCard: {
     width: STAT_CARD_WIDTH,
-    position: 'relative',
-    overflow: 'hidden',
+  },
+  statTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  statTextCol: {
+    flex: 1,
+    marginRight: spacing.sm,
   },
   statIconWrap: {
     width: 36,
@@ -424,46 +693,49 @@ const styles = StyleSheet.create({
     fontSize: fontSize['2xl'],
     fontWeight: fontWeight.bold,
     color: colors.text,
-    marginTop: spacing.md,
+    marginTop: spacing.xs,
   },
   statLabel: {
     fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  statAccent: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 4,
-    height: '100%',
-    borderTopRightRadius: borderRadius.lg,
-    borderBottomRightRadius: borderRadius.lg,
+  statSubtitle: {
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    marginTop: spacing.sm,
   },
 
   // Quick Actions
-  quickActionsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
   quickAction: {
+    flexDirection: 'row',
     alignItems: 'center',
-    width: (SCREEN_WIDTH - spacing.xl * 2) / 4,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   quickActionIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: borderRadius.xl,
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.primary[50],
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginRight: spacing.md,
+  },
+  quickActionText: {
+    flex: 1,
   },
   quickActionLabel: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  quickActionDesc: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
     color: colors.textSecondary,
-    textAlign: 'center',
+    marginTop: 2,
   },
 
   // Section
@@ -474,42 +746,51 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
   sectionTitle: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.text,
+  },
+  sectionSubtitle: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
     marginBottom: spacing.md,
   },
   viewAll: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
     color: colors.primary[500],
-    marginBottom: spacing.md,
   },
 
   // Booking Row
   bookingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
+  },
+  bookingThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    marginRight: spacing.md,
+  },
+  bookingThumbFallback: {
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bookingLeft: {
     flex: 1,
     marginRight: spacing.md,
   },
-  bookingRef: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.semibold,
-    color: colors.primary[600],
-    marginBottom: 2,
-  },
   bookingActivity: {
     fontSize: fontSize.md,
-    fontWeight: fontWeight.medium,
+    fontWeight: fontWeight.semibold,
     color: colors.text,
   },
   bookingCustomer: {
@@ -519,17 +800,12 @@ const styles = StyleSheet.create({
   },
   bookingRight: {
     alignItems: 'flex-end',
+    gap: spacing.xs,
   },
   bookingAmount: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.bold,
     color: colors.text,
-    marginTop: spacing.xs,
-  },
-  bookingDate: {
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-    marginTop: 2,
   },
   divider: {
     height: 1,
@@ -537,18 +813,67 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.sm,
   },
 
-  // Empty
-  emptyBookings: {
+  // Top activities
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  topRank: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary[50],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  topRankText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.bold,
+    color: colors.primary[600],
+  },
+  topBody: {
+    flex: 1,
+  },
+  topTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+  },
+  topMeta: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+
+  // Empty state
+  emptyState: {
     alignItems: 'center',
     paddingVertical: spacing['2xl'],
+  },
+  emptyIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.backgroundSecondary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
   },
   emptyText: {
     fontSize: fontSize.sm,
     color: colors.textTertiary,
     textAlign: 'center',
     lineHeight: 20,
-    marginTop: spacing.md,
-    maxWidth: 260,
+    marginTop: spacing.xs,
+    maxWidth: 280,
   },
 
   // Onboarding CTA

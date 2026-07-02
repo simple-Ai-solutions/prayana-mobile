@@ -63,14 +63,52 @@ interface Review {
   isVerifiedBooking?: boolean;
   ownerResponse?: { comment?: string; respondedAt?: string };
   isFlagged?: boolean;
+  listingTitle?: string;
+  helpfulVotes?: number;
 }
 
 interface ReviewSummary {
   totalReviews: number;
   avgRating: number;
   responseRate: number; // percent
+  respondedCount: number;
   distribution: Record<string, number>;
 }
+
+type ReviewFilter = 'all' | '5star' | '4star' | '3star' | '2star' | '1star' | 'unanswered' | 'responded';
+
+const REVIEW_FILTERS: { id: ReviewFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: '5star', label: '5★' },
+  { id: '4star', label: '4★' },
+  { id: '3star', label: '3★' },
+  { id: '2star', label: '2★' },
+  { id: '1star', label: '1★' },
+  { id: 'unanswered', label: 'Needs reply' },
+  { id: 'responded', label: 'Replied' },
+];
+
+// Static reference content mirrored from the web Quality Score view.
+const QUALITY_FACTORS: { label: string; weight: string; target: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { label: 'Response Time', weight: '30%', target: '< 12 hours', icon: 'time-outline' },
+  { label: 'Cancellation Rate', weight: '20%', target: '< 5%', icon: 'alert-circle-outline' },
+  { label: 'Completion Rate', weight: '30%', target: '> 95%', icon: 'trending-up-outline' },
+  { label: 'Customer Rating', weight: '20%', target: '> 4.5 stars', icon: 'ribbon-outline' },
+];
+
+const QUALITY_TIERS: { tier: string; range: string; desc: string; color: string }[] = [
+  { tier: 'Bronze', range: '0–60', desc: 'Getting started', color: '#b45309' },
+  { tier: 'Silver', range: '61–75', desc: 'Good standing', color: '#94a3b8' },
+  { tier: 'Gold', range: '76–90', desc: 'High performer', color: '#d97706' },
+  { tier: 'Platinum', range: '91–100', desc: 'Top seller', color: colors.primary[600] },
+];
+
+const QUALITY_TIPS: { icon: keyof typeof Ionicons.glyphMap; color: string; tip: string }[] = [
+  { icon: 'time-outline', color: colors.primary[500], tip: 'Enable instant booking or confirm requests within 6 hours to boost response time score.' },
+  { icon: 'alert-circle-outline', color: colors.error, tip: "Avoid cancelling confirmed bookings. Block dates in advance if you know you'll be unavailable." },
+  { icon: 'trending-up-outline', color: colors.success, tip: "Mark bookings as 'Completed' promptly and send reminders to reduce no-shows." },
+  { icon: 'ribbon-outline', color: colors.warning, tip: 'Ask happy customers to leave reviews. Reply to all feedback professionally.' },
+];
 
 const FLAG_REASONS = [
   'Spam or fake review',
@@ -146,13 +184,28 @@ function parseQuality(raw: any): QualityData {
 }
 
 function parseReviews(raw: any): { reviews: Review[]; summary: ReviewSummary | null } {
-  const reviews: Review[] = raw?.reviews ?? raw?.data?.reviews ?? [];
+  const rawList: any[] = raw?.reviews ?? raw?.data?.reviews ?? raw?.data ?? [];
+  const reviews: Review[] = (Array.isArray(rawList) ? rawList : []).map((r) => ({
+    _id: r._id,
+    rating: Number(r.rating ?? 0),
+    comment: r.comment,
+    userName: r.userName,
+    userAvatar: r.userAvatar,
+    createdAt: r.createdAt,
+    isVerifiedBooking: r.isVerifiedBooking,
+    ownerResponse: r.ownerResponse,
+    isFlagged: r.isFlagged ?? r.flaggedByVendor,
+    listingTitle: r.listingId?.title ?? r.listingTitle,
+    helpfulVotes: Number(r.helpfulVotes ?? 0),
+  }));
   const s = raw?.summary ?? raw?.data?.summary ?? null;
+  const respondedFromList = reviews.filter((r) => r.ownerResponse?.comment).length;
   const summary: ReviewSummary | null = s
     ? {
         totalReviews: Number(s.totalReviews ?? s.total ?? reviews.length),
         avgRating: Number(s.avgRating ?? s.average ?? 0),
         responseRate: Number(s.responseRate ?? 0),
+        respondedCount: Number(s.respondedCount ?? respondedFromList),
         distribution: s.distribution ?? {},
       }
     : null;
@@ -210,6 +263,54 @@ function QualityTab({
         ) : null}
       </Card>
 
+      {/* How Quality Score works */}
+      <View style={[styles.infoCard, { backgroundColor: colors.primary[50], borderColor: colors.primary[100] }]}>
+        <View style={styles.infoHead}>
+          <View style={[styles.infoIcon, { backgroundColor: colors.primary[600] }]}>
+            <Ionicons name="shield-checkmark-outline" size={18} color="#fff" />
+          </View>
+          <View style={styles.flex}>
+            <Text style={[styles.infoTitle, { color: themeColors.text }]}>How Quality Score works</Text>
+            <Text style={[styles.infoBody, { color: themeColors.textSecondary }]}>
+              Your score (0–100) is calculated daily based on 4 metrics. Higher scores unlock better search
+              rankings and seller badges visible to customers.
+            </Text>
+          </View>
+        </View>
+        <View style={styles.factorGrid}>
+          {QUALITY_FACTORS.map((f) => (
+            <View
+              key={f.label}
+              style={[styles.factorTile, { backgroundColor: themeColors.surface, borderColor: colors.primary[100] }]}
+            >
+              <View style={[styles.factorTileIcon, { backgroundColor: colors.primary[50] }]}>
+                <Ionicons name={f.icon} size={16} color={colors.primary[600]} />
+              </View>
+              <Text style={[styles.factorTileLabel, { color: themeColors.text }]}>{f.label}</Text>
+              <Text style={[styles.factorTileWeight, { color: colors.primary[600] }]}>{f.weight} weight</Text>
+              <Text style={[styles.factorTileTarget, { color: themeColors.textTertiary }]}>Target: {f.target}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+
+      {/* Tier ladder */}
+      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Seller tiers</Text>
+      <View style={styles.tierGrid}>
+        {QUALITY_TIERS.map((t) => (
+          <View
+            key={t.tier}
+            style={[styles.tierCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+          >
+            <View style={[styles.tierChip, { backgroundColor: t.color }]}>
+              <Text style={styles.tierChipText}>{t.tier}</Text>
+            </View>
+            <Text style={[styles.tierRange, { color: themeColors.text }]}>{t.range}</Text>
+            <Text style={[styles.tierDesc, { color: themeColors.textTertiary }]}>{t.desc}</Text>
+          </View>
+        ))}
+      </View>
+
       <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Breakdown</Text>
       {data?.metrics && data.metrics.length > 0 ? (
         <Card>
@@ -253,12 +354,49 @@ function QualityTab({
         </Card>
       )}
 
+      {/* Tips to improve your score */}
+      <Text style={[styles.sectionTitle, { color: themeColors.text, marginTop: spacing.lg }]}>
+        Tips to improve your score
+      </Text>
+      <Card>
+        {QUALITY_TIPS.map((t, i) => (
+          <View key={t.tip} style={styles.tipRow}>
+            <View style={[styles.tipIcon, { backgroundColor: `${t.color}22` }]}>
+              <Ionicons name={t.icon} size={16} color={t.color} />
+            </View>
+            <Text style={[styles.tipText, { color: themeColors.textSecondary }]}>{t.tip}</Text>
+          </View>
+        ))}
+      </Card>
+
       <View style={styles.bottomSpacer} />
     </ScrollView>
   );
 }
 
 // ─── Reviews Tab ────────────────────────────────────────────────────────────
+
+function StatTile({
+  label,
+  value,
+  highlight,
+  warn,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  warn?: boolean;
+}) {
+  const { themeColors } = useTheme();
+  const borderColor = highlight ? colors.warning : warn ? colors.error : themeColors.border;
+  const valueColor = highlight ? colors.warning : warn ? colors.error : themeColors.text;
+  return (
+    <View style={[styles.statTile, { backgroundColor: themeColors.surface, borderColor }]}>
+      <Text style={[styles.statTileLabel, { color: themeColors.textTertiary }]}>{label}</Text>
+      <Text style={[styles.statTileValue, { color: valueColor }]}>{value}</Text>
+    </View>
+  );
+}
 
 function ReviewsTab({
   reviews,
@@ -268,6 +406,8 @@ function ReviewsTab({
   onRefresh,
   onReply,
   onFlag,
+  filter,
+  onFilterChange,
 }: {
   reviews: Review[];
   summary: ReviewSummary | null;
@@ -276,12 +416,27 @@ function ReviewsTab({
   onRefresh: () => void;
   onReply: (r: Review) => void;
   onFlag: (r: Review) => void;
+  filter: ReviewFilter;
+  onFilterChange: (f: ReviewFilter) => void;
 }) {
   const { themeColors } = useTheme();
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return reviews;
+    if (filter === 'responded') return reviews.filter((r) => !!r.ownerResponse?.comment);
+    if (filter === 'unanswered') return reviews.filter((r) => !r.ownerResponse?.comment);
+    if (filter.endsWith('star')) {
+      const target = parseInt(filter[0], 10);
+      return reviews.filter((r) => Math.round(r.rating) === target);
+    }
+    return reviews;
+  }, [reviews, filter]);
 
   if (loading) {
     return <LoadingSpinner fullScreen message="Loading reviews..." />;
   }
+
+  const hasReviews = summary && summary.totalReviews > 0;
 
   return (
     <ScrollView
@@ -291,37 +446,85 @@ function ReviewsTab({
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
       }
     >
-      {summary ? (
-        <Card style={styles.reviewSummary}>
-          <View style={styles.summaryLeft}>
-            <Text style={[styles.summaryAvg, { color: themeColors.text }]}>
-              {summary.avgRating.toFixed(1)}
-            </Text>
-            <StarRating rating={summary.avgRating} size={14} />
-            <Text style={[styles.summaryMeta, { color: themeColors.textTertiary }]}>
-              {summary.totalReviews} review{summary.totalReviews === 1 ? '' : 's'}
-            </Text>
-          </View>
-          <View style={styles.summaryRight}>
-            <Text style={[styles.summaryRate, { color: themeColors.text }]}>
-              {Math.round(summary.responseRate)}%
-            </Text>
-            <Text style={[styles.summaryRateLabel, { color: themeColors.textSecondary }]}>
-              Response rate
-            </Text>
-          </View>
+      {/* Summary stats strip */}
+      {hasReviews ? (
+        <View style={styles.statStrip}>
+          <StatTile label="Avg Rating" value={`${summary!.avgRating.toFixed(1)} ★`} highlight />
+          <StatTile label="Total Reviews" value={String(summary!.totalReviews)} />
+          <StatTile label="Replied" value={`${summary!.respondedCount} / ${summary!.totalReviews}`} />
+          <StatTile
+            label="Response Rate"
+            value={`${Math.round(summary!.responseRate)}%`}
+            warn={summary!.responseRate < 70}
+          />
+        </View>
+      ) : null}
+
+      {/* Rating distribution */}
+      {hasReviews ? (
+        <Card style={styles.distCard}>
+          <Text style={[styles.distTitle, { color: themeColors.textTertiary }]}>RATING DISTRIBUTION</Text>
+          {[5, 4, 3, 2, 1].map((r) => {
+            const count = summary!.distribution?.[r] ?? summary!.distribution?.[String(r)] ?? 0;
+            const pct = summary!.totalReviews > 0 ? (count / summary!.totalReviews) * 100 : 0;
+            return (
+              <View key={r} style={styles.distRow}>
+                <View style={styles.distLabel}>
+                  <Text style={[styles.distLabelText, { color: themeColors.text }]}>{r}</Text>
+                  <Ionicons name="star" size={11} color={colors.warning} />
+                </View>
+                <View style={[styles.distTrack, { backgroundColor: themeColors.border }]}>
+                  <View style={[styles.distFill, { width: `${pct}%`, backgroundColor: colors.warning }]} />
+                </View>
+                <Text style={[styles.distCount, { color: themeColors.textTertiary }]}>{count}</Text>
+              </View>
+            );
+          })}
         </Card>
       ) : null}
 
-      {reviews.length === 0 ? (
+      {/* Filter pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
+        {REVIEW_FILTERS.map((opt) => {
+          const active = filter === opt.id;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              activeOpacity={0.7}
+              onPress={() => onFilterChange(opt.id)}
+              style={[
+                styles.filterPill,
+                active
+                  ? { backgroundColor: colors.primary[500], borderColor: colors.primary[500] }
+                  : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterPillText,
+                  { color: active ? '#fff' : themeColors.textSecondary },
+                ]}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {filtered.length === 0 ? (
         <EmptyState
           icon={<Ionicons name="chatbubbles-outline" size={48} color={colors.gray[300]} />}
-          title="No reviews yet"
-          description="Reviews from your customers will appear here."
+          title={filter === 'all' ? 'No reviews yet' : 'No reviews match this filter'}
+          description="Once customers complete activities and leave reviews, they'll appear here. Great reviews help attract more bookings."
         />
       ) : (
         <View style={styles.reviewList}>
-          {reviews.map((review) => {
+          {filtered.map((review) => {
             const replied = !!review.ownerResponse?.comment;
             return (
               <Card key={review._id} style={styles.reviewCard}>
@@ -348,6 +551,14 @@ function ReviewsTab({
                         </Text>
                       ) : null}
                     </View>
+                    {review.listingTitle ? (
+                      <Text
+                        style={[styles.listingText, { color: themeColors.textTertiary }]}
+                        numberOfLines={1}
+                      >
+                        {review.listingTitle}
+                      </Text>
+                    ) : null}
                   </View>
                   <TouchableOpacity
                     onPress={() => onFlag(review)}
@@ -366,6 +577,13 @@ function ReviewsTab({
                     {review.comment}
                   </Text>
                 ) : null}
+
+                <View style={[styles.helpfulRow, { borderTopColor: themeColors.border }]}>
+                  <Ionicons name="thumbs-up-outline" size={13} color={themeColors.textTertiary} />
+                  <Text style={[styles.helpfulText, { color: themeColors.textTertiary }]}>
+                    {review.helpfulVotes || 0} helpful
+                  </Text>
+                </View>
 
                 {replied ? (
                   <View style={[styles.responseBlock, { backgroundColor: colors.primary[50] }]}>
@@ -428,6 +646,7 @@ export default function PerformanceScreen() {
   const [reviewSummary, setReviewSummary] = useState<ReviewSummary | null>(null);
   const [reviewsLoading, setReviewsLoading] = useState(true);
   const [reviewsRefreshing, setReviewsRefreshing] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
 
   // Reply modal
   const [activeReview, setActiveReview] = useState<Review | null>(null);
@@ -590,7 +809,7 @@ export default function PerformanceScreen() {
       >
         {(
           [
-            { key: 'quality', label: 'Quality' },
+            { key: 'quality', label: 'Quality Score' },
             { key: 'reviews', label: 'Reviews' },
           ] as { key: Tab; label: string }[]
         ).map((t) => {
@@ -614,6 +833,15 @@ export default function PerformanceScreen() {
             </TouchableOpacity>
           );
         })}
+      </View>
+
+      {/* Active-tab description (mirrors web) */}
+      <View style={[styles.tabDescWrap, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <Text style={[styles.tabDesc, { color: themeColors.textSecondary }]}>
+          {tab === 'quality'
+            ? 'Your performance metrics and seller tier'
+            : 'Read and respond to feedback from your customers'}
+        </Text>
       </View>
 
       {tab === 'quality' ? (
@@ -651,6 +879,8 @@ export default function PerformanceScreen() {
           onRefresh={onReviewsRefresh}
           onReply={openReply}
           onFlag={openFlag}
+          filter={reviewFilter}
+          onFilterChange={setReviewFilter}
         />
       )}
 
@@ -1137,5 +1367,229 @@ const styles = StyleSheet.create({
 
   bottomSpacer: {
     height: spacing['3xl'],
+  },
+
+  // Tab description
+  tabDescWrap: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+  },
+  tabDesc: {
+    fontSize: fontSize.sm,
+  },
+
+  // Quality info / explainer
+  infoCard: {
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  infoHead: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  infoIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+  },
+  infoBody: {
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    marginTop: 2,
+  },
+  factorGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  factorTile: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+  },
+  factorTileIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  factorTileLabel: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.bold,
+  },
+  factorTileWeight: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    marginTop: 2,
+  },
+  factorTileTarget: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+
+  // Tier ladder
+  tierGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  tierCard: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    borderWidth: 1,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  tierChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    marginBottom: spacing.sm,
+  },
+  tierChipText: {
+    color: '#fff',
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+  },
+  tierRange: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+  },
+  tierDesc: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+
+  // Tips
+  tipRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  tipIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    lineHeight: 20,
+    paddingTop: spacing.xs,
+  },
+
+  // Reviews summary stat strip
+  statStrip: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.lg,
+  },
+  statTile: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+  },
+  statTileLabel: {
+    fontSize: fontSize.xs,
+  },
+  statTileValue: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    marginTop: 2,
+  },
+
+  // Distribution
+  distCard: {
+    marginBottom: spacing.lg,
+  },
+  distTitle: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    marginBottom: spacing.sm,
+  },
+  distRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginVertical: 3,
+  },
+  distLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    width: 28,
+  },
+  distLabelText: {
+    fontSize: fontSize.sm,
+  },
+  distTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  distFill: {
+    height: 8,
+    borderRadius: borderRadius.full,
+  },
+  distCount: {
+    width: 32,
+    textAlign: 'right',
+    fontSize: fontSize.xs,
+  },
+
+  // Filter pills
+  filterRow: {
+    gap: spacing.sm,
+    paddingBottom: spacing.lg,
+  },
+  filterPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+  },
+  filterPillText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+
+  // Review card extras
+  listingText: {
+    fontSize: fontSize.xs,
+    marginTop: 2,
+  },
+  helpfulRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+  },
+  helpfulText: {
+    fontSize: fontSize.xs,
   },
 });
