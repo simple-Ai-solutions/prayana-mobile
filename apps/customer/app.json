@@ -139,7 +139,8 @@
         }
       ],
       "@sentry/react-native/expo",
-      "./plugins/withSentryHermesFix"
+      "./plugins/withSentryHermesFix",
+      "./plugins/withModularHeaders"
     ],
     "extra": {
       "router": {
