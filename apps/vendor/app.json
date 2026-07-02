@@ -36,6 +36,11 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": ["prayanabiz"]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.926782873134-ljojer8isfftfsbtbg93aiskel9p5t14"
+            ]
           }
         ]
       }
