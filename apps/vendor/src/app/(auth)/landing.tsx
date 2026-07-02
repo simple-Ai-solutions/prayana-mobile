@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,12 +7,44 @@ import {
   StyleSheet,
   StatusBar,
   Dimensions,
+  Image,
+  Animated,
+  Easing,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { colors, spacing, fontSize, fontWeight, borderRadius } from '../../theme/vendorColors';
+
+const LOGO = require('../../../assets/icon.png');
+
+// Animated "ping" dot matching the web's pulsing emerald indicator.
+function PingDot() {
+  const scale = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(0.75)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.parallel([
+        Animated.timing(scale, { toValue: 2.4, duration: 1400, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 0, duration: 1400, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [scale, opacity]);
+  return (
+    <View style={styles.pingWrap}>
+      <Animated.View style={[styles.pingRing, { transform: [{ scale }], opacity }]} />
+      <View style={styles.pingCore} />
+    </View>
+  );
+}
+
+// Headline accent line — light blue matching the web's blue-300 gradient text.
+function GradientText({ children, style }: { children: React.ReactNode; style?: any }) {
+  return <Text style={[style, { color: '#bae6fd' }]}>{children}</Text>;
+}
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -68,10 +100,7 @@ export default function LandingScreen() {
             {/* Logo + Partner Portal */}
             <View style={styles.brandRow}>
               <View style={styles.logoBox}>
-                <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
-                  <Circle cx="12" cy="12" r="9" stroke={colors.primary[500]} strokeWidth={2} />
-                  <Path d="M8 13l2.5 2.5L16 9" stroke={colors.primary[500]} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
+                <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
               </View>
               <View>
                 <Text style={styles.brandName}>PrayanaAI</Text>
@@ -81,13 +110,13 @@ export default function LandingScreen() {
 
             {/* live pill */}
             <View style={styles.pill}>
-              <View style={styles.pillDot} />
+              <PingDot />
               <Text style={styles.pillText}>Onboarding open · Free to join</Text>
             </View>
 
             {/* headline */}
             <Text style={styles.h1}>List your business.</Text>
-            <Text style={[styles.h1, { color: colors.heroAccent }]}>Grow with PrayanaAI.</Text>
+            <GradientText style={styles.h1}>Grow with PrayanaAI.</GradientText>
 
             <Text style={styles.sub}>
               Reach thousands of travelers across India. Zero listing fees, weekly payouts.
@@ -221,17 +250,21 @@ const styles = StyleSheet.create({
   logoBox: {
     width: 44, height: 44, borderRadius: borderRadius.lg, backgroundColor: '#fff',
     alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#1e3a8a', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
   },
+  logoImg: { width: 32, height: 32 },
   brandName: { color: '#fff', fontWeight: fontWeight.bold, fontSize: fontSize.md },
   brandSub: { color: colors.heroAccent, fontSize: 11, fontWeight: fontWeight.medium },
 
   pill: {
-    flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
+    flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start',
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 9999,
     backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.20)',
     marginBottom: spacing.xl,
   },
-  pillDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#34d399' },
+  pingWrap: { width: 8, height: 8, alignItems: 'center', justifyContent: 'center' },
+  pingRing: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#34d399' },
+  pingCore: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#34d399' },
   pillText: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: fontWeight.medium },
 
   h1: { color: '#fff', fontSize: 40, fontWeight: fontWeight.bold, lineHeight: 44, letterSpacing: -0.5 },
