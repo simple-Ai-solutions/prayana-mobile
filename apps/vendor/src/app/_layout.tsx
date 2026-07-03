@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Linking } from 'react-native';
+import { Linking, LogBox } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -13,6 +13,11 @@ import { ENV } from '../config/env';
 import { queryClient } from '../lib/queryClient';
 import { initSentry, setSentryUser } from '../lib/sentry';
 import { resolveDeepLink } from '../lib/deepLinks';
+
+// Suppress the on-screen LogBox overlay (dev-only, pinned at the bottom).
+// User-facing errors are surfaced via top toasts; the bottom LogBox is just
+// redundant dev noise, so notifications only appear at the top.
+LogBox.ignoreAllLogs();
 
 // Initialize crash reporting before anything else can crash.
 initSentry();
