@@ -74,6 +74,17 @@ class BusinessAPI {
     });
   }
 
+  // Records the vendor's acceptance of the current Vendor Agreement version.
+  // Body: { signatoryName, signatoryDesignation, signatoryEmail }. The server
+  // takes the slug + version from its own registry (client can't downgrade).
+  async acceptVendorAgreement(data) {
+    return makeAPICall("/business/me/accept-vendor-agreement", {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+  }
+
   // ===== DASHBOARD =====
 
   async getDashboard() {
