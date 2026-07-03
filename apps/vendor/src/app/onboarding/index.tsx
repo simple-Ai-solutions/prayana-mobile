@@ -1086,29 +1086,19 @@ export default function OnboardingWizardScreen() {
         />
 
         {/* Price input with rupee prefix */}
-        <View style={styles.inputContainer}>
-          <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Base Price (per person) *</Text>
-          <View
-            style={[
-              styles.priceInputWrapper,
-              { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-              errors.basePrice ? styles.priceInputWrapperError : undefined,
-            ]}
-          >
+        <TextInput
+          label="Base Price (per person) *"
+          placeholder="e.g. 1500"
+          value={firstActivity.basePrice}
+          onChangeText={(val: string) =>
+            updateActivityField('basePrice', val.replace(/[^0-9.]/g, ''))
+          }
+          error={errors.basePrice}
+          keyboardType="decimal-pad"
+          leftIcon={
             <Text style={[styles.currencyPrefix, { color: themeColors.text }]}>&#8377;</Text>
-            <TextInput
-              placeholder="e.g. 1500"
-              value={firstActivity.basePrice}
-              onChangeText={(val: string) =>
-                updateActivityField('basePrice', val.replace(/[^0-9.]/g, ''))
-              }
-              keyboardType="decimal-pad"
-              containerStyle={styles.noPadding}
-              style={styles.priceInput}
-            />
-          </View>
-          {errors.basePrice && <Text style={styles.fieldError}>{errors.basePrice}</Text>}
-        </View>
+          }
+        />
 
         <View style={styles.row}>
           <View style={styles.rowHalf}>
@@ -1675,29 +1665,11 @@ const styles = StyleSheet.create({
     color: colors.error,
     marginTop: spacing.xs,
   },
-  priceInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.surface,
-    paddingLeft: spacing.lg,
-  },
-  priceInputWrapperError: {
-    borderColor: colors.error,
-  },
   currencyPrefix: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.semibold,
     color: colors.text,
     marginRight: spacing.xs,
-  },
-  noPadding: {
-    marginBottom: 0,
-  },
-  priceInput: {
-    borderWidth: 0,
   },
   unitLabel: {
     fontSize: fontSize.sm,

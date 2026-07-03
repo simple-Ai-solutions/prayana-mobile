@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary[500],
   },
   circleCompleted: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.primary[500],
   },
   circleText: {
     fontSize: fontSize.xs,
@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.semibold,
   },
   labelCompleted: {
-    color: colors.success,
+    color: colors.primary[500],
   },
   connector: {
     flex: 1,
@@ -120,6 +120,6 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   connectorCompleted: {
-    backgroundColor: colors.success,
+    backgroundColor: colors.primary[500],
   },
 });
