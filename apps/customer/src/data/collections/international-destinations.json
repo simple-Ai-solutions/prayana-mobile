@@ -1,0 +1,847 @@
+{
+  "category": {
+    "id": "international",
+    "slug": "international",
+    "title": "Affordable International Destinations",
+    "subtitle": "Explore the world on a budget",
+    "heroTitle": "Explore the",
+    "heroHighlight": "World on a Budget",
+    "icon": "✈️",
+    "color": "indigo",
+    "gradient": "from-indigo-500 to-blue-600",
+    "description": "Discover amazing international destinations that won't break the bank. From exotic Southeast Asian beaches to cultural European cities and neighboring countries, these budget-friendly destinations offer incredible experiences for Indian travelers."
+  },
+  "hero": {
+    "featured": {
+      "id": "thailand_featured",
+      "name": "Thailand",
+      "location": "Southeast Asia",
+      "tagline": "Land of Smiles",
+      "image": "https://prayanaai.com/images/place-names/thailand/phi-phi-islands-maya-bay/img-1_google_places_d60f43f3.jpg",
+      "rating": 4.8,
+      "searchQuery": "Thailand",
+      "highlights": [
+        "Beaches",
+        "Street food",
+        "Temples",
+        "Affordable"
+      ]
+    },
+    "secondary": [
+      {
+        "id": "dubai_hero",
+        "name": "Dubai",
+        "location": "UAE",
+        "tagline": "City of Gold",
+        "image": "https://prayanaai.com/images/place-names/uae/burj-khalifa-dubai/img-1_google_places_e934d4b7.jpg",
+        "rating": 4.8,
+        "searchQuery": "Dubai"
+      },
+      {
+        "id": "bali_hero",
+        "name": "Bali",
+        "location": "Indonesia",
+        "tagline": "Island Paradise",
+        "image": "https://prayanaai.com/images/place-names/indonesia/ubud-bali-rice-terraces/img-1_google_places_d1aaa7a5.jpg",
+        "rating": 4.8,
+        "searchQuery": "Bali"
+      },
+      {
+        "id": "sri_lanka_hero",
+        "name": "Sri Lanka",
+        "location": "South Asia",
+        "tagline": "Pearl of Indian Ocean",
+        "image": "https://prayanaai.com/images/place-names/sri-lanka/nine-arch-bridge-ella-sri-lanka/img-1_google_places_fd41522d.jpg",
+        "rating": 4.7,
+        "searchQuery": "Sri Lanka"
+      },
+      {
+        "id": "nepal_hero",
+        "name": "Nepal",
+        "location": "South Asia",
+        "tagline": "Roof of the World",
+        "image": "https://prayanaai.com/images/place-names/nepal/kathmandu-durbar-square/img-1_google_places_453c2af8.jpg",
+        "rating": 4.7,
+        "searchQuery": "Nepal"
+      }
+    ]
+  },
+  "whyVisit": {
+    "title": "Why Choose International Travel?",
+    "subtitle": "Expand your horizons beyond borders",
+    "reasons": [
+      {
+        "icon": "💰",
+        "title": "Budget-Friendly",
+        "description": "Many destinations offer great value with affordable flights and accommodations"
+      },
+      {
+        "icon": "🌏",
+        "title": "Cultural Diversity",
+        "description": "Experience different cultures, cuisines, and traditions"
+      },
+      {
+        "icon": "📸",
+        "title": "Unique Experiences",
+        "description": "Create memories with experiences you can't find anywhere else"
+      },
+      {
+        "icon": "✈️",
+        "title": "Easy Travel",
+        "description": "Visa-free or visa-on-arrival options for many countries"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "southeast-asia",
+      "title": "Southeast Asia - Budget Paradise",
+      "subtitle": "Tropical beaches, temples, and incredible food",
+      "searchQuery": "Southeast Asia",
+      "viewAllText": "Explore Southeast Asia",
+      "places": [
+        {
+          "id": "thailand",
+          "name": "Thailand",
+          "location": "Southeast Asia",
+          "description": "Beaches, temples, street food, and vibrant nightlife",
+          "image": "https://prayanaai.com/images/place-names/thailand/phi-phi-islands-maya-bay/img-1_google_places_d60f43f3.jpg",
+          "rating": 4.8,
+          "searchQuery": "Thailand",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Nov-Apr",
+            "budget": "₹40k-60k"
+          },
+          "highlights": [
+            "Bangkok temples",
+            "Phuket beaches",
+            "Street food",
+            "Island hopping"
+          ]
+        },
+        {
+          "id": "bali",
+          "name": "Bali",
+          "location": "Indonesia",
+          "description": "Rice terraces, temples, beaches, and yoga retreats",
+          "image": "https://prayanaai.com/images/place-names/indonesia/ubud-bali-rice-terraces/img-1_google_places_d1aaa7a5.jpg",
+          "rating": 4.8,
+          "searchQuery": "Bali",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Apr-Oct",
+            "budget": "₹45k-70k"
+          },
+          "highlights": [
+            "Ubud rice terraces",
+            "Beach clubs",
+            "Temples",
+            "Surfing"
+          ]
+        },
+        {
+          "id": "vietnam",
+          "name": "Vietnam",
+          "location": "Southeast Asia",
+          "description": "Ha Long Bay, street food, and French colonial charm",
+          "image": "https://prayanaai.com/images/place-names/vietnam/ha-long-bay-vietnam/img-1_google_places_5ac45f96.jpg",
+          "rating": 4.7,
+          "searchQuery": "Vietnam",
+          "stats": {
+            "idealDays": "8-12 days",
+            "bestTime": "Nov-Apr",
+            "budget": "₹35k-55k"
+          },
+          "highlights": [
+            "Ha Long Bay",
+            "Hanoi Old Quarter",
+            "Mekong Delta",
+            "Hoi An"
+          ]
+        },
+        {
+          "id": "singapore",
+          "name": "Singapore",
+          "location": "Southeast Asia",
+          "description": "Modern city-state with gardens, food, and shopping",
+          "image": "https://prayanaai.com/images/place-names/singapore/marina-bay-sands-singapore/img-1_google_places_9d9250ec.jpg",
+          "rating": 4.7,
+          "searchQuery": "Singapore",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Feb-Apr",
+            "budget": "₹50k-80k"
+          },
+          "highlights": [
+            "Marina Bay Sands",
+            "Gardens by the Bay",
+            "Universal Studios",
+            "Hawker centers"
+          ]
+        },
+        {
+          "id": "malaysia",
+          "name": "Malaysia",
+          "location": "Southeast Asia",
+          "description": "Twin towers, beaches, and multicultural cuisine",
+          "image": "https://prayanaai.com/images/place-names/malaysia/petronas-twin-towers-kuala-lumpur/img-1_google_places_5bbc5478.jpg",
+          "rating": 4.6,
+          "searchQuery": "Malaysia",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Dec-Mar",
+            "budget": "₹40k-60k"
+          },
+          "highlights": [
+            "Petronas Towers",
+            "Langkawi",
+            "Cameron Highlands",
+            "Penang food"
+          ]
+        },
+        {
+          "id": "cambodia",
+          "name": "Cambodia",
+          "location": "Southeast Asia",
+          "description": "Ancient Angkor Wat temples and Khmer culture",
+          "image": "https://prayanaai.com/images/place-names/cambodia/angkor-wat-cambodia/img-1_google_places_6b8ea6e7.jpg",
+          "rating": 4.6,
+          "searchQuery": "Cambodia",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Nov-Mar",
+            "budget": "₹30k-50k"
+          },
+          "highlights": [
+            "Angkor Wat",
+            "Siem Reap",
+            "Phnom Penh",
+            "Tonle Sap Lake"
+          ]
+        },
+        {
+          "id": "philippines",
+          "name": "Philippines",
+          "location": "Southeast Asia",
+          "description": "7,000+ islands with pristine beaches and diving",
+          "image": "https://prayanaai.com/images/place-names/philippines/el-nido-palawan-philippines/img-1_google_places_8779e881.jpg",
+          "rating": 4.7,
+          "searchQuery": "Philippines",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Nov-Apr",
+            "budget": "₹45k-65k"
+          },
+          "highlights": [
+            "Palawan",
+            "Boracay",
+            "El Nido",
+            "Chocolate Hills"
+          ]
+        },
+        {
+          "id": "myanmar",
+          "name": "Myanmar",
+          "location": "Southeast Asia",
+          "description": "Golden pagodas and ancient temples",
+          "image": "https://prayanaai.com/images/place-names/myanmar/bagan-temples-myanmar/img-1_google_places_8df56cf7.jpg",
+          "rating": 4.5,
+          "searchQuery": "Myanmar",
+          "stats": {
+            "idealDays": "7-9 days",
+            "bestTime": "Nov-Feb",
+            "budget": "₹35k-55k"
+          },
+          "highlights": [
+            "Bagan temples",
+            "Shwedagon Pagoda",
+            "Inle Lake",
+            "Golden Rock"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neighboring-countries",
+      "title": "Budget-Friendly Neighbors",
+      "subtitle": "Explore nearby countries with easy access",
+      "searchQuery": "Nepal Bhutan",
+      "viewAllText": "Discover Neighboring Destinations",
+      "places": [
+        {
+          "id": "nepal",
+          "name": "Nepal",
+          "location": "South Asia",
+          "description": "Himalayan trekking, temples, and mountain views",
+          "image": "https://prayanaai.com/images/place-names/nepal/kathmandu-durbar-square/img-1_google_places_453c2af8.jpg",
+          "rating": 4.7,
+          "searchQuery": "Nepal",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Sep-Nov, Mar-May",
+            "budget": "₹25k-40k"
+          },
+          "highlights": [
+            "Kathmandu temples",
+            "Pokhara lakes",
+            "Everest trekking",
+            "Mountain views"
+          ]
+        },
+        {
+          "id": "bhutan",
+          "name": "Bhutan",
+          "location": "South Asia",
+          "description": "Gross National Happiness and Tiger's Nest monastery",
+          "image": "https://prayanaai.com/images/place-names/bhutan/tigers-nest-monastery-paro-bhutan/img-1_google_places_84088a73.jpg",
+          "rating": 4.8,
+          "searchQuery": "Bhutan",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Mar-May, Sep-Nov",
+            "budget": "₹80k-1.2L"
+          },
+          "highlights": [
+            "Tiger's Nest",
+            "Thimphu",
+            "Punakha Dzong",
+            "Culture"
+          ]
+        },
+        {
+          "id": "sri_lanka",
+          "name": "Sri Lanka",
+          "location": "South Asia",
+          "description": "Tea plantations, beaches, and ancient cities",
+          "image": "https://prayanaai.com/images/place-names/sri-lanka/nine-arch-bridge-ella-sri-lanka/img-1_google_places_fd41522d.jpg",
+          "rating": 4.7,
+          "searchQuery": "Sri Lanka",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Dec-Mar",
+            "budget": "₹30k-50k"
+          },
+          "highlights": [
+            "Ella train ride",
+            "Sigiriya Rock",
+            "Tea plantations",
+            "Beaches"
+          ]
+        },
+        {
+          "id": "bangladesh",
+          "name": "Bangladesh",
+          "location": "South Asia",
+          "description": "Sundarbans mangroves and river culture",
+          "image": "https://prayanaai.com/images/place-names/bangladesh/ahsan-manzil-dhaka-bangladesh/img-1_google_places_0b7caa00.jpg",
+          "rating": 4.3,
+          "searchQuery": "Bangladesh",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Nov-Mar",
+            "budget": "₹20k-35k"
+          },
+          "highlights": [
+            "Sundarbans",
+            "Cox's Bazar",
+            "Old Dhaka",
+            "River cruises"
+          ]
+        },
+        {
+          "id": "maldives",
+          "name": "Maldives",
+          "location": "Indian Ocean",
+          "description": "Budget islands and guesthouses with pristine waters",
+          "image": "https://prayanaai.com/images/place-names/maldives/maldives-overwater-villa-beach-resort/img-1_google_places_714af192.jpg",
+          "rating": 4.8,
+          "searchQuery": "Maldives",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Nov-Apr",
+            "budget": "₹50k-80k"
+          },
+          "highlights": [
+            "Local islands",
+            "Snorkeling",
+            "Beach relaxation",
+            "Water sports"
+          ]
+        },
+        {
+          "id": "mauritius",
+          "name": "Mauritius",
+          "location": "Indian Ocean",
+          "description": "Beaches, waterfalls, and multicultural heritage",
+          "image": "https://prayanaai.com/images/place-names/indian-ocean/mauritius/img-1_google_places_966777a4.jpg",
+          "rating": 4.7,
+          "searchQuery": "Mauritius",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "May-Dec",
+            "budget": "₹60k-90k"
+          },
+          "highlights": [
+            "Beaches",
+            "Underwater waterfall",
+            "Seven Colored Earth",
+            "Port Louis"
+          ]
+        },
+        {
+          "id": "seychelles",
+          "name": "Seychelles",
+          "location": "Indian Ocean",
+          "description": "Granite boulders and pristine island beaches",
+          "image": "https://prayanaai.com/images/place-names/indian-ocean/seychelles/img-1_google_places_acb34081.jpg",
+          "rating": 4.7,
+          "searchQuery": "Seychelles",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Apr-May, Oct-Nov",
+            "budget": "₹80k-1.2L"
+          },
+          "highlights": [
+            "Anse Source d'Argent",
+            "Island hopping",
+            "Nature reserves",
+            "Beaches"
+          ]
+        },
+        {
+          "id": "afghanistan",
+          "name": "Afghanistan",
+          "location": "South Asia",
+          "description": "Historic Silk Road with ancient heritage (Check travel advisories)",
+          "image": "https://prayanaai.com/images/place-names/afghanistan/babur-gardens-kabul-afghanistan/img-1_google_places_045a9185.jpg",
+          "rating": 3.5,
+          "searchQuery": "Afghanistan",
+          "stats": {
+            "idealDays": "N/A",
+            "bestTime": "Check advisories",
+            "budget": "Not recommended"
+          },
+          "highlights": [
+            "Historic sites",
+            "Silk Road",
+            "Mountains",
+            "Check travel advisories"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "middle-east-asia",
+      "title": "Middle East & Central Asia",
+      "subtitle": "Modern marvels and ancient wonders",
+      "searchQuery": "Dubai UAE",
+      "viewAllText": "Explore Middle East",
+      "places": [
+        {
+          "id": "dubai",
+          "name": "Dubai",
+          "location": "UAE",
+          "description": "Futuristic city with malls, beaches, and desert safaris",
+          "image": "https://prayanaai.com/images/place-names/uae/burj-khalifa-dubai/img-1_google_places_e934d4b7.jpg",
+          "rating": 4.8,
+          "searchQuery": "Dubai",
+          "stats": {
+            "idealDays": "4-6 days",
+            "bestTime": "Nov-Mar",
+            "budget": "₹50k-80k"
+          },
+          "highlights": [
+            "Burj Khalifa",
+            "Dubai Mall",
+            "Desert safari",
+            "Beaches"
+          ]
+        },
+        {
+          "id": "turkey",
+          "name": "Turkey",
+          "location": "Europe-Asia",
+          "description": "Hot air balloons, bazaars, and Mediterranean coast",
+          "image": "https://prayanaai.com/images/place-names/turkey/cappadocia-hot-air-balloons-turkey/img-1_google_places_20414438.jpg",
+          "rating": 4.7,
+          "searchQuery": "Turkey",
+          "stats": {
+            "idealDays": "8-10 days",
+            "bestTime": "Apr-May, Sep-Oct",
+            "budget": "₹60k-90k"
+          },
+          "highlights": [
+            "Cappadocia balloons",
+            "Istanbul bazaars",
+            "Pamukkale",
+            "Turkish coast"
+          ]
+        },
+        {
+          "id": "jordan",
+          "name": "Jordan",
+          "location": "Middle East",
+          "description": "Petra, Dead Sea, and Wadi Rum desert",
+          "image": "https://prayanaai.com/images/place-names/jordan/petra-jordan-treasury/img-1_google_places_40b8749c.jpg",
+          "rating": 4.6,
+          "searchQuery": "Jordan",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Mar-May, Sep-Nov",
+            "budget": "₹70k-1L"
+          },
+          "highlights": [
+            "Petra",
+            "Dead Sea",
+            "Wadi Rum",
+            "Amman"
+          ]
+        },
+        {
+          "id": "oman",
+          "name": "Oman",
+          "location": "Middle East",
+          "description": "Deserts, forts, and pristine beaches",
+          "image": "https://prayanaai.com/images/place-names/oman/sultan-qaboos-grand-mosque-muscat/img-1_google_places_29906292.jpg",
+          "rating": 4.6,
+          "searchQuery": "Oman",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Oct-Apr",
+            "budget": "₹55k-75k"
+          },
+          "highlights": [
+            "Muscat",
+            "Wahiba Sands",
+            "Wadis",
+            "Nizwa Fort"
+          ]
+        },
+        {
+          "id": "georgia",
+          "name": "Georgia",
+          "location": "Caucasus",
+          "description": "Wine country with mountains and historic Tbilisi",
+          "image": "https://prayanaai.com/images/place-names/georgia/tbilisi-old-town-georgia/img-1_google_places_8c13172b.jpg",
+          "rating": 4.6,
+          "searchQuery": "Georgia",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Apr-Oct",
+            "budget": "₹50k-70k"
+          },
+          "highlights": [
+            "Tbilisi",
+            "Wine regions",
+            "Kazbegi mountains",
+            "Old churches"
+          ]
+        },
+        {
+          "id": "armenia",
+          "name": "Armenia",
+          "location": "Caucasus",
+          "description": "Ancient monasteries and Mount Ararat views",
+          "image": "https://prayanaai.com/images/place-names/armenia/republic-square-yerevan-armenia/img-1_google_places_f0dd22f3.jpg",
+          "rating": 4.5,
+          "searchQuery": "Armenia",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "May-Oct",
+            "budget": "₹45k-65k"
+          },
+          "highlights": [
+            "Yerevan",
+            "Tatev Monastery",
+            "Lake Sevan",
+            "Mount Ararat"
+          ]
+        },
+        {
+          "id": "azerbaijan",
+          "name": "Azerbaijan",
+          "location": "Caucasus",
+          "description": "Land of Fire with Caspian coast and Baku",
+          "image": "https://prayanaai.com/images/place-names/azerbaijan/flame-towers-baku-azerbaijan/img-1_google_places_9de39d14.jpg",
+          "rating": 4.5,
+          "searchQuery": "Azerbaijan",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "budget": "₹50k-70k"
+          },
+          "highlights": [
+            "Baku",
+            "Flame Towers",
+            "Gobustan",
+            "Caspian Sea"
+          ]
+        },
+        {
+          "id": "uzbekistan",
+          "name": "Uzbekistan",
+          "location": "Central Asia",
+          "description": "Silk Road cities with stunning Islamic architecture",
+          "image": "https://prayanaai.com/images/place-names/uzbekistan/registan-square-samarkand/img-1_google_places_accb7c2b.jpg",
+          "rating": 4.6,
+          "searchQuery": "Uzbekistan",
+          "stats": {
+            "idealDays": "7-9 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "budget": "₹55k-75k"
+          },
+          "highlights": [
+            "Samarkand",
+            "Bukhara",
+            "Khiva",
+            "Registan Square"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "european-budget",
+      "title": "Affordable European Escapes",
+      "subtitle": "Budget-friendly European destinations",
+      "searchQuery": "Europe budget",
+      "viewAllText": "Discover Budget Europe",
+      "places": [
+        {
+          "id": "czech_republic",
+          "name": "Czech Republic",
+          "location": "Central Europe",
+          "description": "Fairy-tale Prague and medieval castles",
+          "image": "https://prayanaai.com/images/place-names/czech-republic/charles-bridge-prague/img-1_google_places_31a27bbd.jpg",
+          "rating": 4.7,
+          "searchQuery": "Czech Republic",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "budget": "₹70k-1L"
+          },
+          "highlights": [
+            "Prague Castle",
+            "Charles Bridge",
+            "Beer culture",
+            "Cesky Krumlov"
+          ]
+        },
+        {
+          "id": "poland",
+          "name": "Poland",
+          "location": "Eastern Europe",
+          "description": "Historic cities and affordable culture",
+          "image": "https://prayanaai.com/images/place-names/poland/krakow-main-square-poland/img-1_google_places_86c48f47.jpg",
+          "rating": 4.6,
+          "searchQuery": "Poland",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "May-Sep",
+            "budget": "₹65k-90k"
+          },
+          "highlights": [
+            "Krakow Old Town",
+            "Warsaw",
+            "Auschwitz",
+            "Salt mines"
+          ]
+        },
+        {
+          "id": "hungary",
+          "name": "Hungary",
+          "location": "Central Europe",
+          "description": "Thermal baths and Danube River beauty",
+          "image": "https://prayanaai.com/images/place-names/hungary/budapest-parliament-hungary/img-1_google_places_b1d8f68b.jpg",
+          "rating": 4.6,
+          "searchQuery": "Hungary",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "budget": "₹65k-90k"
+          },
+          "highlights": [
+            "Budapest Parliament",
+            "Thermal baths",
+            "Danube cruises",
+            "Ruin bars"
+          ]
+        },
+        {
+          "id": "portugal",
+          "name": "Portugal",
+          "location": "Western Europe",
+          "description": "Coastal beauty, port wine, and historic Lisbon",
+          "image": "https://prayanaai.com/images/place-names/portugal/lisbon-tram-portugal/img-1_google_places_198d369b.jpg",
+          "rating": 4.7,
+          "searchQuery": "Portugal",
+          "stats": {
+            "idealDays": "7-9 days",
+            "bestTime": "Apr-Oct",
+            "budget": "₹80k-1.1L"
+          },
+          "highlights": [
+            "Lisbon trams",
+            "Porto wine",
+            "Algarve beaches",
+            "Sintra palaces"
+          ]
+        },
+        {
+          "id": "greece",
+          "name": "Greece",
+          "location": "Southern Europe",
+          "description": "Islands, ancient ruins, and Mediterranean charm",
+          "image": "https://prayanaai.com/images/place-names/greece/santorini-oia-sunset-caldera/img-1_google_places_d7cf1e53.jpg",
+          "rating": 4.8,
+          "searchQuery": "Greece",
+          "stats": {
+            "idealDays": "8-10 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "budget": "₹90k-1.3L"
+          },
+          "highlights": [
+            "Santorini sunsets",
+            "Athens Acropolis",
+            "Mykonos",
+            "Greek islands"
+          ]
+        },
+        {
+          "id": "croatia",
+          "name": "Croatia",
+          "location": "Southern Europe",
+          "description": "Adriatic coast with medieval cities",
+          "image": "https://prayanaai.com/images/place-names/croatia/dubrovnik-old-town/img-1_google_places_8d212151.jpg",
+          "rating": 4.7,
+          "searchQuery": "Croatia",
+          "stats": {
+            "idealDays": "7-9 days",
+            "bestTime": "May-Sep",
+            "budget": "₹85k-1.2L"
+          },
+          "highlights": [
+            "Dubrovnik walls",
+            "Split",
+            "Plitvice Lakes",
+            "Islands"
+          ]
+        },
+        {
+          "id": "romania",
+          "name": "Romania",
+          "location": "Eastern Europe",
+          "description": "Dracula's castle and Carpathian mountains",
+          "image": "https://prayanaai.com/images/place-names/romania/brasov-romania/img-1_google_places_54fe3c12.jpg",
+          "rating": 4.5,
+          "searchQuery": "Romania",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "May-Sep",
+            "budget": "₹60k-85k"
+          },
+          "highlights": [
+            "Bran Castle",
+            "Brasov",
+            "Bucharest",
+            "Carpathian mountains"
+          ]
+        },
+        {
+          "id": "bulgaria",
+          "name": "Bulgaria",
+          "location": "Eastern Europe",
+          "description": "Mountains, beaches, and affordable skiing",
+          "image": "https://prayanaai.com/images/place-names/bulgaria/alexander-nevsky-cathedral-sofia/img-1_google_places_1964ec12.jpg",
+          "rating": 4.5,
+          "searchQuery": "Bulgaria",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "May-Sep",
+            "budget": "₹55k-75k"
+          },
+          "highlights": [
+            "Sofia",
+            "Plovdiv",
+            "Rila Monastery",
+            "Black Sea coast"
+          ]
+        }
+      ]
+    }
+  ],
+  "travelTips": {
+    "title": "Essential International Travel Tips",
+    "tips": [
+      {
+        "icon": "📋",
+        "title": "Visa Requirements",
+        "description": "Check visa requirements early - many countries offer visa-on-arrival for Indians"
+      },
+      {
+        "icon": "💱",
+        "title": "Currency Exchange",
+        "description": "Use forex cards or international debit cards for better exchange rates"
+      },
+      {
+        "icon": "🎫",
+        "title": "Book Early",
+        "description": "Flights and hotels are cheaper when booked 2-3 months in advance"
+      },
+      {
+        "icon": "🏥",
+        "title": "Travel Insurance",
+        "description": "Always get comprehensive travel insurance before international trips"
+      }
+    ]
+  },
+  "seasonGuide": {
+    "title": "Best Time for International Travel",
+    "seasons": [
+      {
+        "name": "Winter (Nov-Feb)",
+        "icon": "❄️",
+        "description": "Perfect for Southeast Asia, Middle East, and tropical destinations",
+        "bestFor": [
+          "Thailand",
+          "Dubai",
+          "Vietnam",
+          "Bali",
+          "Sri Lanka"
+        ]
+      },
+      {
+        "name": "Spring (Mar-May)",
+        "icon": "🌸",
+        "description": "Ideal for Europe, Japan, and moderate climate destinations",
+        "bestFor": [
+          "Europe",
+          "Turkey",
+          "Nepal",
+          "Georgia",
+          "Jordan"
+        ]
+      },
+      {
+        "name": "Summer (Jun-Aug)",
+        "icon": "☀️",
+        "description": "Best for European destinations and high-altitude regions",
+        "bestFor": [
+          "Europe",
+          "Scandinavia",
+          "Scotland",
+          "Iceland"
+        ]
+      },
+      {
+        "name": "Autumn (Sep-Oct)",
+        "icon": "🍂",
+        "description": "Great for most destinations with pleasant weather and fewer crowds",
+        "bestFor": [
+          "Almost all destinations",
+          "Shoulder season savings"
+        ]
+      }
+    ]
+  }
+}

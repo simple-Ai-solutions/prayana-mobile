@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+
+# Expo
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Native build artifacts
+ios/
+android/
+
+# Firebase / Google service config (per-app, contains keys)
+**/GoogleService-Info.plist
+**/google-services.json
+
+# Apple/Play Store credentials
+keystores/
+*.keystore
+play-store-service-account*.json
+
+# Metro
+.metro-health-check*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# TypeScript
+*.tsbuildinfo
+
+# Temporary files
+*.tmp
+*.swp

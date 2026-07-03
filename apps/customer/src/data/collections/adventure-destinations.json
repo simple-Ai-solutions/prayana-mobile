@@ -1,0 +1,849 @@
+{
+  "category": {
+    "id": "adventure",
+    "slug": "adventure",
+    "title": "Thrilling Adventure Spots",
+    "subtitle": "For the adrenaline seekers",
+    "heroTitle": "Seek",
+    "heroHighlight": "Thrilling Adventures",
+    "icon": "🏔️",
+    "color": "orange",
+    "gradient": "from-orange-500 to-red-600",
+    "description": "Discover India's most thrilling adventure destinations for adrenaline junkies. From high-altitude treks and river rafting to paragliding and scuba diving, these destinations offer unforgettable experiences for adventure enthusiasts.",
+    "emoji": "⛰️",
+    "quote": "Life begins at the end of your comfort zone"
+  },
+  "hero": {
+    "featured": {
+      "id": "ladakh_featured",
+      "name": "Ladakh",
+      "location": "Jammu & Kashmir",
+      "tagline": "Land of High Passes",
+      "image": "https://prayanaai.com/images/place-names/jammu-kashmir/ladakh/img-1_google_places_db6d9f1b.jpg",
+      "rating": 4.9,
+      "searchQuery": "Ladakh",
+      "highlights": [
+        "Bike trips",
+        "High altitude",
+        "Trekking",
+        "Pangong Lake"
+      ]
+    },
+    "secondary": [
+      {
+        "id": "rishikesh_hero",
+        "name": "Rishikesh",
+        "location": "Uttarakhand",
+        "tagline": "Adventure Capital",
+        "image": "https://prayanaai.com/images/place-names/uttarakhand/rishikesh-laxman-jhula-ganga/img-1_google_places_bc26453d.jpg",
+        "rating": 4.7,
+        "searchQuery": "Rishikesh"
+      },
+      {
+        "id": "spiti_hero",
+        "name": "Spiti Valley",
+        "location": "Himachal Pradesh",
+        "tagline": "Cold Desert",
+        "image": "https://prayanaai.com/images/place-names/himachal-pradesh/spiti-valley/img-1_google_places_07ea77a9.jpg",
+        "rating": 4.8,
+        "searchQuery": "Spiti Valley"
+      },
+      {
+        "id": "meghalaya_hero",
+        "name": "Meghalaya",
+        "location": "Northeast India",
+        "tagline": "Abode of Clouds",
+        "image": "https://prayanaai.com/images/place-names/northeast-india/meghalaya/img-1_google_places_ca661e1e.jpg",
+        "rating": 4.7,
+        "searchQuery": "Meghalaya"
+      },
+      {
+        "id": "andaman_hero",
+        "name": "Andaman Islands",
+        "location": "India",
+        "tagline": "Scuba Paradise",
+        "image": "https://prayanaai.com/images/place-names/andaman/radhanagar-beach-havelock-andaman/img-1_google_places_c5e35e04.jpg",
+        "rating": 4.8,
+        "searchQuery": "Andaman Islands"
+      }
+    ]
+  },
+  "whyVisit": {
+    "title": "Why Choose Adventure Destinations?",
+    "subtitle": "Push your limits and create unforgettable memories",
+    "reasons": [
+      {
+        "icon": "⚡",
+        "title": "Adrenaline Rush",
+        "description": "Experience the thrill of extreme sports and challenging activities"
+      },
+      {
+        "icon": "🏆",
+        "title": "Personal Growth",
+        "description": "Push your boundaries and discover your true potential"
+      },
+      {
+        "icon": "🌄",
+        "title": "Stunning Landscapes",
+        "description": "Access remote, breathtaking locations few people reach"
+      },
+      {
+        "icon": "🎯",
+        "title": "Unique Experiences",
+        "description": "Create stories and memories that last a lifetime"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "himalayan-adventures",
+      "title": "Himalayan Adventure Destinations",
+      "subtitle": "High-altitude treks, biking, and mountain sports",
+      "searchQuery": "Himalayan adventure",
+      "viewAllText": "Explore Himalayan Adventures",
+      "places": [
+        {
+          "id": "ladakh",
+          "name": "Ladakh",
+          "location": "Jammu & Kashmir",
+          "description": "Ultimate adventure paradise with bike trips, high-altitude trekking, and stunning landscapes",
+          "image": "https://prayanaai.com/images/place-names/jammu-kashmir/ladakh/img-1_google_places_db6d9f1b.jpg",
+          "rating": 4.9,
+          "searchQuery": "Ladakh",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Jun-Sep",
+            "difficulty": "Moderate-High"
+          },
+          "highlights": [
+            "Manali-Leh highway",
+            "Khardung La",
+            "Pangong Lake",
+            "Nubra Valley"
+          ]
+        },
+        {
+          "id": "spiti_valley",
+          "name": "Spiti Valley",
+          "location": "Himachal Pradesh",
+          "description": "Cold desert with challenging treks and offbeat trails",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/spiti-valley/img-1_google_places_07ea77a9.jpg",
+          "rating": 4.8,
+          "searchQuery": "Spiti Valley",
+          "stats": {
+            "idealDays": "8-10 days",
+            "bestTime": "Jun-Sep",
+            "difficulty": "High"
+          },
+          "highlights": [
+            "Pin Parvati Pass",
+            "Chandratal Lake",
+            "Key Monastery",
+            "Kaza"
+          ]
+        },
+        {
+          "id": "manali_adventure",
+          "name": "Manali",
+          "location": "Himachal Pradesh",
+          "description": "Adventure hub with paragliding, skiing, and river rafting",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/manali/img-1_google_places_b42c0542.jpg",
+          "rating": 4.7,
+          "searchQuery": "Manali",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "May-Jun, Dec-Feb",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Solang Valley paragliding",
+            "Rohtang skiing",
+            "River rafting",
+            "Trekking"
+          ]
+        },
+        {
+          "id": "kedarnath_trek",
+          "name": "Kedarnath Trek",
+          "location": "Uttarakhand",
+          "description": "Sacred pilgrimage trek with stunning mountain views",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/kedarnath-temple-trek-uttarakhand/img-1_google_places_a326ad3c.jpg",
+          "rating": 4.6,
+          "searchQuery": "Kedarnath Trek",
+          "stats": {
+            "idealDays": "5-6 days",
+            "bestTime": "May-Jun, Sep-Oct",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Temple trek",
+            "Vasuki Tal",
+            "Chorabari Tal",
+            "Mountain views"
+          ]
+        },
+        {
+          "id": "valley_of_flowers",
+          "name": "Valley of Flowers",
+          "location": "Uttarakhand",
+          "description": "UNESCO World Heritage Site with alpine flowers and trekking",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/valley-of-flowers-uttarakhand/img-1_google_places_f94e875f.jpg",
+          "rating": 4.8,
+          "searchQuery": "Valley of Flowers",
+          "stats": {
+            "idealDays": "6-7 days",
+            "bestTime": "Jul-Sep",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Alpine flowers",
+            "Hemkund Sahib",
+            "Pushpawati River",
+            "Glaciers"
+          ]
+        },
+        {
+          "id": "chadar_trek",
+          "name": "Chadar Trek",
+          "location": "Ladakh",
+          "description": "Frozen river trek on Zanskar River - one of the toughest",
+          "image": "https://prayanaai.com/images/place-names/ladakh/chadar-trek-frozen-river-ladakh/img-1_google_places_fe6fcdd2.jpg",
+          "rating": 4.9,
+          "searchQuery": "Chadar Trek",
+          "stats": {
+            "idealDays": "8-9 days",
+            "bestTime": "Jan-Feb",
+            "difficulty": "Very High"
+          },
+          "highlights": [
+            "Frozen river walk",
+            "Ice caves",
+            "Extreme cold",
+            "Remote villages"
+          ]
+        },
+        {
+          "id": "stok_kangri",
+          "name": "Stok Kangri",
+          "location": "Ladakh",
+          "description": "6000m+ peak climb for experienced trekkers",
+          "image": "https://prayanaai.com/images/place-names/ladakh/stok-kangri-peak-ladakh/img-1_google_places_0ce21647.jpg",
+          "rating": 4.7,
+          "searchQuery": "Stok Kangri",
+          "stats": {
+            "idealDays": "8-10 days",
+            "bestTime": "Jul-Sep",
+            "difficulty": "Very High"
+          },
+          "highlights": [
+            "6153m summit",
+            "Glacier walk",
+            "Technical climb",
+            "360° views"
+          ]
+        },
+        {
+          "id": "har_ki_dun",
+          "name": "Har Ki Dun Trek",
+          "location": "Uttarakhand",
+          "description": "Valley of Gods with ancient villages and meadows",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/har-ki-dun-trek-uttarakhand/img-1_google_places_30a20b6a.jpg",
+          "rating": 4.6,
+          "searchQuery": "Har Ki Dun Trek",
+          "stats": {
+            "idealDays": "7-8 days",
+            "bestTime": "Apr-Jun, Sep-Nov",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Ancient villages",
+            "Alpine meadows",
+            "Swargarohini peak",
+            "Wildlife"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "water-adventures",
+      "title": "Water Sports & Diving Adventures",
+      "subtitle": "Rafting, scuba diving, and water-based thrills",
+      "searchQuery": "white water",
+      "viewAllText": "Explore Water Adventures",
+      "places": [
+        {
+          "id": "rishikesh",
+          "name": "Rishikesh",
+          "location": "Uttarakhand",
+          "description": "Adventure capital with white water rafting and bungee jumping",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/rishikesh-laxman-jhula-ganga/img-1_google_places_bc26453d.jpg",
+          "rating": 4.7,
+          "searchQuery": "Rishikesh",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-Jun",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Grade 3-4 rapids",
+            "Bungee jumping",
+            "Kayaking",
+            "Cliff jumping"
+          ]
+        },
+        {
+          "id": "andaman_diving",
+          "name": "Andaman Islands",
+          "location": "India",
+          "description": "India's best scuba diving with vibrant coral reefs",
+          "image": "https://prayanaai.com/images/place-names/andaman/radhanagar-beach-havelock-andaman/img-1_google_places_c5e35e04.jpg",
+          "rating": 4.8,
+          "searchQuery": "Andaman Islands",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Oct-May",
+            "difficulty": "Easy-Moderate"
+          },
+          "highlights": [
+            "Scuba diving",
+            "Snorkeling",
+            "Coral reefs",
+            "Sea walk"
+          ]
+        },
+        {
+          "id": "goa_water",
+          "name": "Goa",
+          "location": "India",
+          "description": "Water sports hub with parasailing and jet skiing",
+          "image": "https://prayanaai.com/images/place-names/goa/palolem-beach-goa/img-1_google_places_15f07024.jpg",
+          "rating": 4.6,
+          "searchQuery": "Goa",
+          "stats": {
+            "idealDays": "4-6 days",
+            "bestTime": "Oct-Mar",
+            "difficulty": "Easy"
+          },
+          "highlights": [
+            "Parasailing",
+            "Jet skiing",
+            "Banana boat",
+            "Scuba diving"
+          ]
+        },
+        {
+          "id": "zanskar_rafting",
+          "name": "Zanskar River",
+          "location": "Ladakh",
+          "description": "High-altitude river rafting in remote Himalayas",
+          "image": "https://prayanaai.com/images/place-names/ladakh/zanskar-river-rafting-ladakh/img-1_google_places_5f2fd51a.jpg",
+          "rating": 4.7,
+          "searchQuery": "Zanskar River",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Jul-Aug",
+            "difficulty": "High"
+          },
+          "highlights": [
+            "Grade 4 rapids",
+            "Remote canyons",
+            "High altitude",
+            "Multi-day expedition"
+          ]
+        },
+        {
+          "id": "netrani_island",
+          "name": "Netrani Island",
+          "location": "Karnataka",
+          "description": "Pigeon Island diving with diverse marine life",
+          "image": "https://prayanaai.com/images/place-names/karnataka/netrani-island-scuba-diving-karnataka/img-1_google_places_11f0ac92.jpg",
+          "rating": 4.5,
+          "searchQuery": "Netrani Island",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-May",
+            "difficulty": "Easy-Moderate"
+          },
+          "highlights": [
+            "Scuba diving",
+            "Coral reefs",
+            "Marine life",
+            "Clear waters"
+          ]
+        },
+        {
+          "id": "lakshadweep_diving",
+          "name": "Lakshadweep",
+          "location": "India",
+          "description": "Pristine coral islands with excellent diving",
+          "image": "https://prayanaai.com/images/place-names/lakshadweep/agatti-island-lakshadweep/img-1_google_places_7585097c.jpg",
+          "rating": 4.8,
+          "searchQuery": "Lakshadweep",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Oct-May",
+            "difficulty": "Easy-Moderate"
+          },
+          "highlights": [
+            "Diving",
+            "Snorkeling",
+            "Kayaking",
+            "Lagoon exploration"
+          ]
+        },
+        {
+          "id": "teesta_rafting",
+          "name": "Teesta River",
+          "location": "Sikkim",
+          "description": "Challenging rapids in scenic Himalayan setting",
+          "image": "https://prayanaai.com/images/place-names/sikkim/teesta-river-rafting-sikkim/img-1_google_places_e5721719.jpg",
+          "rating": 4.6,
+          "searchQuery": "Teesta River",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Mar-May, Oct-Dec",
+            "difficulty": "Moderate-High"
+          },
+          "highlights": [
+            "Grade 3-4 rapids",
+            "Scenic valleys",
+            "Mountain views",
+            "Kayaking"
+          ]
+        },
+        {
+          "id": "bhandardara",
+          "name": "Bhandardara",
+          "location": "Maharashtra",
+          "description": "Lake activities and monsoon waterfalls",
+          "image": "https://prayanaai.com/images/place-names/maharashtra/bhandardara-lake-maharashtra/img-1_google_places_08049f17.jpg",
+          "rating": 4.4,
+          "searchQuery": "Bhandardara",
+          "stats": {
+            "idealDays": "2 days",
+            "bestTime": "Jun-Feb",
+            "difficulty": "Easy"
+          },
+          "highlights": [
+            "Kayaking",
+            "Waterfall rappelling",
+            "Camping",
+            "Arthur Lake"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "northeast-adventures",
+      "title": "Northeast India Adventures",
+      "subtitle": "Unexplored treks and living root bridges",
+      "searchQuery": "Northeast living",
+      "viewAllText": "Explore Northeast Adventures",
+      "places": [
+        {
+          "id": "meghalaya",
+          "name": "Meghalaya",
+          "location": "Northeast India",
+          "description": "Living root bridges trekking and caving adventures",
+          "image": "https://prayanaai.com/images/place-names/northeast-india/meghalaya/img-1_google_places_ca661e1e.jpg",
+          "rating": 4.7,
+          "searchQuery": "Meghalaya",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Oct-Mar",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Double Decker Bridge",
+            "Mawsmai Caves",
+            "David Scott Trail",
+            "Nohkalikai Falls"
+          ]
+        },
+        {
+          "id": "dzukou_valley_trek",
+          "name": "Dzukou Valley Trek",
+          "location": "Nagaland-Manipur",
+          "description": "Valley of flowers in Northeast with pristine beauty",
+          "image": "https://prayanaai.com/images/place-names/nagaland/dzukou-valley-nagaland/img-1_google_places_ed80ffd9.jpg",
+          "rating": 4.6,
+          "searchQuery": "Dzukou Valley Trek",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Jun-Sep, Oct-Nov",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Lily blooms",
+            "Valley camping",
+            "Japfu Peak",
+            "Scenic trails"
+          ]
+        },
+        {
+          "id": "ziro_trek",
+          "name": "Ziro Valley",
+          "location": "Arunachal Pradesh",
+          "description": "UNESCO heritage valley with tribal culture and trekking",
+          "image": "https://prayanaai.com/images/place-names/arunachal-pradesh/ziro-valley-arunachal-pradesh/img-1_google_places_78fbdd9d.jpg",
+          "rating": 4.6,
+          "searchQuery": "Ziro Valley",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Mar-Oct",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Rice fields trek",
+            "Apatani tribe",
+            "Music festival",
+            "Talley Valley"
+          ]
+        },
+        {
+          "id": "tawang_trek",
+          "name": "Tawang",
+          "location": "Arunachal Pradesh",
+          "description": "High-altitude monastery with mountain passes",
+          "image": "https://prayanaai.com/images/place-names/arunachal-pradesh/tawang-monastery-arunachal-pradesh/img-1_google_places_55f90699.jpg",
+          "rating": 4.7,
+          "searchQuery": "Tawang",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Oct",
+            "difficulty": "Moderate-High"
+          },
+          "highlights": [
+            "Sela Pass",
+            "Tawang Monastery",
+            "Madhuri Lake",
+            "Bum La Pass"
+          ]
+        },
+        {
+          "id": "goechala_trek",
+          "name": "Goechala Trek",
+          "location": "Sikkim",
+          "description": "Kanchenjunga base camp trek with stunning views",
+          "image": "https://prayanaai.com/images/place-names/sikkim/goechala-trek-kanchenjunga-sikkim/img-1_google_places_92206584.jpg",
+          "rating": 4.8,
+          "searchQuery": "Goechala Trek",
+          "stats": {
+            "idealDays": "8-10 days",
+            "bestTime": "Apr-May, Sep-Nov",
+            "difficulty": "High"
+          },
+          "highlights": [
+            "Kanchenjunga views",
+            "Dzongri top",
+            "Alpine lakes",
+            "Rhododendron forests"
+          ]
+        },
+        {
+          "id": "sandakphu_trek",
+          "name": "Sandakphu Trek",
+          "location": "West Bengal",
+          "description": "Highest peak in Bengal with 4 tallest peaks view",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/sandakphu-trek-darjeeling/img-1_google_places_b4d7d11b.jpg",
+          "rating": 4.7,
+          "searchQuery": "Sandakphu Trek",
+          "stats": {
+            "idealDays": "6-7 days",
+            "bestTime": "Apr-May, Oct-Nov",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Everest view",
+            "Kanchenjunga",
+            "Makalu",
+            "Lhotse views"
+          ]
+        },
+        {
+          "id": "green_lake_trek",
+          "name": "Green Lake Trek",
+          "location": "Sikkim",
+          "description": "Remote high-altitude trek to Kanchenjunga base",
+          "image": "https://prayanaai.com/images/place-names/sikkim/green-lake-trek-sikkim/img-1_google_places_cbe5d683.jpg",
+          "rating": 4.8,
+          "searchQuery": "Green Lake Trek",
+          "stats": {
+            "idealDays": "12-14 days",
+            "bestTime": "May-Jun, Sep-Oct",
+            "difficulty": "Very High"
+          },
+          "highlights": [
+            "Remote wilderness",
+            "Glacier views",
+            "High altitude",
+            "Kanchenjunga base"
+          ]
+        },
+        {
+          "id": "nuranang_falls",
+          "name": "Nuranang Falls Trek",
+          "location": "Arunachal Pradesh",
+          "description": "Stunning waterfall trek near Tawang",
+          "image": "https://prayanaai.com/images/place-names/arunachal-pradesh/nuranang-falls-tawang-arunachal/img-1_google_places_ce39806a.png",
+          "rating": 4.5,
+          "searchQuery": "Nuranang Falls Trek",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Mar-Oct",
+            "difficulty": "Easy-Moderate"
+          },
+          "highlights": [
+            "100m waterfall",
+            "Scenic drive",
+            "Jang Falls",
+            "Mountain views"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unique-adventures",
+      "title": "Unique Adventure Experiences",
+      "subtitle": "Offbeat thrills and extreme sports",
+      "searchQuery": "paragliding skiing",
+      "viewAllText": "Explore Unique Adventures",
+      "places": [
+        {
+          "id": "bir_billing",
+          "name": "Bir Billing",
+          "location": "Himachal Pradesh",
+          "description": "Paragliding capital of India with international standards",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/bir-billing-paragliding-himachal/img-1_google_places_932c62a3.jpg",
+          "rating": 4.8,
+          "searchQuery": "Bir Billing",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Mar-May, Sep-Nov",
+            "difficulty": "Easy-Moderate"
+          },
+          "highlights": [
+            "Paragliding",
+            "World Cup venue",
+            "Tibetan monasteries",
+            "Camping"
+          ]
+        },
+        {
+          "id": "auli",
+          "name": "Auli",
+          "location": "Uttarakhand",
+          "description": "Skiing paradise with pristine slopes and cable car",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/auli-skiing-resort-uttarakhand/img-1_google_places_3e458e91.jpg",
+          "rating": 4.7,
+          "searchQuery": "Auli",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Dec-Feb",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Skiing",
+            "Cable car",
+            "Nanda Devi views",
+            "Snow activities"
+          ]
+        },
+        {
+          "id": "hampi_bouldering",
+          "name": "Hampi",
+          "location": "Karnataka",
+          "description": "Boulder climbing paradise with ancient ruins",
+          "image": "https://prayanaai.com/images/place-names/karnataka/hampi-ruins-temples/img-1_google_places_bf99318b.jpg",
+          "rating": 4.7,
+          "searchQuery": "Hampi",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Oct-Mar",
+            "difficulty": "Moderate-High"
+          },
+          "highlights": [
+            "Bouldering",
+            "Rock climbing",
+            "Ruins exploration",
+            "Coracle rides"
+          ]
+        },
+        {
+          "id": "gulmarg",
+          "name": "Gulmarg",
+          "location": "Jammu & Kashmir",
+          "description": "Asia's highest gondola with skiing and snowboarding",
+          "image": "https://prayanaai.com/images/place-names/jammu-kashmir/gulmarg-gondola-skiing-kashmir/img-1_google_places_87820ee5.jpg",
+          "rating": 4.8,
+          "searchQuery": "Gulmarg",
+          "stats": {
+            "idealDays": "4-6 days",
+            "bestTime": "Dec-Feb",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Skiing",
+            "Gondola ride",
+            "Snowboarding",
+            "Apharwat Peak"
+          ]
+        },
+        {
+          "id": "badrinath_trek",
+          "name": "Badrinath Trek",
+          "location": "Uttarakhand",
+          "description": "Sacred pilgrimage with challenging mountain trails",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/badrinath-temple-trek-uttarakhand/img-1_google_places_619163ce.jpg",
+          "rating": 4.6,
+          "searchQuery": "Badrinath Trek",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "May-Jun, Sep-Oct",
+            "difficulty": "Moderate"
+          },
+          "highlights": [
+            "Temple trek",
+            "Satopanth Lake",
+            "Neelkanth peak",
+            "Hot springs"
+          ]
+        },
+        {
+          "id": "dandeli",
+          "name": "Dandeli",
+          "location": "Karnataka",
+          "description": "Wildlife adventure with rafting and jungle activities",
+          "image": "https://prayanaai.com/images/place-names/karnataka/dandeli-rafting-karnataka/img-1_google_places_4d37a4fe.jpg",
+          "rating": 4.5,
+          "searchQuery": "Dandeli",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-May",
+            "difficulty": "Easy-Moderate"
+          },
+          "highlights": [
+            "White water rafting",
+            "Jungle safari",
+            "Kayaking",
+            "Crocodile spotting"
+          ]
+        },
+        {
+          "id": "rann_of_kutch",
+          "name": "Rann of Kutch",
+          "location": "Gujarat",
+          "description": "White desert with ATV rides and cultural experiences",
+          "image": "https://prayanaai.com/images/place-names/gujarat/rann-of-kutch-white-desert-gujarat/img-1_google_places_9571b362.jpg",
+          "rating": 4.6,
+          "searchQuery": "Rann of Kutch",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Nov-Feb",
+            "difficulty": "Easy"
+          },
+          "highlights": [
+            "White desert",
+            "Camel safari",
+            "Rann Utsav",
+            "Full moon views"
+          ]
+        },
+        {
+          "id": "parashar_lake",
+          "name": "Parashar Lake Trek",
+          "location": "Himachal Pradesh",
+          "description": "Sacred lake trek with floating island",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/parashar-lake-trek-himachal/img-1_google_places_a29ab838.jpg",
+          "rating": 4.5,
+          "searchQuery": "Parashar Lake Trek",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "May-Oct",
+            "difficulty": "Easy-Moderate"
+          },
+          "highlights": [
+            "Sacred lake",
+            "Floating island",
+            "Pagoda temple",
+            "Dhauladhar views"
+          ]
+        }
+      ]
+    }
+  ],
+  "travelTips": {
+    "title": "Essential Adventure Travel Tips",
+    "tips": [
+      {
+        "icon": "🏋️",
+        "title": "Physical Fitness",
+        "description": "Prepare your body 2-3 months before high-altitude treks"
+      },
+      {
+        "icon": "🎒",
+        "title": "Right Gear",
+        "description": "Invest in quality trekking shoes, jackets, and equipment"
+      },
+      {
+        "icon": "🏔️",
+        "title": "Acclimatization",
+        "description": "Allow time for altitude adjustment to prevent altitude sickness"
+      },
+      {
+        "icon": "👥",
+        "title": "Local Guides",
+        "description": "Hire experienced local guides for safety and navigation"
+      }
+    ]
+  },
+  "seasonGuide": {
+    "title": "Best Time for Adventure Activities",
+    "seasons": [
+      {
+        "name": "Summer (Apr-Jun)",
+        "icon": "☀️",
+        "description": "Perfect for high-altitude treks and Himalayan adventures",
+        "bestFor": [
+          "Ladakh",
+          "Spiti",
+          "Valley of Flowers",
+          "Himalayan treks"
+        ]
+      },
+      {
+        "name": "Monsoon (Jul-Sep)",
+        "icon": "🌧️",
+        "description": "Ideal for Northeast treks and waterfall adventures",
+        "bestFor": [
+          "Meghalaya",
+          "Dzukou Valley",
+          "Living root bridges",
+          "Waterfalls"
+        ]
+      },
+      {
+        "name": "Autumn (Sep-Nov)",
+        "icon": "🍂",
+        "description": "Best weather for most treks with clear skies",
+        "bestFor": [
+          "Most treks",
+          "Paragliding",
+          "Rafting",
+          "Mountain biking"
+        ]
+      },
+      {
+        "name": "Winter (Dec-Feb)",
+        "icon": "❄️",
+        "description": "Skiing, snowboarding, and winter treks",
+        "bestFor": [
+          "Auli skiing",
+          "Gulmarg",
+          "Chadar Trek",
+          "Snow activities"
+        ]
+      }
+    ]
+  }
+}

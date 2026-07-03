@@ -1,0 +1,12 @@
+{
+  "name": "@prayana/shared-hooks",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "private": true,
+  "peerDependencies": {
+    "react": "*",
+    "@prayana/shared-stores": "*",
+    "@prayana/shared-services": "*"
+  }
+}

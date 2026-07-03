@@ -1,0 +1,758 @@
+{
+  "category": {
+    "id": "romantic",
+    "slug": "romantic",
+    "title": "Idyllic Romantic Destinations",
+    "subtitle": "Perfect spots for couples",
+    "heroTitle": "Discover Love in",
+    "heroHighlight": "Incredible India",
+    "icon": "💑",
+    "color": "pink",
+    "gradient": "from-pink-500 to-rose-600",
+    "description": "Discover India's most romantic destinations perfect for couples seeking unforgettable moments. From serene lakes and majestic palaces to intimate beaches and cozy hill stations, these romantic escapes create memories that last a lifetime.",
+    "emoji": "💕",
+    "quote": "Where hearts find their home in timeless moments"
+  },
+  "hero": {
+    "featured": {
+      "id": "udaipur_featured",
+      "name": "Udaipur",
+      "location": "Rajasthan",
+      "tagline": "City of Lakes & Romance",
+      "image": "https://prayanaai.com/images/place-names/rajasthan/lake-pichola-udaipur-sunset/img-1_google_places_4f5598d7.jpg",
+      "rating": 4.9,
+      "searchQuery": "Udaipur",
+      "highlights": [
+        "Lake palaces",
+        "Sunset boat rides",
+        "Royal heritage"
+      ]
+    },
+    "secondary": [
+      {
+        "id": "kashmir_hero",
+        "name": "Kashmir",
+        "location": "Jammu & Kashmir",
+        "tagline": "Paradise on Earth",
+        "image": "https://prayanaai.com/images/place-names/jammu-kashmir/dal-lake-srinagar-shikara/img-1_google_places_67fd40ed.jpg",
+        "rating": 4.9,
+        "searchQuery": "Kashmir"
+      },
+      {
+        "id": "coorg_hero",
+        "name": "Coorg",
+        "location": "Karnataka",
+        "tagline": "Scotland of India",
+        "image": "https://prayanaai.com/images/place-names/karnataka/coorg/img-1_google_places_e2a66a53.jpg",
+        "rating": 4.8,
+        "searchQuery": "Coorg"
+      },
+      {
+        "id": "alleppey_hero",
+        "name": "Alleppey",
+        "location": "Kerala",
+        "tagline": "Venice of the East",
+        "image": "https://prayanaai.com/images/place-names/kerala/alleppey-houseboat-backwaters/img-1_google_places_b311bb5b.jpg",
+        "rating": 4.8,
+        "searchQuery": "Alleppey"
+      },
+      {
+        "id": "manali_hero",
+        "name": "Manali",
+        "location": "Himachal Pradesh",
+        "tagline": "Valley of Love",
+        "image": "https://prayanaai.com/images/place-names/himachal-pradesh/manali/img-1_google_places_a1af2698.jpg",
+        "rating": 4.7,
+        "searchQuery": "Manali"
+      }
+    ]
+  },
+  "whyVisit": {
+    "title": "Why Choose Romantic Destinations?",
+    "subtitle": "Create unforgettable moments with your loved one",
+    "reasons": [
+      {
+        "icon": "💕",
+        "title": "Intimate Experiences",
+        "description": "Private candlelit dinners, sunset cruises, and couple spa sessions"
+      },
+      {
+        "icon": "🌅",
+        "title": "Stunning Backdrops",
+        "description": "Picturesque settings perfect for creating lasting memories"
+      },
+      {
+        "icon": "🏰",
+        "title": "Luxury Stays",
+        "description": "Heritage hotels, boutique resorts, and romantic accommodations"
+      },
+      {
+        "icon": "🎭",
+        "title": "Cultural Romance",
+        "description": "Traditional performances, local cuisine, and cultural experiences together"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "top-india",
+      "title": "Top 20 Romantic Destinations in India",
+      "subtitle": "India's most enchanting getaways for couples",
+      "searchQuery": "best",
+      "viewAllText": "Explore All Romantic Destinations",
+      "places": [
+        {
+          "id": "udaipur",
+          "name": "Udaipur",
+          "location": "Rajasthan",
+          "description": "City of Lakes with royal palaces and sunset boat rides",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/lake-pichola-udaipur-sunset/img-1_google_places_4f5598d7.jpg",
+          "rating": 4.9,
+          "searchQuery": "Udaipur",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Mar",
+            "romance": "★★★★★"
+          },
+          "highlights": [
+            "Lake Pichola",
+            "City Palace",
+            "Sunset boat rides",
+            "Rooftop dining"
+          ]
+        },
+        {
+          "id": "kashmir",
+          "name": "Kashmir",
+          "location": "Jammu & Kashmir",
+          "description": "Paradise on Earth with Dal Lake shikaras and snow-capped mountains",
+          "image": "https://prayanaai.com/images/place-names/jammu-kashmir/dal-lake-srinagar-shikara/img-1_google_places_67fd40ed.jpg",
+          "rating": 4.9,
+          "searchQuery": "Kashmir",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Oct",
+            "romance": "★★★★★"
+          },
+          "highlights": [
+            "Dal Lake shikara",
+            "Mughal gardens",
+            "Gulmarg",
+            "Houseboats"
+          ]
+        },
+        {
+          "id": "coorg",
+          "name": "Coorg",
+          "location": "Karnataka",
+          "description": "Misty hills with coffee plantations and romantic homestays",
+          "image": "https://prayanaai.com/images/place-names/karnataka/coorg/img-1_google_places_e2a66a53.jpg",
+          "rating": 4.8,
+          "searchQuery": "Coorg",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Mar",
+            "romance": "★★★★★"
+          },
+          "highlights": [
+            "Coffee plantations",
+            "Abbey Falls",
+            "Homestays",
+            "Misty mornings"
+          ]
+        },
+        {
+          "id": "alleppey",
+          "name": "Alleppey",
+          "location": "Kerala",
+          "description": "Backwater romance with private houseboats and sunset cruises",
+          "image": "https://prayanaai.com/images/place-names/kerala/alleppey-houseboat-backwaters/img-1_google_places_b311bb5b.jpg",
+          "rating": 4.8,
+          "searchQuery": "Alleppey",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Sep-Mar",
+            "romance": "★★★★★"
+          },
+          "highlights": [
+            "Private houseboats",
+            "Backwater cruises",
+            "Candlelit dinners",
+            "Kerala cuisine"
+          ]
+        },
+        {
+          "id": "manali",
+          "name": "Manali",
+          "location": "Himachal Pradesh",
+          "description": "Snow-clad mountains with cozy cafes and adventure romance",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/manali/img-1_google_places_a1af2698.jpg",
+          "rating": 4.7,
+          "searchQuery": "Manali",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Oct-Feb, May-Jun",
+            "romance": "★★★★☆"
+          },
+          "highlights": [
+            "Solang Valley",
+            "Old Manali cafes",
+            "Snow activities",
+            "Riverside walks"
+          ]
+        },
+        {
+          "id": "goa",
+          "name": "Goa",
+          "location": "India",
+          "description": "Beach sunsets, candlelit dinners, and vibrant nightlife",
+          "image": "https://prayanaai.com/images/place-names/palolem-beach-goa/palolem-beach-goa/img-1_google_places_3786d399.jpg",
+          "rating": 4.7,
+          "searchQuery": "Goa",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Nov-Feb",
+            "romance": "★★★★☆"
+          },
+          "highlights": [
+            "Beach sunsets",
+            "Shack dining",
+            "Cruise parties",
+            "Portuguese heritage"
+          ]
+        },
+        {
+          "id": "shimla",
+          "name": "Shimla",
+          "location": "Himachal Pradesh",
+          "description": "Colonial charm with Mall Road strolls and mountain views",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/shimla/img-1_google_places_7bee93c9.jpg",
+          "rating": 4.6,
+          "searchQuery": "Shimla",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Mar-Jun, Dec-Feb",
+            "romance": "★★★★☆"
+          },
+          "highlights": [
+            "Mall Road walks",
+            "Ridge views",
+            "Toy train",
+            "Colonial hotels"
+          ]
+        },
+        {
+          "id": "munnar",
+          "name": "Munnar",
+          "location": "Kerala",
+          "description": "Tea gardens, misty mountains, and serene nature walks",
+          "image": "https://prayanaai.com/images/place-names/kerala/munnar/img-1_google_places_fdbf7887.jpg",
+          "rating": 4.7,
+          "searchQuery": "Munnar",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-May",
+            "romance": "★★★★☆"
+          },
+          "highlights": [
+            "Tea estates",
+            "Misty mornings",
+            "Nature walks",
+            "Echo Point"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "heritage-romance",
+      "title": "Heritage & Palace Romance",
+      "subtitle": "Royal experiences for couples",
+      "searchQuery": "heritage romantic",
+      "viewAllText": "Explore Heritage Destinations",
+      "places": [
+        {
+          "id": "jaipur",
+          "name": "Jaipur",
+          "location": "Rajasthan",
+          "description": "Pink City with majestic forts and royal heritage hotels",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/hawa-mahal-jaipur/img-1_google_places_a9b36d94.jpg",
+          "rating": 4.7,
+          "searchQuery": "Jaipur",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "Royal palaces"
+          },
+          "highlights": [
+            "Amber Fort",
+            "City Palace",
+            "Heritage hotels",
+            "Rooftop dining"
+          ]
+        },
+        {
+          "id": "jodhpur",
+          "name": "Jodhpur",
+          "location": "Rajasthan",
+          "description": "Blue City with magnificent Mehrangarh Fort",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/mehrangarh-fort-jodhpur/img-1_google_places_ef846ef2.jpg",
+          "rating": 4.6,
+          "searchQuery": "Jodhpur",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "Blue architecture"
+          },
+          "highlights": [
+            "Mehrangarh Fort",
+            "Umaid Bhawan",
+            "Clock Tower",
+            "Blue streets"
+          ]
+        },
+        {
+          "id": "mysore",
+          "name": "Mysore",
+          "location": "Karnataka",
+          "description": "Palace city with royal heritage and gardens",
+          "image": "https://prayanaai.com/images/place-names/karnataka/mysore-palace/img-1_google_places_e9787d3f.jpg",
+          "rating": 4.6,
+          "searchQuery": "Mysore",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "Royal palace"
+          },
+          "highlights": [
+            "Mysore Palace",
+            "Brindavan Gardens",
+            "Chamundi Hills",
+            "Silk sarees"
+          ]
+        },
+        {
+          "id": "khajuraho",
+          "name": "Khajuraho",
+          "location": "Madhya Pradesh",
+          "description": "Temple town with artistic sculptures and heritage",
+          "image": "https://prayanaai.com/images/place-names/madhya-pradesh/khajuraho-temples/img-1_google_places_2e8fc4b8.jpg",
+          "rating": 4.5,
+          "searchQuery": "Khajuraho",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "UNESCO temples"
+          },
+          "highlights": [
+            "Temple art",
+            "Light show",
+            "Heritage walks",
+            "Village tours"
+          ]
+        },
+        {
+          "id": "hampi",
+          "name": "Hampi",
+          "location": "Karnataka",
+          "description": "Ancient ruins with boulder landscapes and temples",
+          "image": "https://prayanaai.com/images/place-names/karnataka/hampi-ruins-temples/img-1_google_places_39570625.jpg",
+          "rating": 4.7,
+          "searchQuery": "Hampi",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "UNESCO site"
+          },
+          "highlights": [
+            "Virupaksha Temple",
+            "Coracle rides",
+            "Sunset points",
+            "Boulder landscapes"
+          ]
+        },
+        {
+          "id": "orchha",
+          "name": "Orchha",
+          "location": "Madhya Pradesh",
+          "description": "Hidden gem with palaces along Betwa River",
+          "image": "https://prayanaai.com/images/place-names/madhya-pradesh/orchha-palaces/img-1_google_places_d750f93c.jpg",
+          "rating": 4.5,
+          "searchQuery": "Orchha",
+          "stats": {
+            "idealDays": "2 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "Medieval palaces"
+          },
+          "highlights": [
+            "Jahangir Mahal",
+            "Betwa River",
+            "Chhatris",
+            "Peaceful vibes"
+          ]
+        },
+        {
+          "id": "jaisalmer",
+          "name": "Jaisalmer",
+          "location": "Rajasthan",
+          "description": "Golden City with desert romance and camel safaris",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/jaisalmer-golden-fort/img-1_google_places_6d7b460e.jpg",
+          "rating": 4.7,
+          "searchQuery": "Jaisalmer",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Nov-Feb",
+            "heritage": "Living fort"
+          },
+          "highlights": [
+            "Desert camping",
+            "Camel safari",
+            "Golden Fort",
+            "Sand dunes"
+          ]
+        },
+        {
+          "id": "fatehpur_sikri",
+          "name": "Fatehpur Sikri",
+          "location": "Uttar Pradesh",
+          "description": "Mughal architectural marvel near Agra",
+          "image": "https://prayanaai.com/images/place-names/uttar-pradesh/fatehpur-sikri/img-1_google_places_8535b83b.jpg",
+          "rating": 4.5,
+          "searchQuery": "Fatehpur Sikri",
+          "stats": {
+            "idealDays": "1 day",
+            "bestTime": "Oct-Mar",
+            "heritage": "Mughal city"
+          },
+          "highlights": [
+            "Buland Darwaza",
+            "Panch Mahal",
+            "Jodha Bai Palace",
+            "Red sandstone"
+          ]
+        },
+        {
+          "id": "mandu",
+          "name": "Mandu",
+          "location": "Madhya Pradesh",
+          "description": "City of joy with romantic Afghan architecture",
+          "image": "https://prayanaai.com/images/place-names/madhya-pradesh/jahaz-mahal-mandu/img-1_google_places_9f0c6db8.jpg",
+          "rating": 4.5,
+          "searchQuery": "Mandu",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "Afghan ruins"
+          },
+          "highlights": [
+            "Jahaz Mahal",
+            "Rani Roopmati",
+            "Monsoon palace",
+            "Sunset views"
+          ]
+        },
+        {
+          "id": "chittorgarh",
+          "name": "Chittorgarh",
+          "location": "Rajasthan",
+          "description": "Fort of valor with romantic legends",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/chittorgarh-fort/img-1_google_places_faf2cc5a.jpg",
+          "rating": 4.5,
+          "searchQuery": "Chittorgarh",
+          "stats": {
+            "idealDays": "1-2 days",
+            "bestTime": "Oct-Mar",
+            "heritage": "Largest fort"
+          },
+          "highlights": [
+            "Vijay Stambh",
+            "Padmini Palace",
+            "Love legends",
+            "Fort views"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nature-romance",
+      "title": "Nature & Hill Station Romance",
+      "subtitle": "Scenic beauty for couples",
+      "searchQuery": "romantic hill",
+      "viewAllText": "Discover Nature Destinations",
+      "places": [
+        {
+          "id": "ooty",
+          "name": "Ooty",
+          "location": "Tamil Nadu",
+          "description": "Queen of Nilgiris with romantic gardens and toy train",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/ooty-botanical-garden/img-1_google_places_2b3206d3.jpg",
+          "rating": 4.6,
+          "searchQuery": "Ooty",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Jun",
+            "nature": "Tea gardens"
+          },
+          "highlights": [
+            "Botanical Gardens",
+            "Ooty Lake",
+            "Toy train",
+            "Rose Garden"
+          ]
+        },
+        {
+          "id": "kodaikanal",
+          "name": "Kodaikanal",
+          "location": "Tamil Nadu",
+          "description": "Princess of Hills with star-shaped lake and misty valleys",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/kodaikanal-lake/img-1_google_places_2f6a463c.jpg",
+          "rating": 4.6,
+          "searchQuery": "Kodaikanal",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "nature": "Misty hills"
+          },
+          "highlights": [
+            "Kodai Lake",
+            "Coaker's Walk",
+            "Bryant Park",
+            "Pillar Rocks"
+          ]
+        },
+        {
+          "id": "nainital",
+          "name": "Nainital",
+          "location": "Uttarakhand",
+          "description": "Lake district with romantic boat rides and colonial charm",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/naini-lake-nainital/img-1_google_places_e924eab3.jpg",
+          "rating": 4.6,
+          "searchQuery": "Nainital",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Mar-Jun, Sep-Nov",
+            "nature": "Lake town"
+          },
+          "highlights": [
+            "Naini Lake",
+            "Mall Road",
+            "Cable car",
+            "Naina Devi"
+          ]
+        },
+        {
+          "id": "wayanad",
+          "name": "Wayanad",
+          "location": "Kerala",
+          "description": "Misty mountains with waterfalls and wildlife",
+          "image": "https://prayanaai.com/images/place-names/kerala/wayanad-waterfalls/img-1_google_places_996597b4.jpg",
+          "rating": 4.6,
+          "searchQuery": "Wayanad",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-May",
+            "nature": "Waterfalls"
+          },
+          "highlights": [
+            "Chembra Peak",
+            "Edakkal Caves",
+            "Waterfalls",
+            "Tree houses"
+          ]
+        },
+        {
+          "id": "darjeeling",
+          "name": "Darjeeling",
+          "location": "West Bengal",
+          "description": "Tea gardens with Himalayan sunrise views",
+          "image": "https://prayanaai.com/images/place-names/west-bengal/darjeeling/img-1_google_places_324f48c6.jpg",
+          "rating": 4.7,
+          "searchQuery": "Darjeeling",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Mar-May, Oct-Nov",
+            "nature": "Tea estates"
+          },
+          "highlights": [
+            "Tiger Hill",
+            "Tea gardens",
+            "Toy train",
+            "Monasteries"
+          ]
+        },
+        {
+          "id": "mount_abu",
+          "name": "Mount Abu",
+          "location": "Rajasthan",
+          "description": "Rajasthan's only hill station with Nakki Lake",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/nakki-lake-mount-abu/img-1_google_places_72718983.jpg",
+          "rating": 4.5,
+          "searchQuery": "Mount Abu",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "nature": "Hill station"
+          },
+          "highlights": [
+            "Nakki Lake",
+            "Dilwara Temples",
+            "Sunset Point",
+            "Boat rides"
+          ]
+        },
+        {
+          "id": "gangtok",
+          "name": "Gangtok",
+          "location": "Sikkim",
+          "description": "Buddhist culture with Kanchenjunga views",
+          "image": "https://prayanaai.com/images/place-names/sikkim/gangtok-mg-road/img-1_google_places_3a569cfc.jpg",
+          "rating": 4.7,
+          "searchQuery": "Gangtok",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Mar-May, Oct-Dec",
+            "nature": "Mountains"
+          },
+          "highlights": [
+            "Tsomgo Lake",
+            "MG Road",
+            "Monasteries",
+            "Cable car"
+          ]
+        },
+        {
+          "id": "shillong",
+          "name": "Shillong",
+          "location": "Meghalaya",
+          "description": "Scotland of the East with waterfalls and music",
+          "image": "https://prayanaai.com/images/place-names/meghalaya/shillong-waterfalls/img-1_google_places_08e56d99.png",
+          "rating": 4.6,
+          "searchQuery": "Shillong",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-May",
+            "nature": "Waterfalls"
+          },
+          "highlights": [
+            "Elephant Falls",
+            "Ward's Lake",
+            "Shillong Peak",
+            "Music scene"
+          ]
+        },
+        {
+          "id": "yercaud",
+          "name": "Yercaud",
+          "location": "Tamil Nadu",
+          "description": "Peaceful hills with coffee estates and lake",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/yercaud-lake/img-1_google_places_d631184e.jpg",
+          "rating": 4.4,
+          "searchQuery": "Yercaud",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Nov-Jun",
+            "nature": "Coffee hills"
+          },
+          "highlights": [
+            "Emerald Lake",
+            "Lady's Seat",
+            "Coffee estates",
+            "Shevaroy Hills"
+          ]
+        },
+        {
+          "id": "mussoorie",
+          "name": "Mussoorie",
+          "location": "Uttarakhand",
+          "description": "Queen of Hills with Mall Road charm",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/mussoorie-mall-road/img-1_google_places_62aa9dd9.jpg",
+          "rating": 4.5,
+          "searchQuery": "Mussoorie",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Apr-Jun, Sep-Nov",
+            "nature": "Hill views"
+          },
+          "highlights": [
+            "Kempty Falls",
+            "Mall Road",
+            "Gun Hill",
+            "Lal Tibba"
+          ]
+        }
+      ]
+    }
+  ],
+  "travelTips": {
+    "title": "Essential Romantic Travel Tips",
+    "tips": [
+      {
+        "icon": "💝",
+        "title": "Plan Surprises",
+        "description": "Pre-book candlelit dinners, spa sessions, or special experiences"
+      },
+      {
+        "icon": "📸",
+        "title": "Capture Moments",
+        "description": "Hire photographers for couple shoots at scenic locations"
+      },
+      {
+        "icon": "🏨",
+        "title": "Choose Right Stay",
+        "description": "Book heritage hotels, boutique resorts, or private villas"
+      },
+      {
+        "icon": "🌹",
+        "title": "Timing Matters",
+        "description": "Visit during off-peak seasons for more privacy and better deals"
+      }
+    ]
+  },
+  "seasonGuide": {
+    "title": "When to Visit Romantic Destinations",
+    "seasons": [
+      {
+        "name": "Winter (Oct-Mar)",
+        "icon": "❄️",
+        "description": "Perfect for most romantic destinations, pleasant weather and festivals",
+        "bestFor": [
+          "Udaipur",
+          "Rajasthan",
+          "Kerala",
+          "South India"
+        ]
+      },
+      {
+        "name": "Summer (Apr-Jun)",
+        "icon": "☀️",
+        "description": "Ideal for hill stations and escaping the heat",
+        "bestFor": [
+          "Kashmir",
+          "Manali",
+          "Hill stations",
+          "Mountain retreats"
+        ]
+      },
+      {
+        "name": "Monsoon (Jul-Sep)",
+        "icon": "🌧️",
+        "description": "Romantic rains, lush greenery, fewer crowds",
+        "bestFor": [
+          "Coorg",
+          "Munnar",
+          "Wayanad",
+          "Western Ghats"
+        ]
+      },
+      {
+        "name": "Autumn (Sep-Nov)",
+        "icon": "🍂",
+        "description": "Post-monsoon freshness, clear skies, perfect temperatures",
+        "bestFor": [
+          "Almost all destinations",
+          "Photography",
+          "Outdoor activities"
+        ]
+      }
+    ]
+  }
+}

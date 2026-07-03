@@ -1,0 +1,141 @@
+{
+  "expo": {
+    "name": "Prayana AI",
+    "slug": "prayana-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "scheme": "prayana",
+    "owner": "prayanaai",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/REPLACE_WITH_PROJECT_ID",
+      "fallbackToCacheTimeout": 0
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#f97316"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.prayanaai.customer",
+      "buildNumber": "1",
+      "associatedDomains": [
+        "applinks:prayanaai.com",
+        "applinks:www.prayanaai.com"
+      ],
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Prayana uses your location to recommend nearby destinations, activities, and accurate trip routing.",
+        "NSCameraUsageDescription": "Take photos for your trip journal, KYC verification, and to upload activity images.",
+        "NSPhotoLibraryUsageDescription": "Select photos from your library for your trip, profile, or KYC documents.",
+        "NSMicrophoneUsageDescription": "Optional — used only when you record a voice note in the AI travel chat.",
+        "NSUserTrackingUsageDescription": "Lets us measure ad performance and personalize travel recommendations. You can keep tracking off and the app still works.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "mailto",
+          "whatsapp",
+          "comgooglemaps",
+          "googlechromes"
+        ],
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.926782873134-ljojer8isfftfsbtbg93aiskel9p5t14"
+            ]
+          },
+          {
+            "CFBundleURLSchemes": [
+              "prayana"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#f97316"
+      },
+      "package": "com.prayanaai.customer",
+      "versionCode": 1,
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS",
+        "USE_EXACT_ALARM"
+      ],
+      "blockedPermissions": [
+        "ACCESS_BACKGROUND_LOCATION",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "data": [
+            {
+              "scheme": "https",
+              "host": "prayanaai.com",
+              "pathPrefix": "/app"
+            },
+            {
+              "scheme": "https",
+              "host": "www.prayanaai.com",
+              "pathPrefix": "/app"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
+          "autoVerify": true
+        }
+      ]
+    },
+    "plugins": [
+      [
+        "expo-router",
+        {
+          "root": "./src/app"
+        }
+      ],
+      "expo-secure-store",
+      "expo-location",
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#f97316",
+          "defaultChannel": "default",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "Lets us measure ad performance and personalize travel recommendations. You can decline and still use Prayana fully."
+        }
+      ],
+      "@sentry/react-native/expo"
+    ],
+    "extra": {
+      "router": {
+        "origin": "https://prayanaai.com"
+      },
+      "eas": {
+        "projectId": "REPLACE_WITH_EAS_PROJECT_ID"
+      }
+    }
+  }
+}

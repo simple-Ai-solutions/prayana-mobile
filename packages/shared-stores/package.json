@@ -1,0 +1,14 @@
+{
+  "name": "@prayana/shared-stores",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "private": true,
+  "dependencies": {
+    "zustand": "^4.5.2"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "@react-native-async-storage/async-storage": "*"
+  }
+}

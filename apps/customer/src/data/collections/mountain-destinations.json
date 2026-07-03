@@ -1,0 +1,756 @@
+{
+  "category": {
+    "id": "mountain",
+    "slug": "mountain",
+    "title": "Serene Hill Stations & Mountain Escapes",
+    "subtitle": "Escape to peaceful mountain retreats and breathtaking Himalayan vistas",
+    "heroTitle": "Explore the",
+    "heroHighlight": "Majestic Mountains",
+    "icon": "⛰️",
+    "color": "blue",
+    "gradient": "from-blue-500 to-cyan-600",
+    "description": "Discover India's most breathtaking mountain destinations, from snow-capped Himalayan peaks to misty hill stations. Whether you seek adventure, peace, or simply stunning views, these mountain escapes offer unforgettable experiences.",
+    "emoji": "🏔️",
+    "quote": "Where clouds kiss the mountain peaks"
+  },
+  "hero": {
+    "featured": {
+      "id": "manali_featured",
+      "name": "Manali",
+      "location": "Himachal Pradesh",
+      "tagline": "Where adventure meets serenity",
+      "image": "https://prayanaai.com/images/place-names/solang-valley-manali/solang-valley-manali/img-1_google_places_2e377953.jpg",
+      "rating": 4.7,
+      "searchQuery": "Manali",
+      "highlights": [
+        "Adventure sports",
+        "Snow activities",
+        "Scenic valleys"
+      ]
+    },
+    "secondary": [
+      {
+        "id": "shimla_hero",
+        "name": "Shimla",
+        "location": "Himachal Pradesh",
+        "tagline": "Queen of Hills",
+        "image": "https://prayanaai.com/images/place-names/shimla-mall-road/shimla-mall-road/img-1_google_places_fc10ac43.jpg",
+        "rating": 4.6,
+        "searchQuery": "Shimla"
+      },
+      {
+        "id": "darjeeling_hero",
+        "name": "Darjeeling",
+        "location": "West Bengal",
+        "tagline": "Tea gardens & toy trains",
+        "image": "https://prayanaai.com/images/place-names/tiger-hill-darjeeling/tiger-hill-darjeeling/img-1_google_places_4199d8a5.jpg",
+        "rating": 4.8,
+        "searchQuery": "Darjeeling"
+      },
+      {
+        "id": "munnar_hero",
+        "name": "Munnar",
+        "location": "Kerala",
+        "tagline": "Rolling tea estates",
+        "image": "https://prayanaai.com/images/place-names/munnar-tea-gardens/munnar-tea-gardens/img-1_google_places_8fdbe5b7.jpg",
+        "rating": 4.7,
+        "searchQuery": "Munnar"
+      },
+      {
+        "id": "leh_hero",
+        "name": "Leh",
+        "location": "Ladakh",
+        "tagline": "Land of high passes",
+        "image": "https://prayanaai.com/images/place-names/pangong-lake-ladakh/pangong-lake-ladakh/img-1_google_places_ffc2c9f2.jpg",
+        "rating": 4.9,
+        "searchQuery": "Leh"
+      }
+    ]
+  },
+  "whyVisit": {
+    "title": "Why Visit Mountain Destinations?",
+    "subtitle": "Experience the magic of India's mountainous regions",
+    "reasons": [
+      {
+        "icon": "🏔️",
+        "title": "Breathtaking Views",
+        "description": "Wake up to stunning Himalayan sunrises and panoramic valley vistas"
+      },
+      {
+        "icon": "🌡️",
+        "title": "Cool Climate",
+        "description": "Escape the heat with pleasant weather year-round"
+      },
+      {
+        "icon": "🚵",
+        "title": "Adventure Activities",
+        "description": "Trekking, paragliding, skiing, and mountain biking await"
+      },
+      {
+        "icon": "🧘",
+        "title": "Peace & Tranquility",
+        "description": "Find inner peace in serene mountain monasteries and quiet valleys"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "top-india",
+      "title": "Top 20 Mountain Destinations in India",
+      "subtitle": "India's most stunning mountain getaways",
+      "searchQuery": "best",
+      "viewAllText": "Explore All Indian Mountains",
+      "places": [
+        {
+          "id": "manali",
+          "name": "Manali",
+          "location": "Himachal Pradesh",
+          "description": "Adventure capital with stunning valley views and snow activities",
+          "image": "https://prayanaai.com/images/place-names/solang-valley-manali/solang-valley-manali/img-1_google_places_2e377953.jpg",
+          "rating": 4.7,
+          "searchQuery": "Manali",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Oct-Feb, May-Jun",
+            "altitude": "2,050m"
+          },
+          "highlights": [
+            "Solang Valley",
+            "Rohtang Pass",
+            "Old Manali",
+            "River rafting"
+          ]
+        },
+        {
+          "id": "shimla",
+          "name": "Shimla",
+          "location": "Himachal Pradesh",
+          "description": "Colonial hill station with Victorian architecture",
+          "image": "https://prayanaai.com/images/place-names/shimla-mall-road/shimla-mall-road/img-1_google_places_fc10ac43.jpg",
+          "rating": 4.6,
+          "searchQuery": "Shimla",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Mar-Jun, Dec-Feb",
+            "altitude": "2,276m"
+          },
+          "highlights": [
+            "Mall Road",
+            "Jakhu Temple",
+            "Ridge",
+            "Toy train"
+          ]
+        },
+        {
+          "id": "darjeeling",
+          "name": "Darjeeling",
+          "location": "West Bengal",
+          "description": "Famous for tea gardens and Kanchenjunga views",
+          "image": "https://prayanaai.com/images/place-names/tiger-hill-darjeeling/tiger-hill-darjeeling/img-1_google_places_4199d8a5.jpg",
+          "rating": 4.8,
+          "searchQuery": "Darjeeling",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Mar-May, Oct-Nov",
+            "altitude": "2,042m"
+          },
+          "highlights": [
+            "Tiger Hill",
+            "Tea gardens",
+            "Toy train",
+            "Batasia Loop"
+          ]
+        },
+        {
+          "id": "munnar",
+          "name": "Munnar",
+          "location": "Kerala",
+          "description": "Rolling tea estates and misty mountains",
+          "image": "https://prayanaai.com/images/place-names/munnar-tea-gardens/munnar-tea-gardens/img-1_google_places_8fdbe5b7.jpg",
+          "rating": 4.7,
+          "searchQuery": "Munnar",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-May",
+            "altitude": "1,600m"
+          },
+          "highlights": [
+            "Tea museums",
+            "Eravikulam Park",
+            "Mattupetty Dam",
+            "Echo Point"
+          ]
+        },
+        {
+          "id": "leh_ladakh",
+          "name": "Leh-Ladakh",
+          "location": "Ladakh",
+          "description": "High altitude desert with stunning landscapes",
+          "image": "https://prayanaai.com/images/place-names/pangong-lake-ladakh/pangong-lake-ladakh/img-1_google_places_ffc2c9f2.jpg",
+          "rating": 4.9,
+          "searchQuery": "Leh-Ladakh",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "May-Sep",
+            "altitude": "3,524m"
+          },
+          "highlights": [
+            "Pangong Lake",
+            "Nubra Valley",
+            "Monasteries",
+            "Khardung La"
+          ]
+        },
+        {
+          "id": "ooty",
+          "name": "Ooty",
+          "location": "Tamil Nadu",
+          "description": "Queen of Nilgiris with botanical gardens",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/ooty/img-1_google_places_518da86c.jpg",
+          "rating": 4.5,
+          "searchQuery": "Ooty",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Jun",
+            "altitude": "2,240m"
+          },
+          "highlights": [
+            "Botanical garden",
+            "Ooty Lake",
+            "Nilgiri railway",
+            "Tea estates"
+          ]
+        },
+        {
+          "id": "nainital",
+          "name": "Nainital",
+          "location": "Uttarakhand",
+          "description": "Lake district with colonial charm",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/nainital/img-1_google_places_2a3a4454.jpg",
+          "rating": 4.6,
+          "searchQuery": "Nainital",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Mar-Jun, Sep-Nov",
+            "altitude": "2,084m"
+          },
+          "highlights": [
+            "Naini Lake",
+            "Mall Road",
+            "Naina Devi",
+            "Cable car"
+          ]
+        },
+        {
+          "id": "mussoorie",
+          "name": "Mussoorie",
+          "location": "Uttarakhand",
+          "description": "Queen of Hills with Mall Road charm",
+          "image": "https://prayanaai.com/images/place-names/uttarakhand/mussoorie/img-1_google_places_48bc2d6a.jpg",
+          "rating": 4.5,
+          "searchQuery": "Mussoorie",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Apr-Jun, Sep-Nov",
+            "altitude": "1,880m"
+          },
+          "highlights": [
+            "Kempty Falls",
+            "Gun Hill",
+            "Camel's Back",
+            "Lal Tibba"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "northeast-india",
+      "title": "Hidden Gems of Northeast Mountains",
+      "subtitle": "Unexplored beauty of the seven sisters",
+      "searchQuery": "mountain destinations",
+      "viewAllText": "Explore Northeast Mountains",
+      "places": [
+        {
+          "id": "gangtok_ne",
+          "name": "Gangtok",
+          "location": "Sikkim",
+          "description": "Buddhist culture with Kanchenjunga views",
+          "image": "https://prayanaai.com/images/place-names/sikkim/gangtok/img-1_google_places_d506d365.jpg",
+          "rating": 4.7,
+          "searchQuery": "Gangtok",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Mar-May, Oct-Dec",
+            "altitude": "1,650m"
+          },
+          "highlights": [
+            "Tsomgo Lake",
+            "MG Road",
+            "Rumtek Monastery",
+            "Nathu La"
+          ]
+        },
+        {
+          "id": "darjeeling_ne",
+          "name": "Darjeeling",
+          "location": "West Bengal",
+          "description": "Tea capital with toy train heritage",
+          "image": "https://prayanaai.com/images/place-names/tiger-hill-darjeeling/tiger-hill-darjeeling/img-1_google_places_4199d8a5.jpg",
+          "rating": 4.8,
+          "searchQuery": "Darjeeling",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Mar-May, Oct-Nov",
+            "altitude": "2,042m"
+          },
+          "highlights": [
+            "Tiger Hill",
+            "Tea gardens",
+            "Toy train",
+            "Batasia Loop"
+          ]
+        },
+        {
+          "id": "tawang",
+          "name": "Tawang",
+          "location": "Arunachal Pradesh",
+          "description": "India's largest monastery in scenic valley",
+          "image": "https://prayanaai.com/images/place-names/arunachal-pradesh/tawang/img-1_google_places_46eaa501.jpg",
+          "rating": 4.8,
+          "searchQuery": "Tawang",
+          "stats": {
+            "idealDays": "4-5 days",
+            "bestTime": "Mar-Oct",
+            "altitude": "3,048m"
+          },
+          "highlights": [
+            "Tawang Monastery",
+            "Sela Pass",
+            "Madhuri Lake",
+            "War Memorial"
+          ]
+        },
+        {
+          "id": "shillong",
+          "name": "Shillong",
+          "location": "Meghalaya",
+          "description": "Scotland of the East with waterfalls",
+          "image": "https://prayanaai.com/images/place-names/meghalaya/shillong/img-1_google_places_5bf7c12b.jpg",
+          "rating": 4.6,
+          "searchQuery": "Shillong",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-May",
+            "altitude": "1,496m"
+          },
+          "highlights": [
+            "Elephant Falls",
+            "Ward's Lake",
+            "Shillong Peak",
+            "Police Bazaar"
+          ]
+        },
+        {
+          "id": "cherrapunji",
+          "name": "Cherrapunji",
+          "location": "Meghalaya",
+          "description": "Wettest place on Earth with living root bridges",
+          "image": "https://prayanaai.com/images/place-names/meghalaya-living-root-bridge/meghalaya-living-root-bridge/img-1_google_places_8c29330b.jpg",
+          "rating": 4.7,
+          "searchQuery": "Cherrapunji",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-May",
+            "altitude": "1,484m"
+          },
+          "highlights": [
+            "Living root bridges",
+            "Nohkalikai Falls",
+            "Mawsmai Cave",
+            "Seven Sisters Falls"
+          ]
+        },
+        {
+          "id": "pelling",
+          "name": "Pelling",
+          "location": "Sikkim",
+          "description": "Kanchenjunga views with monasteries",
+          "image": "https://prayanaai.com/images/place-names/sikkim/pelling/img-1_google_places_071a47ff.jpg",
+          "rating": 4.5,
+          "searchQuery": "Pelling",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Mar-May, Oct-Dec",
+            "altitude": "2,150m"
+          },
+          "highlights": [
+            "Pemayangtse Monastery",
+            "Skywalk",
+            "Rabdentse Ruins",
+            "Kanchenjunga Falls"
+          ]
+        },
+        {
+          "id": "ziro",
+          "name": "Ziro Valley",
+          "location": "Arunachal Pradesh",
+          "description": "UNESCO heritage with Apatani tribe",
+          "image": "https://prayanaai.com/images/place-names/arunachal-pradesh/ziro-valley/img-1_google_places_b23b184a.jpg",
+          "rating": 4.6,
+          "searchQuery": "Ziro Valley",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Mar-Oct",
+            "altitude": "1,688m"
+          },
+          "highlights": [
+            "Rice fields",
+            "Apatani culture",
+            "Music festival",
+            "Trekking"
+          ]
+        },
+        {
+          "id": "lachung",
+          "name": "Lachung",
+          "location": "Sikkim",
+          "description": "Gateway to Yumthang Valley of Flowers",
+          "image": "https://prayanaai.com/images/place-names/sikkim/lachung/img-1_google_places_c93b5c45.jpg",
+          "rating": 4.7,
+          "searchQuery": "Lachung",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Apr-Jun, Oct-Dec",
+            "altitude": "2,750m"
+          },
+          "highlights": [
+            "Yumthang Valley",
+            "Zero Point",
+            "Hot springs",
+            "Katao"
+          ]
+        },
+        {
+          "id": "dzukou_valley",
+          "name": "Dzukou Valley",
+          "location": "Nagaland-Manipur",
+          "description": "Valley of flowers in the Northeast",
+          "image": "https://prayanaai.com/images/place-names/nagaland/dzukou-valley/img-1_google_places_9ec76412.jpg",
+          "rating": 4.6,
+          "searchQuery": "Dzukou Valley",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Jun-Sep, Oct-Nov",
+            "altitude": "2,438m"
+          },
+          "highlights": [
+            "Lily blooms",
+            "Trekking",
+            "Camping",
+            "Scenic views"
+          ]
+        },
+        {
+          "id": "bomdila",
+          "name": "Bomdila",
+          "location": "Arunachal Pradesh",
+          "description": "Apple orchards with Buddhist monasteries",
+          "image": "https://prayanaai.com/images/place-names/arunachal-pradesh/bomdila/img-1_google_places_bf3c5c3d.jpg",
+          "rating": 4.5,
+          "searchQuery": "Bomdila",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Mar-Oct",
+            "altitude": "2,530m"
+          },
+          "highlights": [
+            "Bomdila Monastery",
+            "Apple orchards",
+            "Craft center",
+            "Viewpoints"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "south-india",
+      "title": "Mountain Escapes in South India",
+      "subtitle": "Tea gardens and misty peaks of the south",
+      "searchQuery": "mountain destinations",
+      "viewAllText": "Discover South Indian Mountains",
+      "places": [
+        {
+          "id": "munnar_south",
+          "name": "Munnar",
+          "location": "Kerala",
+          "description": "Rolling tea estates and misty mountains",
+          "image": "https://prayanaai.com/images/place-names/munnar-tea-gardens/munnar-tea-gardens/img-1_google_places_8fdbe5b7.jpg",
+          "rating": 4.7,
+          "searchQuery": "Munnar",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Sep-May",
+            "altitude": "1,600m"
+          },
+          "highlights": [
+            "Tea museums",
+            "Eravikulam Park",
+            "Mattupetty Dam",
+            "Echo Point"
+          ]
+        },
+        {
+          "id": "ooty_south",
+          "name": "Ooty",
+          "location": "Tamil Nadu",
+          "description": "Queen of Nilgiris with botanical gardens",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/ooty/img-1_google_places_518da86c.jpg",
+          "rating": 4.5,
+          "searchQuery": "Ooty",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Jun",
+            "altitude": "2,240m"
+          },
+          "highlights": [
+            "Botanical garden",
+            "Ooty Lake",
+            "Nilgiri railway",
+            "Tea estates"
+          ]
+        },
+        {
+          "id": "coorg_south",
+          "name": "Coorg",
+          "location": "Karnataka",
+          "description": "Scotland of India with coffee plantations",
+          "image": "https://prayanaai.com/images/place-names/couple-coorg-coffee-plantation/couple-coorg-coffee-plantation/img-1_google_places_d7e1988e.jpg",
+          "rating": 4.7,
+          "searchQuery": "Coorg",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Mar",
+            "altitude": "1,525m"
+          },
+          "highlights": [
+            "Coffee estates",
+            "Abbey Falls",
+            "Raja's Seat",
+            "Dubare"
+          ]
+        },
+        {
+          "id": "kodaikanal_south",
+          "name": "Kodaikanal",
+          "location": "Tamil Nadu",
+          "description": "Princess of Hill stations with star-shaped lake",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/kodaikanal/img-1_google_places_0fa71bbd.jpg",
+          "rating": 4.6,
+          "searchQuery": "Kodaikanal",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "altitude": "2,133m"
+          },
+          "highlights": [
+            "Kodai Lake",
+            "Coaker's Walk",
+            "Bryant Park",
+            "Pillar Rocks"
+          ]
+        },
+        {
+          "id": "wayanad_south",
+          "name": "Wayanad",
+          "location": "Kerala",
+          "description": "Spice plantations and wildlife",
+          "image": "https://prayanaai.com/images/place-names/kerala/wayanad/img-1_google_places_f4f98f80.jpg",
+          "rating": 4.6,
+          "searchQuery": "Wayanad",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-May",
+            "altitude": "700-2,100m"
+          },
+          "highlights": [
+            "Chembra Peak",
+            "Edakkal Caves",
+            "Soochipara Falls",
+            "Wildlife"
+          ]
+        },
+        {
+          "id": "yercaud",
+          "name": "Yercaud",
+          "location": "Tamil Nadu",
+          "description": "Jewel of the South with coffee estates",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/yercaud/img-1_google_places_13f8a2d5.jpg",
+          "rating": 4.4,
+          "searchQuery": "Yercaud",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Nov-Jun",
+            "altitude": "1,515m"
+          },
+          "highlights": [
+            "Emerald Lake",
+            "Lady's Seat",
+            "Coffee estates",
+            "Shevaroy Hills"
+          ]
+        },
+        {
+          "id": "ponmudi",
+          "name": "Ponmudi",
+          "location": "Kerala",
+          "description": "Golden peak with tea gardens",
+          "image": "https://prayanaai.com/images/place-names/kerala/ponmudi/img-1_google_places_b2212720.jpg",
+          "rating": 4.5,
+          "searchQuery": "Ponmudi",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Nov-Mar",
+            "altitude": "1,100m"
+          },
+          "highlights": [
+            "Tea gardens",
+            "Peppara Wildlife",
+            "Golden Valley",
+            "Deer Park"
+          ]
+        },
+        {
+          "id": "araku_valley",
+          "name": "Araku Valley",
+          "location": "Andhra Pradesh",
+          "description": "Coffee plantations with tribal culture",
+          "image": "https://prayanaai.com/images/place-names/andhra-pradesh/araku-valley/img-1_google_places_ff25eda9.jpg",
+          "rating": 4.5,
+          "searchQuery": "Araku Valley",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "altitude": "1,300m"
+          },
+          "highlights": [
+            "Coffee museum",
+            "Borra Caves",
+            "Tribal museum",
+            "Chaparai Falls"
+          ]
+        },
+        {
+          "id": "vagamon",
+          "name": "Vagamon",
+          "location": "Kerala",
+          "description": "Untouched meadows and pine forests",
+          "image": "https://prayanaai.com/images/place-names/kerala/vagamon/img-1_google_places_4f9e9ec0.jpg",
+          "rating": 4.6,
+          "searchQuery": "Vagamon",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Sep-Mar",
+            "altitude": "1,200m"
+          },
+          "highlights": [
+            "Pine forests",
+            "Meadows",
+            "Paragliding",
+            "Kurisumala"
+          ]
+        },
+        {
+          "id": "coonoor",
+          "name": "Coonoor",
+          "location": "Tamil Nadu",
+          "description": "Peaceful Nilgiri town with tea estates",
+          "image": "https://prayanaai.com/images/place-names/tamil-nadu/coonoor/img-1_google_places_ed3ac9c7.jpg",
+          "rating": 4.5,
+          "searchQuery": "Coonoor",
+          "stats": {
+            "idealDays": "2-3 days",
+            "bestTime": "Oct-Mar",
+            "altitude": "1,850m"
+          },
+          "highlights": [
+            "Sim's Park",
+            "Dolphin's Nose",
+            "Tea estates",
+            "Lamb's Rock"
+          ]
+        }
+      ]
+    }
+  ],
+  "travelTips": {
+    "title": "Essential Mountain Travel Tips",
+    "tips": [
+      {
+        "icon": "🎒",
+        "title": "Pack Smart",
+        "description": "Layers are key - temperatures vary greatly between day and night"
+      },
+      {
+        "icon": "💊",
+        "title": "Altitude Awareness",
+        "description": "Acclimatize properly for high-altitude destinations above 2,500m"
+      },
+      {
+        "icon": "🗓️",
+        "title": "Book Early",
+        "description": "Popular hill stations get crowded during peak season"
+      },
+      {
+        "icon": "🚗",
+        "title": "Plan Transport",
+        "description": "Mountain roads can be tricky - hire experienced drivers"
+      }
+    ]
+  },
+  "seasonGuide": {
+    "title": "When to Visit Mountain Destinations",
+    "seasons": [
+      {
+        "name": "Summer (Mar-Jun)",
+        "icon": "☀️",
+        "description": "Perfect for escaping heat, most destinations accessible",
+        "bestFor": [
+          "Leh-Ladakh",
+          "Spiti",
+          "Manali",
+          "Shimla"
+        ]
+      },
+      {
+        "name": "Monsoon (Jul-Sep)",
+        "icon": "🌧️",
+        "description": "Lush greenery but landslide risks in Himalayas",
+        "bestFor": [
+          "Valley of Flowers",
+          "South India hills",
+          "Northeast"
+        ]
+      },
+      {
+        "name": "Autumn (Oct-Nov)",
+        "icon": "🍂",
+        "description": "Clear skies, perfect visibility, pleasant weather",
+        "bestFor": [
+          "Almost all destinations",
+          "Trekking season"
+        ]
+      },
+      {
+        "name": "Winter (Dec-Feb)",
+        "icon": "❄️",
+        "description": "Snow activities, magical white landscapes",
+        "bestFor": [
+          "Auli",
+          "Gulmarg",
+          "Shimla",
+          "Manali"
+        ]
+      }
+    ]
+  }
+}

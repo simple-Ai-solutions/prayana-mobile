@@ -1,0 +1,967 @@
+{
+  "category": {
+    "id": "honeymoon",
+    "slug": "honeymoon",
+    "title": "Dreamy Honeymoon Escapes",
+    "subtitle": "Magical moments for newlyweds",
+    "heroTitle": "Begin Your Journey at",
+    "heroHighlight": "Dreamy Destinations",
+    "icon": "💍",
+    "color": "purple",
+    "gradient": "from-purple-500 to-pink-600",
+    "description": "Discover the world's most enchanting honeymoon destinations where romance meets luxury. From pristine beaches and tropical islands to snow-capped mountains and exotic cultures, these destinations create the perfect beginning to your journey together.",
+    "emoji": "💕",
+    "quote": "Where love stories begin their forever journey"
+  },
+  "hero": {
+    "featured": {
+      "id": "maldives_featured",
+      "name": "Maldives",
+      "location": "Indian Ocean",
+      "tagline": "Tropical Paradise for Two",
+      "image": "https://prayanaai.com/images/place-names/maldives/maldives-overwater-villa-beach-resort/img-1_google_places_714af192.jpg",
+      "rating": 4.9,
+      "searchQuery": "Maldives",
+      "highlights": [
+        "Overwater villas",
+        "Private beaches",
+        "Coral reefs"
+      ]
+    },
+    "secondary": [
+      {
+        "id": "santorini_hero",
+        "name": "Santorini",
+        "location": "Greece",
+        "tagline": "Sunset Romance",
+        "image": "https://prayanaai.com/images/place-names/greece/santorini-oia-sunset-caldera/img-1_google_places_d7cf1e53.jpg",
+        "rating": 4.9,
+        "searchQuery": "Santorini"
+      },
+      {
+        "id": "bali_hero",
+        "name": "Bali",
+        "location": "Indonesia",
+        "tagline": "Island of Gods",
+        "image": "https://prayanaai.com/images/place-names/indonesia/ubud-bali-rice-terraces/img-1_google_places_d1aaa7a5.jpg",
+        "rating": 4.8,
+        "searchQuery": "Bali"
+      },
+      {
+        "id": "switzerland_hero",
+        "name": "Switzerland",
+        "location": "Europe",
+        "tagline": "Alpine Romance",
+        "image": "https://prayanaai.com/images/place-names/switzerland/zermatt-matterhorn-switzerland/img-1_google_places_49734e37.jpg",
+        "rating": 4.9,
+        "searchQuery": "Switzerland"
+      },
+      {
+        "id": "mauritius_hero",
+        "name": "Mauritius",
+        "location": "Indian Ocean",
+        "tagline": "Tropical Heaven",
+        "image": "https://prayanaai.com/images/place-names/indian-ocean/mauritius/img-1_google_places_966777a4.jpg",
+        "rating": 4.8,
+        "searchQuery": "Mauritius"
+      }
+    ]
+  },
+  "whyVisit": {
+    "title": "Why Choose These Honeymoon Destinations?",
+    "subtitle": "Start your forever with unforgettable experiences",
+    "reasons": [
+      {
+        "icon": "🏝️",
+        "title": "Exclusive Luxury",
+        "description": "Private villas, overwater bungalows, and world-class resorts"
+      },
+      {
+        "icon": "💑",
+        "title": "Privacy & Romance",
+        "description": "Secluded beaches, intimate dinners, and couple-only experiences"
+      },
+      {
+        "icon": "✨",
+        "title": "Once in Lifetime",
+        "description": "Bucket-list experiences and unforgettable adventures together"
+      },
+      {
+        "icon": "🍾",
+        "title": "Premium Services",
+        "description": "Spa treatments, fine dining, and personalized honeymoon packages"
+      }
+    ]
+  },
+  "sections": [
+    {
+      "id": "india-honeymoon",
+      "title": "Top Indian Honeymoon Destinations",
+      "subtitle": "Romantic getaways within India for newlyweds",
+      "searchQuery": "best",
+      "viewAllText": "Explore All Indian Destinations",
+      "places": [
+        {
+          "id": "kashmir_india",
+          "name": "Kashmir",
+          "location": "Jammu & Kashmir",
+          "description": "Paradise on Earth with Dal Lake houseboats and snow-capped mountains",
+          "image": "https://prayanaai.com/images/place-names/jammu-kashmir/dal-lake-srinagar-shikara/img-1_google_places_67fd40ed.jpg",
+          "rating": 4.9,
+          "searchQuery": "Kashmir",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Apr-Oct",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Dal Lake houseboats",
+            "Shikara rides",
+            "Gulmarg skiing",
+            "Mughal gardens"
+          ]
+        },
+        {
+          "id": "udaipur_india",
+          "name": "Udaipur",
+          "location": "Rajasthan",
+          "description": "City of Lakes with royal palaces and luxury heritage hotels",
+          "image": "https://prayanaai.com/images/place-names/rajasthan/lake-pichola-udaipur-sunset/img-1_google_places_4f5598d7.jpg",
+          "rating": 4.9,
+          "searchQuery": "Udaipur",
+          "stats": {
+            "idealDays": "3-4 days",
+            "bestTime": "Oct-Mar",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Lake Palace",
+            "City Palace",
+            "Sunset boat rides",
+            "Royal dining"
+          ]
+        },
+        {
+          "id": "andaman_india",
+          "name": "Andaman Islands",
+          "location": "India",
+          "description": "Tropical paradise with pristine beaches and turquoise waters",
+          "image": "https://prayanaai.com/images/place-names/radhanagar-beach-andaman/radhanagar-beach-andaman/img-1_google_places_a27f543b.jpg",
+          "rating": 4.8,
+          "searchQuery": "Andaman Islands",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Oct-May",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Havelock Island",
+            "Radhanagar Beach",
+            "Scuba diving",
+            "Beach resorts"
+          ]
+        },
+        {
+          "id": "goa_honeymoon",
+          "name": "Goa",
+          "location": "India",
+          "description": "Beach paradise with luxury resorts and vibrant nightlife",
+          "image": "https://prayanaai.com/images/place-names/palolem-beach-goa/palolem-beach-goa/img-1_google_places_3786d399.jpg",
+          "rating": 4.7,
+          "searchQuery": "Goa",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Nov-Feb",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Beach resorts",
+            "Candlelit dinners",
+            "Water sports",
+            "Cruise parties"
+          ]
+        },
+        {
+          "id": "kerala_honeymoon",
+          "name": "Kerala Backwaters",
+          "location": "Kerala",
+          "description": "Houseboat romance in serene backwaters with Ayurvedic spas",
+          "image": "https://prayanaai.com/images/place-names/kerala/alleppey-houseboat-backwaters/img-1_google_places_b311bb5b.jpg",
+          "rating": 4.8,
+          "searchQuery": "Kerala Backwaters",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Sep-Mar",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Private houseboats",
+            "Backwater cruises",
+            "Ayurveda spas",
+            "Munnar tea gardens"
+          ]
+        },
+        {
+          "id": "manali_honeymoon",
+          "name": "Manali",
+          "location": "Himachal Pradesh",
+          "description": "Snow-covered mountains with cozy resorts and adventure activities",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/manali/img-1_google_places_882a2b59.jpg",
+          "rating": 4.7,
+          "searchQuery": "Manali",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Oct-Feb, May-Jun",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Solang Valley",
+            "Snow activities",
+            "Riverside resorts",
+            "Old Manali cafes"
+          ]
+        },
+        {
+          "id": "coorg_honeymoon",
+          "name": "Coorg",
+          "location": "Karnataka",
+          "description": "Coffee country with misty hills and romantic homestays",
+          "image": "https://prayanaai.com/images/place-names/karnataka/coorg/img-1_google_places_7d2db022.jpg",
+          "rating": 4.7,
+          "searchQuery": "Coorg",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Oct-Mar",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Coffee estates",
+            "Abbey Falls",
+            "Romantic homestays",
+            "Plantation walks"
+          ]
+        },
+        {
+          "id": "shimla_honeymoon",
+          "name": "Shimla",
+          "location": "Himachal Pradesh",
+          "description": "Colonial hill station with Mall Road and scenic toy train",
+          "image": "https://prayanaai.com/images/place-names/himachal-pradesh/shimla/img-1_google_places_741955ec.jpg",
+          "rating": 4.6,
+          "searchQuery": "Shimla",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Mar-Jun, Dec-Feb",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Mall Road walks",
+            "Toy train",
+            "Snow in winter",
+            "Colonial hotels"
+          ]
+        },
+        {
+          "id": "lakshadweep_honeymoon",
+          "name": "Lakshadweep",
+          "location": "India",
+          "description": "Coral islands with pristine lagoons and water sports",
+          "image": "https://prayanaai.com/images/place-names/agatti-island-lakshadweep/agatti-island-lakshadweep/img-1_google_places_8e2f9a19.jpg",
+          "rating": 4.8,
+          "searchQuery": "Lakshadweep",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Oct-May",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Agatti Island",
+            "Bangaram",
+            "Snorkeling",
+            "Secluded beaches"
+          ]
+        },
+        {
+          "id": "munnar_honeymoon",
+          "name": "Munnar",
+          "location": "Kerala",
+          "description": "Tea gardens with misty mountains and romantic hill station",
+          "image": "https://prayanaai.com/images/place-names/kerala/munnar/img-1_google_places_003166de.jpg",
+          "rating": 4.7,
+          "searchQuery": "Munnar",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Sep-May",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Tea plantations",
+            "Misty mornings",
+            "Nature walks",
+            "Hill station charm"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "top-international",
+      "title": "Top 20 International Honeymoon Destinations",
+      "subtitle": "World's most romantic escapes for newlyweds",
+      "searchQuery": "best",
+      "viewAllText": "Explore All International Destinations",
+      "places": [
+        {
+          "id": "maldives",
+          "name": "Maldives",
+          "location": "Indian Ocean",
+          "description": "Ultimate tropical paradise with overwater villas and crystal-clear lagoons",
+          "image": "https://prayanaai.com/images/place-names/maldives/maldives-overwater-villa-beach-resort/img-1_google_places_714af192.jpg",
+          "rating": 4.9,
+          "searchQuery": "Maldives",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Nov-Apr",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Overwater villas",
+            "Snorkeling",
+            "Private beaches",
+            "Sunset cruises"
+          ]
+        },
+        {
+          "id": "santorini",
+          "name": "Santorini",
+          "location": "Greece",
+          "description": "Iconic white-washed cliffs with breathtaking sunsets and azure domes",
+          "image": "https://prayanaai.com/images/place-names/greece/santorini-oia-sunset-caldera/img-1_google_places_d7cf1e53.jpg",
+          "rating": 4.9,
+          "searchQuery": "Santorini",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Oct",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Oia sunset",
+            "Cave hotels",
+            "Caldera views",
+            "Wine tours"
+          ]
+        },
+        {
+          "id": "bali",
+          "name": "Bali",
+          "location": "Indonesia",
+          "description": "Island paradise with rice terraces, temples, and luxury resorts",
+          "image": "https://prayanaai.com/images/place-names/indonesia/ubud-bali-rice-terraces/img-1_google_places_d1aaa7a5.jpg",
+          "rating": 4.8,
+          "searchQuery": "Bali",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Apr-Oct",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Ubud rice terraces",
+            "Beach clubs",
+            "Temple tours",
+            "Spa retreats"
+          ]
+        },
+        {
+          "id": "switzerland",
+          "name": "Switzerland",
+          "location": "Europe",
+          "description": "Alpine wonderland with snow-capped peaks, luxury trains, and charming villages",
+          "image": "https://prayanaai.com/images/place-names/switzerland/zermatt-matterhorn-switzerland/img-1_google_places_49734e37.jpg",
+          "rating": 4.9,
+          "searchQuery": "Switzerland",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Jun-Sep, Dec-Feb",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Matterhorn views",
+            "Scenic trains",
+            "Chocolate tours",
+            "Lake cruises"
+          ]
+        },
+        {
+          "id": "mauritius",
+          "name": "Mauritius",
+          "location": "Indian Ocean",
+          "description": "Tropical island with turquoise lagoons and luxury beachfront resorts",
+          "image": "https://prayanaai.com/images/place-names/indian-ocean/mauritius/img-1_google_places_966777a4.jpg",
+          "rating": 4.8,
+          "searchQuery": "Mauritius",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "May-Dec",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Beach resorts",
+            "Catamaran cruises",
+            "Underwater waterfall",
+            "Spa luxury"
+          ]
+        },
+        {
+          "id": "seychelles",
+          "name": "Seychelles",
+          "location": "Indian Ocean",
+          "description": "Pristine islands with granite boulders and exclusive resorts",
+          "image": "https://prayanaai.com/images/place-names/indian-ocean/seychelles/img-1_google_places_acb34081.jpg",
+          "rating": 4.9,
+          "searchQuery": "Seychelles",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Apr-May, Oct-Nov",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Anse Source d'Argent",
+            "Island hopping",
+            "Snorkeling",
+            "Private islands"
+          ]
+        },
+        {
+          "id": "paris",
+          "name": "Paris",
+          "location": "France",
+          "description": "City of Love with Eiffel Tower, art, and romantic cafes",
+          "image": "https://prayanaai.com/images/place-names/france/eiffel-tower-paris/img-1_google_places_2799b922.jpg",
+          "rating": 4.8,
+          "searchQuery": "Paris",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Eiffel Tower",
+            "Seine cruises",
+            "Louvre Museum",
+            "Montmartre"
+          ]
+        },
+        {
+          "id": "venice",
+          "name": "Venice",
+          "location": "Italy",
+          "description": "Floating city with gondola rides and historic charm",
+          "image": "https://prayanaai.com/images/place-names/italy/venice-gondola-grand-canal/img-1_google_places_fc7787fe.jpg",
+          "rating": 4.8,
+          "searchQuery": "Venice",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Gondola rides",
+            "St. Mark's Square",
+            "Canals",
+            "Italian cuisine"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "exotic-islands",
+      "title": "Exotic Island Honeymoons",
+      "subtitle": "Paradise islands for ultimate romance",
+      "searchQuery": "exotic island",
+      "viewAllText": "Explore Island Paradises",
+      "places": [
+        {
+          "id": "bora_bora",
+          "name": "Bora Bora",
+          "location": "French Polynesia",
+          "description": "Ultimate luxury island with overwater bungalows and turquoise lagoon",
+          "image": "https://prayanaai.com/images/place-names/french-polynesia/bora-bora/img-1_google_places_1fa70e71.jpg",
+          "rating": 4.9,
+          "searchQuery": "Bora Bora",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "May-Oct",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Overwater bungalows",
+            "Mount Otemanu",
+            "Lagoonarium",
+            "Shark feeding"
+          ]
+        },
+        {
+          "id": "fiji",
+          "name": "Fiji",
+          "location": "South Pacific",
+          "description": "333 tropical islands with friendly locals and pristine beaches",
+          "image": "https://prayanaai.com/images/place-names/south-pacific/fiji/img-1_google_places_db040c32.jpg",
+          "rating": 4.8,
+          "searchQuery": "Fiji",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "May-Oct",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Private islands",
+            "Coral reefs",
+            "Fiji culture",
+            "Island hopping"
+          ]
+        },
+        {
+          "id": "phuket",
+          "name": "Phuket",
+          "location": "Thailand",
+          "description": "Thailand's largest island with beaches, nightlife, and culture",
+          "image": "https://prayanaai.com/images/place-names/thailand/phuket/img-1_google_places_b72924a1.jpg",
+          "rating": 4.7,
+          "searchQuery": "Phuket",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Nov-Apr",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Patong Beach",
+            "Island tours",
+            "Thai cuisine",
+            "Spa treatments"
+          ]
+        },
+        {
+          "id": "phi_phi",
+          "name": "Phi Phi Islands",
+          "location": "Thailand",
+          "description": "Stunning limestone cliffs rising from turquoise waters",
+          "image": "https://prayanaai.com/images/place-names/thailand/phi-phi-islands-maya-bay/img-1_google_places_d60f43f3.jpg",
+          "rating": 4.7,
+          "searchQuery": "Phi Phi Islands",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Nov-Apr",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Maya Bay",
+            "Snorkeling",
+            "Beach parties",
+            "Viewpoints"
+          ]
+        },
+        {
+          "id": "langkawi",
+          "name": "Langkawi",
+          "location": "Malaysia",
+          "description": "Duty-free island with beaches, rainforests, and cable cars",
+          "image": "https://prayanaai.com/images/place-names/malaysia/langkawi/img-1_google_places_e7c3d8fb.jpg",
+          "rating": 4.6,
+          "searchQuery": "Langkawi",
+          "stats": {
+            "idealDays": "4-6 days",
+            "bestTime": "Nov-Apr",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Sky Bridge",
+            "Beach resorts",
+            "Mangrove tours",
+            "Duty-free shopping"
+          ]
+        },
+        {
+          "id": "koh_samui",
+          "name": "Koh Samui",
+          "location": "Thailand",
+          "description": "Coconut island with luxury resorts and pristine beaches",
+          "image": "https://prayanaai.com/images/place-names/thailand/koh-samui/img-1_google_places_70705a7a.jpg",
+          "rating": 4.7,
+          "searchQuery": "Koh Samui",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Dec-Apr",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Chaweng Beach",
+            "Big Buddha",
+            "Luxury villas",
+            "Beach clubs"
+          ]
+        },
+        {
+          "id": "zanzibar",
+          "name": "Zanzibar",
+          "location": "Tanzania",
+          "description": "Spice island with white beaches and historic Stone Town",
+          "image": "https://prayanaai.com/images/place-names/tanzania/zanzibar-nungwi-beach/img-1_google_places_2b33e411.jpg",
+          "rating": 4.6,
+          "searchQuery": "Zanzibar",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Jun-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Nungwi Beach",
+            "Stone Town",
+            "Spice tours",
+            "Snorkeling"
+          ]
+        },
+        {
+          "id": "maldives_islands",
+          "name": "Maldives Islands",
+          "location": "Indian Ocean",
+          "description": "Multiple atolls with exclusive resort islands",
+          "image": "https://prayanaai.com/images/place-names/maldives-resort-island/maldives-resort-island/img-1_google_places_7e2d8f91.jpg",
+          "rating": 4.9,
+          "searchQuery": "Maldives Islands",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Nov-Apr",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Resort islands",
+            "Diving",
+            "Water sports",
+            "Spa luxury"
+          ]
+        },
+        {
+          "id": "andaman_honeymoon",
+          "name": "Andaman Islands",
+          "location": "India",
+          "description": "India's tropical paradise with pristine beaches",
+          "image": "https://prayanaai.com/images/place-names/radhanagar-beach-andaman/radhanagar-beach-andaman/img-1_google_places_a27f543b.jpg",
+          "rating": 4.8,
+          "searchQuery": "Andaman Islands",
+          "stats": {
+            "idealDays": "7-10 days",
+            "bestTime": "Oct-May",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Havelock Island",
+            "Radhanagar Beach",
+            "Scuba diving",
+            "Neil Island"
+          ]
+        },
+        {
+          "id": "gili_islands",
+          "name": "Gili Islands",
+          "location": "Indonesia",
+          "description": "Three paradise islands with no motorized vehicles",
+          "image": "https://prayanaai.com/images/place-names/indonesia/gili-islands-lombok/img-1_google_places_3e24db17.jpg",
+          "rating": 4.7,
+          "searchQuery": "Gili Islands",
+          "stats": {
+            "idealDays": "4-6 days",
+            "bestTime": "Apr-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Gili Trawangan",
+            "Snorkeling",
+            "Bicycle rides",
+            "Beach parties"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "european-romance",
+      "title": "European Honeymoon Classics",
+      "subtitle": "Timeless romance in historic Europe",
+      "searchQuery": "Europe honeymoon",
+      "viewAllText": "Discover European Romance",
+      "places": [
+        {
+          "id": "amalfi_coast",
+          "name": "Amalfi Coast",
+          "location": "Italy",
+          "description": "Dramatic coastline with colorful villages and Mediterranean charm",
+          "image": "https://prayanaai.com/images/place-names/italy/amalfi-coast-positano/img-1_google_places_2dfc4995.jpg",
+          "rating": 4.8,
+          "searchQuery": "Amalfi Coast",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Positano",
+            "Capri",
+            "Coastal drives",
+            "Italian cuisine"
+          ]
+        },
+        {
+          "id": "barcelona",
+          "name": "Barcelona",
+          "location": "Spain",
+          "description": "Gaudí's masterpieces, beaches, and vibrant culture",
+          "image": "https://prayanaai.com/images/place-names/spain/sagrada-familia-barcelona/img-1_google_places_f7faf309.jpg",
+          "rating": 4.7,
+          "searchQuery": "Barcelona",
+          "stats": {
+            "idealDays": "4-6 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Sagrada Familia",
+            "Park Güell",
+            "Beaches",
+            "Gothic Quarter"
+          ]
+        },
+        {
+          "id": "vienna",
+          "name": "Vienna",
+          "location": "Austria",
+          "description": "Imperial city with palaces, music, and coffee culture",
+          "image": "https://prayanaai.com/images/place-names/austria/schonbrunn-palace-vienna/img-1_google_places_7dac84b8.jpg",
+          "rating": 4.7,
+          "searchQuery": "Vienna",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Schönbrunn Palace",
+            "Opera houses",
+            "Cafes",
+            "Danube River"
+          ]
+        },
+        {
+          "id": "prague",
+          "name": "Prague",
+          "location": "Czech Republic",
+          "description": "Fairy-tale city with medieval architecture and river views",
+          "image": "https://prayanaai.com/images/place-names/czech-republic/charles-bridge-prague/img-1_google_places_31a27bbd.jpg",
+          "rating": 4.7,
+          "searchQuery": "Prague",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Charles Bridge",
+            "Prague Castle",
+            "Old Town",
+            "River cruises"
+          ]
+        },
+        {
+          "id": "amsterdam",
+          "name": "Amsterdam",
+          "location": "Netherlands",
+          "description": "Canal city with museums, tulips, and cycling culture",
+          "image": "https://prayanaai.com/images/place-names/netherlands/amsterdam-canals/img-1_google_places_889ceee9.jpg",
+          "rating": 4.6,
+          "searchQuery": "Amsterdam",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "Apr-May, Sep-Oct",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Canal cruises",
+            "Van Gogh Museum",
+            "Tulip fields",
+            "Cycling"
+          ]
+        },
+        {
+          "id": "dubrovnik",
+          "name": "Dubrovnik",
+          "location": "Croatia",
+          "description": "Pearl of Adriatic with medieval walls and crystal-clear sea",
+          "image": "https://prayanaai.com/images/place-names/croatia/dubrovnik-old-town/img-1_google_places_8d212151.jpg",
+          "rating": 4.7,
+          "searchQuery": "Dubrovnik",
+          "stats": {
+            "idealDays": "3-5 days",
+            "bestTime": "May-Sep",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "City walls",
+            "Old Town",
+            "Cable car",
+            "Island hopping"
+          ]
+        },
+        {
+          "id": "tuscany",
+          "name": "Tuscany",
+          "location": "Italy",
+          "description": "Rolling hills with vineyards, medieval towns, and wine tours",
+          "image": "https://prayanaai.com/images/place-names/italy/tuscany-countryside-vineyards/img-1_google_places_716dbfa4.jpg",
+          "rating": 4.8,
+          "searchQuery": "Tuscany",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "Apr-Jun, Sep-Oct",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Wine tours",
+            "Florence",
+            "Siena",
+            "Countryside villas"
+          ]
+        },
+        {
+          "id": "scottish_highlands",
+          "name": "Scottish Highlands",
+          "location": "Scotland",
+          "description": "Dramatic landscapes with castles, lochs, and whisky trails",
+          "image": "https://prayanaai.com/images/place-names/scotland/scottish-highlands-isle-of-skye/img-1_google_places_f3479a7e.jpg",
+          "rating": 4.6,
+          "searchQuery": "Scottish Highlands",
+          "stats": {
+            "idealDays": "5-7 days",
+            "bestTime": "May-Sep",
+            "luxury": "★★★★☆"
+          },
+          "highlights": [
+            "Castles",
+            "Loch Ness",
+            "Whisky tours",
+            "Highland scenery"
+          ]
+        },
+        {
+          "id": "iceland",
+          "name": "Iceland",
+          "location": "Nordic",
+          "description": "Land of fire and ice with Northern Lights and hot springs",
+          "image": "https://prayanaai.com/images/place-names/iceland/iceland-northern-lights-aurora/img-1_google_places_7a162f45.jpg",
+          "rating": 4.8,
+          "searchQuery": "Iceland",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "Jun-Aug, Sep-Mar",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Northern Lights",
+            "Blue Lagoon",
+            "Waterfalls",
+            "Glaciers"
+          ]
+        },
+        {
+          "id": "norway_fjords",
+          "name": "Norway Fjords",
+          "location": "Norway",
+          "description": "Majestic fjords with cruise ships and scenic railways",
+          "image": "https://prayanaai.com/images/place-names/norway/norway-fjords-geiranger/img-1_google_places_f69e0986.jpg",
+          "rating": 4.7,
+          "searchQuery": "Norway Fjords",
+          "stats": {
+            "idealDays": "6-8 days",
+            "bestTime": "May-Sep",
+            "luxury": "★★★★★"
+          },
+          "highlights": [
+            "Fjord cruises",
+            "Scenic railways",
+            "Bergen",
+            "Northern villages"
+          ]
+        }
+      ]
+    }
+  ],
+  "travelTips": {
+    "title": "Essential Honeymoon Planning Tips",
+    "tips": [
+      {
+        "icon": "💰",
+        "title": "Budget Wisely",
+        "description": "Book honeymoon packages for better deals and inclusions"
+      },
+      {
+        "icon": "🎁",
+        "title": "Honeymoon Perks",
+        "description": "Inform hotels - many offer complimentary upgrades and surprises"
+      },
+      {
+        "icon": "📅",
+        "title": "Book in Advance",
+        "description": "Reserve flights and hotels 3-6 months ahead for best prices"
+      },
+      {
+        "icon": "🗺️",
+        "title": "Balance Itinerary",
+        "description": "Mix adventure with relaxation - don't over-schedule"
+      }
+    ]
+  },
+  "seasonGuide": {
+    "title": "When to Plan Your Honeymoon",
+    "seasons": [
+      {
+        "name": "Peak Season (Nov-Feb)",
+        "icon": "⭐",
+        "description": "Perfect weather for tropical destinations, higher prices",
+        "bestFor": [
+          "Maldives",
+          "Thailand",
+          "Caribbean",
+          "Indian Ocean islands"
+        ]
+      },
+      {
+        "name": "Shoulder Season (Mar-May)",
+        "icon": "🌸",
+        "description": "Great weather, fewer crowds, better deals",
+        "bestFor": [
+          "Europe",
+          "Mediterranean",
+          "Japan",
+          "Best value"
+        ]
+      },
+      {
+        "name": "Summer (Jun-Aug)",
+        "icon": "☀️",
+        "description": "Ideal for European destinations and Northern hemisphere",
+        "bestFor": [
+          "Europe",
+          "Switzerland",
+          "Norway",
+          "Iceland"
+        ]
+      },
+      {
+        "name": "Off-Season (Sep-Oct)",
+        "icon": "🍂",
+        "description": "Monsoon in some areas but autumn beauty in others",
+        "bestFor": [
+          "Europe fall colors",
+          "Budget honeymoons",
+          "Fewer tourists"
+        ]
+      }
+    ]
+  }
+}
