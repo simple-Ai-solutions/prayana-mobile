@@ -1,20 +1,20 @@
 // Design tokens for Prayana AI mobile apps
-// Brand: Prayana AI dark blue (#1e3a8a) — deep navy primary.
+// Brand: Klook-style orange (#f97316) — synced with web (Phase 7 Teal removal)
 // Single source of truth: change tokens here, all 411 component refs auto-update.
 
 export const colors = {
-  // Primary - Dark blue (Prayana brand, deep navy)
+  // Primary - Orange (Prayana brand, matches web --tab-accommodation-start)
   primary: {
-    50: '#eef3fc',
-    100: '#d5e0f6',
-    200: '#aac0ec',
-    300: '#7596db',
-    400: '#3f5fb5',
-    500: '#1e3a8a', // Main brand color (deep navy / dark blue)
-    600: '#1a3478',
-    700: '#152a61',
-    800: '#10204a',
-    900: '#0b1633',
+    50: '#fff7ed',
+    100: '#ffedd5',
+    200: '#fed7aa',
+    300: '#fdba74',
+    400: '#fb923c',
+    500: '#f97316', // Main brand color (Tailwind orange-500)
+    600: '#ea580c',
+    700: '#c2410c',
+    800: '#9a3412',
+    900: '#7c2d12',
   },
 
   // Accent - keep a complementary blue for info / CTAs that aren't primary
@@ -69,7 +69,7 @@ export const colors = {
 
   // Border
   border: '#e5e5e5',
-  borderFocused: '#1e3a8a',
+  borderFocused: '#f97316',
 
   // Overlay
   overlay: 'rgba(0, 0, 0, 0.5)',

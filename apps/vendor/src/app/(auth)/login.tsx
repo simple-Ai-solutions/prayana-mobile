@@ -37,13 +37,27 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: ENV.googleAuth.webClientId || undefined,
-    iosClientId: ENV.googleAuth.iosClientId || undefined,
-    androidClientId: ENV.googleAuth.androidClientId || undefined,
-    redirectUri: makeRedirectUri({ scheme: 'prayanabiz' }),
-    scopes: ['openid', 'profile', 'email'],
-  });
+  // Only hand Google.useAuthRequest a config when at least one platform client
+  // ID is actually set. On Android the hook throws synchronously if androidClientId
+  // is undefined, which would crash the whole login screen — so when nothing is
+  // configured we pass an empty object (hook returns a null request) and the
+  // Google button degrades gracefully to "not configured".
+  const googleAuthConfigured = Boolean(
+    ENV.googleAuth.webClientId ||
+      ENV.googleAuth.iosClientId ||
+      ENV.googleAuth.androidClientId,
+  );
+  const [request, response, promptAsync] = Google.useAuthRequest(
+    googleAuthConfigured
+      ? {
+          clientId: ENV.googleAuth.webClientId || undefined,
+          iosClientId: ENV.googleAuth.iosClientId || undefined,
+          androidClientId: ENV.googleAuth.androidClientId || undefined,
+          redirectUri: makeRedirectUri({ scheme: 'prayanabiz' }),
+          scopes: ['openid', 'profile', 'email'],
+        }
+      : {},
+  );
 
   // Handle the Google OAuth response (idToken or accessToken).
   useEffect(() => {
@@ -186,7 +200,7 @@ export default function LoginScreen() {
               activeOpacity={0.7}
             >
               {isGoogleLoading ? (
-                <ActivityIndicator size="small" color="#1e3a8a" />
+                <ActivityIndicator size="small" color="#f97316" />
               ) : (
                 <>
                   <Text style={styles.socialButtonIcon}>G</Text>
@@ -253,18 +267,6 @@ export default function LoginScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.forgotButton}
-                onPress={() =>
-                  router.push({
-                    pathname: '/(auth)/forgot-password',
-                    params: email.trim() ? { email: email.trim() } : undefined,
-                  })
-                }
-                disabled={isLoading}
-              >
-                <Text style={styles.forgotText}>Forgot password?</Text>
-              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -349,7 +351,7 @@ const styles = StyleSheet.create({
   socialButtonIcon: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1e3a8a',
+    color: '#f97316',
   },
   socialButtonText: {
     fontSize: 15,
@@ -420,22 +422,12 @@ const styles = StyleSheet.create({
   eyeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1e3a8a',
-  },
-  forgotButton: {
-    alignSelf: 'flex-end',
-    marginTop: 2,
-    paddingVertical: 2,
-  },
-  forgotText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1e3a8a',
+    color: '#f97316',
   },
   signInButton: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: '#f97316',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
@@ -462,6 +454,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e3a8a',
+    color: '#f97316',
   },
 });

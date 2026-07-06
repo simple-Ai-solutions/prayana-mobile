@@ -96,6 +96,65 @@ export default function MoreScreen() {
       ],
     },
     {
+      title: 'Sales',
+      items: [
+        {
+          icon: 'pricetag-outline',
+          label: 'Coupons',
+          subtitle: 'Create & manage promo codes',
+          route: '/coupons',
+          color: colors.primary[500],
+        },
+        {
+          icon: 'cube-outline',
+          label: 'Packages',
+          subtitle: 'Holiday packages & departures',
+          route: '/packages',
+          color: colors.info,
+        },
+        {
+          icon: 'car-outline',
+          label: 'Transport',
+          subtitle: 'Vehicle rentals & bookings',
+          route: '/transport',
+          color: colors.success,
+        },
+        {
+          icon: 'people-outline',
+          label: 'Drivers',
+          subtitle: 'Manage drivers & availability',
+          route: '/drivers',
+          color: colors.warning,
+        },
+      ],
+    },
+    {
+      title: 'Finance & Compliance',
+      items: [
+        {
+          icon: 'cash-outline',
+          label: 'Finance',
+          subtitle: 'Earnings, payouts & settings',
+          route: '/finance',
+          color: colors.success,
+        },
+        {
+          icon: 'trending-up-outline',
+          label: 'Performance',
+          subtitle: 'Quality score & reviews',
+          route: '/performance',
+          color: colors.info,
+        },
+        {
+          icon: 'shield-checkmark-outline',
+          label: 'Verification',
+          subtitle: 'KYC, GSTIN, PAN & documents',
+          route: '/verification',
+          color: colors.warning,
+        },
+      ],
+    },
+    {
       title: 'Settings',
       items: [
         {

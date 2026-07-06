@@ -204,6 +204,58 @@ class BusinessAPI {
   async getPublicProfile(slug) {
     return makeAPICall(`/business/${slug}`);
   }
+
+  // ===== COUPONS (vendor promo codes) =====
+
+  async listMyCoupons() {
+    return makeAPICall("/business/me/coupons", {
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  async createCoupon(data) {
+    return makeAPICall("/business/me/coupons", {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateCoupon(couponId, data) {
+    return makeAPICall(`/business/me/coupons/${couponId}`, {
+      method: "PATCH",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteCoupon(couponId) {
+    return makeAPICall(`/business/me/coupons/${couponId}`, {
+      method: "DELETE",
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  // ===== GSTIN VERIFICATION =====
+
+  async verifyGSTIN(gstin) {
+    return makeAPICall("/business/me/verify-gstin", {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ gstin }),
+      timeout: 30000,
+    });
+  }
+
+  // ===== REVIEW MODERATION (vendor side) =====
+
+  async flagReview(reviewId, reason) {
+    return makeAPICall(`/business/me/reviews/${reviewId}/flag`, {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+  }
 }
 
 export const businessAPI = new BusinessAPI();

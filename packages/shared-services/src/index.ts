@@ -180,3 +180,12 @@ export { userAPI, setUserAPIStorage } from './api/userAPI';
 
 // Variant
 export { variantAPI } from './api/variantAPI';
+
+// Holiday Packages (vendor management)
+export { packageAPI } from './api/packageAPI';
+
+// Vehicle rentals (vendor management)
+export { vehicleAPI } from './api/vehicleAPI';
+
+// Drivers (vendor management)
+export { driverAPI } from './api/driverAPI';

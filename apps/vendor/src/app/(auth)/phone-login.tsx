@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   brandLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#1e3a8a',
+    color: '#f97316',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 8,
@@ -442,15 +442,15 @@ const styles = StyleSheet.create({
     color: '#1a1a1a',
   },
   otpInputFilled: {
-    borderColor: '#1e3a8a',
-    backgroundColor: '#eef3fc',
+    borderColor: '#f97316',
+    backgroundColor: '#fff7ed',
   },
 
   // Buttons
   primaryButton: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: '#f97316',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -474,6 +474,6 @@ const styles = StyleSheet.create({
   resendLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e3a8a',
+    color: '#f97316',
   },
 });

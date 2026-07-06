@@ -19,7 +19,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1e3a8a"
+      "backgroundColor": "#f97316"
     },
     "ios": {
       "supportsTablet": true,
@@ -43,7 +43,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#1e3a8a"
+        "backgroundColor": "#f97316"
       },
       "package": "com.prayanaai.business",
       "versionCode": 1,
