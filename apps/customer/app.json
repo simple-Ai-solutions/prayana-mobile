@@ -25,10 +25,6 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.prayanaai.customer",
       "buildNumber": "1",
-      "associatedDomains": [
-        "applinks:prayanaai.com",
-        "applinks:www.prayanaai.com"
-      ],
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Prayana uses your location to recommend nearby destinations, activities, and accurate trip routing.",
         "NSCameraUsageDescription": "Take photos for your trip journal, KYC verification, and to upload activity images.",
@@ -124,15 +120,6 @@
       "expo-location",
       "expo-web-browser",
       [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#f97316",
-          "defaultChannel": "default",
-          "sounds": []
-        }
-      ],
-      [
         "expo-tracking-transparency",
         {
           "userTrackingPermission": "Lets us measure ad performance and personalize travel recommendations. You can decline and still use Prayana fully."
@@ -140,7 +127,8 @@
       ],
       "@sentry/react-native/expo",
       "./plugins/withSentryHermesFix",
-      "./plugins/withModularHeaders"
+      "./plugins/withModularHeaders",
+      "./plugins/withStripPushEntitlements"
     ],
     "extra": {
       "router": {

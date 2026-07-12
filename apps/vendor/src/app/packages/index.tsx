@@ -18,13 +18,15 @@ import {
   StatusBadge,
   EmptyState,
   LoadingSpinner,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
   borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { packageAPI } from '@prayana/shared-services';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -42,20 +44,27 @@ type PackageItem = {
   destinations?: Array<{ name?: string; city?: string }>;
 };
 
+type RecentBooking = {
+  _id?: string;
+  createdAt?: string;
+  package?: { title?: string };
+};
+
 type Dashboard = {
   totalPackages?: number;
   statusBreakdown?: Record<string, number>;
-  recentBookings?: number;
+  recentBookings?: RecentBooking[];
+  packages?: PackageItem[];
 };
 
 type StatusFilter = 'all' | 'active' | 'pending' | 'draft' | 'archived';
 
-const FILTERS: { key: StatusFilter; label: string }[] = [
-  { key: 'all', label: 'All' },
-  { key: 'active', label: 'Active' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'draft', label: 'Draft' },
-  { key: 'archived', label: 'Archived' },
+const FILTERS: { key: StatusFilter; label: string; dot: string }[] = [
+  { key: 'all', label: 'All', dot: colors.gray[400] },
+  { key: 'active', label: 'Active', dot: colors.success },
+  { key: 'pending', label: 'Pending', dot: colors.warning },
+  { key: 'draft', label: 'Drafts', dot: colors.primary[500] },
+  { key: 'archived', label: 'Archived', dot: colors.error },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -75,6 +84,37 @@ function destinationLabel(pkg: PackageItem) {
   if (pkg.primaryDestination) return pkg.primaryDestination;
   const first = pkg.destinations?.[0];
   return first?.name || first?.city || 'No destination';
+}
+
+function StatTile({
+  icon,
+  label,
+  value,
+  accent,
+  bg,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string | number;
+  accent: string;
+  bg: string;
+}) {
+  const { themeColors } = useTheme();
+  return (
+    <Card style={styles.statCard}>
+      <View style={[styles.statIcon, { backgroundColor: bg }]}>
+        <Ionicons name={icon} size={18} color={accent} />
+      </View>
+      <View style={styles.statTextWrap}>
+        <Text style={[styles.statLabel, { color: themeColors.textSecondary }]} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={[styles.statValue, { color: themeColors.text }]} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
+    </Card>
+  );
 }
 
 // ─── Main Screen ──────────────────────────────────────────────────────────────
@@ -149,6 +189,37 @@ export default function PackagesScreen() {
     return list;
   }, [packages, filter, search]);
 
+  // Derived dashboard stats (mirrors the web packages page).
+  const breakdown = dashboard?.statusBreakdown || {};
+  const dashPackages = dashboard?.packages ?? packages;
+  const recentBookings = Array.isArray(dashboard?.recentBookings)
+    ? dashboard!.recentBookings!
+    : [];
+
+  const activeCount = breakdown.active ?? breakdown.approved ?? 0;
+  const pendingCount =
+    (breakdown.pending_review || 0) + (breakdown.pending_vendor_approval || 0);
+  const totalBookings = dashPackages.reduce(
+    (sum, p) => sum + (p.stats?.totalBookings || 0),
+    0,
+  );
+  const totalRevenue = dashPackages.reduce(
+    (sum: number, p: any) => sum + (p.stats?.totalRevenue || 0),
+    0,
+  );
+
+  const filterCount = useCallback(
+    (key: StatusFilter): number => {
+      if (key === 'all') return dashboard?.totalPackages ?? packages.length;
+      if (key === 'active') return activeCount;
+      if (key === 'pending') return pendingCount;
+      if (key === 'draft') return breakdown.draft || 0;
+      if (key === 'archived') return breakdown.archived || 0;
+      return 0;
+    },
+    [dashboard, packages.length, activeCount, pendingCount, breakdown],
+  );
+
   const handleDelete = useCallback(
     (pkg: PackageItem) => {
       Alert.alert(
@@ -197,29 +268,82 @@ export default function PackagesScreen() {
 
   const renderHeader = () => (
     <View>
-      {/* Dashboard stats */}
-      {dashboard ? (
-        <View style={styles.statsRow}>
-          <Card style={styles.statCard}>
-            <Text style={[styles.statValue, { color: themeColors.text }]}>
-              {dashboard.totalPackages ?? packages.length}
-            </Text>
-            <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Total</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={[styles.statValue, { color: colors.primary[600] }]}>
-              {dashboard.statusBreakdown?.active ?? dashboard.statusBreakdown?.approved ?? 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Active</Text>
-          </Card>
-          <Card style={styles.statCard}>
-            <Text style={[styles.statValue, { color: themeColors.text }]}>
-              {dashboard.recentBookings ?? 0}
-            </Text>
-            <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>Bookings</Text>
-          </Card>
-        </View>
-      ) : null}
+      {/* Page heading */}
+      <View style={styles.pageHeading}>
+        <Text style={[styles.pageTitle, { color: themeColors.text }]}>Holiday Packages</Text>
+        <Text style={[styles.pageSubtitle, { color: themeColors.textSecondary }]}>
+          Create, manage, and track your multi-day holiday packages
+        </Text>
+      </View>
+
+      {/* Dashboard stat tiles */}
+      <View style={styles.statsGrid}>
+        <StatTile
+          icon="checkmark-circle-outline"
+          label="Active packages"
+          value={activeCount}
+          accent={colors.success}
+          bg={colors.successLight}
+        />
+        <StatTile
+          icon="time-outline"
+          label="Pending approval"
+          value={pendingCount}
+          accent={colors.warning}
+          bg={colors.warningLight}
+        />
+        <StatTile
+          icon="cube-outline"
+          label="Total bookings"
+          value={totalBookings}
+          accent={colors.primary[500]}
+          bg={colors.primary[50]}
+        />
+        <StatTile
+          icon="cash-outline"
+          label="Total revenue"
+          value={rupee(totalRevenue)}
+          accent="#7c3aed"
+          bg="#f3e8ff"
+        />
+      </View>
+
+      {/* Recent bookings strip */}
+      {recentBookings.length > 0 && (
+        <Card style={styles.recentCard}>
+          <Text style={[styles.recentTitle, { color: themeColors.text }]}>Recent bookings</Text>
+          <Text style={[styles.recentSubtitle, { color: themeColors.textSecondary }]}>
+            Latest reservations across your packages
+          </Text>
+          <FlatList
+            data={recentBookings.slice(0, 5)}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(b, i) => b._id || String(i)}
+            contentContainerStyle={{ gap: spacing.sm, paddingTop: spacing.sm }}
+            renderItem={({ item: booking }) => (
+              <View style={[styles.recentChip, { backgroundColor: colors.primary[50], borderColor: colors.primary[100] }]}>
+                <View style={[styles.recentChipIcon, { backgroundColor: colors.primary[500] }]}>
+                  <Ionicons name="calendar-outline" size={14} color="#fff" />
+                </View>
+                <View style={{ flexShrink: 1 }}>
+                  <Text style={[styles.recentChipTitle, { color: themeColors.text }]} numberOfLines={1}>
+                    {booking.package?.title || 'Package'}
+                  </Text>
+                  <Text style={[styles.recentChipDate, { color: themeColors.textSecondary }]}>
+                    {booking.createdAt
+                      ? new Date(booking.createdAt).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                        })
+                      : ''}
+                  </Text>
+                </View>
+              </View>
+            )}
+          />
+        </Card>
+      )}
 
       {/* Search */}
       <View
@@ -247,6 +371,8 @@ export default function PackagesScreen() {
       <View style={styles.filterRow}>
         {FILTERS.map((f) => {
           const active = filter === f.key;
+          const count = filterCount(f.key);
+          const empty = count === 0;
           return (
             <TouchableOpacity
               key={f.key}
@@ -258,15 +384,38 @@ export default function PackagesScreen() {
               ]}
               activeOpacity={0.7}
             >
+              <View
+                style={[
+                  styles.filterDot,
+                  { backgroundColor: active ? '#fff' : empty ? colors.gray[300] : f.dot },
+                ]}
+              />
               <Text
                 style={[
                   styles.filterText,
-                  { color: themeColors.textSecondary },
+                  { color: empty ? themeColors.textTertiary : themeColors.textSecondary },
                   active && styles.filterTextActive,
                 ]}
               >
                 {f.label}
               </Text>
+              {count > 0 && (
+                <View
+                  style={[
+                    styles.filterCountBadge,
+                    { backgroundColor: active ? 'rgba(255,255,255,0.25)' : themeColors.inputBackground },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.filterCountText,
+                      { color: active ? '#fff' : themeColors.textSecondary },
+                    ]}
+                  >
+                    {count}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           );
         })}
@@ -448,11 +597,60 @@ const styles = StyleSheet.create({
 
   listContent: { padding: spacing.lg, paddingBottom: spacing['3xl'] + 60 },
 
-  // Stats
-  statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
-  statCard: { flex: 1, alignItems: 'center', paddingVertical: spacing.md },
-  statValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text },
-  statLabel: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  // Page heading
+  pageHeading: { marginBottom: spacing.lg },
+  pageTitle: { fontSize: fontSize['2xl'], fontWeight: fontWeight.bold, color: colors.text },
+  pageSubtitle: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 4 },
+
+  // Stat tiles (2x2 grid)
+  statsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  statCard: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
+  statIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statTextWrap: { flex: 1, minWidth: 0 },
+  statValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.text },
+  statLabel: { fontSize: fontSize.xs, fontWeight: fontWeight.medium, color: colors.textSecondary },
+
+  // Recent bookings
+  recentCard: { padding: spacing.lg, marginBottom: spacing.lg },
+  recentTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
+  recentSubtitle: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    maxWidth: 220,
+  },
+  recentChipIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: borderRadius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recentChipTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text },
+  recentChipDate: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 1 },
 
   // Search
   searchBar: {
@@ -472,6 +670,9 @@ const styles = StyleSheet.create({
   // Filters
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
@@ -480,8 +681,18 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   filterChipActive: { backgroundColor: colors.primary[500], borderColor: colors.primary[500] },
+  filterDot: { width: 6, height: 6, borderRadius: 3 },
   filterText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.textSecondary },
   filterTextActive: { color: '#fff' },
+  filterCountBadge: {
+    minWidth: 18,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterCountText: { fontSize: 10, fontWeight: fontWeight.bold },
 
   // Cards
   packageCard: { marginBottom: spacing.md, padding: spacing.lg },

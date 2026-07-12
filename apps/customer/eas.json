@@ -43,7 +43,8 @@
       "channel": "production",
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_ENV": "production"
+        "EXPO_PUBLIC_ENV": "production",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "ios": {
         "resourceClass": "m-medium",
@@ -57,6 +58,12 @@
   },
   "submit": {
     "production": {
+      "ios": {
+        "ascAppId": "6786644292",
+        "ascApiKeyPath": "../../keystores/AuthKey_TZNR3J9LGC.p8",
+        "ascApiKeyId": "TZNR3J9LGC",
+        "ascApiKeyIssuerId": "f23038f7-4b3d-4eb3-b45b-d13e18ad8858"
+      },
       "android": {
         "serviceAccountKeyPath": "../../keystores/play-store-service-account.json",
         "track": "internal",

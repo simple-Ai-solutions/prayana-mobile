@@ -18,10 +18,13 @@ import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuth } from '@prayana/shared-hooks';
 import { useTheme } from '@prayana/shared-ui';
+import { colors } from '../../theme/vendorColors';
+import { Card } from '../../components/ui';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithCredential,
+  sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth } from '@prayana/shared-services';
 import { ENV } from '../../config/env';
@@ -36,6 +39,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
 
   // Only hand Google.useAuthRequest a config when at least one platform client
   // ID is actually set. On Android the hook throws synchronously if androidClientId
@@ -171,6 +176,38 @@ export default function LoginScreen() {
     router.push('/(auth)/phone-login');
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) {
+      Alert.alert('Missing email', 'Please enter your email.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email.trim());
+      setForgotSent(true);
+    } catch (error: any) {
+      let message = 'Failed to send reset link. Please try again.';
+      if (error.code === 'auth/user-not-found') {
+        message = 'No account found with this email.';
+      } else if (error.code === 'auth/invalid-email') {
+        message = 'Invalid email address.';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Please try again later.';
+      }
+      Alert.alert('Reset failed', message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
       <KeyboardAvoidingView
@@ -182,112 +219,190 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Back Button */}
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+            onPress={handleBack}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>&#8592; Back</Text>
+          </TouchableOpacity>
+
           {/* Brand Header */}
           <View style={styles.brandSection}>
-            <Text style={styles.brandIcon}>&#128188;</Text>
-            <Text style={[styles.brandTitle, { color: themeColors.text }]}>Prayana Business</Text>
+            <View style={styles.brandBadge}>
+              <Text style={styles.brandBadgeIcon}>&#128737;</Text>
+            </View>
+            <Text style={[styles.brandTitle, { color: themeColors.text }]}>Partner Login</Text>
             <Text style={[styles.brandSubtitle, { color: themeColors.textSecondary }]}>
-              Manage your activities & bookings
+              Prayana AI &mdash; List &amp; manage your travel business
             </Text>
           </View>
 
-          {/* Social Login Buttons */}
-          <View style={styles.socialSection}>
-            <TouchableOpacity
-              style={[styles.socialButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-              onPress={handleGoogleLogin}
-              disabled={isGoogleLoading}
-              activeOpacity={0.7}
-            >
-              {isGoogleLoading ? (
-                <ActivityIndicator size="small" color="#f97316" />
-              ) : (
-                <>
-                  <Text style={styles.socialButtonIcon}>G</Text>
-                  <Text style={[styles.socialButtonText, { color: themeColors.text }]}>
-                    Continue with Google
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+          {/* Login Card */}
+          <Card style={styles.loginCard}>
+            {forgotMode ? (
+              /* Forgot Password Form */
+              <View style={styles.formSection}>
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email Address</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                    placeholder="your@email.com"
+                    placeholderTextColor={themeColors.textTertiary}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isLoading}
+                  />
+                </View>
 
-            <TouchableOpacity
-              style={[styles.socialButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-              onPress={handlePhoneLogin}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.socialButtonIcon}>&#128222;</Text>
-              <Text style={[styles.socialButtonText, { color: themeColors.text }]}>Continue with Phone</Text>
-            </TouchableOpacity>
-          </View>
+                {forgotSent ? (
+                  <View style={styles.successBox}>
+                    <Text style={styles.successText}>
+                      Reset link sent to {email}. Check your inbox (and spam folder).
+                    </Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+                    onPress={handleForgotPassword}
+                    disabled={isLoading}
+                    activeOpacity={0.8}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.signInButtonText}>Send Reset Link</Text>
+                    )}
+                  </TouchableOpacity>
+                )}
 
-          {/* Divider */}
-          <View style={styles.dividerRow}>
-            <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
-            <Text style={[styles.dividerText, { color: themeColors.textTertiary }]}>or</Text>
-            <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
-          </View>
-
-          {/* Email + Password Form */}
-          <View style={styles.formSection}>
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
-                placeholder="you@business.com"
-                placeholderTextColor={themeColors.textTertiary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!isLoading}
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Password</Text>
-              <View style={[styles.passwordContainer, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
-                <TextInput
-                  style={[styles.passwordInput, { color: themeColors.text }]}
-                  placeholder="Enter your password"
-                  placeholderTextColor={themeColors.textTertiary}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  editable={!isLoading}
-                />
                 <TouchableOpacity
-                  style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.backToLogin}
+                  onPress={() => {
+                    setForgotMode(false);
+                    setForgotSent(false);
+                  }}
                 >
-                  <Text style={styles.eyeText}>
-                    {showPassword ? 'Hide' : 'Show'}
-                  </Text>
+                  <Text style={[styles.backToLoginText, { color: themeColors.textSecondary }]}>Back to login</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            ) : (
+              /* Login Form */
+              <View style={styles.formSection}>
+                {/* Social Login Buttons */}
+                <TouchableOpacity
+                  style={[styles.socialButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                  onPress={handleGoogleLogin}
+                  disabled={isGoogleLoading}
+                  activeOpacity={0.7}
+                >
+                  {isGoogleLoading ? (
+                    <ActivityIndicator size="small" color={colors.primary[500]} />
+                  ) : (
+                    <>
+                      <Text style={styles.socialButtonIcon}>G</Text>
+                      <Text style={[styles.socialButtonText, { color: themeColors.text }]}>
+                        Continue with Google
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
-              onPress={handleEmailLogin}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Text style={styles.signInButtonText}>Sign In</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+                <TouchableOpacity
+                  style={[styles.socialButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                  onPress={handlePhoneLogin}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.socialButtonIcon}>&#128222;</Text>
+                  <Text style={[styles.socialButtonText, { color: themeColors.text }]}>Continue with Phone</Text>
+                </TouchableOpacity>
+
+                {/* Divider */}
+                <View style={styles.dividerRow}>
+                  <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
+                  <Text style={[styles.dividerText, { color: themeColors.textTertiary }]}>or</Text>
+                  <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email Address</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                    placeholder="your@email.com"
+                    placeholderTextColor={themeColors.textTertiary}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={!isLoading}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <View style={styles.passwordLabelRow}>
+                    <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Password</Text>
+                    <TouchableOpacity onPress={() => setForgotMode(true)}>
+                      <Text style={styles.forgotLink}>Forgot password?</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={[styles.passwordContainer, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
+                    <TextInput
+                      style={[styles.passwordInput, { color: themeColors.text }]}
+                      placeholder="Enter your password"
+                      placeholderTextColor={themeColors.textTertiary}
+                      value={password}
+                      onChangeText={setPassword}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      editable={!isLoading}
+                    />
+                    <TouchableOpacity
+                      style={styles.eyeButton}
+                      onPress={() => setShowPassword(!showPassword)}
+                    >
+                      <Text style={styles.eyeText}>
+                        {showPassword ? 'Hide' : 'Show'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+                  onPress={handleEmailLogin}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.signInButtonText}>Login &#8594;</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+          </Card>
 
           {/* Register Link */}
           <View style={styles.footerSection}>
-            <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>New vendor? </Text>
+            <Text style={[styles.footerText, { color: themeColors.textSecondary }]}>Don&apos;t have a partner account? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
               <Text style={styles.footerLink}>Register your business</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Customer note */}
+          <View style={styles.customerNote}>
+            <Text style={[styles.customerNoteText, { color: themeColors.textTertiary }]}>
+              Looking to book a trip?{' '}
+            </Text>
+            <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
+              <Text style={[styles.customerNoteLink, { color: themeColors.textSecondary }]}>Go to Prayana AI</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -311,32 +426,63 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
+  // Back Button
+  backButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    marginBottom: 16,
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+
   // Brand Section
   brandSection: {
     alignItems: 'center',
-    marginBottom: 36,
+    marginBottom: 28,
   },
-  brandIcon: {
-    fontSize: 48,
-    marginBottom: 12,
+  brandBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: colors.primary[500],
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  brandBadgeIcon: {
+    fontSize: 28,
+    color: '#ffffff',
   },
   brandTitle: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '700',
     color: '#1a1a1a',
     letterSpacing: -0.5,
   },
   brandSubtitle: {
-    fontSize: 15,
+    fontSize: 14,
     color: '#6b7280',
     marginTop: 6,
+    textAlign: 'center',
+  },
+
+  // Login Card
+  loginCard: {
+    padding: 24,
+    marginBottom: 24,
   },
 
   // Social Buttons
-  socialSection: {
-    gap: 12,
-    marginBottom: 24,
-  },
   socialButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -351,7 +497,7 @@ const styles = StyleSheet.create({
   socialButtonIcon: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#f97316',
+    color: colors.primary[500],
   },
   socialButtonText: {
     fontSize: 15,
@@ -363,7 +509,7 @@ const styles = StyleSheet.create({
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 24,
+    marginVertical: 4,
   },
   dividerLine: {
     flex: 1,
@@ -380,10 +526,19 @@ const styles = StyleSheet.create({
   // Form Section
   formSection: {
     gap: 16,
-    marginBottom: 32,
   },
   inputGroup: {
     gap: 6,
+  },
+  passwordLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  forgotLink: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary[500],
   },
   inputLabel: {
     fontSize: 14,
@@ -422,12 +577,12 @@ const styles = StyleSheet.create({
   eyeText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
   },
   signInButton: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#f97316',
+    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
@@ -441,11 +596,34 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
+  // Forgot password
+  successBox: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    backgroundColor: '#f0fdf4',
+  },
+  successText: {
+    fontSize: 14,
+    color: '#15803d',
+    lineHeight: 20,
+  },
+  backToLogin: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  backToLoginText: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+
   // Footer
   footerSection: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   footerText: {
     fontSize: 14,
@@ -454,6 +632,24 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#f97316',
+    color: colors.primary[500],
+  },
+
+  // Customer note
+  customerNote: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    marginTop: 16,
+  },
+  customerNoteText: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  customerNoteLink: {
+    fontSize: 12,
+    color: '#6b7280',
+    textDecorationLine: 'underline',
   },
 });

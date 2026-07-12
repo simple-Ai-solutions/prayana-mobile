@@ -17,13 +17,15 @@ import {
   StatusBadge,
   Button,
   LoadingSpinner,
+} from '@prayana/shared-ui';
+import {
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
   shadow,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { bookingAPI, businessAPI, invoiceAPI } from '@prayana/shared-services';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 

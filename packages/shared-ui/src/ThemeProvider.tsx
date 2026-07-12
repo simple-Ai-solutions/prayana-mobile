@@ -1,12 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { colors as sharedColors } from './theme';
 
 const THEME_KEY = 'prayana_theme';
+
+// A brand ramp is just the primary color scale. Defaults to the shared ORANGE
+// (customer + support-agent apps). The vendor app passes its BLUE ramp so every
+// shared-ui component that paints the brand color (Button, Stepper, TextInput
+// focus, Badge, StarRating, LoadingSpinner, Avatar) renders blue — with no
+// per-component overrides.
+export type BrandRamp = Record<50 | 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900, string>;
 
 interface ThemeContextType {
   isDarkMode: boolean;
   toggleTheme: () => void;
   themeColors: typeof lightColors;
+  brand: BrandRamp;
 }
 
 // Light colors (same as current theme.ts)
@@ -59,9 +68,17 @@ const ThemeContext = createContext<ThemeContextType>({
   isDarkMode: false,
   toggleTheme: () => {},
   themeColors: lightColors,
+  brand: sharedColors.primary,
 });
 
-export function ThemeProvider({ children }: { children: ReactNode }) {
+export function ThemeProvider({
+  children,
+  brand,
+}: {
+  children: ReactNode;
+  /** Optional brand ramp override. Omit for the default orange. Vendor passes blue. */
+  brand?: BrandRamp;
+}) {
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -80,7 +97,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const themeColors = (isDarkMode ? darkColors : lightColors) as typeof lightColors;
 
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme, themeColors }}>
+    <ThemeContext.Provider value={{ isDarkMode, toggleTheme, themeColors, brand: brand ?? sharedColors.primary }}>
       {children}
     </ThemeContext.Provider>
   );

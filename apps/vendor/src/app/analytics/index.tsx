@@ -7,39 +7,43 @@ import {
   RefreshControl,
   StyleSheet,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Card, LoadingSpinner } from '@prayana/shared-ui';
 import {
-  Card,
-  LoadingSpinner,
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
   shadow,
-} from '@prayana/shared-ui';
-import { makeAPICall } from '@prayana/shared-services';
+} from '../../theme/vendorColors';
+import { makeAPICall, getBaseURL } from '@prayana/shared-services';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const STAT_WIDTH = (SCREEN_WIDTH - spacing.xl * 2 - spacing.md) / 2;
+// 3-up stat grid to mirror the PWA's 6-card (2×3) layout.
+const STAT_WIDTH = (SCREEN_WIDTH - spacing.xl * 2 - spacing.md * 2) / 3;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AnalyticsData {
   totalBookings: number;
   totalRevenue: number;
+  totalCommission: number | null;
+  netEarnings: number | null;
   totalParticipants: number;
   avgBookingValue: number;
   topActivities?: Array<{
     _id?: string;
+    activityId?: string;
     name?: string;
     title?: string;
     revenue: number;
-    bookings: number;
+    count: number;
   }>;
   dailyBookings?: Array<{
     date: string;
@@ -47,10 +51,13 @@ interface AnalyticsData {
   }>;
 }
 
+// Match the PWA period keys exactly (`7d`/`30d`/`90d`). The backend switch
+// keys off these strings — sending bare `7`/`90` silently fell through to the
+// 30d default, so 7-day and 90-day filters never actually changed the data.
 const PERIODS = [
-  { key: '7', label: '7 Days' },
-  { key: '30', label: '30 Days' },
-  { key: '90', label: '90 Days' },
+  { key: '7d', label: '7 Days' },
+  { key: '30d', label: '30 Days' },
+  { key: '90d', label: '90 Days' },
 ];
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -71,10 +78,14 @@ function StatCard({
   return (
     <Card style={styles.statCard}>
       <View style={[styles.statIcon, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={20} color={color} />
+        <Ionicons name={icon} size={18} color={color} />
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text style={styles.statLabel} numberOfLines={1}>
+        {label}
+      </Text>
     </Card>
   );
 }
@@ -122,20 +133,25 @@ function TopActivityRow({
   rank,
   maxRevenue,
 }: {
-  activity: { name?: string; title?: string; revenue: number; bookings: number };
+  activity: { name?: string; title?: string; revenue: number; count: number };
   rank: number;
   maxRevenue: number;
 }) {
   const barWidth = maxRevenue > 0 ? (activity.revenue / maxRevenue) * 100 : 0;
+  const count = activity.count ?? 0;
+  const perBooking = count > 0 ? Math.round(activity.revenue / count) : 0;
 
   return (
     <View style={styles.topActivityRow}>
       <View style={styles.topActivityRank}>
-        <Text style={styles.topActivityRankText}>#{rank}</Text>
+        <Text style={styles.topActivityRankText}>{rank}</Text>
       </View>
       <View style={styles.topActivityInfo}>
         <Text style={styles.topActivityName} numberOfLines={1}>
           {activity.title || activity.name || 'Activity'}
+        </Text>
+        <Text style={styles.topActivitySub}>
+          {count} booking{count !== 1 ? 's' : ''}
         </Text>
         <View style={styles.topActivityBarBg}>
           <View
@@ -147,7 +163,7 @@ function TopActivityRow({
             {'\u20B9'}{activity.revenue.toLocaleString('en-IN')}
           </Text>
           <Text style={styles.topActivityBookings}>
-            {activity.bookings} booking{activity.bookings !== 1 ? 's' : ''}
+            {'\u20B9'}{perBooking.toLocaleString('en-IN')}/booking
           </Text>
         </View>
       </View>
@@ -161,7 +177,7 @@ export default function AnalyticsScreen() {
   const router = useRouter();
   const { businessAccount } = useBusinessStore();
 
-  const [period, setPeriod] = useState('30');
+  const [period, setPeriod] = useState('30d');
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -174,17 +190,28 @@ export default function AnalyticsScreen() {
         { timeout: 30000 }
       );
       const d = res?.data || res?.analytics || res;
+      const s = d?.summary || d;
       setData({
-        totalBookings: d?.totalBookings ?? d?.summary?.totalBookings ?? 0,
-        totalRevenue: d?.totalRevenue ?? d?.summary?.totalRevenue ?? 0,
-        totalParticipants: d?.totalParticipants ?? d?.summary?.totalParticipants ?? 0,
-        avgBookingValue: d?.avgBookingValue ?? d?.summary?.avgBookingValue ?? 0,
+        totalBookings: s?.totalBookings ?? 0,
+        totalRevenue: s?.totalRevenue ?? 0,
+        totalCommission: s?.totalCommission ?? null,
+        netEarnings: s?.netEarnings ?? null,
+        totalParticipants: s?.totalParticipants ?? 0,
+        avgBookingValue: s?.avgBookingValue ?? 0,
         topActivities: d?.topActivities || [],
         dailyBookings: d?.dailyBookings || [],
       });
     } catch (err) {
       console.warn('[Analytics] fetch error:', err);
     }
+  }, [businessAccount?._id, period]);
+
+  const exportCSV = useCallback(() => {
+    if (!businessAccount?._id) return;
+    const url = `${getBaseURL()}/business/${businessAccount._id}/analytics/export?period=${period}`;
+    Linking.openURL(url).catch((err) =>
+      console.warn('[Analytics] export error:', err)
+    );
   }, [businessAccount?._id, period]);
 
   const loadData = useCallback(async () => {
@@ -225,6 +252,22 @@ export default function AnalyticsScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
         }
       >
+        {/* Title + subtitle (mirrors the PWA page header) */}
+        <View style={styles.pageHeader}>
+          <View style={styles.pageHeaderText}>
+            <Text style={styles.pageTitle}>Analytics Dashboard</Text>
+            <Text style={styles.pageSubtitle}>Track your performance and revenue</Text>
+          </View>
+          <TouchableOpacity
+            style={styles.exportBtn}
+            onPress={exportCSV}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="download-outline" size={16} color={colors.primary[600]} />
+            <Text style={styles.exportBtnText}>Export CSV</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Period Tabs */}
         <View style={styles.periodRow}>
           {PERIODS.map((p) => (
@@ -245,7 +288,7 @@ export default function AnalyticsScreen() {
           <LoadingSpinner message="Loading analytics..." />
         ) : (
           <View style={styles.content}>
-            {/* Stat Cards */}
+            {/* Stat Cards \u2014 same six as the PWA, in the same order */}
             <View style={styles.statsGrid}>
               <StatCard
                 label="Total Bookings"
@@ -257,6 +300,28 @@ export default function AnalyticsScreen() {
               <StatCard
                 label="Total Revenue"
                 value={`\u20B9${(data?.totalRevenue ?? 0).toLocaleString('en-IN')}`}
+                icon="cash-outline"
+                color={colors.success}
+                bg={colors.successLight}
+              />
+              <StatCard
+                label="Commission Paid"
+                value={
+                  data?.totalCommission != null
+                    ? `\u20B9${Math.round(data.totalCommission / 100).toLocaleString('en-IN')}`
+                    : '\u2014'
+                }
+                icon="pricetag-outline"
+                color={colors.error}
+                bg={colors.errorLight}
+              />
+              <StatCard
+                label="Net Earnings"
+                value={
+                  data?.netEarnings != null
+                    ? `\u20B9${Math.round(data.netEarnings / 100).toLocaleString('en-IN')}`
+                    : '\u2014'
+                }
                 icon="wallet-outline"
                 color={colors.success}
                 bg={colors.successLight}
@@ -269,8 +334,8 @@ export default function AnalyticsScreen() {
                 bg={colors.infoLight}
               />
               <StatCard
-                label="Avg Value"
-                value={`\u20B9${(data?.avgBookingValue ?? 0).toLocaleString('en-IN')}`}
+                label="Avg Booking"
+                value={`\u20B9${Math.round(data?.avgBookingValue ?? 0).toLocaleString('en-IN')}`}
                 icon="trending-up-outline"
                 color={colors.warning}
                 bg={colors.warningLight}
@@ -288,16 +353,30 @@ export default function AnalyticsScreen() {
             {/* Top Activities */}
             {data?.topActivities && data.topActivities.length > 0 && (
               <Card style={styles.topCard}>
-                <Text style={styles.sectionTitle}>Top Performing Activities</Text>
+                <View style={styles.sectionHeaderRow}>
+                  <Ionicons name="bar-chart-outline" size={18} color={colors.primary[600]} />
+                  <Text style={styles.sectionTitleInline}>Top Performing Activities</Text>
+                </View>
                 {data.topActivities.slice(0, 5).map((activity, i) => (
                   <TopActivityRow
-                    key={activity._id || i}
+                    key={activity._id || activity.activityId || i}
                     activity={activity}
                     rank={i + 1}
                     maxRevenue={maxRevenue}
                   />
                 ))}
               </Card>
+            )}
+
+            {/* Empty State */}
+            {data && (data.totalBookings ?? 0) === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="bar-chart-outline" size={44} color={colors.gray[400]} />
+                <Text style={styles.emptyTitle}>No data yet</Text>
+                <Text style={styles.emptySubtitle}>
+                  Start receiving bookings to see your analytics here
+                </Text>
+              </View>
             )}
           </View>
         )}
@@ -342,6 +421,45 @@ const styles = StyleSheet.create({
     width: 36,
   },
 
+  // Page header (title + subtitle + export)
+  pageHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    gap: spacing.md,
+  },
+  pageHeaderText: {
+    flex: 1,
+  },
+  pageTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
+  pageSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+  },
+  exportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  exportBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: colors.primary[600],
+  },
+
   // Period Tabs
   periodRow: {
     flexDirection: 'row',
@@ -380,19 +498,20 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: STAT_WIDTH,
+    padding: spacing.md,
   },
   statIcon: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
   statValue: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize.md,
     fontWeight: fontWeight.bold,
     color: colors.text,
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
   statLabel: {
     fontSize: fontSize.xs,
@@ -443,6 +562,17 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.md,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  sectionTitleInline: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    color: colors.text,
+  },
   topActivityRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -471,6 +601,11 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
     color: colors.text,
+  },
+  topActivitySub: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    marginTop: 1,
     marginBottom: spacing.xs,
   },
   topActivityBarBg: {
@@ -497,6 +632,31 @@ const styles = StyleSheet.create({
   topActivityBookings: {
     fontSize: fontSize.xs,
     color: colors.textTertiary,
+  },
+
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing['3xl'],
+    marginTop: spacing.lg,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+  },
+  emptyTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.semibold,
+    color: colors.text,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  emptySubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: spacing.xl,
   },
 
   bottomSpacer: {

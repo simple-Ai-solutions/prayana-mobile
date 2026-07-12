@@ -11,55 +11,80 @@ import {
   Platform,
   TextInput as RNTextInput,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
 import {
   Card,
-  Button,
   Badge,
   EmptyState,
   TextInput,
+} from '@prayana/shared-ui';
+// Brand-colored (BLUE) components come from the vendor barrel.
+import { Button } from '../../components/ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
   borderRadius,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { supportAPI } from '@prayana/shared-services';
+
+const SUPPORT_PHONE = '+919632790625';
 
 type Ticket = {
   _id: string;
   subject: string;
+  ticketRef?: string;
   category?: string;
   priority?: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'open' | 'in_progress' | 'pending_customer' | 'resolved' | 'closed';
+  status: 'open' | 'in_progress' | 'waiting_on_business' | 'resolved' | 'closed';
   createdAt?: string;
   updatedAt?: string;
   lastAdminMessageAt?: string;
   messages?: Array<{ sender: 'business' | 'admin' | 'system'; message: string; createdAt?: string }>;
+  unreadCount?: number;
   unreadByBusinessCount?: number;
 };
 
 const STATUS_CFG: Record<string, { label: string; variant: 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info' }> = {
   open: { label: 'Open', variant: 'info' },
-  in_progress: { label: 'In progress', variant: 'primary' },
-  pending_customer: { label: 'Awaiting you', variant: 'warning' },
+  in_progress: { label: 'In Progress', variant: 'warning' },
+  waiting_on_business: { label: 'Waiting on You', variant: 'info' },
   resolved: { label: 'Resolved', variant: 'success' },
   closed: { label: 'Closed', variant: 'default' },
 };
 
+// Filter tabs mirror the PWA (all + each status).
+const FILTER_OPTIONS: Array<{ key: string; label: string }> = [
+  { key: 'all', label: 'All' },
+  { key: 'open', label: 'Open' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'waiting_on_business', label: 'Waiting on You' },
+  { key: 'resolved', label: 'Resolved' },
+  { key: 'closed', label: 'Closed' },
+];
+
+// Category list aligned to the PWA.
 const CATEGORY_OPTIONS = [
-  { key: 'general_inquiry', label: 'General' },
-  { key: 'payments', label: 'Payments' },
-  { key: 'bookings', label: 'Bookings' },
-  { key: 'listings', label: 'Listings' },
-  { key: 'kyc', label: 'KYC' },
-  { key: 'technical', label: 'Technical' },
+  { key: 'onboarding_help', label: 'Onboarding Help' },
+  { key: 'listing_issue', label: 'Listing Issue' },
+  { key: 'booking_issue', label: 'Booking Issue' },
+  { key: 'payment_issue', label: 'Payment Issue' },
+  { key: 'payout_issue', label: 'Payout Issue' },
+  { key: 'technical_issue', label: 'Technical Issue' },
+  { key: 'account_issue', label: 'Account Issue' },
+  { key: 'document_help', label: 'Document Help' },
+  { key: 'general_inquiry', label: 'General Inquiry' },
+  { key: 'feature_request', label: 'Feature Request' },
+  { key: 'other', label: 'Other' },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -75,6 +100,7 @@ export default function SupportScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showNew, setShowNew] = useState(false);
+  const [filter, setFilter] = useState('all');
 
   // New ticket form
   const [subject, setSubject] = useState('');
@@ -85,17 +111,25 @@ export default function SupportScreen() {
 
   const fetch = useCallback(async () => {
     try {
-      const res = await supportAPI.listTickets({ limit: 30 });
-      setTickets(res?.data?.tickets || res?.tickets || []);
+      const res = await supportAPI.listTickets({
+        limit: 30,
+        ...(filter !== 'all' ? { status: filter } : {}),
+      } as any);
+      // Support several response shapes (data array, data.tickets, tickets).
+      const list = Array.isArray(res?.data)
+        ? res.data
+        : res?.data?.tickets || res?.tickets || [];
+      setTickets(list);
     } catch (err: any) {
       console.warn('[Support] fetch failed:', err?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
+    setLoading(true);
     fetch();
   }, [fetch]);
 
@@ -138,13 +172,90 @@ export default function SupportScreen() {
     }
   };
 
+  const ListHeader = (
+    <View>
+      {/* Header — mirrors PWA "24/7 Support" */}
+      <View style={styles.pageHeader}>
+        <Text style={styles.pageTitle}>24/7 Support</Text>
+        <Text style={styles.pageSubtitle}>Get help anytime — our team is here to assist you</Text>
+      </View>
+
+      {/* Quick contact card */}
+      <LinearGradient
+        colors={[colors.primary[600], colors.primary[700]]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.contactCard}
+      >
+        <TouchableOpacity
+          style={styles.contactRow}
+          activeOpacity={0.8}
+          onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
+        >
+          <View style={styles.contactIcon}>
+            <Ionicons name="call" size={20} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.contactLabel}>CALL US</Text>
+            <Text style={styles.contactValue}>+91 9632 790 625</Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.contactRow}
+          activeOpacity={0.8}
+          onPress={() => Linking.openURL(`https://wa.me/${SUPPORT_PHONE.replace('+', '')}`)}
+        >
+          <View style={styles.contactIcon}>
+            <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.contactLabel}>WHATSAPP</Text>
+            <Text style={styles.contactValue}>+91 9632 790 625</Text>
+          </View>
+        </TouchableOpacity>
+
+        <View style={styles.contactRow}>
+          <View style={styles.contactIcon}>
+            <Ionicons name="time" size={20} color="#fff" />
+          </View>
+          <View>
+            <Text style={styles.contactLabel}>RESPONSE TIME</Text>
+            <Text style={styles.contactValue}>Under 30 minutes</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Filter tabs */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
+        {FILTER_OPTIONS.map((f) => {
+          const active = filter === f.key;
+          return (
+            <TouchableOpacity
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={[styles.filterTab, active && styles.filterTabActive]}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.filterTabText, active && styles.filterTabTextActive]}>{f.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={26} color={colors.text} />
         </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Help & Support</Text>
+        <Text style={styles.topBarTitle}>Support</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -152,21 +263,26 @@ export default function SupportScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary[500]} />
         </View>
-      ) : tickets.length === 0 ? (
-        <EmptyState
-          icon={<Ionicons name="help-buoy-outline" size={56} color={colors.gray[300]} />}
-          title="No support tickets yet"
-          description="If you need help, raise a ticket and our team will respond shortly."
-          actionLabel="Raise a ticket"
-          onAction={() => setShowNew(true)}
-        />
       ) : (
         <FlashList
           data={tickets}
           keyExtractor={(t) => t._id}
+          ListHeaderComponent={ListHeader}
           renderItem={({ item }) => (
             <TicketCard ticket={item} onPress={() => router.push(`/support/${item._id}`)} />
           )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <View style={styles.emptyIconCircle}>
+                <Ionicons name="headset-outline" size={30} color={colors.primary[500]} />
+              </View>
+              <Text style={styles.emptyTitle}>No support tickets yet</Text>
+              <Text style={styles.emptyDesc}>Create a ticket to get help from our team</Text>
+              <View style={styles.emptyCta}>
+                <Button title="New Ticket" onPress={() => setShowNew(true)} variant="primary" size="md" />
+              </View>
+            </View>
+          }
           contentContainerStyle={{ paddingBottom: 120 }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         />
@@ -190,7 +306,7 @@ export default function SupportScreen() {
       >
         <SafeAreaView style={styles.modalContainer} edges={['top']}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>New ticket</Text>
+            <Text style={styles.modalTitle}>Create Support Ticket</Text>
             <TouchableOpacity onPress={() => setShowNew(false)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="close" size={26} color={colors.text} />
             </TouchableOpacity>
@@ -200,11 +316,14 @@ export default function SupportScreen() {
             style={{ flex: 1 }}
           >
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalIntro}>
+                Tell us what's going on and we'll get back within 30 minutes.
+              </Text>
               <TextInput
-                label="Subject"
+                label="Subject *"
                 value={subject}
                 onChangeText={setSubject}
-                placeholder="Brief summary of the issue"
+                placeholder="Brief description of your issue"
               />
 
               <Text style={styles.fieldLabel}>Category</Text>
@@ -241,11 +360,11 @@ export default function SupportScreen() {
                 })}
               </View>
 
-              <Text style={styles.fieldLabel}>Describe your issue</Text>
+              <Text style={styles.fieldLabel}>Message *</Text>
               <RNTextInput
                 value={message}
                 onChangeText={setMessage}
-                placeholder="What's happening? Include reservation IDs or screenshots references."
+                placeholder="Describe your issue in detail..."
                 placeholderTextColor={colors.textTertiary}
                 multiline
                 style={styles.bigInput}
@@ -256,7 +375,7 @@ export default function SupportScreen() {
 
             <View style={styles.modalFooter}>
               <Button
-                title="Submit"
+                title="Submit Ticket"
                 onPress={submitTicket}
                 variant="primary"
                 size="lg"
@@ -274,7 +393,10 @@ export default function SupportScreen() {
 
 function TicketCard({ ticket, onPress }: { ticket: Ticket; onPress: () => void }) {
   const cfg = STATUS_CFG[ticket.status] || STATUS_CFG.open;
-  const lastMsg = ticket.messages?.[ticket.messages.length - 1];
+  const unread = ticket.unreadCount ?? ticket.unreadByBusinessCount ?? 0;
+  const categoryLabel = ticket.category
+    ? CATEGORY_OPTIONS.find((c) => c.key === ticket.category)?.label || ticket.category.replace(/_/g, ' ')
+    : '';
   const updated = ticket.updatedAt
     ? new Date(ticket.updatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
     : '';
@@ -283,28 +405,23 @@ function TicketCard({ ticket, onPress }: { ticket: Ticket; onPress: () => void }
       <Card style={styles.ticketCard}>
         <View style={styles.ticketHead}>
           <Text style={styles.ticketSubject} numberOfLines={1}>{ticket.subject}</Text>
-          <Badge label={cfg.label} variant={cfg.variant} size="sm" />
-        </View>
-        {lastMsg ? (
-          <Text style={styles.ticketSnippet} numberOfLines={2}>
-            <Text style={styles.snippetSender}>{lastMsg.sender === 'admin' ? 'Support: ' : 'You: '}</Text>
-            {lastMsg.message}
-          </Text>
-        ) : null}
-        <View style={styles.ticketMeta}>
-          {ticket.category ? (
-            <Text style={styles.metaText}>{ticket.category.replace(/_/g, ' ')}</Text>
+          {unread > 0 ? (
+            <View style={styles.unreadDot}>
+              <Text style={styles.unreadDotText}>{unread}</Text>
+            </View>
           ) : null}
-          {updated ? (
+          {updated ? <Text style={styles.updatedText}>{updated}</Text> : null}
+        </View>
+        <View style={styles.ticketMeta}>
+          <Badge label={cfg.label} variant={cfg.variant} size="sm" />
+          {ticket.ticketRef ? (
+            <Text style={styles.ticketRef}>{ticket.ticketRef}</Text>
+          ) : null}
+          {categoryLabel ? (
             <>
               <Text style={styles.metaDot}>·</Text>
-              <Text style={styles.metaText}>Updated {updated}</Text>
+              <Text style={styles.metaText}>{categoryLabel}</Text>
             </>
-          ) : null}
-          {ticket.unreadByBusinessCount && ticket.unreadByBusinessCount > 0 ? (
-            <View style={styles.unreadDot}>
-              <Text style={styles.unreadDotText}>{ticket.unreadByBusinessCount}</Text>
-            </View>
           ) : null}
         </View>
       </Card>
@@ -327,21 +444,73 @@ const styles = StyleSheet.create({
   },
   topBarTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
 
+  // Page header (mirrors PWA "24/7 Support")
+  pageHeader: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: spacing.md },
+  pageTitle: { fontSize: fontSize['2xl'] ?? 28, fontWeight: fontWeight.bold, color: colors.text, letterSpacing: -0.5 },
+  pageSubtitle: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs },
+
+  // Quick contact gradient card
+  contactCard: {
+    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.xl ?? 16,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  contactRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  contactIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactLabel: { fontSize: 10, fontWeight: fontWeight.bold, color: 'rgba(255,255,255,0.75)', letterSpacing: 1 },
+  contactValue: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#fff', marginTop: 2 },
+
+  // Filter tabs
+  filterRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  filterTab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  filterTabActive: { backgroundColor: colors.primary[500], borderColor: colors.primary[500] },
+  filterTabText: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: fontWeight.medium },
+  filterTabTextActive: { color: '#fff' },
+
+  // Empty state
+  emptyWrap: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: spacing['2xl'] ?? 48 },
+  emptyIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: borderRadius.xl ?? 16,
+    backgroundColor: colors.primary[50] ?? '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  emptyTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
+  emptyDesc: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs, textAlign: 'center' },
+  emptyCta: { marginTop: spacing.lg },
+
   cardWrap: { paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   ticketCard: { padding: spacing.lg, gap: spacing.sm },
-  ticketHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  ticketHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   ticketSubject: { flex: 1, fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
-  ticketSnippet: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 20 },
-  snippetSender: { fontWeight: fontWeight.semibold, color: colors.text },
-  ticketMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  updatedText: { fontSize: fontSize.xs, color: colors.textTertiary },
+  ticketMeta: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexWrap: 'wrap' },
+  ticketRef: { fontSize: fontSize.xs, color: colors.textTertiary, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   metaText: { fontSize: fontSize.xs, color: colors.textTertiary },
   metaDot: { fontSize: fontSize.xs, color: colors.textTertiary },
   unreadDot: {
-    marginLeft: 'auto',
-    minWidth: 22,
-    height: 22,
+    minWidth: 20,
+    height: 20,
     paddingHorizontal: 6,
-    borderRadius: 11,
+    borderRadius: 10,
     backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
@@ -376,6 +545,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   modalTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+  modalIntro: { fontSize: fontSize.sm, color: colors.textSecondary, marginBottom: spacing.xs },
   modalScroll: { padding: spacing.lg, gap: spacing.md },
   modalFooter: {
     padding: spacing.lg,

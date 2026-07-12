@@ -19,6 +19,76 @@ import { ItineraryMap } from './ItineraryMap';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Module-level image cache shared across every timeline card + day switch.
+// Without this, each place fired its own POST /destinations/place-images on
+// every render (7-8 concurrent calls per day, re-fired on day switch). Under
+// that concurrent load some requests time out / get throttled server-side, so
+// a random subset of images fell back to the placeholder ("some images not
+// loading"). Cache resolved URLs and de-dupe in-flight requests so each place
+// is fetched exactly once.
+const timelineImageCache = new Map<string, string>();
+const timelineImageInflight = new Map<string, Promise<string | null>>();
+const TIMELINE_IMAGE_TTL = 30 * 60 * 1000; // 30 min
+const timelineImageTs = new Map<string, number>();
+
+function timelineCacheKey(placeName: string, destination: string): string {
+  return `${placeName}|${destination}`;
+}
+
+function getTimelineCached(key: string): string | null {
+  const ts = timelineImageTs.get(key);
+  if (ts && Date.now() - ts > TIMELINE_IMAGE_TTL) {
+    timelineImageCache.delete(key);
+    timelineImageTs.delete(key);
+    return null;
+  }
+  return timelineImageCache.get(key) || null;
+}
+
+// Fetch a place image exactly once. Concurrent callers for the same place share
+// the same in-flight promise instead of each firing their own request.
+async function fetchPlaceImageOnce(placeName: string, destination: string): Promise<string | null> {
+  const key = timelineCacheKey(placeName, destination);
+  const cached = getTimelineCached(key);
+  if (cached) return cached;
+
+  const existing = timelineImageInflight.get(key);
+  if (existing) return existing;
+
+  const promise = (async (): Promise<string | null> => {
+    try {
+      const res = await makeAPICall('/destinations/place-images', {
+        method: 'POST',
+        body: JSON.stringify({ placeName, location: destination, count: 1 }),
+        timeout: 20000,
+      });
+      const data = res?.data || res;
+      const imgArr = Array.isArray(data) ? data : [];
+      if (imgArr.length > 0) {
+        const imgData = imgArr[0];
+        const rawUrl = typeof imgData === 'string'
+          ? imgData
+          : imgData?.url || imgData?.mediumUrl || imgData?.smallUrl || imgData?.s3Url || imgData?.imageUrl || imgData?.originalUrl || null;
+        if (rawUrl) {
+          const resolved = resolveImageUrl(rawUrl) || rawUrl;
+          timelineImageCache.set(key, resolved);
+          timelineImageTs.set(key, Date.now());
+          return resolved;
+        }
+      }
+      return null;
+    } catch (err: any) {
+      console.warn('[Timeline] Image error:', placeName, err?.message);
+      return null;
+    } finally {
+      timelineImageInflight.delete(key);
+    }
+  })();
+
+  timelineImageInflight.set(key, promise);
+  return promise;
+}
+
 interface Place {
   name: string;
   description?: string;
@@ -105,8 +175,9 @@ const PlaceImage: React.FC<{
   existingImage: string | null;
   style: any;
 }> = React.memo(({ placeName, destination, existingImage, style }) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(existingImage);
-  const [loading, setLoading] = useState(!existingImage);
+  const seeded = existingImage || getTimelineCached(timelineCacheKey(placeName, destination));
+  const [imageUrl, setImageUrl] = useState<string | null>(seeded);
+  const [loading, setLoading] = useState(!seeded);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -116,38 +187,19 @@ const PlaceImage: React.FC<{
       return;
     }
 
-    let cancelled = false;
-    const fetchImage = async () => {
-      try {
-        const res = await makeAPICall('/destinations/place-images', {
-          method: 'POST',
-          body: JSON.stringify({
-            placeName,
-            location: destination,
-            count: 1,
-          }),
-          timeout: 20000,
-        });
-        if (cancelled) return;
+    const cached = getTimelineCached(timelineCacheKey(placeName, destination));
+    if (cached) {
+      setImageUrl(cached);
+      setLoading(false);
+      return;
+    }
 
-        const data = res?.data || res;
-        const imgArr = Array.isArray(data) ? data : [];
-        if (imgArr.length > 0) {
-          const imgData = imgArr[0];
-          const rawUrl = typeof imgData === 'string'
-            ? imgData
-            : imgData?.url || imgData?.mediumUrl || imgData?.smallUrl || imgData?.s3Url || imgData?.imageUrl || imgData?.originalUrl || null;
-          if (rawUrl) {
-            setImageUrl(resolveImageUrl(rawUrl) || rawUrl);
-          }
-        }
-      } catch (err: any) {
-        console.warn('[Timeline] Image error:', placeName, err?.message);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    fetchImage();
+    let cancelled = false;
+    fetchPlaceImageOnce(placeName, destination).then((resolved) => {
+      if (cancelled) return;
+      if (resolved) setImageUrl(resolved);
+      setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [placeName, destination, existingImage]);
 
@@ -559,8 +611,11 @@ const PlaceImageWithCallback: React.FC<{
   existingImage: string | null;
   onResolved: (name: string, url: string) => void;
 }> = React.memo(({ placeName, destination, existingImage, onResolved }) => {
-  const [imageUrl, setImageUrl] = useState<string | null>(existingImage);
-  const [loading, setLoading] = useState(!existingImage);
+  // Seed from the shared cache so day-switches / re-renders don't re-fetch or
+  // flash a spinner for a place we've already resolved.
+  const seeded = existingImage || getTimelineCached(timelineCacheKey(placeName, destination));
+  const [imageUrl, setImageUrl] = useState<string | null>(seeded);
+  const [loading, setLoading] = useState(!seeded);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -571,36 +626,23 @@ const PlaceImageWithCallback: React.FC<{
       return;
     }
 
-    let cancelled = false;
-    const fetchImage = async () => {
-      try {
-        const res = await makeAPICall('/destinations/place-images', {
-          method: 'POST',
-          body: JSON.stringify({ placeName, location: destination, count: 1 }),
-          timeout: 20000,
-        });
-        if (cancelled) return;
+    const cached = getTimelineCached(timelineCacheKey(placeName, destination));
+    if (cached) {
+      setImageUrl(cached);
+      setLoading(false);
+      onResolved(placeName, cached);
+      return;
+    }
 
-        const data = res?.data || res;
-        const imgArr = Array.isArray(data) ? data : [];
-        if (imgArr.length > 0) {
-          const imgData = imgArr[0];
-          const rawUrl = typeof imgData === 'string'
-            ? imgData
-            : imgData?.url || imgData?.mediumUrl || imgData?.smallUrl || imgData?.s3Url || imgData?.imageUrl || imgData?.originalUrl || null;
-          if (rawUrl) {
-            const resolved = resolveImageUrl(rawUrl) || rawUrl;
-            setImageUrl(resolved);
-            onResolved(placeName, resolved);
-          }
-        }
-      } catch (err: any) {
-        console.warn('[Timeline] Image error:', placeName, err?.message);
-      } finally {
-        if (!cancelled) setLoading(false);
+    let cancelled = false;
+    fetchPlaceImageOnce(placeName, destination).then((resolved) => {
+      if (cancelled) return;
+      if (resolved) {
+        setImageUrl(resolved);
+        onResolved(placeName, resolved);
       }
-    };
-    fetchImage();
+      setLoading(false);
+    });
     return () => { cancelled = true; };
   }, [placeName, destination, existingImage]);
 

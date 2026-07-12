@@ -9,6 +9,7 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
   TextInput as RNTextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,12 +25,14 @@ import {
   Badge,
   EmptyState,
   StarRating,
+} from '@prayana/shared-ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
   borderRadius,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { businessAPI } from '@prayana/shared-services';
 
 type Review = {
@@ -41,15 +44,37 @@ type Review = {
   createdAt?: string;
   isVerifiedBooking?: boolean;
   helpfulVotes?: number;
+  flaggedByVendor?: boolean;
+  listingId?: { title?: string } | null;
   ownerResponse?: { comment?: string; respondedAt?: string };
 };
 
-type Filter = 'all' | 'unanswered' | 'low';
+type ReviewSummary = {
+  avgRating: number;
+  totalReviews: number;
+  distribution?: Record<string, number>;
+  respondedCount: number;
+  responseRate: number;
+};
+
+type Filter = 'all' | '5star' | '4star' | '3star' | '2star' | '1star' | 'unanswered' | 'responded';
+
+const FILTER_OPTIONS: { key: Filter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: '5star', label: '5★' },
+  { key: '4star', label: '4★' },
+  { key: '3star', label: '3★' },
+  { key: '2star', label: '2★' },
+  { key: '1star', label: '1★' },
+  { key: 'unanswered', label: 'Needs reply' },
+  { key: 'responded', label: 'Replied' },
+];
 
 export default function VendorReviewsScreen() {
   const router = useRouter();
 
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [summary, setSummary] = useState<ReviewSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
@@ -61,13 +86,22 @@ export default function VendorReviewsScreen() {
   const [replyDraft, setReplyDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Flag modal state
+  const [flagReview, setFlagReview] = useState<Review | null>(null);
+  const [flagReason, setFlagReason] = useState('');
+  const [flagging, setFlagging] = useState(false);
+
   const fetchPage = useCallback(
     async (nextPage: number, replace = false) => {
       try {
         const res = await businessAPI.getMyReviews({ page: nextPage, limit: 20 });
-        const incoming: Review[] = res?.reviews || res?.data?.reviews || [];
-        const total = res?.pagination?.total ?? res?.data?.pagination?.total ?? incoming.length;
+        const incoming: Review[] = res?.reviews || res?.data?.reviews || res?.data || [];
+        const total =
+          res?.pagination?.total ?? res?.data?.pagination?.total ?? incoming.length;
+        const nextSummary: ReviewSummary | null =
+          res?.summary || res?.data?.summary || null;
         setReviews((prev) => (replace ? incoming : [...prev, ...incoming]));
+        if (nextSummary) setSummary(nextSummary);
         setHasMore(nextPage * 20 < total);
         setPage(nextPage);
       } catch (err: any) {
@@ -94,23 +128,50 @@ export default function VendorReviewsScreen() {
   }, [loading, hasMore, page, fetchPage]);
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return reviews;
-    if (filter === 'unanswered') return reviews.filter((r) => !r.ownerResponse?.comment);
-    if (filter === 'low') return reviews.filter((r) => r.rating <= 3);
-    return reviews;
+    switch (filter) {
+      case 'all':
+        return reviews;
+      case 'unanswered':
+        return reviews.filter((r) => !r.ownerResponse?.comment);
+      case 'responded':
+        return reviews.filter((r) => !!r.ownerResponse?.comment);
+      default: {
+        const star = parseInt(filter[0], 10);
+        return reviews.filter((r) => r.rating === star);
+      }
+    }
   }, [reviews, filter]);
 
-  const summary = useMemo(() => {
+  // Fallback summary computed from loaded reviews if backend didn't send one
+  const effectiveSummary = useMemo<ReviewSummary | null>(() => {
+    if (summary) return summary;
     if (reviews.length === 0) return null;
-    const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length;
-    const unanswered = reviews.filter((r) => !r.ownerResponse?.comment).length;
-    return { avg, unanswered, total: reviews.length };
-  }, [reviews]);
+    const total = reviews.length;
+    const avg = reviews.reduce((s, r) => s + r.rating, 0) / total;
+    const responded = reviews.filter((r) => !!r.ownerResponse?.comment).length;
+    const distribution = reviews.reduce<Record<string, number>>((acc, r) => {
+      acc[r.rating] = (acc[r.rating] || 0) + 1;
+      return acc;
+    }, {});
+    return {
+      avgRating: Math.round(avg * 10) / 10,
+      totalReviews: total,
+      distribution,
+      respondedCount: responded,
+      responseRate: Math.round((responded / total) * 100),
+    };
+  }, [summary, reviews]);
 
   const openReply = (review: Review) => {
     Haptics.selectionAsync();
     setActiveReview(review);
     setReplyDraft(review.ownerResponse?.comment || '');
+  };
+
+  const openFlag = (review: Review) => {
+    Haptics.selectionAsync();
+    setFlagReview(review);
+    setFlagReason('');
   };
 
   const submitReply = async () => {
@@ -121,7 +182,6 @@ export default function VendorReviewsScreen() {
       if (res?.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Toast.show({ type: 'success', text1: 'Reply published' });
-        // Update the review locally
         setReviews((prev) =>
           prev.map((r) =>
             r._id === activeReview._id
@@ -155,43 +215,91 @@ export default function VendorReviewsScreen() {
     }
   };
 
-  return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="chevron-back" size={26} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.topBarTitle}>Reviews</Text>
-        <View style={{ width: 26 }} />
-      </View>
+  const submitFlag = async () => {
+    if (!flagReview || !flagReason.trim()) return;
+    setFlagging(true);
+    try {
+      const res = await businessAPI.flagReview(flagReview._id, flagReason.trim());
+      if (res?.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Toast.show({ type: 'success', text1: 'Flagged for admin review' });
+        setReviews((prev) =>
+          prev.map((r) =>
+            r._id === flagReview._id ? { ...r, flaggedByVendor: true } : r,
+          ),
+        );
+        setFlagReview(null);
+        setFlagReason('');
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Could not flag review',
+          text2: res?.message,
+        });
+      }
+    } catch (err: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Flag failed',
+        text2: err?.message,
+      });
+    } finally {
+      setFlagging(false);
+    }
+  };
 
-      {summary ? (
-        <Card style={styles.summary}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.summaryAvg}>{summary.avg.toFixed(1)}</Text>
-            <StarRating rating={summary.avg} size={14} />
-            <Text style={styles.summaryMeta}>
-              {summary.total} review{summary.total === 1 ? '' : 's'}
-            </Text>
-          </View>
-          <View style={styles.summaryActionWrap}>
-            <Badge
-              label={`${summary.unanswered} unanswered`}
-              variant={summary.unanswered > 0 ? 'warning' : 'success'}
-              size="md"
-            />
-          </View>
+  const ListHeader = (
+    <View>
+      {/* Summary stat tiles */}
+      {effectiveSummary && effectiveSummary.totalReviews > 0 ? (
+        <View style={styles.statGrid}>
+          <StatTile label="Avg Rating" value={`${effectiveSummary.avgRating} ★`} highlight />
+          <StatTile label="Total Reviews" value={String(effectiveSummary.totalReviews)} />
+          <StatTile
+            label="Replied"
+            value={`${effectiveSummary.respondedCount} / ${effectiveSummary.totalReviews}`}
+          />
+          <StatTile
+            label="Response Rate"
+            value={`${effectiveSummary.responseRate}%`}
+            warn={effectiveSummary.responseRate < 70}
+          />
+        </View>
+      ) : null}
+
+      {/* Rating distribution */}
+      {effectiveSummary && effectiveSummary.totalReviews > 0 ? (
+        <Card style={styles.distCard}>
+          <Text style={styles.distTitle}>RATING DISTRIBUTION</Text>
+          {[5, 4, 3, 2, 1].map((r) => {
+            const count = effectiveSummary.distribution?.[r] || 0;
+            const pct =
+              effectiveSummary.totalReviews > 0
+                ? (count / effectiveSummary.totalReviews) * 100
+                : 0;
+            return (
+              <View key={r} style={styles.distRow}>
+                <View style={styles.distLabel}>
+                  <Text style={styles.distLabelText}>{r}</Text>
+                  <Ionicons name="star" size={11} color="#f59e0b" />
+                </View>
+                <View style={styles.distTrack}>
+                  <View style={[styles.distFill, { width: `${pct}%` }]} />
+                </View>
+                <Text style={styles.distCount}>{count}</Text>
+              </View>
+            );
+          })}
         </Card>
       ) : null}
 
-      <View style={styles.filterRow}>
-        {(
-          [
-            { key: 'all', label: 'All' },
-            { key: 'unanswered', label: 'Unanswered' },
-            { key: 'low', label: '≤ 3 stars' },
-          ] as { key: Filter; label: string }[]
-        ).map((f) => {
+      {/* Filter pills */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.filterRow}
+      >
+        {FILTER_OPTIONS.map((f) => {
           const active = filter === f.key;
           return (
             <TouchableOpacity
@@ -200,31 +308,58 @@ export default function VendorReviewsScreen() {
               style={[styles.filterChip, active && styles.filterChipActive]}
               activeOpacity={0.7}
             >
-              <Text style={[styles.filterText, active && styles.filterTextActive]}>{f.label}</Text>
+              <Text style={[styles.filterText, active && styles.filterTextActive]}>
+                {f.label}
+              </Text>
             </TouchableOpacity>
           );
         })}
+      </ScrollView>
+    </View>
+  );
+
+  return (
+    <SafeAreaView style={styles.container} edges={['top']}>
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="chevron-back" size={26} color={colors.text} />
+        </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: spacing.md }}>
+          <Text style={styles.topBarTitle}>Reviews</Text>
+          <Text style={styles.topBarSubtitle}>
+            Reply, flag inappropriate content, monitor your response rate
+          </Text>
+        </View>
       </View>
 
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary[500]} />
         </View>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={<Ionicons name="chatbubbles-outline" size={56} color={colors.gray[300]} />}
-          title={filter === 'unanswered' ? 'All caught up' : 'No reviews yet'}
-          description={
-            filter === 'unanswered'
-              ? "You've replied to every review. Nice work!"
-              : 'Reviews from your customers will appear here.'
-          }
-        />
       ) : (
         <FlashList
           data={filtered}
           keyExtractor={(r) => r._id}
-          renderItem={({ item }) => <ReviewCard review={item} onReply={() => openReply(item)} />}
+          ListHeaderComponent={ListHeader}
+          renderItem={({ item }) => (
+            <ReviewCard
+              review={item}
+              onReply={() => openReply(item)}
+              onFlag={() => openFlag(item)}
+            />
+          )}
+          ListEmptyComponent={
+            <EmptyState
+              icon={
+                <Ionicons name="chatbubbles-outline" size={56} color={colors.gray[300]} />
+              }
+              title="No reviews match this filter"
+              description="Once customers complete activities and leave reviews, they'll appear here. Great reviews help attract more bookings."
+            />
+          }
           contentContainerStyle={{ paddingBottom: spacing['3xl'] }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           onEndReachedThreshold={0.5}
@@ -244,7 +379,10 @@ export default function VendorReviewsScreen() {
             <Text style={styles.modalTitle}>
               {activeReview?.ownerResponse?.comment ? 'Edit reply' : 'Reply'}
             </Text>
-            <TouchableOpacity onPress={() => setActiveReview(null)} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <TouchableOpacity
+              onPress={() => setActiveReview(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
               <Ionicons name="close" size={26} color={colors.text} />
             </TouchableOpacity>
           </View>
@@ -258,7 +396,9 @@ export default function VendorReviewsScreen() {
                 <View style={styles.replyContext}>
                   <View style={styles.replyHead}>
                     <StarRating rating={activeReview.rating} size={14} />
-                    <Text style={styles.replyAuthor}>{activeReview.userName || 'Traveller'}</Text>
+                    <Text style={styles.replyAuthor}>
+                      {activeReview.userName || 'Traveller'}
+                    </Text>
                   </View>
                   {activeReview.comment ? (
                     <Text style={styles.replyComment} numberOfLines={4}>
@@ -272,7 +412,7 @@ export default function VendorReviewsScreen() {
               <RNTextInput
                 value={replyDraft}
                 onChangeText={setReplyDraft}
-                placeholder="Thanks for the kind words! We can't wait to host you again."
+                placeholder="Thank you for the review! Be professional and concise."
                 placeholderTextColor={colors.textTertiary}
                 multiline
                 style={styles.replyInput}
@@ -295,11 +435,111 @@ export default function VendorReviewsScreen() {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+
+      {/* Flag modal */}
+      <Modal
+        visible={!!flagReview}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setFlagReview(null)}
+      >
+        <SafeAreaView style={styles.modalContainer} edges={['top']}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Flag for admin</Text>
+            <TouchableOpacity
+              onPress={() => setFlagReview(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="close" size={26} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={{ flex: 1 }}
+          >
+            <View style={styles.modalScroll}>
+              <View style={styles.flagNotice}>
+                <Ionicons name="flag" size={16} color={colors.error} />
+                <Text style={styles.flagNoticeText}>
+                  Flag this review for admin moderation. Provide a reason — e.g. fake
+                  review, vulgarity, off-topic. You cannot delete reviews yourself.
+                </Text>
+              </View>
+
+              <Text style={styles.replyLabel}>Reason</Text>
+              <RNTextInput
+                value={flagReason}
+                onChangeText={setFlagReason}
+                placeholder="Reason (max 500 chars)"
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                style={styles.replyInput}
+                maxLength={500}
+              />
+              <Text style={styles.charCount}>{flagReason.length} / 500</Text>
+
+              <View style={{ flex: 1 }} />
+
+              <Button
+                title="Submit flag"
+                onPress={submitFlag}
+                variant="danger"
+                size="lg"
+                fullWidth
+                loading={flagging}
+                disabled={flagging || !flagReason.trim()}
+              />
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function ReviewCard({ review, onReply }: { review: Review; onReply: () => void }) {
+function StatTile({
+  label,
+  value,
+  highlight,
+  warn,
+}: {
+  label: string;
+  value: string;
+  highlight?: boolean;
+  warn?: boolean;
+}) {
+  return (
+    <Card
+      style={[
+        styles.statTile,
+        highlight && styles.statTileHighlight,
+        warn && styles.statTileWarn,
+      ]}
+    >
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text
+        style={[
+          styles.statValue,
+          highlight && styles.statValueHighlight,
+          warn && styles.statValueWarn,
+        ]}
+      >
+        {value}
+      </Text>
+    </Card>
+  );
+}
+
+function ReviewCard({
+  review,
+  onReply,
+  onFlag,
+}: {
+  review: Review;
+  onReply: () => void;
+  onFlag: () => void;
+}) {
   const date = review.createdAt
     ? new Date(review.createdAt).toLocaleDateString('en-IN', {
         day: 'numeric',
@@ -312,11 +552,7 @@ function ReviewCard({ review, onReply }: { review: Review; onReply: () => void }
   return (
     <Card style={styles.reviewCard}>
       <View style={styles.reviewHead}>
-        <Avatar
-          uri={review.userAvatar}
-          name={review.userName || 'Traveller'}
-          size={40}
-        />
+        <Avatar uri={review.userAvatar} name={review.userName || 'Traveller'} size={40} />
         <View style={{ flex: 1, marginLeft: spacing.md }}>
           <View style={styles.nameRow}>
             <Text style={styles.userName}>{review.userName || 'Traveller'}</Text>
@@ -328,12 +564,44 @@ function ReviewCard({ review, onReply }: { review: Review; onReply: () => void }
             <StarRating rating={review.rating} size={13} />
             {date ? <Text style={styles.dateText}> · {date}</Text> : null}
           </View>
+          {review.listingId?.title ? (
+            <Text style={styles.listingText} numberOfLines={1}>
+              {review.listingId.title}
+            </Text>
+          ) : null}
         </View>
       </View>
 
       {review.comment ? (
         <Text style={styles.reviewComment}>{review.comment}</Text>
       ) : null}
+
+      {/* Meta + actions row */}
+      <View style={styles.actionRow}>
+        <View style={styles.helpful}>
+          <Ionicons name="thumbs-up-outline" size={14} color={colors.textTertiary} />
+          <Text style={styles.helpfulText}>{review.helpfulVotes || 0} helpful</Text>
+        </View>
+
+        {!replied ? (
+          <TouchableOpacity style={styles.actionBtn} onPress={onReply}>
+            <Ionicons name="arrow-undo-outline" size={15} color={colors.primary[500]} />
+            <Text style={styles.actionBtnText}>Reply</Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {review.flaggedByVendor ? (
+          <View style={styles.flaggedTag}>
+            <Ionicons name="flag" size={13} color={colors.warning} />
+            <Text style={styles.flaggedTagText}>Flagged — awaiting admin</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.actionBtn} onPress={onFlag}>
+            <Ionicons name="flag-outline" size={15} color={colors.textTertiary} />
+            <Text style={styles.actionBtnMuted}>Flag for admin</Text>
+          </TouchableOpacity>
+        )}
+      </View>
 
       {replied ? (
         <View style={styles.responseBlock}>
@@ -342,7 +610,8 @@ function ReviewCard({ review, onReply }: { review: Review; onReply: () => void }
             <Text style={styles.responseLabel}>Your reply</Text>
             {review.ownerResponse?.respondedAt ? (
               <Text style={styles.responseDate}>
-                · {new Date(review.ownerResponse.respondedAt).toLocaleDateString('en-IN', {
+                ·{' '}
+                {new Date(review.ownerResponse.respondedAt).toLocaleDateString('en-IN', {
                   day: 'numeric',
                   month: 'short',
                 })}
@@ -354,17 +623,7 @@ function ReviewCard({ review, onReply }: { review: Review; onReply: () => void }
             <Text style={styles.editLinkText}>Edit reply</Text>
           </TouchableOpacity>
         </View>
-      ) : (
-        <View style={{ marginTop: spacing.md }}>
-          <Button
-            title="Reply"
-            onPress={onReply}
-            variant="outline"
-            size="md"
-            icon={<Ionicons name="chatbox-outline" size={16} color={colors.primary[500]} />}
-          />
-        </View>
-      )}
+      ) : null}
     </Card>
   );
 }
@@ -375,7 +634,6 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: colors.background,
@@ -383,19 +641,56 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   topBarTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+  topBarSubtitle: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
 
-  summary: {
+  // Stat tiles
+  statGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    margin: spacing.lg,
-    padding: spacing.lg,
-    gap: spacing.lg,
+    flexWrap: 'wrap',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: spacing.sm,
   },
-  summaryAvg: { fontSize: 36, fontWeight: fontWeight.bold, color: colors.text, marginBottom: 4 },
-  summaryMeta: { marginTop: 4, fontSize: fontSize.xs, color: colors.textTertiary },
-  summaryActionWrap: { alignItems: 'flex-end' },
+  statTile: {
+    flexBasis: '48%',
+    flexGrow: 1,
+    padding: spacing.md,
+  },
+  statTileHighlight: { borderColor: '#fcd34d', borderWidth: 1 },
+  statTileWarn: { borderColor: '#fca5a5', borderWidth: 1 },
+  statLabel: { fontSize: fontSize.xs, color: colors.textTertiary },
+  statValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text, marginTop: 2 },
+  statValueHighlight: { color: '#d97706' },
+  statValueWarn: { color: colors.error },
 
-  filterRow: { flexDirection: 'row', paddingHorizontal: spacing.lg, gap: spacing.sm, marginBottom: spacing.md },
+  // Distribution
+  distCard: { marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.lg, gap: spacing.sm },
+  distTitle: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    color: colors.textTertiary,
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  distRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  distLabel: { flexDirection: 'row', alignItems: 'center', gap: 2, width: 28 },
+  distLabelText: { fontSize: fontSize.sm, color: colors.text },
+  distTrack: {
+    flex: 1,
+    height: 8,
+    backgroundColor: colors.gray[100],
+    borderRadius: borderRadius.full,
+    overflow: 'hidden',
+  },
+  distFill: { height: '100%', backgroundColor: '#f59e0b', borderRadius: borderRadius.full },
+  distCount: { width: 36, textAlign: 'right', fontSize: fontSize.xs, color: colors.textTertiary },
+
+  // Filters
+  filterRow: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
   filterChip: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -408,13 +703,33 @@ const styles = StyleSheet.create({
   filterText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.textSecondary },
   filterTextActive: { color: '#fff' },
 
+  // Review card
   reviewCard: { marginHorizontal: spacing.lg, marginBottom: spacing.md, padding: spacing.lg },
-  reviewHead: { flexDirection: 'row', alignItems: 'center' },
+  reviewHead: { flexDirection: 'row', alignItems: 'flex-start' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   userName: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
   ratingRow: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
   dateText: { fontSize: fontSize.xs, color: colors.textTertiary },
+  listingText: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
   reviewComment: { marginTop: spacing.md, fontSize: fontSize.sm, color: colors.text, lineHeight: 22 },
+
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.lg,
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  helpful: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  helpfulText: { fontSize: fontSize.xs, color: colors.textTertiary },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  actionBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.primary[500] },
+  actionBtnMuted: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.textTertiary },
+  flaggedTag: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  flaggedTagText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.warning },
 
   responseBlock: {
     marginTop: spacing.md,
@@ -431,6 +746,7 @@ const styles = StyleSheet.create({
   editLink: { marginTop: spacing.sm, alignSelf: 'flex-start' },
   editLinkText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, color: colors.primary[600] },
 
+  // Modals
   modalContainer: { flex: 1, backgroundColor: colors.background },
   modalHeader: {
     flexDirection: 'row',
@@ -453,6 +769,15 @@ const styles = StyleSheet.create({
   replyHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   replyAuthor: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text },
   replyComment: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 20 },
+
+  flagNotice: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    padding: spacing.md,
+    backgroundColor: '#fef2f2',
+    borderRadius: borderRadius.md,
+  },
+  flagNoticeText: { flex: 1, fontSize: fontSize.xs, color: colors.error, lineHeight: 18 },
 
   replyLabel: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text, marginTop: spacing.md },
   replyInput: {

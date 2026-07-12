@@ -8,6 +8,7 @@ import Toast from 'react-native-toast-message';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@prayana/shared-hooks';
 import { ThemeProvider, useTheme } from '@prayana/shared-ui';
+import { colors as vendorColors } from '../theme/vendorColors';
 import { setBaseURL } from '@prayana/shared-services';
 import { ENV } from '../config/env';
 import { queryClient } from '../lib/queryClient';
@@ -38,7 +39,10 @@ function AuthGuard() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!isAuthenticated && !inAuthGroup) {
-      router.replace('/(auth)/login');
+      // Unauthenticated users land on the marketing/landing screen first
+      // (matches the web /business hero). From there they choose Get started
+      // (signup) or Sign in (login).
+      router.replace('/(auth)/landing');
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
     }
@@ -114,7 +118,7 @@ function RootNavigator() {
 export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
+      <ThemeProvider brand={vendorColors.primary}>
         <AuthProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>

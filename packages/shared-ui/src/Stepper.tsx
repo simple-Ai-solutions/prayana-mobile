@@ -9,7 +9,7 @@ interface StepperProps {
 }
 
 export function Stepper({ steps, currentStep }: StepperProps) {
-  const { themeColors } = useTheme();
+  const { themeColors, brand } = useTheme();
   return (
     <View style={styles.container}>
       {steps.map((step, index) => {
@@ -23,8 +23,8 @@ export function Stepper({ steps, currentStep }: StepperProps) {
                 style={[
                   styles.circle,
                   { backgroundColor: themeColors.border },
-                  isActive && styles.circleActive,
-                  isCompleted && styles.circleCompleted,
+                  isActive && [styles.circleActive, { backgroundColor: brand[500] }],
+                  isCompleted && [styles.circleCompleted, { backgroundColor: brand[500] }],
                 ]}
               >
                 <Text
@@ -41,8 +41,8 @@ export function Stepper({ steps, currentStep }: StepperProps) {
                 style={[
                   styles.label,
                   { color: themeColors.textTertiary },
-                  isActive && styles.labelActive,
-                  isCompleted && styles.labelCompleted,
+                  isActive && [styles.labelActive, { color: brand[500] }],
+                  isCompleted && [styles.labelCompleted, { color: brand[500] }],
                 ]}
                 numberOfLines={1}
               >
@@ -54,7 +54,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
                 style={[
                   styles.connector,
                   { backgroundColor: themeColors.border },
-                  isCompleted && styles.connectorCompleted,
+                  isCompleted && [styles.connectorCompleted, { backgroundColor: brand[500] }],
                 ]}
               />
             )}
@@ -84,9 +84,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  circleActive: {
-    backgroundColor: colors.primary[500],
-  },
+  circleActive: {},
   circleCompleted: {
     backgroundColor: colors.primary[500],
   },
@@ -106,7 +104,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   labelActive: {
-    color: colors.primary[500],
     fontWeight: fontWeight.semibold,
   },
   labelCompleted: {

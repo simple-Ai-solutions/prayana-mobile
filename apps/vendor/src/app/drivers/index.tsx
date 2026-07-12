@@ -22,13 +22,15 @@ import {
   Badge,
   EmptyState,
   LoadingSpinner,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { driverAPI } from '@prayana/shared-services';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -163,7 +165,7 @@ function DriverCard({
           size="sm"
         />
         <Badge
-          label={`Check: ${(driver.backgroundCheckStatus || 'pending').replace(/[_-]+/g, ' ')}`}
+          label={(driver.backgroundCheckStatus || 'pending').replace(/[_-]+/g, ' ')}
           variant={backgroundCheckVariant(driver.backgroundCheckStatus)}
           size="sm"
         />
@@ -368,7 +370,7 @@ export default function DriversScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Drivers</Text>
+        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Driver Management</Text>
         <TouchableOpacity
           onPress={() => setFormOpen((v) => !v)}
           style={styles.headerAction}
@@ -392,12 +394,17 @@ export default function DriversScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
             }
           >
+            {/* Page intro (mirrors PWA header) */}
+            <Text style={[styles.pageSubtitle, { color: themeColors.textSecondary }]}>
+              Add and manage your drivers for chauffeur-driven bookings
+            </Text>
+
             {/* Add Driver form (collapsible) */}
             {formOpen ? (
               <Card style={styles.formCard}>
                 <View style={styles.sectionHeader}>
                   <Ionicons name="person-add-outline" size={20} color={colors.primary[500]} />
-                  <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Add Driver</Text>
+                  <Text style={[styles.sectionTitle, { color: themeColors.text }]}>New Driver</Text>
                 </View>
 
                 <Text style={labelStyle}>Full Name *</Text>
@@ -504,8 +511,8 @@ export default function DriversScreen() {
                 <View style={styles.emptyWrap}>
                   <EmptyState
                     icon={<Ionicons name="people-outline" size={56} color={colors.gray[300]} />}
-                    title="No drivers yet"
-                    description="Add drivers to assign them to chauffeur-driven transport bookings."
+                    title="No drivers added"
+                    description="Add drivers to assign them to chauffeur-driven bookings"
                     actionLabel="Add Driver"
                     onAction={() => setFormOpen(true)}
                   />
@@ -572,6 +579,11 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.xl,
+  },
+  pageSubtitle: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
   },
   emptyWrap: {
     paddingTop: spacing['3xl'],

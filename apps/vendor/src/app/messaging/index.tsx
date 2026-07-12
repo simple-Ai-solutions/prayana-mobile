@@ -10,19 +10,16 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Avatar, EmptyState, SearchBar } from '@prayana/shared-ui';
+import { LoadingSpinner } from '../../components/ui';
 import {
-  Card,
-  Avatar,
-  LoadingSpinner,
-  EmptyState,
-  SearchBar,
   colors,
   fontSize,
   fontWeight,
   spacing,
   borderRadius,
   shadow,
-} from '@prayana/shared-ui';
+} from '../../theme/vendorColors';
 import { businessAPI, messageAPI } from '@prayana/shared-services';
 import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 
@@ -38,6 +35,9 @@ interface MessageThread {
   lastMessageTime?: string;
   unreadCount: number;
   activityName?: string;
+  /** 'inquiry' = pre-booking question, 'booking' = confirmed booking thread */
+  type: 'inquiry' | 'booking';
+  flaggedForReview?: boolean;
 }
 
 // ─── Thread Item ──────────────────────────────────────────────────────────────
@@ -46,6 +46,9 @@ function ThreadItem({ thread, onPress }: { thread: MessageThread; onPress: () =>
   const timeStr = thread.lastMessageTime
     ? getRelativeTime(new Date(thread.lastMessageTime))
     : '';
+
+  const hasUnread = thread.unreadCount > 0;
+  const isInquiry = thread.type === 'inquiry';
 
   return (
     <TouchableOpacity style={styles.threadItem} onPress={onPress} activeOpacity={0.7}>
@@ -56,35 +59,50 @@ function ThreadItem({ thread, onPress }: { thread: MessageThread; onPress: () =>
       />
       <View style={styles.threadContent}>
         <View style={styles.threadTop}>
-          <Text style={styles.threadName} numberOfLines={1}>
+          <Text
+            style={[styles.threadName, hasUnread && styles.threadNameUnread]}
+            numberOfLines={1}
+          >
             {thread.customerName}
           </Text>
           {timeStr ? <Text style={styles.threadTime}>{timeStr}</Text> : null}
         </View>
-        {thread.activityName && (
-          <Text style={styles.threadActivity} numberOfLines={1}>
-            {thread.activityName}
-          </Text>
+
+        {/* Activity — matches PWA "—" fallback */}
+        <Text style={styles.threadActivity} numberOfLines={1}>
+          {thread.activityName || '—'}
+        </Text>
+
+        {/* Last message preview — matches PWA "(no messages)" fallback */}
+        <Text
+          style={[styles.threadPreview, hasUnread && styles.threadPreviewUnread]}
+          numberOfLines={1}
+        >
+          {thread.lastMessage || '(no messages)'}
+        </Text>
+
+        {/* Type badge — Pre-booking (inquiry) vs Booking */}
+        <View style={styles.threadBadgeRow}>
+          <View style={[styles.typeBadge, isInquiry ? styles.typeBadgeInquiry : styles.typeBadgeBooking]}>
+            <Text style={[styles.typeBadgeText, isInquiry ? styles.typeBadgeTextInquiry : styles.typeBadgeTextBooking]}>
+              {isInquiry ? 'Pre-booking' : 'Booking'}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.threadRight}>
+        {hasUnread && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadCount}>
+              {thread.unreadCount > 99 ? '99+' : thread.unreadCount}
+            </Text>
+          </View>
         )}
-        {thread.lastMessage && (
-          <Text
-            style={[
-              styles.threadPreview,
-              thread.unreadCount > 0 && styles.threadPreviewUnread,
-            ]}
-            numberOfLines={1}
-          >
-            {thread.lastMessage}
-          </Text>
+        {thread.flaggedForReview && (
+          <Ionicons name="warning" size={14} color={colors.warning} />
         )}
       </View>
-      {thread.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadCount}>
-            {thread.unreadCount > 99 ? '99+' : thread.unreadCount}
-          </Text>
-        </View>
-      )}
     </TouchableOpacity>
   );
 }
@@ -142,6 +160,14 @@ export default function MessagingScreen() {
           // Skip if messages endpoint not available
         }
 
+        // A booking-derived thread is a confirmed "booking"; pre-booking
+        // "inquiry" threads (from activity pages) come flagged on the booking
+        // record where the backend exposes it.
+        const type: 'inquiry' | 'booking' =
+          b.conversationType === 'inquiry' || b.type === 'inquiry'
+            ? 'inquiry'
+            : 'booking';
+
         threadList.push({
           _id: b._id,
           bookingId: b._id,
@@ -153,6 +179,8 @@ export default function MessagingScreen() {
           unreadCount,
           activityName:
             b.activityName || b.activity?.title || b.activity?.name || '',
+          type,
+          flaggedForReview: !!b.flaggedForReview,
         });
       }
 
@@ -253,11 +281,36 @@ export default function MessagingScreen() {
           )}
           contentContainerStyle={styles.listContent}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
+          ListFooterComponent={
+            filteredThreads.length > 0 ? (
+              <View style={styles.safetyNote}>
+                <Ionicons
+                  name="shield-checkmark-outline"
+                  size={14}
+                  color={colors.textTertiary}
+                />
+                <Text style={styles.safetyNoteText}>
+                  Phone numbers, emails, and off-platform contact info are
+                  auto-hidden to keep customers safe.
+                </Text>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <EmptyState
-              icon={<Ionicons name="chatbubbles-outline" size={48} color={colors.textTertiary} />}
-              title="No conversations"
-              description="Messages from customers about their bookings will appear here."
+              icon={
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={48}
+                  color={colors.primary[500]}
+                />
+              }
+              title={threads.length === 0 ? 'No messages yet' : 'No matches'}
+              description={
+                threads.length === 0
+                  ? 'Customers can ask pre-booking questions on your activity pages.'
+                  : 'Try a different search term.'
+              }
             />
           }
           refreshControl={
@@ -368,6 +421,9 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: spacing.sm,
   },
+  threadNameUnread: {
+    fontWeight: fontWeight.bold,
+  },
   threadTime: {
     fontSize: fontSize.xs,
     color: colors.textTertiary,
@@ -385,6 +441,49 @@ const styles = StyleSheet.create({
   threadPreviewUnread: {
     color: colors.text,
     fontWeight: fontWeight.medium,
+  },
+  threadBadgeRow: {
+    flexDirection: 'row',
+    marginTop: spacing.xs,
+  },
+  typeBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.full,
+  },
+  typeBadgeInquiry: {
+    backgroundColor: colors.primary[100],
+  },
+  typeBadgeBooking: {
+    backgroundColor: colors.successLight,
+  },
+  typeBadgeText: {
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+  },
+  typeBadgeTextInquiry: {
+    color: colors.primary[600],
+  },
+  typeBadgeTextBooking: {
+    color: '#15803d',
+  },
+  threadRight: {
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  safetyNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  safetyNoteText: {
+    flex: 1,
+    fontSize: fontSize.xs,
+    color: colors.textTertiary,
+    lineHeight: 16,
   },
   unreadBadge: {
     backgroundColor: colors.primary[500],

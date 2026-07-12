@@ -22,13 +22,15 @@ import {
   Button,
   Badge,
   EmptyState,
+  useTheme,
+} from '@prayana/shared-ui';
+import {
   colors,
   spacing,
   fontSize,
   fontWeight,
   borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+} from '../../../theme/vendorColors';
 import { activityMarketplaceAPI } from '@prayana/shared-services';
 
 // ============================================================
