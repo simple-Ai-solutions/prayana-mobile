@@ -14,6 +14,7 @@ import {
   Pressable,
   Alert,
   Modal,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -28,6 +29,7 @@ import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
 import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
 import { RecentItineraries } from '../../components/home/RecentItineraries';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
+import { PrayanaLogo } from '../../components/home/PrayanaLogo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -58,6 +60,41 @@ const HERO_TABS_MORE = [
   { id: 'divya-darshana', label: 'Divya Darshana', icon: require('../../../assets/hero-icons/divya-darshana.png'), route: '/divya-darshana' },
 ];
 const MORE_ICON = require('../../../assets/hero-icons/more.png');
+
+// Canonical brand palette — taken from the logo (Design System §2).
+// Teal is primary, red is secondary. Red stays a SMALL accent, never a wide
+// background. Applied here only: the hero is a new brand surface, and the
+// system forbids bulk-swapping primary-500 across existing components.
+const BRAND = {
+  teal: '#4AC0CC', // primary — brand surfaces, primary CTAs, hero accents
+  tealLight: '#5ED8E4',
+  tealDeep: '#0D5E5F',
+  tealInk: '#042F2E',
+  red: '#E61417', // secondary — badges, urgent states. Small areas only.
+  flame: '#FB923C', // logo gradient stop — CTA only
+} as const;
+
+// Hero rotates a destination photo + name, mirroring the web ("…escape to Kerala").
+// Every photo below was opened and confirmed to actually depict its destination.
+// NOTE: TOP_INDIA's own list is not safe to reuse here — its "Ladakh" URL returns
+// a tropical beach and its "Kashmir" URL is a dead 404.
+const HERO_DESTINATIONS = [
+  { name: 'Kerala', image: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1200&q=80' }, // backwaters
+  { name: 'Rajasthan', image: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1200&q=80' }, // Hawa Mahal
+  { name: 'Agra', image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=1200&q=80' }, // Taj Mahal
+  { name: 'Goa', image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1200&q=80' }, // beach
+  { name: 'Himachal', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=1200&q=80' }, // snow
+];
+
+// "More ways to explore" — pastel cards with NEW/SOON badges (web parity).
+// Icons use the transparent cutouts — the originals have an opaque white plate
+// that reads as a white box on the pastel cards.
+const MORE_WAYS = [
+  { id: 'esim', label: 'Travel eSIM', tag: 'NEW', tagColor: '#E61417', bg: '#FDECE4', icon: require('../../../assets/hero-icons/cutout/esim.png'), route: '/esim' },
+  { id: 'world', label: 'Explore World', tag: 'NEW', tagColor: '#7C3AED', bg: '#ECE7FB', icon: require('../../../assets/hero-icons/cutout/global-experiences.png'), route: '/global-experiences' },
+  { id: 'things', label: 'Things to Do', tag: 'NEW', tagColor: '#E11D48', bg: '#FDE6EA', icon: require('../../../assets/hero-icons/cutout/activities.png'), route: '/activities' },
+  { id: 'deals', label: 'Holiday Deals', tag: 'SOON', tagColor: '#F59E0B', bg: '#FDF3D8', icon: require('../../../assets/hero-icons/cutout/holiday-packages.png'), route: '/packages' },
+];
 
 // ============================================================
 // SECTION 2: DISCOVER BY INTEREST (matching web DiscoverByInterest)
@@ -334,7 +371,28 @@ export default function HomeScreen() {
     },
     [isAuthenticated, user, router]
   );
-  const { themeColors, isDarkMode } = useTheme();
+  const { themeColors, isDarkMode, toggleTheme } = useTheme();
+
+  // Rotate the hero destination (photo + name) like the web hero does.
+  // Every photo is prefetched first: the name swaps instantly, so without a
+  // warm cache the old photo would still be on screen under the new name.
+  const [heroIdx, setHeroIdx] = useState(0);
+  const [heroReady, setHeroReady] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(HERO_DESTINATIONS.map((d) => Image.prefetch(d.image).catch(() => false)))
+      .then(() => { if (!cancelled) setHeroReady(true); })
+      .catch(() => { if (!cancelled) setHeroReady(true); });
+    return () => { cancelled = true; };
+  }, []);
+  useEffect(() => {
+    if (!heroReady) return; // don't rotate until every photo is cached
+    const t = setInterval(() => {
+      setHeroIdx((i) => (i + 1) % HERO_DESTINATIONS.length);
+    }, 6000);
+    return () => clearInterval(t);
+  }, [heroReady]);
+  const heroDest = HERO_DESTINATIONS[heroIdx];
   const [popularActivities, setPopularActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -440,6 +498,25 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+      {/* Top header bar — logo + brand + quick actions (matches web) */}
+      <View style={[styles.appHeader, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
+        <View style={styles.appHeaderLeft}>
+          <PrayanaLogo size={26} />
+          <Text style={styles.appHeaderBrand}>PrayanaAI</Text>
+        </View>
+        <View style={styles.appHeaderRight}>
+          <Text style={styles.appHeaderFlag}>🇮🇳</Text>
+          <TouchableOpacity onPress={toggleTheme} hitSlop={8}>
+            <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={22} color={themeColors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/notifications' as any)} hitSlop={8}>
+            <Ionicons name="notifications-outline" size={22} color={themeColors.text} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)} style={styles.appHeaderAvatar} hitSlop={8}>
+            <Ionicons name="person" size={16} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
+      </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary[500]} />}
@@ -447,81 +524,95 @@ export default function HomeScreen() {
         {/* ============================================================ */}
         {/* HERO SECTION (matching web HeroSection)                       */}
         {/* ============================================================ */}
-        <LinearGradient
-          colors={isDarkMode
-            ? ['#0a0a0a', '#1a1a2e', '#0a0a0a']
-            : ['#EFF6FF', '#F0FDFA', '#ECFEFF']
-          }
+        <ImageBackground
+          source={{ uri: heroDest.image }}
           style={styles.hero}
+          imageStyle={styles.heroImage}
         >
-          {/* Floating Orbs */}
-          <Animated.View style={[styles.orb1, { transform: [{ translateY: orbTranslate1 }], backgroundColor: isDarkMode ? 'rgba(249,115,22,0.15)' : 'rgba(249,115,22,0.08)' }]} />
-          <Animated.View style={[styles.orb2, { transform: [{ translateY: orbTranslate2 }], backgroundColor: isDarkMode ? 'rgba(255,230,109,0.12)' : 'rgba(255,230,109,0.08)' }]} />
+          {/* Legibility scrim — bright destination photos need a real floor,
+              otherwise the white serif headline washes out. */}
+          <LinearGradient
+            colors={['rgba(4,20,26,0.72)', 'rgba(4,20,26,0.55)', 'rgba(4,20,26,0.80)']}
+            style={StyleSheet.absoluteFill}
+          />
 
-          {/* Title: "Where?" */}
-          <Text style={[styles.heroTitle, { color: isDarkMode ? '#ffffff' : '#1E40AF' }]}>
-            Where?
-          </Text>
-          <Text style={[styles.heroSubtitle, { color: isDarkMode ? 'rgba(255,255,255,0.7)' : '#6B7280' }]}>
-            Your next adventure awaits
-          </Text>
-
-          {/* Hero Service Tabs — 4 brand icons + More (matches PWA mobile home) */}
-          <View style={styles.heroTabsRow}>
-            {HERO_TABS.map((tab) => (
-              <TouchableOpacity
-                key={tab.id}
-                style={styles.heroTab}
-                onPress={() =>
-                  tab.id === 'quick-itinerary'
-                    ? setShowQuickItinerary(true)
-                    : router.push(tab.route as any)
-                }
-                activeOpacity={0.7}
-              >
-                <Image source={tab.icon} style={styles.heroTabIcon} resizeMode="contain" />
-                <Text
-                  style={[styles.heroTabLabel, { color: isDarkMode ? '#FFFFFF' : '#1F2937' }]}
-                  numberOfLines={2}
-                >
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-            <TouchableOpacity
-              style={styles.heroTab}
-              onPress={() => setShowMoreSheet(true)}
-              activeOpacity={0.7}
-            >
-              <Image source={MORE_ICON} style={styles.heroTabIcon} resizeMode="contain" />
-              <Text
-                style={[styles.heroTabLabel, { color: isDarkMode ? '#FFFFFF' : '#1F2937' }]}
-                numberOfLines={2}
-              >
-                More
-              </Text>
-            </TouchableOpacity>
+          {/* Glass badge — seasonal context */}
+          <View style={styles.heroBadge}>
+            <Ionicons name="rainy-outline" size={18} color="#FFFFFF" />
+            <View style={styles.heroBadgeText}>
+              <Text style={styles.heroBadgeTitle}>Monsoon Magic Awaits</Text>
+              <Text style={styles.heroBadgeSub}>Green trails, misty views &amp; peaceful escapes</Text>
+            </View>
           </View>
 
-          {/* Search Bar */}
+          {/* Headline — script + serif, destination in teal (web parity) */}
+          <Text style={styles.heroScript}>Plan your</Text>
+          <Text style={styles.heroSerif}>
+            perfect escape to{' '}
+            <Text style={styles.heroSerifAccent}>{heroDest.name}</Text>
+          </Text>
+
+          {/* Primary CTA — red→orange logo gradient pill */}
           <TouchableOpacity
-            style={[styles.searchBar, {
-              backgroundColor: isDarkMode ? '#1F2937' : '#ffffff',
-              borderColor: isDarkMode ? '#374151' : '#D1D5DB',
-            }]}
-            onPress={() => router.push('/search')}
-            activeOpacity={0.8}
+            activeOpacity={0.88}
+            onPress={() => router.push('/trip/setup' as any)}
+            style={styles.ctaWrap}
           >
-            <Ionicons name="search-outline" size={20} color={isDarkMode ? '#9CA3AF' : '#6B7280'} />
-            <Text style={[styles.searchPlaceholder, { color: isDarkMode ? '#9CA3AF' : '#9CA3AF' }]}>
-              Search destinations with AI...
-            </Text>
-            <View style={styles.searchSparkle}>
-              <Ionicons name="sparkles" size={16} color="#F97316" />
-            </View>
+            <LinearGradient
+              colors={[BRAND.red, BRAND.flame]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.ctaGradient}
+            >
+              <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+              <Text style={styles.ctaText}>Plan a Trip with AI</Text>
+              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            </LinearGradient>
           </TouchableOpacity>
 
-        </LinearGradient>
+          {/* Search — white pill with teal ring */}
+          <TouchableOpacity
+            style={styles.searchBar}
+            onPress={() => router.push('/search')}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="search-outline" size={20} color="#71717A" />
+            <Text style={styles.searchPlaceholder}>Search for {heroDest.name}</Text>
+            <View style={styles.searchSparkle}>
+              <Ionicons name="sparkles" size={16} color="#71717A" />
+            </View>
+          </TouchableOpacity>
+        </ImageBackground>
+
+        {/* ============================================================ */}
+        {/* MORE WAYS TO EXPLORE — pastel cards with NEW/SOON badges      */}
+        {/* ============================================================ */}
+        <View style={styles.moreWays}>
+          <Text style={[styles.moreWaysTitle, { color: themeColors.text }]}>
+            <Text style={styles.moreWaysAccent}>More ways</Text> to explore
+          </Text>
+          <View style={styles.moreWaysRule} />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.moreWaysRow}
+          >
+            {MORE_WAYS.map((m) => (
+              <TouchableOpacity
+                key={m.id}
+                style={[styles.wayCard, { backgroundColor: m.bg }]}
+                onPress={() => router.push(m.route as any)}
+                activeOpacity={0.85}
+              >
+                <View style={[styles.wayTag, { backgroundColor: m.tagColor }]}>
+                  <Text style={styles.wayTagText}>{m.tag}</Text>
+                </View>
+                <Image source={m.icon} style={styles.wayIcon} resizeMode="contain" />
+                <Text style={styles.wayLabel} numberOfLines={2}>{m.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
         {/* Recent AI-generated itineraries (Plan-a-Trip + Quick Itinerary) */}
         <RecentItineraries />
@@ -1174,7 +1265,7 @@ export default function HomeScreen() {
                 >
                   <Image source={tab.icon} style={styles.heroTabIcon} resizeMode="contain" />
                   <Text
-                    style={[styles.heroTabLabel, { color: isDarkMode ? '#FFFFFF' : '#1F2937' }]}
+                    style={[styles.heroTabLabel, { color: '#FFFFFF' }]}
                     numberOfLines={2}
                   >
                     {tab.label}
@@ -1205,11 +1296,16 @@ const styles = StyleSheet.create({
 
   // ---- HERO SECTION ----
   hero: {
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingTop: 24,
+    paddingBottom: 20,
     paddingHorizontal: 20,
     position: 'relative',
     overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  heroImage: {
+    // photo fills the hero; the scrim above it carries legibility
+    resizeMode: 'cover',
   },
   orb1: {
     position: 'absolute',
@@ -1227,17 +1323,170 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 40,
   },
-  heroTitle: {
-    fontSize: 42,
+  // Top app header bar
+  appHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  appHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  appHeaderBrand: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: BRAND.teal,
+    letterSpacing: -0.25,
+  },
+  appHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  appHeaderFlag: {
+    fontSize: 20,
+  },
+  appHeaderAvatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: BRAND.teal,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Glass badge — translucent pill over the hero photo
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 10,
+    maxWidth: '94%',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 24,
+  },
+  heroBadgeText: {
+    flexShrink: 1,
+  },
+  heroBadgeTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  heroBadgeSub: {
+    color: 'rgba(255,255,255,0.80)',
+    fontSize: 11,
+    marginTop: 1,
+  },
+  // Headline — script + serif, mirroring the web hero
+  heroScript: {
+    fontFamily: 'Snell Roundhand',
+    fontSize: 30,
+    color: BRAND.tealLight,
+    textAlign: 'center',
+    marginBottom: -2,
+  },
+  heroSerif: {
+    fontFamily: 'Georgia',
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 40,
+  },
+  heroSerifAccent: {
+    color: BRAND.tealLight,
+  },
+  // Primary CTA — red→orange logo gradient pill
+  ctaWrap: {
+    alignSelf: 'center',
+    marginTop: 24,
+    marginBottom: 24,
+    borderRadius: 999,
+    shadowColor: BRAND.red,
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  ctaGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    height: 52,
+    paddingHorizontal: 28,
+    borderRadius: 999,
+  },
+  ctaText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  // "More ways to explore" — pastel cards
+  moreWays: {
+    paddingTop: 24,
+    paddingBottom: 8,
+  },
+  moreWaysTitle: {
+    fontSize: 20,
     fontWeight: '800',
     textAlign: 'center',
-    marginTop: 8,
   },
-  heroSubtitle: {
-    fontSize: 15,
-    textAlign: 'center',
-    marginTop: 4,
+  moreWaysAccent: {
+    color: BRAND.teal,
+  },
+  moreWaysRule: {
+    alignSelf: 'center',
+    width: 56,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: BRAND.teal,
+    marginTop: 8,
     marginBottom: 16,
+  },
+  moreWaysRow: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+  wayCard: {
+    width: 128,
+    height: 148,
+    borderRadius: 16,
+    padding: 12,
+    justifyContent: 'space-between',
+  },
+  wayTag: {
+    alignSelf: 'flex-start',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  wayTagText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  wayIcon: {
+    width: 46,
+    height: 46,
+    alignSelf: 'flex-start',
+  },
+  wayLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#18181B',
   },
 
   // Hero Service Tabs (PWA-style: 4 brand icons + More)
@@ -1319,25 +1568,29 @@ const styles = StyleSheet.create({
   },
 
   // Search Bar
+  // Input — DS component spec: h 40 · radius 8 · text 14 · icon 16 @ left 12
+  // Search — white pill with a teal ring, over the hero photo
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1,
+    height: 52,
+    paddingLeft: 16,
+    paddingRight: 6,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: BRAND.teal,
+    backgroundColor: '#FFFFFF',
     gap: 10,
-    marginBottom: 16,
   },
   searchPlaceholder: {
-    fontSize: 15,
+    fontSize: 14,
     flex: 1,
   },
   searchSparkle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(249,115,22,0.1)',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E4E4E7',
     alignItems: 'center',
     justifyContent: 'center',
   },
