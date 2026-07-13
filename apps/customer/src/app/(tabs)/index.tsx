@@ -80,13 +80,16 @@ const BRAND = {
 const HERO_SCENERY = require('../../../assets/hero-scenery.jpg');
 
 // Seasonal eyebrow — mirrors the web HeroSection SEASONAL array, month-indexed.
+// The web uses an emoji per season, but emoji don't render in this RN build
+// (they came out as "?" boxes), so each season carries an Ionicon + tint
+// instead — same meaning, renders on every device.
 const SEASONAL = [
-  { m: [0, 1], emoji: '❄️', title: 'Winter Escapes Await', sub: 'Crisp air, cozy stays & clear skies' }, // Jan–Feb
-  { m: [2], emoji: '🌼', title: 'Spring Is Calling', sub: 'Perfect weather for a getaway' }, // Mar
-  { m: [3, 4, 5], emoji: '☀️', title: 'Beat the Summer Heat', sub: 'Cool hill-station escapes await' }, // Apr–Jun
-  { m: [6, 7, 8], emoji: '🌧️', title: 'Monsoon Magic Awaits', sub: 'Green trails, misty views & peaceful escapes' }, // Jul–Sep
-  { m: [9, 10], emoji: '🎆', title: 'Festive-Season Escapes', sub: 'Celebrate with a trip to remember' }, // Oct–Nov
-  { m: [11], emoji: '❄️', title: 'Winter Wonderland Awaits', sub: 'Snowy peaks & cozy retreats' }, // Dec
+  { m: [0, 1], icon: 'snow-outline', iconColor: '#BAE6FD', title: 'Winter Escapes Await', sub: 'Crisp air, cozy stays & clear skies' }, // Jan–Feb
+  { m: [2], icon: 'flower-outline', iconColor: '#FDA4AF', title: 'Spring Is Calling', sub: 'Perfect weather for a getaway' }, // Mar
+  { m: [3, 4, 5], icon: 'sunny-outline', iconColor: '#FCD34D', title: 'Beat the Summer Heat', sub: 'Cool hill-station escapes await' }, // Apr–Jun
+  { m: [6, 7, 8], icon: 'rainy-outline', iconColor: '#7FE0E9', title: 'Monsoon Magic Awaits', sub: 'Green trails, misty views & peaceful escapes' }, // Jul–Sep
+  { m: [9, 10], icon: 'sparkles-outline', iconColor: '#FDBA74', title: 'Festive-Season Escapes', sub: 'Celebrate with a trip to remember' }, // Oct–Nov
+  { m: [11], icon: 'snow-outline', iconColor: '#BAE6FD', title: 'Winter Wonderland Awaits', sub: 'Snowy peaks & cozy retreats' }, // Dec
 ] as const;
 
 // Typewriter destinations inside the H1 ("perfect escape to <city>") — web parity.
@@ -475,7 +478,7 @@ export default function HomeScreen() {
   const kenY = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [0, 8] });
   const shimmerX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-140, SCREEN_WIDTH] });
   const haloScale = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
-  const haloOpacity = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [0.55, 0] });
+  const haloOpacity = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
   const spin = sparkleSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const [popularActivities, setPopularActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
@@ -589,7 +592,13 @@ export default function HomeScreen() {
           <Text style={styles.appHeaderBrand}>PrayanaAI</Text>
         </View>
         <View style={styles.appHeaderRight}>
-          <Text style={styles.appHeaderFlag}>🇮🇳</Text>
+          {/* India flag — drawn rather than the 🇮🇳 emoji, which renders as "?"
+              boxes in this RN build (regional-indicator pairs have no glyph). */}
+          <View style={styles.appHeaderFlag}>
+            <View style={{ flex: 1, backgroundColor: '#FF9933' }} />
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
+            <View style={{ flex: 1, backgroundColor: '#138808' }} />
+          </View>
           <TouchableOpacity onPress={toggleTheme} hitSlop={8}>
             <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={22} color={themeColors.text} />
           </TouchableOpacity>
@@ -665,7 +674,7 @@ export default function HomeScreen() {
                 style={StyleSheet.absoluteFill}
               />
             </Animated.View>
-            <Text style={styles.heroBadgeEmoji}>{seasonal.emoji}</Text>
+            <Ionicons name={seasonal.icon} size={24} color={seasonal.iconColor} style={styles.heroBadgeEmoji} />
             <View style={styles.heroBadgeText}>
               <Text style={styles.heroBadgeTitle}>{seasonal.title}</Text>
               <Text style={styles.heroBadgeSub}>{seasonal.sub}</Text>
@@ -1523,7 +1532,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   appHeaderFlag: {
-    fontSize: 20,
+    width: 22,
+    height: 15,
+    borderRadius: 2,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.15)',
   },
   appHeaderAvatar: {
     width: 30,
@@ -1608,17 +1622,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Soft pulsing glow behind the CTA. A solid gradient slab here read as a hard
+  // dark rectangle around the pill; a wide, low-opacity fill plus a large blurred
+  // shadow gives the web's halo instead of an outline.
   ctaHalo: {
     position: 'absolute',
-    left: -8,
-    right: -8,
-    top: -8,
-    bottom: -8,
+    left: -18,
+    right: -18,
+    top: -14,
+    bottom: -14,
     borderRadius: 999,
+    shadowColor: BRAND.red,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 22,
+    elevation: 12,
   },
   ctaHaloFill: {
     flex: 1,
     borderRadius: 999,
+    opacity: 0.5,
   },
   ctaButton: {
     borderRadius: 999,
