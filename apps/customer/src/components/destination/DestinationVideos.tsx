@@ -23,7 +23,7 @@ import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { WebView } from 'react-native-webview';
-import { Play, X } from 'lucide-react-native';
+import { Play, X, ChevronLeft } from 'lucide-react-native';
 import { YouTubeIcon } from './YouTubeIcon';
 import {
   useTheme,
@@ -38,7 +38,14 @@ import { videosAPI } from '@prayana/shared-services';
 
 // The video the player modal is showing. `vertical` sizes the frame 9:16 for
 // Shorts vs 16:9 for regular videos, exactly like the web player does.
-type PlayingVideo = { id: string; title?: string; vertical: boolean } | null;
+type PlayingVideo = {
+  id: string;
+  title?: string;
+  vertical: boolean;
+  // Held so the modal can show the card's own thumbnail while the iframe boots,
+  // instead of a black rectangle.
+  thumbnail?: string;
+} | null;
 
 // The YouTube iframe, wrapped in a minimal page. We hand the WebView this HTML
 // (with baseUrl = our https origin) instead of pointing it at
@@ -167,6 +174,8 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
       id,
       title: typeof video === 'object' ? video?.title : undefined,
       vertical,
+      thumbnail:
+        typeof video === 'object' ? video?.thumbnail || video?.thumb : undefined,
     });
   }, []);
 
@@ -397,12 +406,16 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
           content, instead of covering the screen. */}
       <Modal
         visible={!!playing}
-        animationType="fade"
+        // "fade" stuttered: the WebView is heavy and was mounting mid-transition,
+        // so the cross-fade dropped frames. Sliding up (what YouTube does) reads
+        // as smoother and hides the frame's first paint behind the motion.
+        animationType="slide"
         transparent
         statusBarTranslucent
         presentationStyle="overFullScreen"
         onRequestClose={closeVideo}
         supportedOrientations={['portrait', 'landscape']}
+        hardwareAccelerated
       >
         <StatusBar barStyle="light-content" />
         <TouchableOpacity
@@ -438,11 +451,32 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
                 allowsFullscreenVideo
                 javaScriptEnabled
                 domStorageEnabled
+                // Keep the WebView's own chrome out of the way so the only thing
+                // that ever paints is the player.
+                scrollEnabled={false}
+                bounces={false}
+                overScrollMode="never"
+                setSupportMultipleWindows={false}
+                cacheEnabled
                 onLoadEnd={() => setPlayerLoading(false)}
               />
             )}
+
+            {/* While the iframe boots, hold the card's own thumbnail under a
+                spinner instead of a black rectangle. The user tapped a picture;
+                showing that same picture (rather than a void) is what makes the
+                open read as instant. */}
             {playerLoading && (
-              <View style={styles.playerLoading}>
+              <View style={styles.playerLoading} pointerEvents="none">
+                {!!playing?.thumbnail && (
+                  <Image
+                    source={{ uri: playing.thumbnail }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                    blurRadius={2}
+                  />
+                )}
+                <View style={styles.playerLoadingScrim} />
                 <ActivityIndicator color="#fff" size="large" />
               </View>
             )}
@@ -458,15 +492,30 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
             </Text>
           )}
 
-          {/* Close sits below the notch/status bar via the safe-area inset. */}
-          <TouchableOpacity
-            style={[styles.playerClose, { top: insets.top + spacing.md }]}
-            onPress={closeVideo}
-            hitSlop={12}
-            activeOpacity={0.8}
-          >
-            <X size={22} color="#fff" />
-          </TouchableOpacity>
+          {/* Close bar. A lone X in the corner was too easy to miss, and tapping
+              the backdrop is unreliable because the WebView swallows touches over
+              the frame — so getting out of the player felt like a trap. Give it a
+              full-width bar with a back chevron and a "Done" label, both of which
+              close, sitting below the notch. */}
+          <View style={[styles.playerBar, { top: insets.top }]} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.playerBackBtn}
+              onPress={closeVideo}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <ChevronLeft size={26} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.playerDoneBtn}
+              onPress={closeVideo}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <X size={18} color="#fff" />
+              <Text style={styles.playerDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -498,17 +547,45 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#000',
   },
-  playerClose: {
+  // Darkens the held thumbnail so the spinner stays legible over a bright frame.
+  playerLoadingScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  // Full-width close bar. `top` is applied inline from the safe-area inset so it
+  // clears the notch. box-none on the container lets taps fall through to the
+  // backdrop everywhere except the two buttons.
+  playerBar: {
     position: 'absolute',
-    // `top` is applied inline from the safe-area inset so the button clears the
-    // notch / status bar.
-    right: spacing.lg,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    left: 0,
+    right: 0,
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+  },
+  playerBackBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  playerDoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  playerDoneText: {
+    color: '#fff',
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
   },
   playerTitle: {
     position: 'absolute',
