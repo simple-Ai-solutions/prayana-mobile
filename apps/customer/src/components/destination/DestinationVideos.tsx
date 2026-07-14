@@ -389,18 +389,24 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
           Mirrors the web's VideoToursRail modal: the official YouTube embed
           (autoplay + playsinline + rel=0) on a near-black backdrop, sized 9:16
           for Shorts and 16:9 for regular videos. Tapping the backdrop or the
-          X closes it, so it never traps the user. */}
+          X closes it, so it never traps the user.
+          The backdrop is pinned with explicit screen width/height (not flex:1):
+          this component lives inside the destination page's gesture-handler
+          ScrollView, and a flex-only backdrop inherited that scroll content's
+          box — so the player rendered at the top of the page, overlapping the
+          content, instead of covering the screen. */}
       <Modal
         visible={!!playing}
         animationType="fade"
         transparent
         statusBarTranslucent
+        presentationStyle="overFullScreen"
         onRequestClose={closeVideo}
         supportedOrientations={['portrait', 'landscape']}
       >
         <StatusBar barStyle="light-content" />
         <TouchableOpacity
-          style={styles.playerBackdrop}
+          style={[styles.playerBackdrop, { width: screenW, height: screenH }]}
           activeOpacity={1}
           onPress={closeVideo}
         >
@@ -410,7 +416,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
             onPress={() => {}}
             style={[
               styles.playerFrame,
-              playing?.vertical ? styles.playerVertical : styles.playerHorizontal,
+              playing?.vertical ? verticalFrame : horizontalFrame,
             ]}
           >
             {playing && (
@@ -442,33 +448,36 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
             )}
           </TouchableOpacity>
 
+          {/* Absolutely positioned so it can't push the frame off-centre. */}
+          {!!playing?.title && (
+            <Text
+              style={[styles.playerTitle, { bottom: insets.bottom + spacing['2xl'] }]}
+              numberOfLines={2}
+            >
+              {playing.title}
+            </Text>
+          )}
+
+          {/* Close sits below the notch/status bar via the safe-area inset. */}
           <TouchableOpacity
-            style={styles.playerClose}
+            style={[styles.playerClose, { top: insets.top + spacing.md }]}
             onPress={closeVideo}
             hitSlop={12}
             activeOpacity={0.8}
           >
             <X size={22} color="#fff" />
           </TouchableOpacity>
-
-          {!!playing?.title && (
-            <Text style={styles.playerTitle} numberOfLines={2}>
-              {playing.title}
-            </Text>
-          )}
         </TouchableOpacity>
       </Modal>
     </View>
   );
 };
 
-// 9:16 for Shorts, 16:9 for regular — matching the web player's two sizes.
-const H_WIDTH = SCREEN_W - spacing.lg * 2;
-const V_HEIGHT = Math.min(SCREEN_H * 0.78, 720);
-
 const styles = StyleSheet.create({
   playerBackdrop: {
-    flex: 1,
+    // Explicit screen dimensions + absolute fill: the backdrop must cover the
+    // whole viewport regardless of the parent scroll container's layout.
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.95)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -478,15 +487,6 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
     backgroundColor: '#000',
-  },
-  playerHorizontal: {
-    width: H_WIDTH,
-    height: (H_WIDTH * 9) / 16,
-  },
-  playerVertical: {
-    height: V_HEIGHT,
-    width: (V_HEIGHT * 9) / 16,
-    maxWidth: SCREEN_W - spacing.lg * 2,
   },
   webview: {
     flex: 1,
@@ -500,7 +500,8 @@ const styles = StyleSheet.create({
   },
   playerClose: {
     position: 'absolute',
-    top: 56,
+    // `top` is applied inline from the safe-area inset so the button clears the
+    // notch / status bar.
     right: spacing.lg,
     width: 40,
     height: 40,
@@ -510,11 +511,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.14)',
   },
   playerTitle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    // `bottom` applied inline from the safe-area inset.
     color: 'rgba(255,255,255,0.9)',
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,
     textAlign: 'center',
-    marginTop: spacing.lg,
     paddingHorizontal: spacing.lg,
   },
 
