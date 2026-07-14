@@ -81,12 +81,30 @@ export function ratingOf(e: Experience): { average: number; count: number } | nu
   return { average: avg, count };
 }
 
-/** "Viator" / "Headout" — who actually fulfils the booking. */
+/**
+ * Who fulfils the booking — "Viator" / "Headout".
+ *
+ * Prayana's OWN listings come back with source: "internal". Labelling those
+ * "Internal" would be meaningless to a customer, so they get no chip: the
+ * absence of a third-party badge is what says "booked direct with us".
+ */
 export function providerLabel(e: Experience): string | null {
   const s = (e.source ?? '').toLowerCase();
   if (s === 'viator') return 'Viator';
   if (s === 'headout') return 'Headout';
-  return s ? s[0].toUpperCase() + s.slice(1) : null;
+  if (!s || s === 'internal') return null;
+  return s[0].toUpperCase() + s.slice(1);
+}
+
+/** A Prayana-hosted activity rather than a third-party tour. */
+export function isInternal(e: Experience): boolean {
+  const s = (e.source ?? '').toLowerCase();
+  return !s || s === 'internal';
+}
+
+/** Confirmed on booking, no waiting on the host. */
+export function isInstant(e: Experience): boolean {
+  return !!e.instantBooking?.enabled;
 }
 
 /**

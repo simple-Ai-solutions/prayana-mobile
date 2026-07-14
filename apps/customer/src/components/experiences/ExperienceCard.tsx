@@ -23,6 +23,7 @@ import {
   Experience,
   formatPrice,
   imageOf,
+  isInstant,
   priceOf,
   providerLabel,
   ratingOf,
@@ -71,10 +72,19 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
           </View>
         )}
 
-        {!!provider && (
+        {provider ? (
           <View style={styles.providerChip}>
             <Text style={styles.providerText}>{provider}</Text>
           </View>
+        ) : (
+          // Prayana's own listings carry no third-party badge. Where the host
+          // confirms instantly, say so — that IS the useful fact here.
+          isInstant(experience) && (
+            <View style={styles.instantChip}>
+              <Ionicons name="flash" size={10} color="#FFFFFF" />
+              <Text style={styles.providerText}>Instant</Text>
+            </View>
+          )
         )}
       </View>
 
@@ -160,6 +170,18 @@ const styles = StyleSheet.create({
     top: spacing.sm,
     left: spacing.sm,
     backgroundColor: TEAL,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: borderRadius.sm,
+  },
+  instantChip: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.primary[500],
     paddingHorizontal: spacing.sm,
     paddingVertical: 3,
     borderRadius: borderRadius.sm,
