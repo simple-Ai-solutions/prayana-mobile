@@ -177,9 +177,35 @@ export function isRegionalBundle(b: EsimBundle): boolean {
   return Boolean(b.isRegional) || Boolean(n && n > 1);
 }
 
-/** A single-country plan, per the web's isSingleCountryPlan(). */
+/**
+ * A single-country plan, per the web's isSingleCountryPlan().
+ *
+ * These are two genuinely different products and must not be shown in one list:
+ *
+ *  - COUNTRY plan  — local network in that one country, activates on landing.
+ *  - REGIONAL/GLOBAL — bundled across 30-60+ countries, but the customer gets a
+ *    FOREIGN number (calls outbound only) and usually pays more for the same data.
+ *
+ * Mixing them and sorting by price actively misleads: Japan's cheapest bundle is
+ * a ₹546 60-country Global plan, which outranks the ₹834 local Japan plan — so a
+ * customer flying only to Japan gets steered to the wrong product.
+ */
 export function isSingleCountryPlan(b: EsimBundle): boolean {
   return !b.isRegional && (coverageCountFor(b) ?? 1) <= 1;
+}
+
+export type CoverageScope = 'country' | 'global';
+
+export interface ScopedPlans {
+  country: EsimBundle[];
+  global: EsimBundle[];
+}
+
+export function splitByScope(bundles: EsimBundle[]): ScopedPlans {
+  return {
+    country: bundles.filter(isSingleCountryPlan),
+    global: bundles.filter((b) => !isSingleCountryPlan(b)),
+  };
 }
 
 export function bundleKey(b: EsimBundle): string {

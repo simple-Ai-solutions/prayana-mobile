@@ -30,6 +30,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 import { esimAPI } from '@prayana/shared-services';
 import {
+  CoverageScope,
   EsimBundle,
   EsimCountry,
   ExchangeRates,
@@ -39,6 +40,7 @@ import {
   orderCountries,
   popularPlanNames,
   sortBundles,
+  splitByScope,
 } from '../../lib/esim';
 import { CountryFlag } from '../../components/esim/CountryFlag';
 import { EsimPlanCard, ACCENT_RED } from '../../components/esim/EsimPlanCard';
@@ -74,6 +76,7 @@ export default function EsimScreen() {
   const [sortBy, setSortBy] = useState<SortKey>('value');
   const [sortOpen, setSortOpen] = useState(false);
   const [showAllCountries, setShowAllCountries] = useState(false);
+  const [scope, setScope] = useState<CoverageScope>('country');
 
   /**
    * The catalogue is country-scoped: called WITHOUT a country it returns the
@@ -147,18 +150,28 @@ export default function EsimScreen() {
     setRefreshing(false);
   }, [country, load]);
 
-  // Search filters the loaded bundles by country/region/name.
+  /**
+   * Country plans and Regional/Global plans are separate products (local number
+   * vs foreign number), so they get separate tabs — never one merged, price-sorted
+   * list. Some destinations only exist inside global bundles, so if there are no
+   * country plans we fall back to global rather than showing an empty tab.
+   */
+  const scoped = useMemo(() => splitByScope(bundles), [bundles]);
+  const effectiveScope: CoverageScope =
+    scope === 'country' && scoped.country.length === 0 ? 'global' : scope;
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const inScope = scoped[effectiveScope];
     const filtered = q
-      ? bundles.filter(
+      ? inScope.filter(
           (b) =>
             (b.countryName ?? '').toLowerCase().includes(q) ||
             (b.country ?? '').toLowerCase().includes(q) ||
             (b.region ?? '').toLowerCase().includes(q) ||
             (b.name ?? '').toLowerCase().includes(q),
         )
-      : bundles;
+      : inScope;
 
     const sorted = sortBundles(filtered, sortBy);
     const popular = popularPlanNames(sorted);
@@ -168,7 +181,7 @@ export default function EsimScreen() {
       ...sorted.filter((b) => !popular.has(b.name)),
     ];
     return { list: hoisted, popular };
-  }, [bundles, search, sortBy]);
+  }, [scoped, effectiveScope, search, sortBy]);
 
   const goToCheckout = useCallback(
     (plan: EsimBundle) => {
@@ -352,7 +365,9 @@ export default function EsimScreen() {
               </Text>
               {!loading && !error && (
                 <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                  {visible.list.length} {visible.list.length === 1 ? 'plan' : 'plans'}
+                  {effectiveScope === 'global'
+                    ? 'Covers many countries · foreign number · outbound calls only'
+                    : 'Local data eSIM · activates the moment you land'}
                 </Text>
               )}
             </View>
@@ -402,6 +417,55 @@ export default function EsimScreen() {
               </View>
             )}
           </View>
+
+          {/* Coverage scope — a country eSIM and a global eSIM are different
+              products, so make the customer choose rather than merging them.
+              Only offered when the destination actually sells both. */}
+          {!loading && !error && scoped.country.length > 0 && scoped.global.length > 0 && (
+            <View style={[styles.scopeTabs, { borderColor: themeColors.border }]}>
+              {([
+                { key: 'country' as const, label: `${selectedCountryName ?? 'Country'} only`, count: scoped.country.length },
+                { key: 'global' as const, label: 'Regional / Global', count: scoped.global.length },
+              ]).map((t) => {
+                const active = effectiveScope === t.key;
+                return (
+                  <TouchableOpacity
+                    key={t.key}
+                    onPress={() => setScope(t.key)}
+                    style={[styles.scopeTab, active && { backgroundColor: ACCENT_RED }]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text
+                      style={[
+                        styles.scopeTabText,
+                        { color: active ? '#FFFFFF' : themeColors.textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {t.label} ({t.count})
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Global plans cost more and hand the customer a foreign number —
+              say so plainly, since the cheapest plan on the list is often one. */}
+          {!loading && !error && effectiveScope === 'global' && (
+            <View style={styles.scopeWarning}>
+              <Ionicons name="alert-circle" size={16} color={ACCENT_RED} />
+              <Text style={[styles.scopeWarningText, { color: themeColors.textSecondary }]}>
+                Regional/Global plans work across many countries but come with a foreign number and
+                usually cost more.
+                {scoped.country.length > 0 && selectedCountryName
+                  ? ` For a trip only to ${selectedCountryName}, a "${selectedCountryName} only" plan is usually cheaper.`
+                  : ''}{' '}
+                To receive calls, use WhatsApp or data calling.
+              </Text>
+            </View>
+          )}
 
           {loading ? (
             <View style={styles.stateBox}>
@@ -626,6 +690,38 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
   },
   sortItemText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
+
+  // Coverage scope tabs
+  scopeTabs: {
+    flexDirection: 'row',
+    marginTop: spacing.md,
+    padding: 3,
+    borderRadius: 999,
+    borderWidth: 1,
+    gap: 3,
+  },
+  scopeTab: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 999,
+  },
+  scopeTabText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+
+  scopeWarning: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    alignItems: 'flex-start',
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: 'rgba(230,20,23,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(230,20,23,0.12)',
+  },
+  scopeWarningText: { flex: 1, fontSize: fontSize.xs, lineHeight: 18 },
 
   // Plan grid — 2-up, like the web's grid-cols-2 on small screens.
   grid: {

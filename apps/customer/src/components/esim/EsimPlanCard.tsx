@@ -63,9 +63,24 @@ export const EsimPlanCard: React.FC<Props> = ({
   const baseBorder = isDarkMode ? 'rgba(255,255,255,0.08)' : '#E5E7EB';
 
   // Feature rows — only what the provider actually reports.
+  //
+  // Careful with the number line. A country eSIM runs on the LOCAL NETWORK but
+  // is still a data plan with NO callable number; a regional/global eSIM carries
+  // a FOREIGN number. (The web spells this out: "Data plan — no callable number"
+  // vs "Foreign number (not your local number)".) Claiming a country plan gives
+  // you a local number would be simply untrue.
   const features: Array<{ key: string; icon: keyof typeof Ionicons.glyphMap; label: string }> = [
     { key: 'speed', icon: 'cellular-outline', label: `${speedLabel} LTE` },
-    { key: 'coverage', icon: 'globe-outline', label: regional && countryCount ? `${countryCount} countries` : 'Nationwide' },
+    {
+      key: 'coverage',
+      icon: 'globe-outline',
+      label: regional && countryCount ? `${countryCount} countries` : 'Local network',
+    },
+    {
+      key: 'number',
+      icon: regional ? 'warning-outline' : 'shield-checkmark-outline',
+      label: regional ? 'Foreign number' : 'No foreign number',
+    },
   ];
   const unlimitedCalls = !!plan.isUnlimitedCalls || plan.voiceMinutes === -1;
   const callMinutes =
