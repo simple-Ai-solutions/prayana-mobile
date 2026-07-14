@@ -16,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@prayana/shared-hooks';
@@ -34,6 +33,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID || '';
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '';
 
 // Google SVG-style colored "G" button logo
 function GoogleG() {
@@ -62,10 +62,17 @@ export default function LoginScreen() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // No explicit redirectUri. We were forcing makeRedirectUri({ scheme: 'prayana' }),
+  // but a NATIVE Google iOS client only accepts the reversed-client-ID scheme
+  // (com.googleusercontent.apps.<id>) as its redirect — not the app's own scheme.
+  // Google rejected the mismatch, which is why Google sign-in failed. Letting
+  // expo-auth-session derive the redirect from iosClientId/androidClientId gives
+  // it the reversed-client-ID form Google expects (and that scheme is already
+  // registered in app.json's CFBundleURLTypes).
   const [request, response, promptAsync] = Google.useAuthRequest({
     clientId: GOOGLE_WEB_CLIENT_ID || undefined,
     iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
-    redirectUri: makeRedirectUri({ scheme: 'prayana' }),
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
     scopes: ['openid', 'profile', 'email'],
   });
 
@@ -217,6 +224,18 @@ export default function LoginScreen() {
                 <Text style={styles.appleBtnText}>Continue with Apple</Text>
               </TouchableOpacity>
 
+              {/* Phone first — it's the primary way people sign in here, so it
+                  leads; Google sits under it. */}
+              <TouchableOpacity
+                style={styles.phoneBtn}
+                onPress={() => router.push('/(auth)/phone-login')}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+              >
+                <Ionicons name="phone-portrait-outline" size={20} color="#374151" />
+                <Text style={styles.phoneBtnText}>Continue with Phone</Text>
+              </TouchableOpacity>
+
               {/* Google */}
               <TouchableOpacity
                 style={styles.googleBtn}
@@ -232,17 +251,6 @@ export default function LoginScreen() {
                 <Text style={styles.googleBtnText}>
                   {isGoogleLoading ? 'Connecting...' : 'Continue with Google'}
                 </Text>
-              </TouchableOpacity>
-
-              {/* Phone */}
-              <TouchableOpacity
-                style={styles.phoneBtn}
-                onPress={() => router.push('/(auth)/phone-login')}
-                activeOpacity={0.85}
-                disabled={isSubmitting}
-              >
-                <Ionicons name="phone-portrait-outline" size={20} color="#374151" />
-                <Text style={styles.phoneBtnText}>Continue with Phone</Text>
               </TouchableOpacity>
             </View>
 
