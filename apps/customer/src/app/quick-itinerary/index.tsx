@@ -25,7 +25,6 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   KeyboardAvoidingView,
   Platform,
   Modal,
@@ -42,6 +41,7 @@ import {
 } from '@prayana/shared-ui';
 import { itineraryAPI } from '@prayana/shared-services';
 import { PremiumTravelLoading } from '../../components/trip/PremiumTravelLoading';
+import { PlaceAutocompleteInput } from '../../components/common/PlaceAutocompleteInput';
 
 // Brand teal — the logo's primary (PRAYANA_DESIGN_SYSTEM.pdf). The web modal's
 // header/accents are teal, and the old orange (#F97316) hardcodes are dropped.
@@ -390,52 +390,48 @@ export default function QuickItineraryScreen() {
             </View>
           )}
 
-          {/* 1. Starting Point */}
-          <View style={styles.field}>
+          {/* 1. Starting Point — city autocomplete (Google Places -> OSM fallback),
+              matching the web modal's TripPlannerSearchInput. The field keeps its
+              own state: a suggestion tap just fills it, free text still submits. */}
+          <View style={[styles.field, styles.autocompleteField]}>
             <Text style={[styles.label, { color: themeColors.text }]}>
               Starting Point <Text style={styles.req}>*</Text>
             </Text>
-            <View
-              style={[
+            <PlaceAutocompleteInput
+              value={startingPoint}
+              onChangeText={(t) => { setStartingPoint(t); if (error) setError(''); }}
+              placeholder="Mangalore"
+              icon="navigate-outline"
+              iconColor={TEAL}
+              accentColor={TEAL}
+              editable={!isGenerating}
+              accessibilityLabel="Starting point"
+              fieldStyle={[
                 styles.input,
                 { backgroundColor: themeColors.surface, borderColor: themeColors.border },
               ]}
-            >
-              <Ionicons name="navigate-outline" size={17} color={TEAL} />
-              <TextInput
-                value={startingPoint}
-                onChangeText={(t) => { setStartingPoint(t); if (error) setError(''); }}
-                placeholder="Mangalore"
-                placeholderTextColor={themeColors.textTertiary}
-                editable={!isGenerating}
-                autoCorrect={false}
-                style={[styles.inputText, { color: themeColors.text }]}
-              />
-            </View>
+            />
           </View>
 
           {/* 2. Destination */}
-          <View style={styles.field}>
+          <View style={[styles.field, styles.autocompleteField]}>
             <Text style={[styles.label, { color: themeColors.text }]}>
               Destination <Text style={styles.req}>*</Text>
             </Text>
-            <View
-              style={[
+            <PlaceAutocompleteInput
+              value={destination}
+              onChangeText={(t) => { setDestination(t); if (error) setError(''); }}
+              placeholder="Bangalore"
+              icon="location-outline"
+              iconColor={TEAL}
+              accentColor={TEAL}
+              editable={!isGenerating}
+              accessibilityLabel="Destination"
+              fieldStyle={[
                 styles.input,
                 { backgroundColor: themeColors.surface, borderColor: themeColors.border },
               ]}
-            >
-              <Ionicons name="location-outline" size={17} color={TEAL} />
-              <TextInput
-                value={destination}
-                onChangeText={(t) => { setDestination(t); if (error) setError(''); }}
-                placeholder="Bangalore"
-                placeholderTextColor={themeColors.textTertiary}
-                editable={!isGenerating}
-                autoCorrect={false}
-                style={[styles.inputText, { color: themeColors.text }]}
-              />
-            </View>
+            />
           </View>
 
           {/* 3. Duration + Travel month */}
@@ -894,6 +890,13 @@ const styles = StyleSheet.create({
   errorText: { flex: 1, color: colors.error, fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
   field: { marginBottom: spacing.lg },
+  // The two autocomplete fields overflow a dropdown downward. RN has no
+  // `overflow: visible` escape from a parent's paint order — a later sibling
+  // simply paints on top — so the field wrappers must outrank every row below
+  // them. iOS honours zIndex, Android honours elevation; set both, and give the
+  // rows underneath an explicit low rank (see row2/personaToggle) so the
+  // Duration / Travel-month selects can never cover the suggestions.
+  autocompleteField: { zIndex: 30, elevation: 30 },
   label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, marginBottom: spacing.sm },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.sm },
   labelInline: { marginBottom: 0 },
@@ -907,9 +910,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
   },
-  inputText: { flex: 1, paddingVertical: spacing.md, fontSize: fontSize.md },
 
-  row2: { flexDirection: 'row', gap: spacing.md },
+  // Everything below the autocompletes sits beneath their dropdowns.
+  row2: { flexDirection: 'row', gap: spacing.md, zIndex: 0, elevation: 0 },
   col: { flex: 1 },
   select: {
     flexDirection: 'row',
