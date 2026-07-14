@@ -161,19 +161,13 @@ export default function EsimScreen() {
     scope === 'country' && scoped.country.length === 0 ? 'global' : scope;
 
   const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    // The search box picks a DESTINATION, so it must not also filter the plan
+    // list. It used to: searching "Thailand" and then selecting it left the
+    // query filtering plans, and since Thai plans are named "Thailand eSIM ..."
+    // while the global bundles are not, the Regional/Global tab silently
+    // rendered zero plans.
     const inScope = scoped[effectiveScope];
-    const filtered = q
-      ? inScope.filter(
-          (b) =>
-            (b.countryName ?? '').toLowerCase().includes(q) ||
-            (b.country ?? '').toLowerCase().includes(q) ||
-            (b.region ?? '').toLowerCase().includes(q) ||
-            (b.name ?? '').toLowerCase().includes(q),
-        )
-      : inScope;
-
-    const sorted = sortBundles(filtered, sortBy);
+    const sorted = sortBundles(inScope, sortBy);
     const popular = popularPlanNames(sorted);
     // Hoist popular plans, as the web does.
     const hoisted = [
@@ -181,7 +175,7 @@ export default function EsimScreen() {
       ...sorted.filter((b) => !popular.has(b.name)),
     ];
     return { list: hoisted, popular };
-  }, [scoped, effectiveScope, search, sortBy]);
+  }, [scoped, effectiveScope, sortBy]);
 
   const goToCheckout = useCallback(
     (plan: EsimBundle) => {
@@ -202,13 +196,35 @@ export default function EsimScreen() {
 
   // With no country picked, the search box filters the country rail instead of
   // plans — that's the only thing on screen to filter.
+  /**
+   * The picker shows, in order of preference:
+   *   - the search matches, while the customer is searching;
+   *   - the featured shortlist otherwise (expandable to all 157 via "See all").
+   *
+   * The selected country is always kept in the list even if it falls outside the
+   * shortlist, so picking, say, Peru doesn't make the highlighted chip vanish.
+   */
+  const searchQuery = search.trim().toLowerCase();
+  const isSearching = searchQuery.length > 0 && !country;
+
   const visibleCountries = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q || country) return countries;
-    return countries.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.iso.toLowerCase().includes(q),
-    );
-  }, [countries, search, country]);
+    const matches = isSearching
+      ? countries.filter(
+          (c) =>
+            c.name.toLowerCase().includes(searchQuery) ||
+            c.iso.toLowerCase().includes(searchQuery),
+        )
+      : countries;
+
+    if (isSearching || showAllCountries) return matches;
+
+    // Collapsed shortlist — plus the selection, wherever it ranks.
+    const shortlist = matches.slice(0, FEATURED_COUNT);
+    const picked = country ? matches.find((c) => c.iso === country) : undefined;
+    return picked && !shortlist.some((c) => c.iso === country)
+      ? [picked, ...shortlist.slice(0, FEATURED_COUNT - 1)]
+      : shortlist;
+  }, [countries, searchQuery, isSearching, country, showAllCountries]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -300,7 +316,7 @@ export default function EsimScreen() {
               </Text>
             </View>
 
-            {countries.length > FEATURED_COUNT && !search.trim() && (
+            {countries.length > FEATURED_COUNT && !isSearching && (
               <TouchableOpacity
                 onPress={() => setShowAllCountries((v) => !v)}
                 style={[styles.sortBtn, { borderColor: themeColors.border }]}
@@ -315,13 +331,22 @@ export default function EsimScreen() {
 
           <View style={styles.countryGrid}>
             {visibleCountries
-              .slice(0, showAllCountries || search.trim() ? undefined : FEATURED_COUNT)
               .map((c) => {
                 const active = country === c.iso;
                 return (
                   <TouchableOpacity
                     key={c.iso}
-                    onPress={() => setCountry(active ? null : c.iso)}
+                    onPress={() => {
+                      // Clear the query on selection: it has done its job, and
+                      // leaving "Thailand" in the box makes the picker look like
+                      // it is still filtering when it no longer is. Reset the
+                      // scope too — each destination has its own country/global
+                      // split, and a tab that is empty here may not be there.
+                      setCountry(active ? null : c.iso);
+                      setSearch('');
+                      setShowAllCountries(false);
+                      setScope('country');
+                    }}
                     style={[
                       styles.countryChip,
                       {
@@ -347,7 +372,7 @@ export default function EsimScreen() {
               })}
           </View>
 
-          {!!search.trim() && !country && visibleCountries.length === 0 && (
+          {isSearching && visibleCountries.length === 0 && (
             <Text style={[styles.sectionSub, { color: themeColors.textSecondary, marginTop: spacing.md }]}>
               No destination matches "{search.trim()}".
             </Text>
@@ -491,9 +516,11 @@ export default function EsimScreen() {
             </View>
           ) : visible.list.length === 0 ? (
             <View style={styles.stateBox}>
-              <Ionicons name="search-outline" size={40} color={themeColors.textTertiary} />
+              <Ionicons name="cellular-outline" size={40} color={themeColors.textTertiary} />
               <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
-                No plans match "{search.trim()}".
+                {effectiveScope === 'global'
+                  ? `No regional or global plans cover ${selectedCountryName ?? 'this destination'} yet.`
+                  : `No ${selectedCountryName ?? 'local'}-only plans yet — try Regional / Global.`}
               </Text>
             </View>
           ) : (
