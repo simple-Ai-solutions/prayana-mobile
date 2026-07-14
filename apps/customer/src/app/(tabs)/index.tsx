@@ -1596,13 +1596,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: -2,
   },
+  // The web's mobile hero sizes this line SMALLER than the script line above it
+  // (.hero-home h1 > span:last-child is 1.375rem vs the script's 1.625rem). At
+  // 32px it was larger than "Plan your", filled the width, and wrapped clumsily.
   heroSerif: {
     fontFamily: 'Georgia',
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 32,
   },
   heroSerifAccent: {
     color: BRAND.tealAccent,
@@ -1610,7 +1613,7 @@ const styles = StyleSheet.create({
   heroCaret: {
     color: BRAND.tealAccent,
     fontFamily: 'Georgia',
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
   },
   // Primary CTA — red→orange logo gradient pill, with a pulsing gradient halo
