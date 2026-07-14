@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import * as Google from 'expo-auth-session/providers/google';
+import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@prayana/shared-hooks';
@@ -62,38 +62,27 @@ export default function LoginScreen() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // No explicit redirectUri. We were forcing makeRedirectUri({ scheme: 'prayana' }),
-  // but a NATIVE Google iOS client only accepts the reversed-client-ID scheme
-  // (com.googleusercontent.apps.<id>) as its redirect — not the app's own scheme.
-  // Google rejected the mismatch, which is why Google sign-in failed. Letting
-  // expo-auth-session derive the redirect from iosClientId/androidClientId gives
-  // it the reversed-client-ID form Google expects (and that scheme is already
-  // registered in app.json's CFBundleURLTypes).
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: GOOGLE_WEB_CLIENT_ID || undefined,
-    iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
-    scopes: ['openid', 'profile', 'email'],
-  });
-
+  // Google sign-in used expo-auth-session, which drives OAuth through a browser.
+  // Google now blocks that from native apps as non-compliant with their OAuth 2.0
+  // policy — it came back "Access blocked ... Error 400: invalid_request".
+  //
+  // Use the official native Google SDK instead (@react-native-google-signin — it
+  // was already a dependency with its pod linked, just never wired up). Google
+  // supports this path, and it is the mobile equivalent of what the web does
+  // (Firebase's own GoogleAuthProvider popup). The idToken is still exchanged for
+  // a Firebase credential exactly as before; only how the token is obtained
+  // changed.
+  //
+  // webClientId is the client Firebase verifies the credential against;
+  // iosClientId is the native client the request actually goes out under.
   useEffect(() => {
-    if (!response) return;
-    if (response.type === 'success') {
-      const idToken = response.params?.id_token;
-      const accessToken = response.authentication?.accessToken;
-      if (idToken) handleGoogleToken(idToken, null);
-      else if (accessToken) handleGoogleToken(null, accessToken);
-      else {
-        setIsGoogleLoading(false);
-        setError('No token received from Google. Please try again.');
-      }
-    } else if (response.type === 'error') {
-      setIsGoogleLoading(false);
-      setError(response.error?.message || 'Google sign-in failed.');
-    } else if (response.type === 'dismiss' || response.type === 'cancel') {
-      setIsGoogleLoading(false);
-    }
-  }, [response]);
+    GoogleSignin.configure({
+      webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+      iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+      scopes: ['openid', 'profile', 'email'],
+      offlineAccess: false,
+    });
+  }, []);
 
   const handleGoogleToken = async (idToken: string | null, accessToken: string | null) => {
     try {
@@ -122,12 +111,39 @@ export default function LoginScreen() {
       Alert.alert('Not Configured', 'Google Sign-In is not set up yet. Use email or phone login.');
       return;
     }
-    if (!request) {
-      Alert.alert('Not Ready', 'Google Sign-In is loading. Please try again.');
-      return;
-    }
+
     setIsGoogleLoading(true);
-    await promptAsync();
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      // Sign out first so the account chooser always appears instead of silently
+      // reusing the last account (matches the web, which sets prompt=select_account).
+      try { await GoogleSignin.signOut(); } catch {}
+
+      const result: any = await GoogleSignin.signIn();
+      // v13+ returns { type, data: { idToken, ... } }; older returns { idToken }.
+      const idToken: string | null =
+        result?.data?.idToken ?? result?.idToken ?? null;
+
+      if (!idToken) {
+        setIsGoogleLoading(false);
+        // The user backed out of the account chooser — not an error worth shouting about.
+        if (result?.type === 'cancelled') return;
+        setError('No token received from Google. Please try again.');
+        return;
+      }
+
+      await handleGoogleToken(idToken, null);
+    } catch (e: any) {
+      setIsGoogleLoading(false);
+      const code = e?.code;
+      if (code === statusCodes.SIGN_IN_CANCELLED) return; // user dismissed — stay quiet
+      if (code === statusCodes.IN_PROGRESS) return;
+      if (code === statusCodes.PLAY_SERVICES_NOT_AVAILABLE) {
+        setError('Google Play Services is unavailable on this device.');
+        return;
+      }
+      setError(e?.message || 'Google Sign-In failed. Please try again.');
+    }
   };
 
   const handleEmailLogin = async () => {
