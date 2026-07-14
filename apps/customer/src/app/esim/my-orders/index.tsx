@@ -1,351 +1,232 @@
+// My eSIMs — the mobile port of app/esim/my-orders/page.jsx.
+//
+// The previous version was wrong in two ways that made it unusable:
+//
+//  - It read `order.fulfilment` (one L) to show the QR inline. The server field
+//    is `fulfillment`, so that object was always undefined and the QR could
+//    never render.
+//  - It invented its own status vocabulary — paid / fulfilling / fulfilled /
+//    cancelled — none of which the server emits. The real enum is
+//    pending_payment / pending_kyc / pending_validation / processing / active /
+//    completed / failed / refunded, so every order fell through to an unknown
+//    status.
+//
+// Statuses now come from one shared table, and orders link to
+// /esim/order/[orderId], which owns the QR, usage, KYC and install guide.
 import React, { useCallback, useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  RefreshControl,
-  Modal,
-  Image,
-  Share,
-} from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, RefreshControl } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
-import * as Haptics from 'expo-haptics';
-import Toast from 'react-native-toast-message';
-import {
-  Card,
-  Badge,
-  Button,
-  EmptyState,
-  LoadingSpinner,
-  colors,
-  spacing,
-  fontSize,
-  fontWeight,
-  borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 import { esimAPI } from '@prayana/shared-services';
+import { formatData } from '../../../lib/esim';
+import { EsimOrder, statusStyle } from '../../../lib/esimOrder';
+import { CountryFlag } from '../../../components/esim/CountryFlag';
 
-type EsimOrder = {
-  _id: string;
-  bundleName: string;
-  bundleDisplayName?: string;
-  status:
-    | 'pending_payment'
-    | 'paid'
-    | 'fulfilling'
-    | 'fulfilled'
-    | 'failed'
-    | 'cancelled'
-    | 'refunded';
-  provider?: string;
-  countryName?: string;
-  pricing?: { sellingPrice?: number; currency?: string };
-  fulfilment?: {
-    qrCodeUrl?: string;
-    activationCode?: string;
-    smdpAddress?: string;
-    iccid?: string;
-    issuedAt?: string;
-  };
-  createdAt?: string;
-};
-
-const STATUS_LABEL: Record<string, { label: string; variant: 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info' }> = {
-  pending_payment: { label: 'Pending payment', variant: 'warning' },
-  paid: { label: 'Paid', variant: 'info' },
-  fulfilling: { label: 'Issuing eSIM', variant: 'info' },
-  fulfilled: { label: 'Active', variant: 'success' },
-  failed: { label: 'Failed', variant: 'error' },
-  cancelled: { label: 'Cancelled', variant: 'default' },
-  refunded: { label: 'Refunded', variant: 'default' },
-};
+const ACCENT_RED = '#E61417';
 
 export default function MyEsimOrdersScreen() {
   const router = useRouter();
   const { themeColors } = useTheme();
+
   const [orders, setOrders] = useState<EsimOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeOrder, setActiveOrder] = useState<EsimOrder | null>(null);
+  const [error, setError] = useState('');
 
-  const fetchOrders = useCallback(async () => {
+  const load = useCallback(async () => {
+    setError('');
     try {
-      const res = await esimAPI.getMyOrders();
-      setOrders(res?.data || []);
-    } catch (err: any) {
-      console.warn('[MyEsim] fetch failed:', err?.message);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      const res: any = await esimAPI.getMyOrders();
+      const data = res?.data;
+      const list: EsimOrder[] = Array.isArray(data) ? data : (data?.orders ?? []);
+      setOrders(list);
+    } catch {
+      // Surface this: a failed request and an empty list look identical to the
+      // customer otherwise, and only one of them is worth retrying.
+      setError("Couldn't load your eSIMs. Please try again.");
     }
   }, []);
 
   useEffect(() => {
-    fetchOrders();
-  }, [fetchOrders]);
+    setLoading(true);
+    load().finally(() => setLoading(false));
+  }, [load]);
 
-  const onRefresh = useCallback(() => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    fetchOrders();
-  }, [fetchOrders]);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: themeColors.backgroundSecondary }]} edges={['top']}>
-        <View style={styles.center}>
-          <LoadingSpinner size="large" />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  const retry = () => {
+    setLoading(true);
+    load().finally(() => setLoading(false));
+  };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.backgroundSecondary }]} edges={['top']}>
-      <View style={[styles.topBar, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="chevron-back" size={26} color={themeColors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.topBarTitle, { color: themeColors.text }]}>My eSIMs</Text>
-        <View style={{ width: 26 }} />
-      </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['bottom']}>
+      <Stack.Screen options={{ headerShown: true, title: 'My eSIMs' }} />
 
       <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT_RED} />
+        }
       >
-        {orders.length === 0 ? (
-          <EmptyState
-            icon={<Ionicons name="cellular-outline" size={56} color={themeColors.textTertiary} />}
-            title="No eSIMs yet"
-            description="Your purchased eSIMs will appear here with installation QR codes."
-            actionLabel="Browse plans"
-            onAction={() => router.replace('/esim')}
-          />
+        {loading ? (
+          <View style={styles.centre}>
+            <ActivityIndicator size="large" color={ACCENT_RED} />
+          </View>
+        ) : error ? (
+          <View style={styles.centre}>
+            <Ionicons name="alert-circle-outline" size={40} color={themeColors.textTertiary} />
+            <Text style={[styles.msg, { color: themeColors.textSecondary }]}>{error}</Text>
+            <TouchableOpacity onPress={retry} style={styles.cta} accessibilityRole="button">
+              <Text style={styles.ctaText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : orders.length === 0 ? (
+          <View style={styles.centre}>
+            <LinearGradient
+              colors={['#FF3344', '#E61417', '#C30E11']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.emptyIcon}
+            >
+              <Ionicons name="phone-portrait-outline" size={26} color="#FFFFFF" />
+            </LinearGradient>
+            <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No eSIMs yet</Text>
+            <Text style={[styles.msg, { color: themeColors.textSecondary }]}>
+              Stay connected on your next trip abroad.
+            </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/esim')}
+              style={styles.cta}
+              accessibilityRole="button"
+            >
+              <Text style={styles.ctaText}>Browse plans</Text>
+              <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         ) : (
-          orders.map((order) => {
-            const statusCfg = STATUS_LABEL[order.status] || STATUS_LABEL.fulfilled;
-            const hasQr = !!order.fulfilment?.qrCodeUrl || !!order.fulfilment?.activationCode;
+          orders.map((o) => {
+            const st = statusStyle(o.status);
+            const b = o.bundle ?? {};
+            const dataLabel = b.isUnlimited ? 'Unlimited' : formatData(b.dataAmountMB);
+
             return (
-              <Card key={order._id} style={styles.orderCard}>
-                <View style={styles.orderHeader}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.orderTitle} numberOfLines={1}>
-                      {order.bundleDisplayName || order.bundleName}
+              <TouchableOpacity
+                key={o._id}
+                onPress={() => router.push(`/esim/order/${o._id}`)}
+                style={[
+                  styles.card,
+                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`${b.countryName ?? 'eSIM'} order, ${st.label}`}
+              >
+                <View style={styles.cardTop}>
+                  <CountryFlag countryCode={b.country} size={30} />
+                  <View style={styles.cardHead}>
+                    <Text style={[styles.country, { color: themeColors.text }]} numberOfLines={1}>
+                      {b.countryName || b.country || 'eSIM'}
                     </Text>
-                    <Text style={styles.orderMeta}>
-                      {order.countryName || ''} · Issued{' '}
-                      {order.createdAt
-                        ? new Date(order.createdAt).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                          })
-                        : ''}
-                    </Text>
+                    {!!o.orderReference && (
+                      <Text
+                        style={[styles.ref, { color: themeColors.textTertiary }]}
+                        numberOfLines={1}
+                      >
+                        {o.orderReference}
+                      </Text>
+                    )}
                   </View>
-                  <Badge label={statusCfg.label} variant={statusCfg.variant} size="sm" />
+                  <View style={[styles.status, { backgroundColor: st.bg }]}>
+                    <View style={[styles.dot, { backgroundColor: st.dot }]} />
+                    <Text style={[styles.statusText, { color: st.fg }]}>{st.label}</Text>
+                  </View>
                 </View>
 
-                {order.pricing?.sellingPrice ? (
-                  <Text style={styles.priceRow}>
-                    {order.pricing.currency || '₹'}
-                    {order.pricing.sellingPrice.toLocaleString('en-IN')}
-                  </Text>
-                ) : null}
+                <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
-                {hasQr ? (
-                  <Button
-                    title="View QR & install"
-                    onPress={() => {
-                      Haptics.selectionAsync();
-                      setActiveOrder(order);
-                    }}
-                    variant="primary"
-                    size="md"
-                    fullWidth
-                    icon={<Ionicons name="qr-code" size={18} color="#fff" />}
-                  />
-                ) : order.status === 'pending_payment' ? (
-                  <Button
-                    title="Resume payment"
-                    onPress={() => router.push(`/esim/checkout/${encodeURIComponent(order.bundleName)}`)}
-                    variant="primary"
-                    size="md"
-                    fullWidth
-                  />
-                ) : null}
-              </Card>
+                <View style={styles.cardBottom}>
+                  <Ionicons name="wifi-outline" size={16} color={themeColors.textSecondary} />
+                  <Text style={[styles.data, { color: themeColors.text }]}>{dataLabel}</Text>
+                  {!!b.durationDays && (
+                    <Text style={[styles.days, { color: themeColors.textSecondary }]}>
+                      {b.durationDays} days
+                    </Text>
+                  )}
+                  <View style={styles.spacer} />
+                  <Text style={[styles.price, { color: themeColors.text }]}>
+                    ₹{(o.pricing?.sellingPrice ?? 0).toLocaleString('en-IN')}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={themeColors.textTertiary} />
+                </View>
+              </TouchableOpacity>
             );
           })
         )}
       </ScrollView>
-
-      {/* QR + activation modal */}
-      <Modal
-        visible={!!activeOrder}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setActiveOrder(null)}
-      >
-        {activeOrder ? <QrModal order={activeOrder} onClose={() => setActiveOrder(null)} /> : null}
-      </Modal>
     </SafeAreaView>
-  );
-}
-
-function QrModal({ order, onClose }: { order: EsimOrder; onClose: () => void }) {
-  const { themeColors } = useTheme();
-  const qrUrl = order.fulfilment?.qrCodeUrl;
-  const code = order.fulfilment?.activationCode;
-  const smdp = order.fulfilment?.smdpAddress;
-
-  const copy = async (label: string, value?: string) => {
-    if (!value) return;
-    await Clipboard.setStringAsync(value);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Toast.show({ type: 'success', text1: `${label} copied` });
-  };
-
-  const shareInstall = async () => {
-    if (!code) return;
-    try {
-      await Share.share({
-        message: `Prayana eSIM activation\nCode: ${code}${smdp ? `\nSM-DP+: ${smdp}` : ''}`,
-      });
-    } catch {}
-  };
-
-  return (
-    <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]} edges={['top']}>
-      <View style={[styles.modalHeader, { borderBottomColor: themeColors.border }]}>
-        <Text style={[styles.modalTitle, { color: themeColors.text }]}>Install eSIM</Text>
-        <TouchableOpacity onPress={onClose} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="close" size={26} color={themeColors.text} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.modalScroll}>
-        <Text style={[styles.modalBundleName, { color: themeColors.text }]}>
-          {order.bundleDisplayName || order.bundleName}
-        </Text>
-
-        {qrUrl ? (
-          <View style={styles.qrWrap}>
-            <Image source={{ uri: qrUrl }} style={styles.qrImage} resizeMode="contain" />
-            <Text style={[styles.qrCaption, { color: themeColors.textSecondary }]}>
-              On iOS: Settings → Mobile Service → Add eSIM → Scan QR
-            </Text>
-          </View>
-        ) : null}
-
-        {code ? (
-          <Card style={styles.detailCard}>
-            <DetailRow label="Activation code" value={code} onCopy={() => copy('Activation code', code)} />
-            {smdp ? (
-              <DetailRow label="SM-DP+ address" value={smdp} onCopy={() => copy('SM-DP+ address', smdp)} />
-            ) : null}
-            {order.fulfilment?.iccid ? (
-              <DetailRow label="ICCID" value={order.fulfilment.iccid} onCopy={() => copy('ICCID', order.fulfilment?.iccid)} />
-            ) : null}
-          </Card>
-        ) : null}
-
-        <Card style={styles.helpCard}>
-          <Text style={styles.helpTitle}>Manual installation</Text>
-          <Text style={styles.helpStep}>1. Open Settings → Mobile Service / Cellular</Text>
-          <Text style={styles.helpStep}>2. Tap "Add eSIM" → "Use QR code" or enter details manually</Text>
-          <Text style={styles.helpStep}>3. Activate when you arrive at your destination</Text>
-        </Card>
-
-        {code ? (
-          <Button title="Share install details" onPress={shareInstall} variant="outline" size="md" fullWidth />
-        ) : null}
-      </ScrollView>
-    </SafeAreaView>
-  );
-}
-
-function DetailRow({
-  label,
-  value,
-  onCopy,
-}: {
-  label: string;
-  value?: string;
-  onCopy?: () => void;
-}) {
-  if (!value) return null;
-  return (
-    <View style={styles.detailRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.detailLabel}>{label}</Text>
-        <Text style={styles.detailValue} selectable numberOfLines={2}>
-          {value}
-        </Text>
-      </View>
-      <TouchableOpacity onPress={onCopy} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-        <Ionicons name="copy-outline" size={20} color={colors.primary[500]} />
-      </TouchableOpacity>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.backgroundSecondary },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.background,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  topBarTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
-  scroll: { padding: spacing.lg, gap: spacing.md, flexGrow: 1 },
-  orderCard: { padding: spacing.lg, gap: spacing.md, marginBottom: spacing.md },
-  orderHeader: { flexDirection: 'row', alignItems: 'center' },
-  orderTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
-  orderMeta: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  priceRow: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.primary[600] },
+  safe: { flex: 1 },
+  body: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing['2xl'] },
 
-  modalContainer: { flex: 1, backgroundColor: colors.background },
-  modalHeader: {
+  centre: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+    paddingVertical: spacing['2xl'],
+  },
+  msg: { fontSize: fontSize.sm, textAlign: 'center', paddingHorizontal: spacing.lg },
+  emptyIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: borderRadius.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+  cta: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
+    gap: 6,
+    paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderRadius: 999,
+    backgroundColor: ACCENT_RED,
   },
-  modalTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
-  modalScroll: { padding: spacing.lg, gap: spacing.lg },
-  modalBundleName: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.text },
-  qrWrap: { alignItems: 'center', gap: spacing.md, marginVertical: spacing.lg },
-  qrImage: {
-    width: 240,
-    height: 240,
-    borderRadius: borderRadius.lg,
-    backgroundColor: colors.background,
-  },
-  qrCaption: { fontSize: fontSize.sm, color: colors.textSecondary, textAlign: 'center' },
-  detailCard: { padding: spacing.lg, gap: spacing.md },
-  detailRow: {
+  ctaText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+
+  card: { borderRadius: borderRadius.xl, borderWidth: 1, overflow: 'hidden' },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.md },
+  cardHead: { flex: 1 },
+  country: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  ref: { fontSize: 10, fontFamily: 'Courier', marginTop: 1 },
+  status: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    gap: 5,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 999,
   },
-  detailLabel: { fontSize: fontSize.xs, color: colors.textTertiary, marginBottom: 2 },
-  detailValue: { fontSize: fontSize.sm, color: colors.text, fontWeight: fontWeight.medium },
-  helpCard: { padding: spacing.lg, gap: spacing.xs },
-  helpTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
-  helpStep: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 22 },
+  dot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 10, fontWeight: fontWeight.bold },
+
+  divider: { height: StyleSheet.hairlineWidth, marginHorizontal: spacing.md },
+
+  cardBottom: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md },
+  data: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  days: { fontSize: fontSize.xs },
+  spacer: { flex: 1 },
+  price: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
 });
