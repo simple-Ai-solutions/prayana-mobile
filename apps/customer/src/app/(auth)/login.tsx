@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +26,13 @@ import {
   signInWithCredential,
 } from 'firebase/auth';
 import { auth } from '@prayana/shared-services';
+import {
+  CountryCodeButton,
+  CountryCodeList,
+  DEFAULT_COUNTRY_INDEX,
+  getCountryAt,
+  isPlausiblePhone,
+} from '../../components/common/CountryCodePicker';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -55,12 +62,24 @@ function AppleA() {
 
 export default function LoginScreen() {
   const { setUser, setIsAuthenticated, syncWithBackend } = useAuth();
+
+  // Phone is the primary path — it leads the screen, entered inline here and
+  // handed to the OTP step already filled in.
+  const [countryIndex, setCountryIndex] = useState(DEFAULT_COUNTRY_INDEX);
+  const [phone, setPhone] = useState('');
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // Email/password is the demoted fallback, collapsed behind a text link.
+  const [showEmailForm, setShowEmailForm] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const phoneIsValid = useMemo(() => isPlausiblePhone(phone), [phone]);
 
   // Google sign-in used expo-auth-session, which drives OAuth through a browser.
   // Google now blocks that from native apps as non-compliant with their OAuth 2.0
@@ -83,6 +102,26 @@ export default function LoginScreen() {
       offlineAccess: false,
     });
   }, []);
+
+  // ── Phone (primary) ─────────────────────────────────────────────
+  // Hand the number straight to the OTP step so it never has to be retyped.
+  // phone-login reads these params, prefills, and fires send-OTP itself.
+  const handlePhoneContinue = () => {
+    setError('');
+    if (!phoneIsValid) {
+      setError('Please enter a valid phone number (at least 10 digits).');
+      return;
+    }
+    setShowCountryPicker(false);
+    router.push({
+      pathname: '/(auth)/phone-login',
+      params: {
+        phone: phone.replace(/[^\d]/g, ''),
+        countryIndex: String(countryIndex),
+        autoSend: '1',
+      },
+    });
+  };
 
   const handleGoogleToken = async (idToken: string | null, accessToken: string | null) => {
     try {
@@ -188,6 +227,7 @@ export default function LoginScreen() {
   };
 
   const isSubmitting = isLoading || isGoogleLoading;
+  const selectedCountry = getCountryAt(countryIndex);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -227,47 +267,69 @@ export default function LoginScreen() {
             <Text style={styles.title}>Welcome to Prayana</Text>
             <Text style={styles.subtitle}>Your AI-powered travel companion</Text>
 
-            {/* ── Buttons ──────────────────────────────────── */}
-            <View style={styles.buttonsSection}>
-              {/* Apple */}
+            {/* ── PRIMARY: phone entry, inline ─────────────────
+                Phone is how we want people to sign in, so it leads: the number
+                is typed here and carried into the OTP step. */}
+            <View style={styles.phoneSection}>
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <View style={styles.phoneRow}>
+                <CountryCodeButton
+                  selectedIndex={countryIndex}
+                  open={showCountryPicker}
+                  onPress={() => setShowCountryPicker((v) => !v)}
+                  disabled={isSubmitting}
+                />
+                <View style={styles.phoneInputWrap}>
+                  <RNTextInput
+                    style={styles.phoneInput}
+                    placeholder="Phone number"
+                    placeholderTextColor="#9ca3af"
+                    value={phone}
+                    onChangeText={(t) => { setPhone(t); setError(''); }}
+                    keyboardType="phone-pad"
+                    autoComplete="tel"
+                    textContentType="telephoneNumber"
+                    maxLength={15}
+                    editable={!isSubmitting}
+                    onSubmitEditing={phoneIsValid ? handlePhoneContinue : undefined}
+                    returnKeyType="go"
+                  />
+                </View>
+              </View>
+
+              {showCountryPicker && (
+                <CountryCodeList
+                  selectedIndex={countryIndex}
+                  onSelect={(index) => {
+                    setCountryIndex(index);
+                    setShowCountryPicker(false);
+                  }}
+                  style={styles.countryList}
+                />
+              )}
+
+              {/* Main CTA — the brand gradient button, same weight the email
+                  "Sign In" button used to carry. */}
               <TouchableOpacity
-                style={styles.appleBtn}
-                onPress={() => Alert.alert('Coming Soon', 'Apple Sign-In coming soon.')}
+                style={[styles.primaryBtn, (!phoneIsValid || isSubmitting) && styles.primaryBtnDisabled]}
+                onPress={handlePhoneContinue}
                 activeOpacity={0.85}
-                disabled={isSubmitting}
+                disabled={!phoneIsValid || isSubmitting}
               >
-                <AppleA />
-                <Text style={styles.appleBtnText}>Continue with Apple</Text>
+                <LinearGradient
+                  colors={['#2EC4B6', '#0FA697']}
+                  style={styles.primaryBtnGrad}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={styles.primaryBtnText}>Continue</Text>
+                  <Ionicons name="arrow-forward" size={18} color="#ffffff" />
+                </LinearGradient>
               </TouchableOpacity>
 
-              {/* Phone first — it's the primary way people sign in here, so it
-                  leads; Google sits under it. */}
-              <TouchableOpacity
-                style={styles.phoneBtn}
-                onPress={() => router.push('/(auth)/phone-login')}
-                activeOpacity={0.85}
-                disabled={isSubmitting}
-              >
-                <Ionicons name="phone-portrait-outline" size={20} color="#374151" />
-                <Text style={styles.phoneBtnText}>Continue with Phone</Text>
-              </TouchableOpacity>
-
-              {/* Google */}
-              <TouchableOpacity
-                style={styles.googleBtn}
-                onPress={handleGoogleLogin}
-                activeOpacity={0.85}
-                disabled={isSubmitting}
-              >
-                {isGoogleLoading ? (
-                  <ActivityIndicator size="small" color="#374151" />
-                ) : (
-                  <GoogleG />
-                )}
-                <Text style={styles.googleBtnText}>
-                  {isGoogleLoading ? 'Connecting...' : 'Continue with Google'}
-                </Text>
-              </TouchableOpacity>
+              <Text style={styles.phoneHint}>
+                We'll text a 6-digit code to {selectedCountry.code} {phone || 'your number'}
+              </Text>
             </View>
 
             {/* Error */}
@@ -281,67 +343,113 @@ export default function LoginScreen() {
             {/* Divider */}
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerLabel}>or sign in with email</Text>
+              <Text style={styles.dividerLabel}>or continue with</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Email input */}
-            <View style={styles.inputWrap}>
-              <Ionicons name="mail-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-              <RNTextInput
-                style={styles.input}
-                placeholder="Email address"
-                placeholderTextColor="#9ca3af"
-                value={email}
-                onChangeText={(t) => { setEmail(t); setError(''); }}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoComplete="email"
-                editable={!isSubmitting}
-              />
-            </View>
+            {/* ── SECONDARY: social ───────────────────────────── */}
+            <View style={styles.socialSection}>
+              {/* Google */}
+              <TouchableOpacity
+                style={styles.socialBtn}
+                onPress={handleGoogleLogin}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+              >
+                {isGoogleLoading ? (
+                  <ActivityIndicator size="small" color="#374151" />
+                ) : (
+                  <GoogleG />
+                )}
+                <Text style={styles.socialBtnText}>
+                  {isGoogleLoading ? 'Connecting...' : 'Continue with Google'}
+                </Text>
+              </TouchableOpacity>
 
-            {/* Password input */}
-            <View style={styles.inputWrap}>
-              <Ionicons name="lock-closed-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
-              <RNTextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Password"
-                placeholderTextColor="#9ca3af"
-                value={password}
-                onChangeText={(t) => { setPassword(t); setError(''); }}
-                secureTextEntry={!showPassword}
-                autoComplete="password"
-                editable={!isSubmitting}
-              />
-              <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#9ca3af" />
+              {/* Apple */}
+              <TouchableOpacity
+                style={styles.socialBtn}
+                onPress={() => Alert.alert('Coming Soon', 'Apple Sign-In coming soon.')}
+                activeOpacity={0.85}
+                disabled={isSubmitting}
+              >
+                <AppleA />
+                <Text style={styles.socialBtnText}>Continue with Apple</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Sign In button */}
-            <TouchableOpacity
-              style={[styles.signInBtn, isSubmitting && { opacity: 0.6 }]}
-              onPress={handleEmailLogin}
-              activeOpacity={0.85}
-              disabled={isSubmitting}
-            >
-              <LinearGradient
-                colors={['#2EC4B6', '#0FA697']}
-                style={styles.signInBtnGrad}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+            {/* ── DEMOTED: email/password, collapsed behind a link ── */}
+            {!showEmailForm ? (
+              <TouchableOpacity
+                style={styles.emailToggle}
+                onPress={() => { setShowEmailForm(true); setError(''); }}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Text style={styles.signInBtnText}>Sign In</Text>
-                    <Ionicons name="arrow-forward" size={18} color="#ffffff" />
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
+                <Ionicons name="mail-outline" size={15} color="#6b7280" />
+                <Text style={styles.emailToggleText}>Sign in with email instead</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.emailSection}>
+                <View style={styles.divider}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerLabel}>or sign in with email</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                {/* Email input */}
+                <View style={styles.inputWrap}>
+                  <Ionicons name="mail-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                  <RNTextInput
+                    style={styles.input}
+                    placeholder="Email address"
+                    placeholderTextColor="#9ca3af"
+                    value={email}
+                    onChangeText={(t) => { setEmail(t); setError(''); }}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    editable={!isSubmitting}
+                  />
+                </View>
+
+                {/* Password input */}
+                <View style={styles.inputWrap}>
+                  <Ionicons name="lock-closed-outline" size={18} color="#9ca3af" style={styles.inputIcon} />
+                  <RNTextInput
+                    style={[styles.input, { flex: 1 }]}
+                    placeholder="Password"
+                    placeholderTextColor="#9ca3af"
+                    value={password}
+                    onChangeText={(t) => { setPassword(t); setError(''); }}
+                    secureTextEntry={!showPassword}
+                    autoComplete="password"
+                    editable={!isSubmitting}
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword((v) => !v)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#9ca3af" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Sign In button — secondary/outline now that phone owns the
+                    primary CTA, but the same handler as before. */}
+                <TouchableOpacity
+                  style={[styles.emailSignInBtn, isSubmitting && { opacity: 0.6 }]}
+                  onPress={handleEmailLogin}
+                  activeOpacity={0.85}
+                  disabled={isSubmitting}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#0FA697" />
+                  ) : (
+                    <>
+                      <Text style={styles.emailSignInBtnText}>Sign In</Text>
+                      <Ionicons name="arrow-forward" size={18} color="#0FA697" />
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
 
             {/* Sign Up link */}
             <View style={styles.signUpRow}>
@@ -458,52 +566,109 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
 
-  // Buttons section
-  buttonsSection: { paddingHorizontal: 28, marginTop: 28, gap: 12 },
-
-  // Apple button (black)
-  appleBtn: {
+  // ── Phone (primary) ──────────────────────────────────────────
+  phoneSection: { paddingHorizontal: 28, marginTop: 28 },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  phoneRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000000',
-    borderRadius: 14,
-    paddingVertical: 14,
     gap: 10,
   },
-  appleWrap: { width: 22, alignItems: 'center' },
-  appleIcon: { fontSize: 18, color: '#ffffff' },
-  appleBtnText: { fontSize: 15, fontWeight: '600', color: '#ffffff' },
-
-  // Google button (outlined)
-  googleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 14,
-    paddingVertical: 14,
-    gap: 10,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+  phoneInputWrap: {
+    flex: 1,
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+    borderRadius: 12,
     backgroundColor: '#ffffff',
   },
+  phoneInput: {
+    flex: 1,
+    fontSize: 15,
+    color: '#111827',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  countryList: { marginTop: 10 },
+
+  // Primary CTA (brand gradient)
+  primaryBtn: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    marginTop: 16,
+  },
+  primaryBtnDisabled: { opacity: 0.5 },
+  primaryBtnGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 15,
+    gap: 8,
+  },
+  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
+  phoneHint: {
+    fontSize: 12,
+    color: '#9ca3af',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+
+  // ── Social (secondary) ───────────────────────────────────────
+  socialSection: { paddingHorizontal: 28, gap: 12 },
+  socialBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 14,
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#ffffff',
+    minHeight: 48,
+  },
+  socialBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
   googleGWrap: { width: 22, alignItems: 'center' },
   googleG: { fontSize: 17, fontWeight: '700', color: '#4285F4' },
-  googleBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  appleWrap: { width: 22, alignItems: 'center' },
+  appleIcon: { fontSize: 18, color: '#111827' },
 
-  // Phone button (outlined)
-  phoneBtn: {
+  // ── Email (demoted) ──────────────────────────────────────────
+  emailToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    marginTop: 20,
+    paddingVertical: 8,
+    minHeight: 44,
+  },
+  emailToggleText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+    textDecorationLine: 'underline',
+  },
+  emailSection: { marginTop: 4 },
+  emailSignInBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 28,
+    marginTop: 4,
     borderRadius: 14,
     paddingVertical: 14,
-    gap: 10,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderWidth: 1.5,
+    borderColor: '#2EC4B6',
     backgroundColor: '#ffffff',
+    minHeight: 48,
   },
-  phoneBtnText: { fontSize: 15, fontWeight: '600', color: '#374151' },
+  emailSignInBtnText: { fontSize: 15, fontWeight: '700', color: '#0FA697' },
 
   // Error
   errorBox: {
@@ -537,7 +702,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Input
+  // Input (email/password)
   inputWrap: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -557,22 +722,6 @@ const styles = StyleSheet.create({
     color: '#111827',
     paddingVertical: 0,
   },
-
-  // Sign In button
-  signInBtn: {
-    marginHorizontal: 28,
-    borderRadius: 14,
-    overflow: 'hidden',
-    marginTop: 4,
-  },
-  signInBtnGrad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    gap: 8,
-  },
-  signInBtnText: { fontSize: 16, fontWeight: '700', color: '#ffffff' },
 
   // Sign Up
   signUpRow: {

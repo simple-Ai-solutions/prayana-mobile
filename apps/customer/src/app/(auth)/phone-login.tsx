@@ -11,13 +11,19 @@ import {
   TextInput as RNTextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { Button, TextInput } from '@prayana/shared-ui';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Button } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '@prayana/shared-services/src/firebase';
 import { makeAPICall } from '@prayana/shared-services';
-import { COUNTRY_CODES } from '@prayana/shared-utils';
+import {
+  CountryCodeButton,
+  CountryCodeList,
+  DEFAULT_COUNTRY_INDEX,
+  getCountryAt,
+  isPlausiblePhone,
+} from '../../components/common/CountryCodePicker';
 
 const RESEND_TIMER_SECONDS = 60;
 const OTP_LENGTH = 6;
@@ -25,9 +31,25 @@ const OTP_LENGTH = 6;
 export default function PhoneLoginScreen() {
   const { setUser, setIsAuthenticated, syncWithBackend } = useAuth();
 
+  // The login screen can hand us a number the user already typed, so they don't
+  // retype it here. All three params are optional — with none of them, this
+  // screen behaves exactly as it always did (empty form, India default).
+  const params = useLocalSearchParams<{
+    phone?: string;
+    countryIndex?: string;
+    autoSend?: string;
+  }>();
+
+  const initialPhone = typeof params.phone === 'string' ? params.phone : '';
+  const parsedCountryIndex = Number(params.countryIndex);
+  const initialCountryIndex =
+    Number.isInteger(parsedCountryIndex) && parsedCountryIndex >= 0
+      ? parsedCountryIndex
+      : DEFAULT_COUNTRY_INDEX;
+
   // Phone input state
-  const [selectedCountryIndex, setSelectedCountryIndex] = useState(0); // India default
-  const [phoneNumber, setPhoneNumber] = useState('');
+  const [selectedCountryIndex, setSelectedCountryIndex] = useState(initialCountryIndex);
+  const [phoneNumber, setPhoneNumber] = useState(initialPhone);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
 
   // OTP state
@@ -46,7 +68,10 @@ export default function PhoneLoginScreen() {
   // OTP input refs
   const otpInputRefs = useRef<(RNTextInput | null)[]>([]);
 
-  const selectedCountry = COUNTRY_CODES[selectedCountryIndex];
+  // Fires the prefilled send-OTP at most once per mount.
+  const autoSentRef = useRef(false);
+
+  const selectedCountry = getCountryAt(selectedCountryIndex);
 
   // Countdown timer for resend
   useEffect(() => {
@@ -75,14 +100,23 @@ export default function PhoneLoginScreen() {
   // ============================================================
   // SEND OTP via backend API (no reCAPTCHA needed!)
   // ============================================================
-  const handleSendOTP = async () => {
-    const cleanPhone = phoneNumber.replace(/[^\d]/g, '');
-    if (!cleanPhone || cleanPhone.length < 7) {
+  // Takes the phone/country explicitly so the prefilled auto-send can pass the
+  // values straight from the route params rather than racing the state updates
+  // that set them. With no args it reads state — the normal manual path.
+  const handleSendOTP = async (
+    phoneArg?: string,
+    countryIndexArg?: number,
+  ) => {
+    const rawPhone = phoneArg ?? phoneNumber;
+    const country = getCountryAt(countryIndexArg ?? selectedCountryIndex);
+
+    const cleanPhone = rawPhone.replace(/[^\d]/g, '');
+    if (!isPlausiblePhone(cleanPhone)) {
       Alert.alert('Error', 'Please enter a valid phone number.');
       return;
     }
 
-    const fullPhoneNumber = `${selectedCountry.code}${cleanPhone}`;
+    const fullPhoneNumber = `${country.code}${cleanPhone}`;
     setIsSending(true);
 
     try {
@@ -112,6 +146,24 @@ export default function PhoneLoginScreen() {
       setIsSending(false);
     }
   };
+
+  // Arrived from the login screen with a number already typed: send the OTP
+  // straight away so the user lands on the OTP boxes instead of re-entering the
+  // number they just gave us. Opened with NO params this does nothing, and the
+  // screen stays the standalone phone form it has always been.
+  //
+  // Declared after handleSendOTP so the call sits below the definition.
+  useEffect(() => {
+    if (autoSentRef.current) return;
+    if (params.autoSend !== '1') return;
+    if (!isPlausiblePhone(initialPhone)) return;
+
+    autoSentRef.current = true;
+    void handleSendOTP(initialPhone, initialCountryIndex);
+    // Mount-only: the params are read once, and autoSentRef keeps this from
+    // re-firing if expo-router re-renders with the same params.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ============================================================
   // VERIFY OTP via backend API → get Firebase custom token
@@ -277,16 +329,12 @@ export default function PhoneLoginScreen() {
             <View style={styles.formSection}>
               <Text style={styles.inputLabel}>Phone Number</Text>
               <View style={styles.phoneRow}>
-                <TouchableOpacity
-                  style={styles.countryCodeButton}
+                <CountryCodeButton
+                  selectedIndex={selectedCountryIndex}
+                  open={showCountryPicker}
                   onPress={() => setShowCountryPicker(!showCountryPicker)}
-                >
-                  <Text style={styles.countryFlag}>{selectedCountry.flag}</Text>
-                  <Text style={styles.countryCodeText}>{selectedCountry.code}</Text>
-                  <Text style={styles.dropdownArrow}>
-                    {showCountryPicker ? '\u25B2' : '\u25BC'}
-                  </Text>
-                </TouchableOpacity>
+                  disabled={isSending}
+                />
                 <View style={styles.phoneInputWrapper}>
                   <RNTextInput
                     style={styles.phoneInput}
@@ -302,38 +350,21 @@ export default function PhoneLoginScreen() {
 
               {/* Country Picker Dropdown */}
               {showCountryPicker && (
-                <View style={styles.countryPickerDropdown}>
-                  <ScrollView
-                    style={styles.countryList}
-                    nestedScrollEnabled
-                    showsVerticalScrollIndicator
-                  >
-                    {COUNTRY_CODES.map((country, index) => (
-                      <TouchableOpacity
-                        key={`${country.country}-${index}`}
-                        style={[
-                          styles.countryItem,
-                          index === selectedCountryIndex &&
-                            styles.countryItemSelected,
-                        ]}
-                        onPress={() => selectCountry(index)}
-                      >
-                        <Text style={styles.countryItemFlag}>{country.flag}</Text>
-                        <Text style={styles.countryItemName}>{country.name}</Text>
-                        <Text style={styles.countryItemCode}>{country.code}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
+                <CountryCodeList
+                  selectedIndex={selectedCountryIndex}
+                  onSelect={selectCountry}
+                  style={styles.countryPickerDropdown}
+                />
               )}
 
               <Button
                 title="Send OTP"
-                onPress={handleSendOTP}
+                onPress={() => { void handleSendOTP(); }}
                 variant="primary"
                 size="lg"
                 fullWidth
                 loading={isSending}
+                disabled={!isPlausiblePhone(phoneNumber)}
                 style={styles.sendButton}
               />
 
@@ -482,31 +513,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 10,
   },
-  countryCodeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    borderWidth: 1.5,
-    borderColor: '#e5e5e5',
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    minWidth: 100,
-  },
-  countryFlag: {
-    fontSize: 18,
-    marginRight: 6,
-  },
-  countryCodeText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1a1a1a',
-    marginRight: 4,
-  },
-  dropdownArrow: {
-    fontSize: 10,
-    color: '#6b7280',
-  },
   phoneInputWrapper: {
     flex: 1,
     borderWidth: 1.5,
@@ -523,46 +529,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
 
-  // Country Picker Dropdown
+  // Country Picker Dropdown — the card styling now lives in the shared
+  // CountryCodePicker; only the spacing around it is this screen's business.
   countryPickerDropdown: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    borderRadius: 12,
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  countryList: {
-    maxHeight: 200,
-  },
-  countryItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  countryItemSelected: {
-    backgroundColor: '#f0fdfc',
-  },
-  countryItemFlag: {
-    fontSize: 18,
-    marginRight: 10,
-  },
-  countryItemName: {
-    flex: 1,
-    fontSize: 14,
-    color: '#1a1a1a',
-  },
-  countryItemCode: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6b7280',
   },
 
   // Send Button
