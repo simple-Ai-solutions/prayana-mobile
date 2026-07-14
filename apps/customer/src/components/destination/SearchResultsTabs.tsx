@@ -1,7 +1,13 @@
 // Tab bar for the destination search-results page.
 // Mirrors the PWA SearchResultsTabs: Places · Videos · Activities · Hidden Gems.
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+// MUST come from gesture-handler, not react-native: this tab bar renders inside
+// the destination page's gesture-handler <ScrollView>, and a plain RN
+// TouchableOpacity nested in one never receives the tap — the scroll gesture
+// swallows it, so the tabs looked dead (Videos/Activities/Hidden Gems wouldn't
+// switch).
+import { TouchableOpacity } from 'react-native-gesture-handler';
 import { MapPin, Sparkles, Gem } from 'lucide-react-native';
 import { useTheme, colors, spacing, fontSize, fontWeight } from '@prayana/shared-ui';
 import { YouTubeIcon } from './YouTubeIcon';
@@ -55,6 +61,8 @@ export const SearchResultsTabs: React.FC<Props> = ({ activeTab, onChange }) => {
                 { color: active ? colors.primary[600] : themeColors.textTertiary },
               ]}
               numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
             >
               {tab.label}
             </Text>
@@ -74,12 +82,23 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
+    // Without a zero basis the longest label ("Hidden Gems") sizes its tab to
+    // its own text, so the four tabs bunched up against each other instead of
+    // splitting the bar into equal quarters.
+    flexBasis: 0,
+    minWidth: 0,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingVertical: spacing.md,
+    paddingHorizontal: 2,
     position: 'relative',
   },
-  label: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+  label: {
+    fontSize: 11,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'center',
+  },
   underline: {
     position: 'absolute',
     bottom: 0,
