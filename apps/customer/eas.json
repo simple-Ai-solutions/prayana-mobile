@@ -38,10 +38,26 @@
         "buildType": "apk"
       }
     },
+    "apk": {
+      "extends": "base",
+      "channel": "production",
+      "distribution": "internal",
+      "autoIncrement": true,
+      "environment": "production",
+      "env": {
+        "EXPO_PUBLIC_ENV": "production",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+      },
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      }
+    },
     "production": {
       "extends": "base",
       "channel": "production",
       "autoIncrement": true,
+      "environment": "production",
       "env": {
         "EXPO_PUBLIC_ENV": "production",
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"

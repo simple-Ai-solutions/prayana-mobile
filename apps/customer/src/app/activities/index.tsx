@@ -1,473 +1,620 @@
-import React, { useRef, useEffect, useState } from 'react';
+// Things to Do — Prayana's own hosted activities across India.
+//
+// This screen used to be a STATIC MARKETING PAGE: emoji category tiles and
+// feature blurbs, with no API call anywhere in it. It listed no activities at
+// all. It is now the real product, matching the PWA's /activities:
+//
+//   hero -> photo category tiles -> sort -> Top picks -> All experiences
+//
+// Two data facts worth stating, because they shape what is rendered:
+//
+//   * These are Prayana's OWN listings (source: "internal"), not Viator or
+//     Headout. They carry no provider chip — an "Instant" badge takes its place
+//     where the host confirms immediately, which is the fact that matters.
+//   * rating.average is 0 on every listing today: these are new and unreviewed.
+//     So no stars are drawn. A 5-star card with no reviews behind it is a lie.
+//
+// Theme: sizes come from the shared tokens (fontSize/fontWeight); no fontFamily
+// is set, because the design system's typeface IS the native system stack.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Dimensions,
-  Animated,
   TextInput,
-  Alert,
-  Platform,
+  Image,
+  ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
+import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
+  useTheme,
   colors,
+  spacing,
   fontSize,
   fontWeight,
-  spacing,
   borderRadius,
-  shadow,
-  useTheme,
 } from '@prayana/shared-ui';
+import { activityMarketplaceAPI } from '@prayana/shared-services';
+import { Experience } from '../../lib/experiences';
+import {
+  ACTIVITY_CATEGORIES,
+  ACTIVITY_SORTS,
+  ActivitySort,
+} from '../../lib/activityCategories';
+import { ExperienceCard } from '../../components/experiences/ExperienceCard';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PAGE = 12;
 
-// ── Activity categories preview ────────────────────────────────
-const ACTIVITY_CATEGORIES = [
-  { emoji: '🧗', label: 'Adventure', color: '#F97316' },
-  { emoji: '🏛️', label: 'Cultural', color: '#8B5CF6' },
-  { emoji: '🍛', label: 'Food', color: '#EAB308' },
-  { emoji: '🐘', label: 'Wildlife', color: '#16A34A' },
-  { emoji: '🧘', label: 'Wellness', color: '#06B6D4' },
-  { emoji: '🚤', label: 'Water', color: '#3B82F6' },
-  { emoji: '🎭', label: 'Arts', color: '#EC4899' },
-  { emoji: '⛷️', label: 'Snow', color: '#64748B' },
-];
-
-const FEATURES = [
-  {
-    icon: 'ticket-outline' as const,
-    title: 'Instant Booking',
-    desc: 'Book activities in seconds with instant confirmation. No waiting, no hassle.',
-    color: '#F97316',
-    bg: '#FFF7ED',
-  },
-  {
-    icon: 'people-outline' as const,
-    title: 'Group & Solo',
-    desc: 'Activities for solo travellers, couples, families and large groups.',
-    color: '#8B5CF6',
-    bg: '#F5F3FF',
-  },
-  {
-    icon: 'star-outline' as const,
-    title: 'Verified Reviews',
-    desc: 'Real reviews from real travellers. Make informed decisions every time.',
-    color: '#EAB308',
-    bg: '#FEFCE8',
-  },
-  {
-    icon: 'shield-checkmark-outline' as const,
-    title: 'Free Cancellation',
-    desc: 'Plans change — cancel most bookings up to 24 hours before for a full refund.',
-    color: '#10B981',
-    bg: '#ECFDF5',
-  },
-  {
-    icon: 'sparkles-outline' as const,
-    title: 'AI Suggestions',
-    desc: 'Let Isha recommend activities based on your travel style and destination.',
-    color: '#06B6D4',
-    bg: '#ECFEFF',
-  },
-  {
-    icon: 'wallet-outline' as const,
-    title: 'Best Prices',
-    desc: 'Local operators, no middlemen. Get authentic experiences at the best rates.',
-    color: '#EF4444',
-    bg: '#FEF2F2',
-  },
-];
-
-const UPCOMING_CITIES = [
-  { name: 'Goa', emoji: '🏖️' },
-  { name: 'Mumbai', emoji: '🌆' },
-  { name: 'Delhi', emoji: '🕌' },
-  { name: 'Jaipur', emoji: '🏰' },
-  { name: 'Kerala', emoji: '🌴' },
-  { name: 'Manali', emoji: '🏔️' },
-  { name: 'Rishikesh', emoji: '🧘' },
-  { name: 'Bali', emoji: '🌺' },
-];
-
-// ── Main Component ──────────────────────────────────────────────
 export default function ActivitiesScreen() {
-  const router = useRouter();
-  const { isDarkMode, themeColors } = useTheme();
-  const [email, setEmail] = useState('');
-  const [notified, setNotified] = useState(false);
+  const { themeColors, isDarkMode } = useTheme();
 
-  // Animations
-  const pulse = useRef(new Animated.Value(1)).current;
-  const float = useRef(new Animated.Value(0)).current;
-  const fadeIn = useRef(new Animated.Value(0)).current;
-  const badgeBounce = useRef(new Animated.Value(0)).current;
+  const [featured, setFeatured] = useState<Experience[]>([]);
+  const [items, setItems] = useState<Experience[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [listLoading, setListLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+  const [hasMore, setHasMore] = useState(true);
+  const [skip, setSkip] = useState(0);
+
+  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState('All');
+  const [sort, setSort] = useState<ActivitySort>('recommended');
+  const [sortOpen, setSortOpen] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** The searchable list — category, sort and query all feed this one call. */
+  const search = useCallback(
+    async (opts: { q: string; cat: string; sortBy: ActivitySort; skip: number; append: boolean }) => {
+      setListLoading(true);
+      try {
+        const res: any = await activityMarketplaceAPI.searchActivities({
+          q: opts.q.trim() || undefined,
+          category: opts.cat !== 'All' ? opts.cat : undefined,
+          sort: opts.sortBy,
+          limit: PAGE,
+          skip: opts.skip,
+        });
+        const data: Experience[] = res?.data ?? res?.activities ?? [];
+        setItems((prev) => (opts.append ? [...prev, ...data] : data));
+        setHasMore(data.length >= PAGE);
+        setSkip(opts.skip + data.length);
+      } catch {
+        if (!opts.append) setItems([]);
+      } finally {
+        setListLoading(false);
+      }
+    },
+    [],
+  );
+
+  const loadAll = useCallback(async () => {
+    setError('');
+    try {
+      const [feat] = await Promise.all([
+        activityMarketplaceAPI.getFeaturedActivities(8).catch(() => null),
+        search({ q: '', cat: 'All', sortBy: 'recommended', skip: 0, append: false }),
+      ]);
+      const list: Experience[] = (feat as any)?.data ?? [];
+      setFeatured(list);
+    } catch {
+      setError("Couldn't load activities. Please try again.");
+    }
+  }, [search]);
 
   useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.1, duration: 1600, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 1600, useNativeDriver: true }),
-      ])
-    ).start();
+    setLoading(true);
+    loadAll().finally(() => setLoading(false));
+  }, [loadAll]);
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(float, { toValue: 1, duration: 2200, useNativeDriver: true }),
-        Animated.timing(float, { toValue: 0, duration: 2200, useNativeDriver: true }),
-      ])
-    ).start();
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadAll();
+    setRefreshing(false);
+  }, [loadAll]);
 
-    Animated.timing(fadeIn, { toValue: 1, duration: 700, useNativeDriver: true }).start();
+  // Re-run the search whenever the category or sort changes.
+  const applyFilters = useCallback(
+    (cat: string, sortBy: ActivitySort, q: string) => {
+      setCategory(cat);
+      setSort(sortBy);
+      setSkip(0);
+      search({ q, cat, sortBy, skip: 0, append: false });
+    },
+    [search],
+  );
 
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(badgeBounce, { toValue: -3, duration: 700, useNativeDriver: true }),
-        Animated.timing(badgeBounce, { toValue: 0, duration: 700, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [pulse, float, fadeIn, badgeBounce]);
+  const onSearchChange = useCallback(
+    (text: string) => {
+      setQuery(text);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        setSkip(0);
+        search({ q: text, cat: category, sortBy: sort, skip: 0, append: false });
+      }, 350);
+    },
+    [search, category, sort],
+  );
 
-  const floatY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
+  const open = useCallback((a: Experience) => {
+    router.push(`/activity/${a._id}`);
+  }, []);
 
-  const handleNotify = () => {
-    if (!email.trim() || !email.includes('@')) {
-      Alert.alert('Invalid email', 'Please enter a valid email address.');
-      return;
-    }
-    setNotified(true);
-  };
+  const sortLabel = useMemo(
+    () => ACTIVITY_SORTS.find((s) => s.value === sort)?.label ?? 'Recommended',
+    [sort],
+  );
+
+  const filtering = category !== 'All' || !!query.trim();
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={[styles.header, {
-        backgroundColor: themeColors.surface,
-        borderBottomColor: themeColors.border,
-      }]}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backBtn}
-          activeOpacity={0.7}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Ionicons name="arrow-back" size={22} color={themeColors.textSecondary} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Activities</Text>
-        <View style={styles.backBtn} />
-      </View>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        {/* ── Hero Section ─────────────────────────────────── */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.body}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
+        }
+      >
+        {/* ─── HERO ─── */}
         <LinearGradient
-          colors={['#7C2D12', '#EA580C', '#FB923C']}
+          colors={
+            isDarkMode
+              ? ['#1F1512', themeColors.background]
+              : ['#FFF1E7', '#FDE8EF', themeColors.background]
+          }
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 1 }}
           style={styles.hero}
         >
-          <View style={styles.decor1} />
-          <View style={styles.decor2} />
-          <View style={styles.decor3} />
-
-          {/* Badge */}
-          <Animated.View style={[styles.badge, { transform: [{ translateY: badgeBounce }] }]}>
-            <View style={styles.badgeDot} />
-            <Text style={styles.badgeText}>Coming Soon</Text>
-          </Animated.View>
-
-          {/* Icon */}
-          <Animated.View style={[styles.heroIconWrap, {
-            transform: [{ scale: pulse }, { translateY: floatY }],
-          }]}>
-            <LinearGradient
-              colors={['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.1)']}
-              style={styles.heroIconBg}
+          <View style={styles.heroTop}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={[styles.backBtn, { backgroundColor: themeColors.surface }]}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
             >
-              <Text style={styles.heroEmoji}>🎟️</Text>
-            </LinearGradient>
-          </Animated.View>
-
-          <Animated.View style={{ opacity: fadeIn, alignItems: 'center' }}>
-            <Text style={styles.heroTitle}>Experiences &{'\n'}Activities</Text>
-            <Text style={styles.heroSub}>
-              Book unique tours, experiences, and adventures handpicked for curious travellers.
-            </Text>
-          </Animated.View>
-
-          {/* Category chips */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoriesRow}>
-            {ACTIVITY_CATEGORIES.map((c) => (
-              <View key={c.label} style={styles.categoryChip}>
-                <Text style={styles.categoryEmoji}>{c.emoji}</Text>
-                <Text style={styles.categoryLabel}>{c.label}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        </LinearGradient>
-
-        {/* ── Notify Me ───────────────────────────────────── */}
-        <View style={[styles.notifyCard, {
-          backgroundColor: themeColors.surface,
-          borderColor: themeColors.border,
-        }, shadow.md]}>
-          <View style={styles.notifyIconWrap}>
-            <Ionicons name="flame-outline" size={28} color="#F97316" />
+              <Ionicons name="chevron-back" size={22} color={themeColors.text} />
+            </TouchableOpacity>
           </View>
-          <Text style={[styles.notifyTitle, { color: themeColors.text }]}>Be first in line</Text>
-          <Text style={[styles.notifySub, { color: themeColors.textSecondary }]}>
-            Get early access and exclusive discounts when Activities goes live.
+
+          <View style={[styles.eyebrow, { backgroundColor: themeColors.surface }]}>
+            <Ionicons name="shield-checkmark" size={13} color={colors.primary[500]} />
+            <Text style={[styles.eyebrowText, { color: colors.primary[500] }]}>
+              Vetted hosts · Book direct with Prayana
+            </Text>
+          </View>
+
+          <Text style={[styles.heroTitle, { color: themeColors.text }]}>
+            Find your next{'\n'}
+            <Text style={{ color: colors.primary[500] }}>unforgettable adventure</Text>
           </Text>
 
-          {notified ? (
-            <View style={styles.notifiedRow}>
-              <Ionicons name="checkmark-circle" size={20} color="#10B981" />
-              <Text style={[styles.notifiedText, { color: '#10B981' }]}>
-                Awesome! We'll let you know as soon as we launch.
+          <View style={styles.trust}>
+            <View style={styles.trustItem}>
+              <Ionicons name="shield-checkmark-outline" size={13} color="#16A34A" />
+              <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
+                Free cancellation
               </Text>
             </View>
-          ) : (
-            <View style={styles.notifyInputRow}>
-              <TextInput
-                style={[styles.notifyInput, {
-                  backgroundColor: themeColors.backgroundSecondary,
-                  borderColor: themeColors.border,
-                  color: themeColors.text,
-                }]}
-                placeholder="your@email.com"
-                placeholderTextColor={themeColors.textTertiary}
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-              <TouchableOpacity style={styles.notifyBtn} onPress={handleNotify} activeOpacity={0.85}>
-                <LinearGradient colors={['#F97316', '#EA580C']} style={styles.notifyBtnGrad}>
-                  <Text style={styles.notifyBtnText}>Notify me</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+            <View style={styles.trustItem}>
+              <Ionicons name="flash-outline" size={13} color="#16A34A" />
+              <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
+                Instant confirmation
+              </Text>
             </View>
-          )}
+          </View>
+        </LinearGradient>
+
+        {/* ─── SEARCH ─── */}
+        <View style={styles.searchWrap}>
+          <View
+            style={[
+              styles.searchBar,
+              { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+            ]}
+          >
+            <Ionicons name="search" size={18} color={themeColors.textTertiary} />
+            <TextInput
+              value={query}
+              onChangeText={onSearchChange}
+              placeholder="Search a destination or experience"
+              placeholderTextColor={themeColors.textTertiary}
+              style={[styles.searchInput, { color: themeColors.text }]}
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity
+                onPress={() => onSearchChange('')}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
+                <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {/* ── Upcoming Cities ─────────────────────────────── */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-            Launching in these cities first
-          </Text>
-          <View style={styles.citiesGrid}>
-            {UPCOMING_CITIES.map((city) => (
-              <View key={city.name} style={[styles.cityChip, {
-                backgroundColor: isDarkMode ? 'rgba(249,115,22,0.1)' : '#FFF7ED',
-                borderColor: isDarkMode ? 'rgba(249,115,22,0.3)' : '#FED7AA',
-              }]}>
-                <Text style={styles.cityEmoji}>{city.emoji}</Text>
-                <Text style={[styles.cityName, { color: isDarkMode ? '#fb923c' : '#C2410C' }]}>
-                  {city.name}
+        {/* ─── CATEGORY TILES — photos, as on the web. Emoji render as "?" on
+             iOS and the design system forbids bundling a font to fix it. ─── */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.catRail}
+        >
+          {ACTIVITY_CATEGORIES.map((c) => {
+            const active = category === c.value;
+            return (
+              <TouchableOpacity
+                key={c.value}
+                onPress={() => applyFilters(active ? 'All' : c.value, sort, query)}
+                style={styles.cat}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={c.label}
+              >
+                <View
+                  style={[
+                    styles.catImgWrap,
+                    active && { borderColor: colors.primary[500], borderWidth: 2 },
+                  ]}
+                >
+                  <Image source={{ uri: c.img }} style={styles.catImg} resizeMode="cover" />
+                </View>
+                <Text
+                  style={[
+                    styles.catLabel,
+                    {
+                      color: active ? colors.primary[500] : themeColors.textSecondary,
+                      fontWeight: active ? fontWeight.bold : fontWeight.medium,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {c.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {loading ? (
+          <View style={styles.state}>
+            <ActivityIndicator size="large" color={colors.primary[500]} />
+          </View>
+        ) : error ? (
+          <View style={styles.state}>
+            <Ionicons name="alert-circle-outline" size={40} color={themeColors.textTertiary} />
+            <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>{error}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setLoading(true);
+                loadAll().finally(() => setLoading(false));
+              }}
+              style={styles.retry}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {/* ─── TOP PICKS — only when not filtering, as on the web ─── */}
+            {!filtering && featured.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                  Top picks for you
+                </Text>
+                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                  Loved by travellers, hand-curated by our team.
+                </Text>
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.rail}
+                >
+                  {featured.map((a) => (
+                    <ExperienceCard key={a._id} experience={a} width={250} onPress={open} />
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+
+            {/* ─── ALL EXPERIENCES ─── */}
+            <View style={styles.section}>
+              <View style={styles.listHead}>
+                <View style={styles.listHeadText}>
+                  <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                    {filtering ? (category !== 'All' ? category : 'Results') : 'All experiences'}
+                  </Text>
+                  <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                    {listLoading && !items.length
+                      ? 'Loading…'
+                      : `${items.length} experience${items.length === 1 ? '' : 's'}`}
+                  </Text>
+                </View>
+
+                <View>
+                  <TouchableOpacity
+                    onPress={() => setSortOpen((v) => !v)}
+                    style={[styles.sortBtn, { borderColor: themeColors.border }]}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="swap-vertical" size={14} color={themeColors.textSecondary} />
+                    <Text style={[styles.sortBtnText, { color: themeColors.textSecondary }]}>
+                      {sortLabel}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {sortOpen && (
+                    <View
+                      style={[
+                        styles.sortMenu,
+                        { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                      ]}
+                    >
+                      {ACTIVITY_SORTS.map((s) => (
+                        <TouchableOpacity
+                          key={s.value}
+                          onPress={() => {
+                            setSortOpen(false);
+                            applyFilters(category, s.value, query);
+                          }}
+                          style={styles.sortItem}
+                        >
+                          <Text
+                            style={[
+                              styles.sortItemText,
+                              {
+                                color:
+                                  s.value === sort ? colors.primary[500] : themeColors.text,
+                              },
+                            ]}
+                          >
+                            {s.label}
+                          </Text>
+                          {s.value === sort && (
+                            <Ionicons name="checkmark" size={15} color={colors.primary[500]} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {listLoading && !items.length ? (
+                <View style={styles.state}>
+                  <ActivityIndicator color={colors.primary[500]} />
+                </View>
+              ) : items.length === 0 ? (
+                <View style={styles.state}>
+                  <Ionicons name="compass-outline" size={40} color={themeColors.textTertiary} />
+                  <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
+                    {query.trim()
+                      ? `Nothing matches “${query.trim()}”.`
+                      : `No ${category === 'All' ? '' : `${category} `}experiences yet.`}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View style={styles.grid}>
+                    {items.map((a) => (
+                      <View key={a._id} style={styles.gridCell}>
+                        <ExperienceCard experience={a} onPress={open} />
+                      </View>
+                    ))}
+                  </View>
+
+                  {hasMore && (
+                    <TouchableOpacity
+                      onPress={() =>
+                        !listLoading &&
+                        search({ q: query, cat: category, sortBy: sort, skip, append: true })
+                      }
+                      disabled={listLoading}
+                      style={[styles.loadMore, { borderColor: themeColors.border }]}
+                      accessibilityRole="button"
+                    >
+                      {listLoading ? (
+                        <ActivityIndicator size="small" color={colors.primary[500]} />
+                      ) : (
+                        <Text style={[styles.loadMoreText, { color: themeColors.text }]}>
+                          Load more
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+
+            {/* Cross-sell to the worldwide catalogue, as the web does. */}
+            <TouchableOpacity
+              onPress={() => router.push('/global-experiences')}
+              style={[
+                styles.crossSell,
+                { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+              ]}
+              accessibilityRole="button"
+            >
+              <Ionicons name="earth" size={20} color={colors.primary[500]} />
+              <View style={styles.crossSellText}>
+                <Text style={[styles.crossSellTitle, { color: themeColors.text }]}>
+                  Travelling abroad?
+                </Text>
+                <Text style={[styles.crossSellSub, { color: themeColors.textSecondary }]}>
+                  Browse tours and tickets worldwide, via Viator and Headout.
                 </Text>
               </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── What's Coming ───────────────────────────────── */}
-        <View style={[styles.section, { marginTop: spacing.xl }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>What's coming</Text>
-          <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-            Experiences curated by locals, rated by travellers.
-          </Text>
-          <View style={styles.featuresGrid}>
-            {FEATURES.map((f) => (
-              <View key={f.title} style={[styles.featureCard, {
-                backgroundColor: themeColors.surface,
-                borderColor: themeColors.border,
-              }, shadow.sm]}>
-                <View style={[styles.featureIconWrap, {
-                  backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : f.bg,
-                }]}>
-                  <Ionicons name={f.icon} size={22} color={f.color} />
-                </View>
-                <Text style={[styles.featureTitle, { color: themeColors.text }]}>{f.title}</Text>
-                <Text style={[styles.featureDesc, { color: themeColors.textSecondary }]}>{f.desc}</Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* ── Chat CTA ────────────────────────────────────── */}
-        <View style={[styles.ctaCard, {
-          backgroundColor: isDarkMode ? '#431407' : '#FFF7ED',
-          borderColor: isDarkMode ? '#c2410c' : '#FED7AA',
-        }]}>
-          <Text style={[styles.ctaTitle, { color: isDarkMode ? '#fb923c' : '#C2410C' }]}>
-            Want activity recommendations now?
-          </Text>
-          <Text style={[styles.ctaSub, { color: isDarkMode ? '#fdba74' : '#EA580C' }]}>
-            Ask Isha — our AI travel assistant — for personalised activity suggestions for your destination.
-          </Text>
-          <TouchableOpacity style={styles.ctaBtn} onPress={() => router.push('/chat')} activeOpacity={0.85}>
-            <LinearGradient colors={['#F97316', '#C2410C']} style={styles.ctaBtnGrad}>
-              <Ionicons name="sparkles" size={16} color="#ffffff" />
-              <Text style={styles.ctaBtnText}>Ask Isha</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: spacing['4xl'] }} />
+              <Ionicons name="chevron-forward" size={18} color={themeColors.textTertiary} />
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────
-const PAD = spacing.xl;
-const FEATURE_W = (SCREEN_WIDTH - PAD * 2 - spacing.md) / 2;
-
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  safe: { flex: 1 },
+  body: { paddingBottom: spacing['2xl'] },
 
-  header: {
+  hero: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing['2xl'] + spacing.lg,
+  },
+  heroTop: { flexDirection: 'row', marginBottom: spacing.lg },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  eyebrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: spacing.md,
+  },
+  eyebrowText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+  heroTitle: {
+    fontSize: fontSize['3xl'],
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.75,
+    lineHeight: 36,
+  },
+  trust: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
+  trustItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  trustText: { fontSize: fontSize.xs },
+
+  searchWrap: { paddingHorizontal: spacing.lg, marginTop: -26 },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
+  },
+  searchInput: { flex: 1, paddingVertical: spacing.md + 2, fontSize: fontSize.md },
+
+  catRail: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  cat: { alignItems: 'center', width: 68, gap: 5 },
+  catImgWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    overflow: 'hidden',
+    backgroundColor: '#e5e5e5',
+  },
+  catImg: { width: '100%', height: '100%' },
+  catLabel: { fontSize: fontSize.xs, textAlign: 'center' },
+
+  section: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
+  sectionTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, letterSpacing: -0.75 },
+  sectionSub: { fontSize: fontSize.sm, marginTop: 2 },
+
+  rail: { gap: spacing.md, paddingVertical: spacing.md, paddingRight: spacing.lg },
+
+  listHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    zIndex: 20,
+  },
+  listHeadText: { flex: 1 },
+
+  sortBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  sortBtnText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+  sortMenu: {
+    position: 'absolute',
+    top: 38,
+    right: 0,
+    minWidth: 190,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    paddingVertical: 4,
+    zIndex: 100,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  sortItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: PAD,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
-
-  scroll: { paddingBottom: spacing['2xl'] },
-
-  hero: {
-    paddingTop: spacing['3xl'],
-    paddingBottom: spacing['3xl'],
-    paddingHorizontal: PAD,
-    alignItems: 'center',
-    overflow: 'hidden',
-  },
-  decor1: {
-    position: 'absolute', top: -50, right: -40,
-    width: 180, height: 180, borderRadius: 90,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  decor2: {
-    position: 'absolute', bottom: -20, left: -30,
-    width: 130, height: 130, borderRadius: 65,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  decor3: {
-    position: 'absolute', top: 50, left: 30,
-    width: 70, height: 70, borderRadius: 35,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  badge: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.xs,
-    marginBottom: spacing.xl, gap: spacing.xs,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-  },
-  badgeDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#FDE047' },
-  badgeText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#ffffff', letterSpacing: 0.5 },
-  heroIconWrap: { marginBottom: spacing.xl },
-  heroIconBg: {
-    width: 100, height: 100, borderRadius: 50,
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
-  },
-  heroEmoji: { fontSize: 48 },
-  heroTitle: {
-    fontSize: 30, fontWeight: fontWeight.bold, color: '#ffffff',
-    textAlign: 'center', letterSpacing: -0.5, marginBottom: spacing.md,
-  },
-  heroSub: {
-    fontSize: fontSize.md, color: 'rgba(255,255,255,0.85)',
-    textAlign: 'center', lineHeight: 24, maxWidth: 300, marginBottom: spacing.xl,
-  },
-
-  categoriesRow: { gap: spacing.sm, paddingVertical: spacing.xs },
-  categoryChip: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
-    minWidth: 68,
-  },
-  categoryEmoji: { fontSize: 20, marginBottom: 2 },
-  categoryLabel: { fontSize: fontSize.xs, color: '#ffffff', fontWeight: fontWeight.medium },
-
-  notifyCard: {
-    marginHorizontal: PAD, marginTop: spacing.xl,
-    padding: spacing.xl, borderRadius: borderRadius.xl,
-    borderWidth: 1, alignItems: 'center',
-  },
-  notifyIconWrap: {
-    width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#FFF7ED', alignItems: 'center', justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  notifyTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, marginBottom: spacing.xs },
-  notifySub: { fontSize: fontSize.sm, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
-  notifyInputRow: { flexDirection: 'row', width: '100%', gap: spacing.sm },
-  notifyInput: {
-    flex: 1, borderWidth: 1, borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
-    paddingVertical: Platform.OS === 'ios' ? spacing.md : spacing.sm,
-    fontSize: fontSize.sm,
+    paddingVertical: spacing.sm + 2,
   },
-  notifyBtn: { borderRadius: borderRadius.lg, overflow: 'hidden' },
-  notifyBtnGrad: {
-    paddingHorizontal: spacing.lg, paddingVertical: spacing.md,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  notifyBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#ffffff' },
-  notifiedRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  notifiedText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
+  sortItemText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
-  section: { paddingHorizontal: PAD, marginTop: spacing['2xl'] },
-  sectionTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, marginBottom: spacing.sm },
-  sectionSub: { fontSize: fontSize.sm, lineHeight: 20, marginBottom: spacing.lg },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
+  gridCell: { width: '47.5%', flexGrow: 1 },
 
-  citiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  cityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.xs,
-    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full, borderWidth: 1,
+  loadMore: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
   },
-  cityEmoji: { fontSize: 14 },
-  cityName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  loadMoreText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 
-  featuresGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  featureCard: {
-    width: FEATURE_W, borderRadius: borderRadius.xl,
-    padding: spacing.lg, borderWidth: 1,
+  crossSell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    borderWidth: 1,
   },
-  featureIconWrap: {
-    width: 44, height: 44, borderRadius: 22,
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  featureTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, marginBottom: spacing.xs },
-  featureDesc: { fontSize: fontSize.xs, lineHeight: 16 },
+  crossSellText: { flex: 1 },
+  crossSellTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  crossSellSub: { fontSize: fontSize.xs, marginTop: 2, lineHeight: 17 },
 
-  ctaCard: {
-    marginHorizontal: PAD, marginTop: spacing.xl,
-    padding: spacing.xl, borderRadius: borderRadius.xl,
-    borderWidth: 1, alignItems: 'center',
+  state: { alignItems: 'center', paddingVertical: spacing['2xl'], gap: spacing.md },
+  stateText: { fontSize: fontSize.sm, textAlign: 'center', paddingHorizontal: spacing.lg },
+  retry: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 999,
+    backgroundColor: colors.primary[500],
   },
-  ctaTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, textAlign: 'center', marginBottom: spacing.xs },
-  ctaSub: { fontSize: fontSize.sm, textAlign: 'center', lineHeight: 20, marginBottom: spacing.lg },
-  ctaBtn: { borderRadius: borderRadius.lg, overflow: 'hidden' },
-  ctaBtnGrad: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    paddingHorizontal: spacing.xl, paddingVertical: spacing.md,
-  },
-  ctaBtnText: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#ffffff' },
+  retryText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 });

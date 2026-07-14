@@ -1,17 +1,31 @@
 // "Videos" tab for the destination search-results page.
-// Fetches hand-picked YouTube travel videos via /youtube/search and opens them
-// in YouTube on tap. Topic filters mirror the PWA (Guide / To Do / Vlogs / Food).
-import React, { useEffect, useState, useCallback } from 'react';
+// Mirrors the web's VideoToursRail.mobile: a dedicated Shorts rail (9:16 cards,
+// horizontal swipe) above an even 2-column grid of regular (4:3) video cards.
+// Videos play INSIDE the app (YouTube embed in a modal) instead of kicking the
+// user out to the YouTube app. Topic filters mirror the PWA
+// (Guide / To Do / Vlogs / Food) and drive BOTH fetches.
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Image,
-  TouchableOpacity,
   ActivityIndicator,
-  Linking,
+  Modal,
+  StatusBar,
+  useWindowDimensions,
+  FlatList,
+  type ViewToken,
 } from 'react-native';
-import { Play } from 'lucide-react-native';
+// Both from gesture-handler: this tab renders inside the destination page's
+// gesture-handler ScrollView, and a plain RN Touchable / ScrollView nested in
+// one never receives the tap (the same bug that made the result tabs
+// unresponsive).
+import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { WebView } from 'react-native-webview';
+import { Play, X, ChevronLeft } from 'lucide-react-native';
 import { YouTubeIcon } from './YouTubeIcon';
 import {
   useTheme,
@@ -24,8 +38,60 @@ import {
 } from '@prayana/shared-ui';
 import { videosAPI } from '@prayana/shared-services';
 
+// The video the player modal is showing. `vertical` sizes the frame 9:16 for
+// Shorts vs 16:9 for regular videos, exactly like the web player does.
+type PlayingVideo = {
+  id: string;
+  title?: string;
+  vertical: boolean;
+  // Held so the modal can show the card's own thumbnail while the iframe boots,
+  // instead of a black rectangle.
+  thumbnail?: string;
+} | null;
+
+// The YouTube iframe, wrapped in a minimal page. We hand the WebView this HTML
+// (with baseUrl = our https origin) instead of pointing it at
+// youtube.com/embed/<id> directly: a raw WebView navigation carries no origin,
+// and YouTube then refuses to embed the video ("Error 153"). The body is black
+// and edge-to-edge so the frame has no letterbox seams.
+function youtubeEmbedHtml(videoId: string, autoplay: boolean = true): string {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+      iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    </style>
+  </head>
+  <body>
+    <iframe
+      src="https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&playsinline=1&rel=0&modestbranding=1"
+      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+    ></iframe>
+  </body>
+</html>`;
+}
+
+// Only an item that is ≥80% on screen counts as "the" short. Both this and the
+// handler below MUST keep a stable identity across renders — FlatList throws
+// ("Changing viewabilityConfig on the fly is not supported") if either does.
+const SHORTS_VIEWABILITY = { itemVisiblePercentThreshold: 80 } as const;
+
 interface Props {
+  /** The destination this rail belongs to (e.g. "Darjeeling"). */
   locationName: string;
+  /**
+   * Optional override for what we actually search YouTube for. The destination
+   * page wants videos about the destination, so it passes nothing and we search
+   * `locationName`. The place-detail Gallery tab wants videos about the PLACE,
+   * so it passes e.g. "Tiger Hill Darjeeling" — the place name qualified by its
+   * location, which is specific enough that YouTube doesn't hand back generic
+   * city footage. Kept optional so the existing destination call site is
+   * untouched.
+   */
+  searchName?: string;
 }
 
 const TOPICS = [
@@ -35,44 +101,177 @@ const TOPICS = [
   { id: 'food', label: 'Food', suffix: 'street food' },
 ];
 
-export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
+// Shorts rail card geometry — 150px wide 9:16, matching the web's ShortsRail.
+const SHORT_W = 150;
+const SHORT_H = Math.round((SHORT_W * 16) / 9);
+
+// Two-column grid gap. The card width is derived from the live screen width
+// inside the component (see cardW) so both columns are exactly equal and the
+// last, possibly lone, card sits flush left instead of being flung across the
+// row by space-between.
+const GRID_GAP = spacing.md;
+
+// Brand red/rose used for the Shorts chip gradient (mirrors the web's
+// from-red-500 to-rose-600) — this is the Prayana secondary accent, not orange.
+const SHORTS_GRADIENT = ['#ef4444', '#e11d48'] as const;
+
+export const DestinationVideos: React.FC<Props> = ({ locationName, searchName }) => {
+  // What we actually query YouTube for. Falls back to the destination name, so
+  // the existing destination-page call site behaves exactly as before.
+  const queryName = searchName?.trim() || locationName;
   const { themeColors } = useTheme();
+  // Read live, not at module scope: a module-scope Dimensions.get() is captured
+  // once at import time and is wrong after rotation (and on some devices at
+  // first mount), which left the player frame mis-sized / off-centre.
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const cardW = Math.floor((screenW - spacing.lg * 2 - GRID_GAP) / 2);
+  const insets = useSafeAreaInsets();
   const [topic, setTopic] = useState('guide');
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [shorts, setShorts] = useState<any[]>([]);
+  const [shortsLoading, setShortsLoading] = useState(true);
+  const [playing, setPlaying] = useState<PlayingVideo>(null);
+  const [playerLoading, setPlayerLoading] = useState(true);
+  // The two player flows are independent:
+  //   playing          → the centred 16:9 modal, for REGULAR videos only.
+  //   playingShortIndex→ the full-screen Instagram-style vertical Shorts feed.
+  // `shortIndex` is the short currently on screen inside that feed, and it is
+  // the ONLY index that ever mounts a WebView.
+  const [playingShortIndex, setPlayingShortIndex] = useState<number | null>(null);
+  const [shortIndex, setShortIndex] = useState(0);
+  const shortsListRef = useRef<FlatList<any>>(null);
 
-  const load = useCallback(
-    async (topicId: string) => {
+  const topicMeta = TOPICS.find((x) => x.id === topic) || TOPICS[0];
+  const suffix = topicMeta.suffix;
+
+  // Regular videos. The endpoint returns a mix, so Shorts are filtered out here
+  // and shown in their own rail instead of jamming 9:16 clips into a 4:3 grid.
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
       setLoading(true);
-      const t = TOPICS.find((x) => x.id === topicId) || TOPICS[0];
       try {
         const res: any = await videosAPI.search({
-          q: `${locationName} ${t.suffix}`,
+          q: `${queryName} ${suffix}`,
           max: 10,
         });
-        setVideos(res?.results || res?.data || []);
+        if (cancelled) return;
+        const list: any[] = res?.results || res?.data || [];
+        setVideos(list.filter((v) => !v?.isShort));
       } catch (e: any) {
-        console.warn('[DestinationVideos] failed:', e?.message);
+        if (cancelled) return;
+        console.warn('[DestinationVideos] videos failed:', e?.message);
         setVideos([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
-    },
-    [locationName]
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [queryName, suffix]);
+
+  // Shorts are fetched SEPARATELY with shorts=1, exactly like the web does.
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setShortsLoading(true);
+      try {
+        const res: any = await videosAPI.search({
+          q: `${queryName} ${suffix}`,
+          max: 14,
+          shorts: 1,
+        });
+        if (cancelled) return;
+        const list: any[] = res?.results || res?.data || [];
+        setShorts(Array.isArray(list) ? list : []);
+      } catch (e: any) {
+        if (cancelled) return;
+        console.warn('[DestinationVideos] shorts failed:', e?.message);
+        setShorts([]);
+      } finally {
+        if (!cancelled) setShortsLoading(false);
+      }
+    };
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [queryName, suffix]);
+
+  // Play in-app rather than handing the user off to the YouTube app.
+  const openVideo = useCallback((video: any, vertical: boolean) => {
+    const id = typeof video === 'string' ? video : video?.id || video?.videoId;
+    if (!id) return;
+    setPlayerLoading(true);
+    setPlaying({
+      id,
+      title: typeof video === 'object' ? video?.title : undefined,
+      vertical,
+      thumbnail:
+        typeof video === 'object' ? video?.thumbnail || video?.thumb : undefined,
+    });
+  }, []);
+
+  const closeVideo = useCallback(() => setPlaying(null), []);
+
+  // Tapping a Short opens the whole `shorts` array as a full-screen vertical
+  // pager, parked on the tapped one — swiping up/down moves to the next/previous
+  // short, exactly like Reels. (Regular videos still go through openVideo.)
+  const openShort = useCallback((index: number) => {
+    setShortIndex(index);
+    setPlayingShortIndex(index);
+  }, []);
+
+  const closeShorts = useCallback(() => setPlayingShortIndex(null), []);
+
+  // The single source of truth for "which short may play". Driven by viewability
+  // rather than scroll offset so it survives fling/settle and never leaves two
+  // items both believing they're active.
+  const onShortsViewableChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const first = viewableItems[0];
+      if (first?.index != null) setShortIndex(first.index);
+    }
+  ).current;
+
+  // Required for initialScrollIndex: without an exact layout FlatList cannot
+  // jump to an unmeasured row and throws / lands on the wrong short.
+  const getShortLayout = useCallback(
+    (_data: ArrayLike<any> | null | undefined, index: number) => ({
+      length: screenH,
+      offset: screenH * index,
+      index,
+    }),
+    [screenH]
   );
 
-  useEffect(() => {
-    load(topic);
-  }, [topic, load]);
+  // Nothing to show for Shorts once we know there are none — same as the web,
+  // which returns null rather than leaving an empty header behind.
+  const showShorts = shortsLoading || shorts.length > 0;
 
-  const openVideo = useCallback((id: string) => {
-    if (!id) return;
-    Linking.openURL(`https://www.youtube.com/watch?v=${id}`).catch(() => {});
-  }, []);
+  // Player frame geometry, derived from the LIVE window size: 16:9 for regular
+  // videos, 9:16 for Shorts (capped so a tall frame still fits the screen).
+  const frameMaxW = screenW - spacing.lg * 2;
+  const horizontalFrame = { width: frameMaxW, height: (frameMaxW * 9) / 16 };
+  const verticalH = Math.min(screenH * 0.78, 720, (frameMaxW * 16) / 9);
+  const verticalFrame = { height: verticalH, width: (verticalH * 9) / 16 };
+
+  // The Shorts-feed stage. Unlike the centred modal, this one fills as much of
+  // the page as a 9:16 frame can: take the full screen height, and only fall
+  // back to width-constrained (letterboxed top/bottom) if that would be wider
+  // than the screen — so the video never overflows its page and bleeds into the
+  // neighbouring short.
+  const shortsFrame =
+    (screenH * 9) / 16 <= screenW
+      ? { height: screenH, width: (screenH * 9) / 16 }
+      : { width: screenW, height: (screenW * 16) / 9 };
 
   return (
     <View>
-      {/* Topic filter chips */}
+      {/* Topic filter chips — drive both the video and the shorts fetch */}
       <View style={styles.topicRow}>
         {TOPICS.map((t) => {
           const active = topic === t.id;
@@ -101,15 +300,123 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
         })}
       </View>
 
+      {/* ── Shorts rail ────────────────────────────────────────────────────
+          9:16 cards on a horizontal swipe, above the regular grid — the web's
+          ShortsRail. Keeping Shorts out of the 4:3 grid is what stops the grid
+          from going ragged. */}
+      {showShorts && (
+        <View style={styles.shortsSection}>
+          <View style={styles.shortsHeader}>
+            <LinearGradient
+              colors={SHORTS_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.shortsChip}
+            >
+              <Play size={14} color="#fff" fill="#fff" strokeWidth={0} />
+            </LinearGradient>
+            <View style={styles.shortsHeaderText}>
+              <Text style={[styles.shortsTitle, { color: themeColors.text }]}>Shorts</Text>
+              <Text
+                style={[styles.shortsSubtitle, { color: themeColors.textTertiary }]}
+                numberOfLines={1}
+              >
+                Quick clips from fellow travellers
+              </Text>
+            </View>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.shortsRail}
+          >
+            {shortsLoading
+              ? [0, 1, 2, 3, 4].map((i) => (
+                  <View
+                    key={`sk-${i}`}
+                    style={[styles.shortSkeleton, { backgroundColor: themeColors.border }]}
+                  />
+                ))
+              : shorts.map((s: any, idx: number) => {
+                  const id = s.id || s.videoId;
+                  const thumb = s.thumbnail || s.thumb || null;
+                  return (
+                    <TouchableOpacity
+                      key={id || `s-${idx}`}
+                      style={styles.shortCard}
+                      activeOpacity={0.85}
+                      onPress={() => openShort(idx)}
+                    >
+                      {thumb ? (
+                        <Image source={{ uri: thumb }} style={styles.shortThumb} resizeMode="cover" />
+                      ) : (
+                        <View style={[styles.shortThumb, { backgroundColor: colors.gray[800] }]} />
+                      )}
+
+                      {/* Bottom scrim so the overlaid title stays legible */}
+                      <LinearGradient
+                        colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.88)']}
+                        style={styles.shortScrim}
+                      />
+
+                      <View style={styles.shortPlayBadge}>
+                        <Play size={13} color={colors.gray[900]} fill={colors.gray[900]} strokeWidth={0} />
+                      </View>
+
+                      {s.length ? (
+                        <View style={styles.shortDuration}>
+                          <Text style={styles.durationText}>{s.length}</Text>
+                        </View>
+                      ) : null}
+
+                      <View style={styles.shortBody}>
+                        <Text style={styles.shortCardTitle} numberOfLines={2}>
+                          {s.title}
+                        </Text>
+                        {s.channel ? (
+                          <Text style={styles.shortCardChannel} numberOfLines={1}>
+                            {s.channel}
+                            {s.views ? ` · ${s.views}` : ''}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* ── Regular videos ─────────────────────────────────────────────────
+          Even 2-column grid. Every thumbnail is locked to 4:3 (the web's
+          pb-[75%]) so rows line up no matter what size YouTube hands back. */}
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary[500]} size="large" />
+        <View style={styles.grid}>
+          {[0, 1, 2, 3].map((i) => (
+            <View
+              key={`vsk-${i}`}
+              style={[
+                styles.card,
+                shadow.sm,
+                { width: cardW, backgroundColor: themeColors.surface, borderColor: themeColors.border },
+              ]}
+            >
+              <View style={[styles.thumb, { backgroundColor: themeColors.border }]} />
+              <View style={styles.cardBody}>
+                <View style={[styles.skelLine, { backgroundColor: themeColors.border }]} />
+                <View
+                  style={[styles.skelLine, styles.skelLineShort, { backgroundColor: themeColors.border }]}
+                />
+              </View>
+            </View>
+          ))}
         </View>
       ) : videos.length === 0 ? (
         <View style={styles.center}>
           <YouTubeIcon size={40} />
           <Text style={[styles.centerText, { color: themeColors.textSecondary }]}>
-            No videos found for {locationName}.
+            No videos found for {queryName}.
           </Text>
         </View>
       ) : (
@@ -120,18 +427,24 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
             return (
               <TouchableOpacity
                 key={id || idx}
-                style={[styles.card, shadow.sm, { backgroundColor: themeColors.surface }]}
+                style={[
+                  styles.card,
+                  shadow.sm,
+                  { width: cardW, backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                ]}
                 activeOpacity={0.85}
-                onPress={() => openVideo(id)}
+                onPress={() => openVideo({ ...v, id }, false)}
               >
-                <View>
+                <View style={styles.thumbWrap}>
                   {thumb ? (
-                    <Image source={{ uri: thumb }} style={styles.thumb} />
+                    <Image source={{ uri: thumb }} style={styles.thumb} resizeMode="cover" />
                   ) : (
                     <View style={[styles.thumb, { backgroundColor: colors.gray[200] }]} />
                   )}
                   <View style={styles.playOverlay}>
-                    <Play size={20} color="#fff" fill="#fff" />
+                    <View style={styles.playCircle}>
+                      <Play size={18} color="#fff" fill="#fff" strokeWidth={0} />
+                    </View>
                   </View>
                   {v.length ? (
                     <View style={styles.durationBadge}>
@@ -144,7 +457,10 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
                     {v.title}
                   </Text>
                   {v.channel ? (
-                    <Text style={[styles.channel, { color: themeColors.textTertiary }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.channel, { color: themeColors.textTertiary }]}
+                      numberOfLines={1}
+                    >
                       {v.channel}
                     </Text>
                   ) : null}
@@ -154,11 +470,421 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
           })}
         </View>
       )}
+
+      {/* ── In-app player ──────────────────────────────────────────────────
+          Mirrors the web's VideoToursRail modal: the official YouTube embed
+          (autoplay + playsinline + rel=0) on a near-black backdrop, sized 9:16
+          for Shorts and 16:9 for regular videos. Tapping the backdrop or the
+          X closes it, so it never traps the user.
+          The backdrop is pinned with explicit screen width/height (not flex:1):
+          this component lives inside the destination page's gesture-handler
+          ScrollView, and a flex-only backdrop inherited that scroll content's
+          box — so the player rendered at the top of the page, overlapping the
+          content, instead of covering the screen. */}
+      <Modal
+        visible={!!playing}
+        // "fade" stuttered: the WebView is heavy and was mounting mid-transition,
+        // so the cross-fade dropped frames. Sliding up (what YouTube does) reads
+        // as smoother and hides the frame's first paint behind the motion.
+        animationType="slide"
+        transparent
+        statusBarTranslucent
+        presentationStyle="overFullScreen"
+        onRequestClose={closeVideo}
+        supportedOrientations={['portrait', 'landscape']}
+        hardwareAccelerated
+      >
+        <StatusBar barStyle="light-content" />
+        {/* The backdrop is a plain View, and the tap-to-close lives on a sibling
+            layer BEHIND the frame (below). Wrapping the frame in a Touchable —
+            even one with a no-op onPress, which is what we had — swallows every
+            touch inside it, so YouTube's own controls never saw a tap: the video
+            could not be paused or scrubbed, and the player felt dead. */}
+        <View style={[styles.playerBackdrop, { width: screenW, height: screenH }]}>
+          {/* Tap-outside-to-close: fills the screen, sits UNDER the frame. */}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={closeVideo}
+          />
+
+          <View
+            style={[
+              styles.playerFrame,
+              playing?.vertical ? verticalFrame : horizontalFrame,
+            ]}
+          >
+            {playing && (
+              <WebView
+                // Serve the iframe as HTML with a real baseUrl rather than
+                // navigating straight to youtube.com/embed/<id>. A bare WebView
+                // navigation sends no origin, and YouTube refuses to embed
+                // without one — the player came back "Error 153". Giving it our
+                // own https origin (which is what the web player does from
+                // prayanaai.com) makes the embed play.
+                source={{
+                  html: youtubeEmbedHtml(playing.id),
+                  baseUrl: 'https://prayanaai.com',
+                }}
+                originWhitelist={['*']}
+                style={styles.webview}
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                allowsFullscreenVideo
+                javaScriptEnabled
+                domStorageEnabled
+                // Keep the WebView's own chrome out of the way so the only thing
+                // that ever paints is the player.
+                scrollEnabled={false}
+                bounces={false}
+                overScrollMode="never"
+                setSupportMultipleWindows={false}
+                cacheEnabled
+                onLoadEnd={() => setPlayerLoading(false)}
+              />
+            )}
+
+            {/* While the iframe boots, hold the card's own thumbnail under a
+                spinner instead of a black rectangle. The user tapped a picture;
+                showing that same picture (rather than a void) is what makes the
+                open read as instant. */}
+            {playerLoading && (
+              <View style={styles.playerLoading} pointerEvents="none">
+                {!!playing?.thumbnail && (
+                  <Image
+                    source={{ uri: playing.thumbnail }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                    blurRadius={2}
+                  />
+                )}
+                <View style={styles.playerLoadingScrim} />
+                <ActivityIndicator color="#fff" size="large" />
+              </View>
+            )}
+          </View>
+
+          {/* Absolutely positioned so it can't push the frame off-centre. */}
+          {!!playing?.title && (
+            <Text
+              style={[styles.playerTitle, { bottom: insets.bottom + spacing['2xl'] }]}
+              numberOfLines={2}
+              pointerEvents="none"
+            >
+              {playing.title}
+            </Text>
+          )}
+
+          {/* Close bar — rendered LAST so it stacks above the frame and its taps
+              always land. A lone X in the corner was too easy to miss; a back
+              chevron plus a "Done" button makes leaving obvious. box-none lets
+              taps between the two buttons fall through to the backdrop. */}
+          <View style={[styles.playerBar, { top: insets.top }]} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.playerBackBtn}
+              onPress={closeVideo}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <ChevronLeft size={26} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.playerDoneBtn}
+              onPress={closeVideo}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <X size={18} color="#fff" />
+              <Text style={styles.playerDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Shorts feed ────────────────────────────────────────────────────
+          The Instagram/Reels surface: one short per full screen, snapping, swipe
+          up for the next and down for the previous, over the whole `shorts`
+          array starting at whichever card was tapped.
+
+          A plain react-native FlatList (not the gesture-handler one) is correct
+          here: a Modal is its own root view, so it is NOT inside the destination
+          page's gesture-handler ScrollView, and the nested-touchable problem
+          that forced gesture-handler on the rail simply doesn't apply. */}
+      <Modal
+        visible={playingShortIndex !== null}
+        animationType="slide"
+        statusBarTranslucent
+        presentationStyle="overFullScreen"
+        transparent
+        onRequestClose={closeShorts}
+        hardwareAccelerated
+      >
+        <StatusBar barStyle="light-content" />
+        <View style={[styles.shortsFeed, { width: screenW, height: screenH }]}>
+          <FlatList
+            ref={shortsListRef}
+            data={shorts}
+            keyExtractor={(s: any, i: number) => s?.id || s?.videoId || `sf-${i}`}
+            pagingEnabled
+            snapToInterval={screenH}
+            snapToAlignment="start"
+            disableIntervalMomentum
+            decelerationRate="fast"
+            showsVerticalScrollIndicator={false}
+            initialScrollIndex={playingShortIndex ?? 0}
+            getItemLayout={getShortLayout}
+            onViewableItemsChanged={onShortsViewableChanged}
+            viewabilityConfig={SHORTS_VIEWABILITY}
+            // A WebView per row is expensive, so keep the window tight and let
+            // RN detach the off-screen ones.
+            windowSize={3}
+            initialNumToRender={1}
+            maxToRenderPerBatch={2}
+            removeClippedSubviews
+            renderItem={({ item, index }: { item: any; index: number }) => {
+              const id = item?.id || item?.videoId;
+              const thumb = item?.thumbnail || item?.thumb || null;
+              // THE performance + audio guarantee: only the short that is
+              // actually on screen mounts a WebView at all. Neighbours render as
+              // a still thumbnail, so nothing off-screen can autoplay or keep
+              // playing audio after you swipe past it. (Mounting neighbours with
+              // autoplay=0 would preload, but each idle WebView still costs a
+              // renderer process — not worth it for a 14-item feed.)
+              const isActive = index === shortIndex;
+
+              return (
+                <View style={[styles.shortsPage, { width: screenW, height: screenH }]}>
+                  {/* The 9:16 stage, centred on black. */}
+                  <View style={[styles.shortsStage, shortsFrame]}>
+                    {/* Always under the player: gives the WebView something to
+                        boot over, and IS the whole visual for inactive rows. */}
+                    {thumb ? (
+                      <Image
+                        source={{ uri: thumb }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+
+                    {isActive && id ? (
+                      /* NOT wrapped in a Touchable: any Touchable here (even with
+                         a no-op onPress) eats the touch before it reaches the
+                         iframe, and YouTube's own controls go dead — that's the
+                         "can't pause" bug. Taps must land on the embed. */
+                      <WebView
+                        source={{
+                          html: youtubeEmbedHtml(id, true),
+                          baseUrl: 'https://prayanaai.com',
+                        }}
+                        originWhitelist={['*']}
+                        style={styles.webview}
+                        allowsInlineMediaPlayback
+                        mediaPlaybackRequiresUserAction={false}
+                        allowsFullscreenVideo
+                        javaScriptEnabled
+                        domStorageEnabled
+                        scrollEnabled={false}
+                        bounces={false}
+                        overScrollMode="never"
+                        setSupportMultipleWindows={false}
+                        cacheEnabled
+                      />
+                    ) : (
+                      <View style={styles.shortsIdle} pointerEvents="none">
+                        <View style={styles.playCircle}>
+                          <Play size={22} color="#fff" fill="#fff" strokeWidth={0} />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Reels-style caption: title + channel bottom-left, over a
+                      scrim so it stays legible on a bright frame. pointerEvents
+                      none so it never steals a tap from the player underneath. */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.75)']}
+                    style={styles.shortsCaptionScrim}
+                    pointerEvents="none"
+                  />
+                  <View
+                    style={[
+                      styles.shortsCaption,
+                      { bottom: insets.bottom + spacing.xl, width: screenW - spacing.lg * 2 },
+                    ]}
+                    pointerEvents="none"
+                  >
+                    <Text style={styles.shortsCaptionTitle} numberOfLines={2}>
+                      {item?.title}
+                    </Text>
+                    {item?.channel ? (
+                      <Text style={styles.shortsCaptionChannel} numberOfLines={1}>
+                        {item.channel}
+                        {item?.views ? ` · ${item.views}` : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            }}
+          />
+
+          {/* Rendered AFTER the list so it stacks above every page and its taps
+              always land. box-none lets the gap between the buttons fall through
+              to the feed, so swiping there still scrolls. */}
+          <View style={[styles.playerBar, { top: insets.top }]} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.playerBackBtn}
+              onPress={closeShorts}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <ChevronLeft size={26} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.playerDoneBtn}
+              onPress={closeShorts}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <X size={18} color="#fff" />
+              <Text style={styles.playerDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  playerBackdrop: {
+    // Explicit screen dimensions + absolute fill: the backdrop must cover the
+    // whole viewport regardless of the parent scroll container's layout.
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  playerFrame: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  playerLoading: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
+  },
+  // Darkens the held thumbnail so the spinner stays legible over a bright frame.
+  playerLoadingScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  // Full-width close bar. `top` is applied inline from the safe-area inset so it
+  // clears the notch. box-none on the container lets taps fall through to the
+  // backdrop everywhere except the two buttons.
+  playerBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+  },
+  playerBackBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  playerDoneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 40,
+    paddingHorizontal: spacing.md,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  playerDoneText: {
+    color: '#fff',
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  playerTitle: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    // `bottom` applied inline from the safe-area inset.
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    textAlign: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+
+  // ── Shorts feed (full-screen vertical pager) ───────────────────────────
+  // Opaque black, not the translucent backdrop the centred modal uses: this is a
+  // full-bleed surface, and any transparency would let the destination page show
+  // through between snaps.
+  shortsFeed: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  // Exactly one screen tall — this is what makes snapToInterval={screenH} land
+  // cleanly on one short per page.
+  shortsPage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
+  },
+  shortsStage: {
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  // Inactive rows: the thumbnail already fills the stage behind this, so we only
+  // add the play glyph + a light scrim to read as "not playing yet".
+  shortsIdle: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  shortsCaptionScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '28%',
+  },
+  shortsCaption: {
+    position: 'absolute',
+    left: spacing.lg,
+    gap: spacing.xs,
+  },
+  shortsCaptionTitle: {
+    color: '#fff',
+    fontSize: fontSize.md,
+    lineHeight: 21,
+    fontWeight: fontWeight.semibold,
+  },
+  shortsCaptionChannel: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+
+  // Topic chips
   topicRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -172,30 +898,129 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   topicText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
-  center: { alignItems: 'center', justifyContent: 'center', padding: spacing['2xl'], gap: spacing.md },
-  centerText: { fontSize: fontSize.sm, textAlign: 'center' },
-  grid: {
+
+  // Shorts rail
+  shortsSection: { marginBottom: spacing.xl },
+  shortsHeader: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.sm,
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
-  },
-  card: {
-    width: '48%',
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
     marginBottom: spacing.md,
   },
-  thumb: { width: '100%', height: 100, backgroundColor: colors.gray[200] },
-  playOverlay: {
+  shortsChip: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shortsHeaderText: { flex: 1, minWidth: 0 },
+  shortsTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  shortsSubtitle: { fontSize: fontSize.xs, marginTop: 2 },
+  shortsRail: {
+    paddingHorizontal: spacing.lg,
+    gap: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  shortCard: {
+    width: SHORT_W,
+    height: SHORT_H,
+    borderRadius: borderRadius.xl,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  shortSkeleton: {
+    width: SHORT_W,
+    height: SHORT_H,
+    borderRadius: borderRadius.xl,
+    opacity: 0.7,
+  },
+  shortThumb: { ...StyleSheet.absoluteFillObject, width: '100%', height: '100%' },
+  shortScrim: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
+    height: '55%',
+  },
+  shortPlayBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.92)',
+  },
+  shortDuration: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  shortBody: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    padding: spacing.sm,
+    gap: 2,
+  },
+  shortCardTitle: {
+    color: '#fff',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: fontWeight.semibold,
+  },
+  shortCardChannel: { color: 'rgba(255,255,255,0.7)', fontSize: 10 },
+
+  // Regular grid
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing['2xl'],
+    gap: spacing.md,
+  },
+  centerText: { fontSize: fontSize.sm, textAlign: 'center' },
+  // A fixed gap with an explicitly-computed card width, rather than 48% +
+  // space-between: with an odd number of cards space-between shoved the last row
+  // apart, so the grid never lined up.
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+    paddingHorizontal: spacing.lg,
+  },
+  card: {
+    // width is applied inline from the live screen width (cardW).
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  // 4:3 thumbnail — the web's pb-[75%]. Locking the ratio here is what makes
+  // every card the same height so the rows stop going ragged.
+  thumbWrap: { width: '100%', aspectRatio: 4 / 3, position: 'relative' },
+  thumb: { width: '100%', aspectRatio: 4 / 3, backgroundColor: colors.gray[200] },
+  playOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  playCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.6)',
   },
   durationBadge: {
     position: 'absolute',
@@ -204,10 +1029,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.8)',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: borderRadius.sm,
   },
   durationText: { color: '#fff', fontSize: fontSize.xs, fontWeight: fontWeight.medium },
-  cardBody: { padding: spacing.sm, gap: 4 },
+  // Fixed body height keeps two-line and one-line titles from misaligning rows.
+  cardBody: { padding: spacing.sm, gap: 4, height: 62 },
   title: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, lineHeight: 17 },
   channel: { fontSize: fontSize.xs },
+  skelLine: { height: 10, borderRadius: 4, opacity: 0.8 },
+  skelLineShort: { width: '60%' },
 });

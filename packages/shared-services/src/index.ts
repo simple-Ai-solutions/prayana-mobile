@@ -106,6 +106,9 @@ export { itineraryAPI } from './api/itineraryAPI';
 // Videos (destination "Videos" tab)
 export { videosAPI } from './api/videosAPI';
 
+// Tickets (place-detail "Tickets" tab — official/partner booking links)
+export { ticketsAPI } from './api/ticketsAPI';
+
 // Captain Tours (guide-run trips)
 export { captainAPI } from './api/captainAPI';
 

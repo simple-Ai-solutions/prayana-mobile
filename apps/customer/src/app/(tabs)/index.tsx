@@ -14,7 +14,7 @@ import {
   Pressable,
   Alert,
   Modal,
-  ImageBackground,
+  AccessibilityInfo,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -67,23 +67,72 @@ const MORE_ICON = require('../../../assets/hero-icons/more.png');
 const BRAND = {
   teal: '#4AC0CC', // primary — brand surfaces, primary CTAs, hero accents
   tealLight: '#5ED8E4',
+  tealAccent: '#7fe0e9', // the web hero's accent (script line + typed city)
   tealDeep: '#0D5E5F',
   tealInk: '#042F2E',
   red: '#E61417', // secondary — badges, urgent states. Small areas only.
   flame: '#FB923C', // logo gradient stop — CTA only
 } as const;
 
-// Hero rotates a destination photo + name, mirroring the web ("…escape to Kerala").
-// Every photo below was opened and confirmed to actually depict its destination.
-// NOTE: TOP_INDIA's own list is not safe to reuse here — its "Ladakh" URL returns
-// a tropical beach and its "Kashmir" URL is a dead 404.
-const HERO_DESTINATIONS = [
-  { name: 'Kerala', image: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=1200&q=80' }, // backwaters
-  { name: 'Rajasthan', image: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=1200&q=80' }, // Hawa Mahal
-  { name: 'Agra', image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=1200&q=80' }, // Taj Mahal
-  { name: 'Goa', image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=1200&q=80' }, // beach
-  { name: 'Himachal', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=1200&q=80' }, // snow
-];
+// "Plan a Trip" choice-sheet illustrations (web parity: /icons/plan-illus-*.png).
+const PLAN_ILLUS_SOLO = require('../../../assets/plan/plan-illus-solo.png');
+const PLAN_ILLUS_FRIENDS = require('../../../assets/plan/plan-illus-friends.png');
+
+// The two planning modes offered by the choice sheet. Colours are SEMANTIC to the
+// mode (emerald = fast/solo, blue = collaborative) and match the web sheet exactly,
+// so they intentionally do not use the brand teal/orange.
+const PLAN_CHOICES = [
+  {
+    id: 'quick',
+    title: '1 Min Plan',
+    desc: 'Get an AI itinerary in just 60 seconds.',
+    cta: 'Start now',
+    badge: 'Fast & Easy',
+    badgeIcon: 'flash' as const,
+    illus: PLAN_ILLUS_SOLO,
+    color: '#059669', // emerald-600
+    colorDark: '#34D399', // emerald-400
+    tintLight: '#ECFDF5', // emerald-50
+    tintDark: 'rgba(16,185,129,0.15)',
+    ring: 'rgba(16,185,129,0.30)',
+    route: '/quick-itinerary',
+  },
+  {
+    id: 'friends',
+    title: 'Plan with Friends',
+    desc: 'Chat & build the perfect trip together.',
+    cta: 'Invite & plan',
+    badge: 'Together',
+    badgeIcon: 'sparkles' as const,
+    illus: PLAN_ILLUS_FRIENDS,
+    color: '#2563EB', // blue-600
+    colorDark: '#60A5FA', // blue-400
+    tintLight: '#EFF6FF', // blue-50
+    tintDark: 'rgba(37,99,235,0.15)',
+    ring: 'rgba(37,99,235,0.30)',
+    route: '/trip/setup',
+  },
+] as const;
+
+// Hero background — ONE fixed scenic photograph (web parity: the web hero stopped
+// rotating remote photos and now uses /icons/hero-scenery.jpg with a Ken Burns drift).
+const HERO_SCENERY = require('../../../assets/hero-scenery.jpg');
+
+// Seasonal eyebrow — mirrors the web HeroSection SEASONAL array, month-indexed.
+// The web uses an emoji per season, but emoji don't render in this RN build
+// (they came out as "?" boxes), so each season carries an Ionicon + tint
+// instead — same meaning, renders on every device.
+const SEASONAL = [
+  { m: [0, 1], icon: 'snow-outline', iconColor: '#BAE6FD', title: 'Winter Escapes Await', sub: 'Crisp air, cozy stays & clear skies' }, // Jan–Feb
+  { m: [2], icon: 'flower-outline', iconColor: '#FDA4AF', title: 'Spring Is Calling', sub: 'Perfect weather for a getaway' }, // Mar
+  { m: [3, 4, 5], icon: 'sunny-outline', iconColor: '#FCD34D', title: 'Beat the Summer Heat', sub: 'Cool hill-station escapes await' }, // Apr–Jun
+  { m: [6, 7, 8], icon: 'rainy-outline', iconColor: '#7FE0E9', title: 'Monsoon Magic Awaits', sub: 'Green trails, misty views & peaceful escapes' }, // Jul–Sep
+  { m: [9, 10], icon: 'sparkles-outline', iconColor: '#FDBA74', title: 'Festive-Season Escapes', sub: 'Celebrate with a trip to remember' }, // Oct–Nov
+  { m: [11], icon: 'snow-outline', iconColor: '#BAE6FD', title: 'Winter Wonderland Awaits', sub: 'Snowy peaks & cozy retreats' }, // Dec
+] as const;
+
+// Typewriter destinations inside the H1 ("perfect escape to <city>") — web parity.
+const HEADLINE_DESTINATIONS = ['Manali', 'Shimla', 'Switzerland', 'Kerala', 'Kodaikanal'];
 
 // "More ways to explore" — pastel cards with NEW/SOON badges (web parity).
 // Icons use the transparent cutouts — the originals have an opaque white plate
@@ -372,26 +421,104 @@ export default function HomeScreen() {
   );
   const { themeColors, isDarkMode, toggleTheme } = useTheme();
 
-  // Rotate the hero destination (photo + name) like the web hero does.
-  // Every photo is prefetched first: the name swaps instantly, so without a
-  // warm cache the old photo would still be on screen under the new name.
-  const [heroIdx, setHeroIdx] = useState(0);
-  const [heroReady, setHeroReady] = useState(false);
+  // ── HERO (web parity) ─────────────────────────────────────────────────────
+  // Reduced-motion: skip the looping ambience (Ken Burns / shimmer / halo / spin)
+  // when the OS asks for it. The typewriter + caret are content, not ambience,
+  // but we still hold them still under reduced motion.
+  const [reduceMotion, setReduceMotion] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    Promise.all(HERO_DESTINATIONS.map((d) => Image.prefetch(d.image).catch(() => false)))
-      .then(() => { if (!cancelled) setHeroReady(true); })
-      .catch(() => { if (!cancelled) setHeroReady(true); });
-    return () => { cancelled = true; };
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((on) => { if (!cancelled) setReduceMotion(!!on); })
+      .catch(() => {});
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', (on) => setReduceMotion(!!on));
+    return () => { cancelled = true; sub?.remove?.(); };
   }, []);
+
+  // Seasonal eyebrow — picked by the real current month (web parity).
+  const seasonal = SEASONAL.find((s) => (s.m as readonly number[]).includes(new Date().getMonth())) || SEASONAL[0];
+
+  // Typewriter: types/erases the city inside the headline, mirroring the web tick().
+  const [typedDest, setTypedDest] = useState(HEADLINE_DESTINATIONS[0]);
   useEffect(() => {
-    if (!heroReady) return; // don't rotate until every photo is cached
-    const t = setInterval(() => {
-      setHeroIdx((i) => (i + 1) % HERO_DESTINATIONS.length);
-    }, 6000);
-    return () => clearInterval(t);
-  }, [heroReady]);
-  const heroDest = HERO_DESTINATIONS[heroIdx];
+    if (reduceMotion) return; // hold the first city
+    let wordIdx = 0;
+    let charIdx = HEADLINE_DESTINATIONS[0].length;
+    let deleting = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const tick = () => {
+      const word = HEADLINE_DESTINATIONS[wordIdx];
+      if (!deleting) {
+        charIdx++;
+        setTypedDest(word.slice(0, charIdx));
+        if (charIdx >= word.length) { deleting = true; timer = setTimeout(tick, 1600); return; }
+        timer = setTimeout(tick, 110);
+      } else {
+        charIdx--;
+        setTypedDest(word.slice(0, charIdx));
+        if (charIdx <= 0) {
+          deleting = false;
+          wordIdx = (wordIdx + 1) % HEADLINE_DESTINATIONS.length;
+          timer = setTimeout(tick, 200);
+          return;
+        }
+        timer = setTimeout(tick, 55);
+      }
+    };
+    timer = setTimeout(tick, 1600); // let the first city sit before it starts cycling
+    return () => clearTimeout(timer);
+  }, [reduceMotion]);
+
+  // Ken Burns (slow zoom + drift), eyebrow shimmer sweep, CTA halo pulse,
+  // Sparkles spin, blinking caret — all looping Animated values.
+  const kenBurns = useRef(new Animated.Value(0)).current;
+  const shimmer = useRef(new Animated.Value(0)).current;
+  const ctaHalo = useRef(new Animated.Value(0)).current;
+  const sparkleSpin = useRef(new Animated.Value(0)).current;
+  const caret = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (reduceMotion) return;
+    const loops = [
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(kenBurns, { toValue: 1, duration: 26000, useNativeDriver: true }),
+          Animated.timing(kenBurns, { toValue: 0, duration: 26000, useNativeDriver: true }),
+        ])
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmer, { toValue: 1, duration: 1800, useNativeDriver: true }),
+          Animated.delay(1400),
+        ])
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(ctaHalo, { toValue: 1, duration: 1200, useNativeDriver: true }),
+          Animated.timing(ctaHalo, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        ])
+      ),
+      Animated.loop(
+        Animated.timing(sparkleSpin, { toValue: 1, duration: 3000, useNativeDriver: true })
+      ),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(caret, { toValue: 0, duration: 550, useNativeDriver: true }),
+          Animated.timing(caret, { toValue: 1, duration: 550, useNativeDriver: true }),
+        ])
+      ),
+    ];
+    loops.forEach((l) => l.start());
+    return () => loops.forEach((l) => l.stop());
+  }, [reduceMotion, kenBurns, shimmer, ctaHalo, sparkleSpin, caret]);
+
+  const kenScale = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  const kenX = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
+  const kenY = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [0, 8] });
+  const shimmerX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-140, SCREEN_WIDTH] });
+  const haloScale = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
+  const haloOpacity = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
+  const spin = sparkleSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const [popularActivities, setPopularActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -404,6 +531,9 @@ export default function HomeScreen() {
   const [showAllVisaFree, setShowAllVisaFree] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [showQuickItinerary, setShowQuickItinerary] = useState(false);
+  // "Plan a Trip" choice sheet — web parity (HeroSection's showPlanChoice modal).
+  // The hero CTA no longer jumps straight into the full planner; it asks first.
+  const [showPlanChoice, setShowPlanChoice] = useState(false);
 
   // Animated floating orbs
   const orbAnim1 = useRef(new Animated.Value(0)).current;
@@ -504,7 +634,13 @@ export default function HomeScreen() {
           <Text style={styles.appHeaderBrand}>PrayanaAI</Text>
         </View>
         <View style={styles.appHeaderRight}>
-          <Text style={styles.appHeaderFlag}>🇮🇳</Text>
+          {/* India flag — drawn rather than the 🇮🇳 emoji, which renders as "?"
+              boxes in this RN build (regional-indicator pairs have no glyph). */}
+          <View style={styles.appHeaderFlag}>
+            <View style={{ flex: 1, backgroundColor: '#FF9933' }} />
+            <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
+            <View style={{ flex: 1, backgroundColor: '#138808' }} />
+          </View>
           <TouchableOpacity onPress={toggleTheme} hitSlop={8}>
             <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={22} color={themeColors.text} />
           </TouchableOpacity>
@@ -523,51 +659,110 @@ export default function HomeScreen() {
         {/* ============================================================ */}
         {/* HERO SECTION (matching web HeroSection)                       */}
         {/* ============================================================ */}
-        <ImageBackground
-          source={{ uri: heroDest.image }}
-          style={styles.hero}
-          imageStyle={styles.heroImage}
-        >
-          {/* Legibility scrim — bright destination photos need a real floor,
-              otherwise the white serif headline washes out. */}
-          <LinearGradient
-            colors={['rgba(4,20,26,0.72)', 'rgba(4,20,26,0.55)', 'rgba(4,20,26,0.80)']}
-            style={StyleSheet.absoluteFill}
-          />
+        <View style={styles.hero}>
+          {/* Background — ONE fixed scenic photo with a slow Ken Burns zoom/drift.
+              Kept in its own clipped layer so the transform never moves the content. */}
+          <View style={styles.heroBgClip} pointerEvents="none">
+            <Animated.Image
+              source={HERO_SCENERY}
+              style={[
+                styles.heroBgImage,
+                { transform: [{ scale: kenScale }, { translateX: kenX }, { translateY: kenY }] },
+              ]}
+              resizeMode="cover"
+            />
 
-          {/* Glass badge — seasonal context */}
+            {/* Cinematic scrim — the web's vertical ramp (0.60 → 0.50 → 0.34 → 0.30 → 0.48). */}
+            <LinearGradient
+              colors={[
+                'rgba(0,0,0,0.60)',
+                'rgba(0,0,0,0.50)',
+                'rgba(0,0,0,0.34)',
+                'rgba(0,0,0,0.30)',
+                'rgba(0,0,0,0.48)',
+              ]}
+              locations={[0, 0.26, 0.52, 0.72, 1]}
+              style={StyleSheet.absoluteFill}
+            />
+
+            {/* Soft "spotlight" behind the text — RN has no radial-gradient, so this
+                approximates the web's radial(150% 105% at 50% 22%) with a very large,
+                heavily-rounded dark ellipse centred over the headline column. */}
+            <View style={styles.heroSpotlight} />
+
+            {/* Bottom fade — melts the hero into the next (white/black) section. */}
+            <LinearGradient
+              colors={
+                isDarkMode
+                  ? ['rgba(0,0,0,0)', 'rgba(0,0,0,0.34)', 'rgba(0,0,0,0.78)', '#000000']
+                  : ['rgba(255,255,255,0)', 'rgba(255,255,255,0.34)', 'rgba(255,255,255,0.78)', '#FFFFFF']
+              }
+              locations={[0, 0.5, 0.82, 1]}
+              style={styles.heroFade}
+            />
+          </View>
+
+          {/* Glass badge — seasonal context, auto-picked from the current month */}
           <View style={styles.heroBadge}>
-            <Ionicons name="rainy-outline" size={18} color="#FFFFFF" />
+            {/* light sweep across the glass (web's hero-eyebrow-shimmer) */}
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.heroBadgeShimmer, { transform: [{ translateX: shimmerX }] }]}
+            >
+              <LinearGradient
+                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            </Animated.View>
+            <Ionicons name={seasonal.icon} size={24} color={seasonal.iconColor} style={styles.heroBadgeEmoji} />
             <View style={styles.heroBadgeText}>
-              <Text style={styles.heroBadgeTitle}>Monsoon Magic Awaits</Text>
-              <Text style={styles.heroBadgeSub}>Green trails, misty views &amp; peaceful escapes</Text>
+              <Text style={styles.heroBadgeTitle}>{seasonal.title}</Text>
+              <Text style={styles.heroBadgeSub}>{seasonal.sub}</Text>
             </View>
           </View>
 
-          {/* Headline — script + serif, destination in teal (web parity) */}
+          {/* Headline — script + serif, typed destination in teal + blinking caret */}
           <Text style={styles.heroScript}>Plan your</Text>
           <Text style={styles.heroSerif}>
             perfect escape to{' '}
-            <Text style={styles.heroSerifAccent}>{heroDest.name}</Text>
+            <Text style={styles.heroSerifAccent}>{typedDest}</Text>
+            <Animated.Text style={[styles.heroCaret, { opacity: caret }]}>|</Animated.Text>
           </Text>
 
-          {/* Primary CTA — red→orange logo gradient pill */}
-          <TouchableOpacity
-            activeOpacity={0.88}
-            onPress={() => router.push('/trip/setup' as any)}
-            style={styles.ctaWrap}
-          >
-            <LinearGradient
-              colors={[BRAND.red, BRAND.flame]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.ctaGradient}
+          {/* Primary CTA — red→orange logo gradient pill, pulsing halo + spinning sparkles */}
+          <View style={styles.ctaWrap}>
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.ctaHalo, { opacity: haloOpacity, transform: [{ scale: haloScale }] }]}
             >
-              <Ionicons name="sparkles" size={18} color="#FFFFFF" />
-              <Text style={styles.ctaText}>Plan a Trip with AI</Text>
-              <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
-            </LinearGradient>
-          </TouchableOpacity>
+              <LinearGradient
+                colors={[BRAND.flame, BRAND.red]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.ctaHaloFill}
+              />
+            </Animated.View>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              onPress={() => setShowPlanChoice(true)}
+              style={styles.ctaButton}
+            >
+              <LinearGradient
+                colors={[BRAND.red, BRAND.flame]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.ctaGradient}
+              >
+                <Animated.View style={{ transform: [{ rotate: spin }] }}>
+                  <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+                </Animated.View>
+                <Text style={styles.ctaText}>Plan a Trip with AI</Text>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
 
           {/* Search — white pill with teal ring */}
           <TouchableOpacity
@@ -576,12 +771,12 @@ export default function HomeScreen() {
             activeOpacity={0.85}
           >
             <Ionicons name="search-outline" size={20} color="#71717A" />
-            <Text style={styles.searchPlaceholder}>Search for {heroDest.name}</Text>
+            <Text style={styles.searchPlaceholder}>Search for {typedDest || HEADLINE_DESTINATIONS[0]}</Text>
             <View style={styles.searchSparkle}>
               <Ionicons name="sparkles" size={16} color="#71717A" />
             </View>
           </TouchableOpacity>
-        </ImageBackground>
+        </View>
 
         {/* ============================================================ */}
         {/* MORE WAYS TO EXPLORE — pastel cards with NEW/SOON badges      */}
@@ -1276,6 +1471,140 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
+      {/* "Plan a Trip" choice sheet — mirrors the web HeroSection showPlanChoice modal.
+          Two modes: a 60-second AI plan, or the collaborative planner. Emoji don't
+          render in this build, so the web's 👋 / 🔒 are Ionicons here. */}
+      <Modal
+        visible={showPlanChoice}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowPlanChoice(false)}
+      >
+        <Pressable style={styles.planBackdrop} onPress={() => setShowPlanChoice(false)}>
+          <ScrollView
+            contentContainerStyle={styles.planScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Pressable
+              style={[
+                styles.planCardSheet,
+                { backgroundColor: isDarkMode ? '#111827' : '#FFFFFF' },
+              ]}
+              onPress={(e) => e.stopPropagation?.()}
+            >
+              {/* Close */}
+              <TouchableOpacity
+                onPress={() => setShowPlanChoice(false)}
+                style={styles.planClose}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={20} color="#374151" />
+              </TouchableOpacity>
+
+              {/* Header — "Hey Explorer!" + script heading with a teal, underlined accent */}
+              <View style={styles.planHeader}>
+                <View style={styles.planEyebrow}>
+                  <Ionicons name="hand-left" size={14} color={BRAND.teal} />
+                  <Text
+                    style={[
+                      styles.planEyebrowText,
+                      { color: isDarkMode ? '#E5E7EB' : '#374151' },
+                    ]}
+                  >
+                    Hey Explorer!
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.planHeading,
+                    { color: isDarkMode ? '#FFFFFF' : '#111827' },
+                  ]}
+                >
+                  How shall we <Text style={styles.planHeadingAccent}>plan your trip?</Text>
+                </Text>
+                {/* RN can't underline a colour-independent decoration cleanly, so the
+                    web's teal underline is drawn as a rule under the accent. */}
+                <View style={styles.planHeadingRule} />
+              </View>
+
+              {/* The two modes */}
+              {PLAN_CHOICES.map((choice) => (
+                <TouchableOpacity
+                  key={choice.id}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={choice.title}
+                  onPress={() => {
+                    setShowPlanChoice(false);
+                    router.push(choice.route as any);
+                  }}
+                  style={[
+                    styles.planChoice,
+                    {
+                      borderColor: choice.ring,
+                      backgroundColor: isDarkMode ? choice.tintDark : choice.tintLight,
+                    },
+                  ]}
+                >
+                  {/* Illustration fills the card's image area */}
+                  <View style={styles.planIllusWrap}>
+                    <Image source={choice.illus} style={styles.planIllus} resizeMode="cover" />
+                    <View style={styles.planBadge}>
+                      <Ionicons name={choice.badgeIcon} size={11} color={choice.color} />
+                      <Text style={[styles.planBadgeText, { color: choice.color }]}>
+                        {choice.badge}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.planChoiceBody}>
+                    <View style={styles.planChoiceText}>
+                      <Text
+                        style={[
+                          styles.planChoiceTitle,
+                          { color: isDarkMode ? choice.colorDark : choice.color },
+                        ]}
+                      >
+                        {choice.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.planChoiceDesc,
+                          { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+                        ]}
+                      >
+                        {choice.desc}
+                      </Text>
+                    </View>
+                    <View style={[styles.planChoiceArrow, { backgroundColor: choice.color }]}>
+                      <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {/* Trust note */}
+              <View style={styles.planFooter}>
+                <Ionicons name="lock-closed" size={12} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+                <Text
+                  style={[
+                    styles.planFooterText,
+                    { color: isDarkMode ? '#6B7280' : '#9CA3AF' },
+                  ]}
+                >
+                  Your data is private and secure
+                </Text>
+              </View>
+            </Pressable>
+          </ScrollView>
+        </Pressable>
+      </Modal>
+
       {/* Floating AI Chat Button (matching web FloatingChatButton) */}
       {/* Hide the floating chat FAB while the Quick Itinerary popup is open
           so it doesn't overlap the form/keyboard. */}
@@ -1302,9 +1631,40 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
   },
-  heroImage: {
-    // photo fills the hero; the scrim above it carries legibility
-    resizeMode: 'cover',
+  // Clipped background layer — holds the Ken Burns photo + scrim + fade so the
+  // photo's transform can never push the hero content around.
+  heroBgClip: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+  },
+  heroBgImage: {
+    // Slightly oversized so the Ken Burns drift never exposes an edge.
+    position: 'absolute',
+    top: -12,
+    left: -12,
+    right: -12,
+    bottom: -12,
+    width: undefined,
+    height: undefined,
+  },
+  // Approximated radial spotlight behind the headline column (RN has no
+  // radial-gradient) — a wide, very rounded dark ellipse centred near the top.
+  heroSpotlight: {
+    position: 'absolute',
+    left: -SCREEN_WIDTH * 0.35,
+    right: -SCREEN_WIDTH * 0.35,
+    top: -60,
+    height: 340,
+    borderRadius: 200,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+  },
+  // Bottom fade — hero melts into the next section instead of a hard edge.
+  heroFade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 80,
   },
   orb1: {
     position: 'absolute',
@@ -1348,7 +1708,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   appHeaderFlag: {
-    fontSize: 20,
+    width: 22,
+    height: 15,
+    borderRadius: 2,
+    overflow: 'hidden',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.15)',
   },
   appHeaderAvatar: {
     width: 30,
@@ -1372,6 +1737,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     marginBottom: 24,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  // Translucent light strip that sweeps across the glass pill.
+  heroBadgeShimmer: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: 90,
+  },
+  heroBadgeEmoji: {
+    fontSize: 24,
+    lineHeight: 30,
   },
   heroBadgeText: {
     flexShrink: 1,
@@ -1390,26 +1768,61 @@ const styles = StyleSheet.create({
   heroScript: {
     fontFamily: 'Snell Roundhand',
     fontSize: 30,
-    color: BRAND.tealLight,
+    color: BRAND.tealAccent,
     textAlign: 'center',
     marginBottom: -2,
   },
+  // The web's mobile hero sizes this line SMALLER than the script line above it
+  // (.hero-home h1 > span:last-child is 1.375rem vs the script's 1.625rem). At
+  // 32px it was larger than "Plan your", filled the width, and wrapped clumsily.
   heroSerif: {
     fontFamily: 'Georgia',
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 40,
+    lineHeight: 32,
   },
   heroSerifAccent: {
-    color: BRAND.tealLight,
+    color: BRAND.tealAccent,
   },
-  // Primary CTA — red→orange logo gradient pill
+  heroCaret: {
+    color: BRAND.tealAccent,
+    fontFamily: 'Georgia',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  // Primary CTA — red→orange logo gradient pill, with a pulsing gradient halo
   ctaWrap: {
     alignSelf: 'center',
     marginTop: 24,
     marginBottom: 24,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Soft pulsing glow behind the CTA. A solid gradient slab here read as a hard
+  // dark rectangle around the pill; a wide, low-opacity fill plus a large blurred
+  // shadow gives the web's halo instead of an outline.
+  ctaHalo: {
+    position: 'absolute',
+    left: -18,
+    right: -18,
+    top: -14,
+    bottom: -14,
+    borderRadius: 999,
+    shadowColor: BRAND.red,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 22,
+    elevation: 12,
+  },
+  ctaHaloFill: {
+    flex: 1,
+    borderRadius: 999,
+    opacity: 0.5,
+  },
+  ctaButton: {
     borderRadius: 999,
     shadowColor: BRAND.red,
     shadowOpacity: 0.45,
@@ -1544,6 +1957,156 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginBottom: 16,
+  },
+
+  // ---- "Plan a Trip" CHOICE SHEET (web HeroSection parity) ----
+  // Centred card over a dark scrim. RN has no backdrop-filter, so the web's
+  // blurred backdrop is approximated with a heavier black scrim.
+  planBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  // ScrollView so the sheet never overflows on small screens.
+  planScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  planCardSheet: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 18,
+    // Design-system RN port: shadow (iOS) + elevation (Android) together.
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.35,
+    shadowRadius: 30,
+    elevation: 16,
+  },
+  // Floating close button — sits at the card's top-right corner, like the web's.
+  planClose: {
+    position: 'absolute',
+    top: -12,
+    right: -8,
+    zIndex: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  planHeader: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  planEyebrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  planEyebrowText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  // Same script face as the hero's "Plan your" — the sheet must read as one product.
+  planHeading: {
+    fontFamily: 'Snell Roundhand',
+    fontSize: 30,
+    lineHeight: 38,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  planHeadingAccent: {
+    color: '#2FB0A6', // web's sheet accent — sits in the brand teal family
+  },
+  planHeadingRule: {
+    width: 130,
+    height: 2,
+    borderRadius: 1,
+    marginTop: 2,
+    backgroundColor: 'rgba(47,176,166,0.40)',
+  },
+  // Cards are STACKED (a phone is too narrow for the web's 2-up grid).
+  planChoice: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  planIllusWrap: {
+    width: '100%',
+    height: 132,
+    position: 'relative',
+  },
+  planIllus: {
+    width: '100%',
+    height: '100%',
+  },
+  planBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  planBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  planChoiceBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  planChoiceText: {
+    flex: 1,
+  },
+  planChoiceTitle: {
+    fontFamily: 'Snell Roundhand',
+    fontSize: 26,
+    lineHeight: 32,
+  },
+  planChoiceDesc: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  // 44pt tap-affordance chip (the whole card is pressable, this is the arrow cue).
+  planChoiceArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 8,
+  },
+  planFooterText: {
+    fontSize: 11.5,
   },
 
   // Services Bar (legacy)

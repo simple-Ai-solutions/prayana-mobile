@@ -16,10 +16,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fontSize, fontWeight, spacing, useTheme } from '@prayana/shared-ui';
 import { destinationAPI } from '@prayana/shared-services';
 import { resolveImageUrl, getPlaceImageUrl } from '@prayana/shared-utils';
+import { DestinationVideos } from '../destination/DestinationVideos';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const COL_GAP = 8;
 const IMAGE_WIDTH = (SCREEN_WIDTH - spacing.xl * 2 - COL_GAP) / 2;
+
+// PRAYANA_DESIGN_SYSTEM.pdf: the logo's teal is the brand primary. The web's
+// GalleryTab paints its header + divider ornament with the same brand teal.
+const GALLERY_TEAL = '#4AC0CC';
 
 interface GalleryTabProps {
   placeName: string;
@@ -77,28 +82,6 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ placeName, location, ini
     return heights[idx % heights.length];
   };
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.primary[500]} />
-        <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>
-          Loading gallery...
-        </Text>
-      </View>
-    );
-  }
-
-  if (images.length === 0) {
-    return (
-      <View style={styles.emptyContainer}>
-        <Ionicons name="images-outline" size={48} color={themeColors.textTertiary} />
-        <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
-          No images available
-        </Text>
-      </View>
-    );
-  }
-
   // Split into two columns for masonry
   const leftCol: { url: string; idx: number }[] = [];
   const rightCol: { url: string; idx: number }[] = [];
@@ -107,17 +90,34 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ placeName, location, ini
     else rightCol.push({ url, idx });
   });
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <Ionicons name="images" size={20} color={colors.primary[500]} />
-        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Gallery</Text>
-        <Text style={[styles.countBadge, { color: themeColors.textTertiary }]}>
-          {images.length} photos
-        </Text>
-      </View>
+  // The photo half of the tab. Loading / empty are rendered INLINE rather than
+  // as early returns from the component: this tab is "Photo Gallery + Video
+  // tours" (mirroring the web's GalleryTab), so photos still fetching — or a
+  // place with no photos at all — must never take the video rail down with them.
+  const renderPhotos = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary[500]} />
+          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>
+            Loading gallery...
+          </Text>
+        </View>
+      );
+    }
 
-      {/* Masonry Grid */}
+    if (images.length === 0) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="images-outline" size={48} color={themeColors.textTertiary} />
+          <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
+            No images available
+          </Text>
+        </View>
+      );
+    }
+
+    return (
       <View style={styles.masonry}>
         <View style={styles.masonryCol}>
           {leftCol.map(({ url, idx }) => (
@@ -152,6 +152,56 @@ export const GalleryTab: React.FC<GalleryTabProps> = ({ placeName, location, ini
           ))}
         </View>
       </View>
+    );
+  };
+
+  return (
+    <View>
+      <View style={styles.container}>
+        <View style={styles.sectionHeader}>
+          <Ionicons name="images" size={20} color={colors.primary[500]} />
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Gallery</Text>
+          {!loading && images.length > 0 ? (
+            <Text style={[styles.countBadge, { color: themeColors.textTertiary }]}>
+              {images.length} photo{images.length === 1 ? '' : 's'}
+            </Text>
+          ) : null}
+        </View>
+
+        {renderPhotos()}
+      </View>
+
+      {/* ── Divider ────────────────────────────────────────────────────────
+          The web puts a soft hairline that fades at both edges between the
+          photos and the video tours, with a small film ornament in the centre.
+          Same separation here. */}
+      <View style={styles.divider}>
+        <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
+        <View
+          style={[
+            styles.dividerOrnament,
+            { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+          ]}
+        >
+          <Ionicons name="film-outline" size={16} color={GALLERY_TEAL} />
+        </View>
+        <View style={[styles.dividerLine, { backgroundColor: themeColors.border }]} />
+      </View>
+
+      {/* ── Video tours ────────────────────────────────────────────────────
+          The web renders <VideoToursRail placeName={placeName} /> here. The
+          mobile equivalent is DestinationVideos (topic chips + Shorts rail +
+          4:3 grid + in-app player); we point its search at the PLACE, qualified
+          by its location, so we get "Tiger Hill Darjeeling" clips rather than
+          generic city footage. */}
+      <View style={styles.videoHeader}>
+        <Ionicons name="videocam" size={20} color={GALLERY_TEAL} />
+        <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Video tours</Text>
+      </View>
+      <DestinationVideos
+        locationName={location || placeName}
+        searchName={[placeName, location].filter(Boolean).join(' ').trim()}
+      />
 
       {/* Fullscreen Viewer Modal */}
       <Modal
@@ -227,10 +277,41 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, flex: 1 },
   countBadge: { fontSize: fontSize.sm },
 
+  // Divider between the photos and the video tours — mirrors the web's fading
+  // hairline with a centred film ornament.
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.xl,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xl,
+  },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, opacity: 0.9 },
+  dividerOrnament: {
+    marginHorizontal: spacing.md,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  videoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    marginBottom: spacing.md,
+  },
+
   masonry: {
     flexDirection: 'row',
     gap: COL_GAP,
-    paddingBottom: spacing['2xl'],
+    // Was 2xl, when the masonry was the last thing on the tab. The video-tours
+    // section now sits below it and brings its own divider spacing, so the big
+    // trailing gap would double up.
+    paddingBottom: spacing.lg,
   },
   masonryCol: {
     flex: 1,
