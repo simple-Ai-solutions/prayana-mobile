@@ -4,7 +4,7 @@
 // Videos play INSIDE the app (YouTube embed in a modal) instead of kicking the
 // user out to the YouTube app. Topic filters mirror the PWA
 // (Guide / To Do / Vlogs / Food) and drive BOTH fetches.
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import {
   Modal,
   StatusBar,
   useWindowDimensions,
+  FlatList,
+  type ViewToken,
 } from 'react-native';
 // Both from gesture-handler: this tab renders inside the destination page's
 // gesture-handler ScrollView, and a plain RN Touchable / ScrollView nested in
@@ -52,7 +54,7 @@ type PlayingVideo = {
 // youtube.com/embed/<id> directly: a raw WebView navigation carries no origin,
 // and YouTube then refuses to embed the video ("Error 153"). The body is black
 // and edge-to-edge so the frame has no letterbox seams.
-function youtubeEmbedHtml(videoId: string): string {
+function youtubeEmbedHtml(videoId: string, autoplay: boolean = true): string {
   return `<!DOCTYPE html>
 <html>
   <head>
@@ -64,13 +66,18 @@ function youtubeEmbedHtml(videoId: string): string {
   </head>
   <body>
     <iframe
-      src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1"
+      src="https://www.youtube.com/embed/${videoId}?autoplay=${autoplay ? 1 : 0}&playsinline=1&rel=0&modestbranding=1"
       allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
       allowfullscreen
     ></iframe>
   </body>
 </html>`;
 }
+
+// Only an item that is ≥80% on screen counts as "the" short. Both this and the
+// handler below MUST keep a stable identity across renders — FlatList throws
+// ("Changing viewabilityConfig on the fly is not supported") if either does.
+const SHORTS_VIEWABILITY = { itemVisiblePercentThreshold: 80 } as const;
 
 interface Props {
   /** The destination this rail belongs to (e.g. "Darjeeling"). */
@@ -126,6 +133,14 @@ export const DestinationVideos: React.FC<Props> = ({ locationName, searchName })
   const [shortsLoading, setShortsLoading] = useState(true);
   const [playing, setPlaying] = useState<PlayingVideo>(null);
   const [playerLoading, setPlayerLoading] = useState(true);
+  // The two player flows are independent:
+  //   playing          → the centred 16:9 modal, for REGULAR videos only.
+  //   playingShortIndex→ the full-screen Instagram-style vertical Shorts feed.
+  // `shortIndex` is the short currently on screen inside that feed, and it is
+  // the ONLY index that ever mounts a WebView.
+  const [playingShortIndex, setPlayingShortIndex] = useState<number | null>(null);
+  const [shortIndex, setShortIndex] = useState(0);
+  const shortsListRef = useRef<FlatList<any>>(null);
 
   const topicMeta = TOPICS.find((x) => x.id === topic) || TOPICS[0];
   const suffix = topicMeta.suffix;
@@ -202,6 +217,37 @@ export const DestinationVideos: React.FC<Props> = ({ locationName, searchName })
 
   const closeVideo = useCallback(() => setPlaying(null), []);
 
+  // Tapping a Short opens the whole `shorts` array as a full-screen vertical
+  // pager, parked on the tapped one — swiping up/down moves to the next/previous
+  // short, exactly like Reels. (Regular videos still go through openVideo.)
+  const openShort = useCallback((index: number) => {
+    setShortIndex(index);
+    setPlayingShortIndex(index);
+  }, []);
+
+  const closeShorts = useCallback(() => setPlayingShortIndex(null), []);
+
+  // The single source of truth for "which short may play". Driven by viewability
+  // rather than scroll offset so it survives fling/settle and never leaves two
+  // items both believing they're active.
+  const onShortsViewableChanged = useRef(
+    ({ viewableItems }: { viewableItems: ViewToken[] }) => {
+      const first = viewableItems[0];
+      if (first?.index != null) setShortIndex(first.index);
+    }
+  ).current;
+
+  // Required for initialScrollIndex: without an exact layout FlatList cannot
+  // jump to an unmeasured row and throws / lands on the wrong short.
+  const getShortLayout = useCallback(
+    (_data: ArrayLike<any> | null | undefined, index: number) => ({
+      length: screenH,
+      offset: screenH * index,
+      index,
+    }),
+    [screenH]
+  );
+
   // Nothing to show for Shorts once we know there are none — same as the web,
   // which returns null rather than leaving an empty header behind.
   const showShorts = shortsLoading || shorts.length > 0;
@@ -212,6 +258,16 @@ export const DestinationVideos: React.FC<Props> = ({ locationName, searchName })
   const horizontalFrame = { width: frameMaxW, height: (frameMaxW * 9) / 16 };
   const verticalH = Math.min(screenH * 0.78, 720, (frameMaxW * 16) / 9);
   const verticalFrame = { height: verticalH, width: (verticalH * 9) / 16 };
+
+  // The Shorts-feed stage. Unlike the centred modal, this one fills as much of
+  // the page as a 9:16 frame can: take the full screen height, and only fall
+  // back to width-constrained (letterboxed top/bottom) if that would be wider
+  // than the screen — so the video never overflows its page and bleeds into the
+  // neighbouring short.
+  const shortsFrame =
+    (screenH * 9) / 16 <= screenW
+      ? { height: screenH, width: (screenH * 9) / 16 }
+      : { width: screenW, height: (screenW * 16) / 9 };
 
   return (
     <View>
@@ -290,7 +346,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName, searchName })
                       key={id || `s-${idx}`}
                       style={styles.shortCard}
                       activeOpacity={0.85}
-                      onPress={() => openVideo({ ...s, id }, true)}
+                      onPress={() => openShort(idx)}
                     >
                       {thumb ? (
                         <Image source={{ uri: thumb }} style={styles.shortThumb} resizeMode="cover" />
@@ -544,6 +600,158 @@ export const DestinationVideos: React.FC<Props> = ({ locationName, searchName })
           </View>
         </View>
       </Modal>
+
+      {/* ── Shorts feed ────────────────────────────────────────────────────
+          The Instagram/Reels surface: one short per full screen, snapping, swipe
+          up for the next and down for the previous, over the whole `shorts`
+          array starting at whichever card was tapped.
+
+          A plain react-native FlatList (not the gesture-handler one) is correct
+          here: a Modal is its own root view, so it is NOT inside the destination
+          page's gesture-handler ScrollView, and the nested-touchable problem
+          that forced gesture-handler on the rail simply doesn't apply. */}
+      <Modal
+        visible={playingShortIndex !== null}
+        animationType="slide"
+        statusBarTranslucent
+        presentationStyle="overFullScreen"
+        transparent
+        onRequestClose={closeShorts}
+        hardwareAccelerated
+      >
+        <StatusBar barStyle="light-content" />
+        <View style={[styles.shortsFeed, { width: screenW, height: screenH }]}>
+          <FlatList
+            ref={shortsListRef}
+            data={shorts}
+            keyExtractor={(s: any, i: number) => s?.id || s?.videoId || `sf-${i}`}
+            pagingEnabled
+            snapToInterval={screenH}
+            snapToAlignment="start"
+            disableIntervalMomentum
+            decelerationRate="fast"
+            showsVerticalScrollIndicator={false}
+            initialScrollIndex={playingShortIndex ?? 0}
+            getItemLayout={getShortLayout}
+            onViewableItemsChanged={onShortsViewableChanged}
+            viewabilityConfig={SHORTS_VIEWABILITY}
+            // A WebView per row is expensive, so keep the window tight and let
+            // RN detach the off-screen ones.
+            windowSize={3}
+            initialNumToRender={1}
+            maxToRenderPerBatch={2}
+            removeClippedSubviews
+            renderItem={({ item, index }: { item: any; index: number }) => {
+              const id = item?.id || item?.videoId;
+              const thumb = item?.thumbnail || item?.thumb || null;
+              // THE performance + audio guarantee: only the short that is
+              // actually on screen mounts a WebView at all. Neighbours render as
+              // a still thumbnail, so nothing off-screen can autoplay or keep
+              // playing audio after you swipe past it. (Mounting neighbours with
+              // autoplay=0 would preload, but each idle WebView still costs a
+              // renderer process — not worth it for a 14-item feed.)
+              const isActive = index === shortIndex;
+
+              return (
+                <View style={[styles.shortsPage, { width: screenW, height: screenH }]}>
+                  {/* The 9:16 stage, centred on black. */}
+                  <View style={[styles.shortsStage, shortsFrame]}>
+                    {/* Always under the player: gives the WebView something to
+                        boot over, and IS the whole visual for inactive rows. */}
+                    {thumb ? (
+                      <Image
+                        source={{ uri: thumb }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="cover"
+                      />
+                    ) : null}
+
+                    {isActive && id ? (
+                      /* NOT wrapped in a Touchable: any Touchable here (even with
+                         a no-op onPress) eats the touch before it reaches the
+                         iframe, and YouTube's own controls go dead — that's the
+                         "can't pause" bug. Taps must land on the embed. */
+                      <WebView
+                        source={{
+                          html: youtubeEmbedHtml(id, true),
+                          baseUrl: 'https://prayanaai.com',
+                        }}
+                        originWhitelist={['*']}
+                        style={styles.webview}
+                        allowsInlineMediaPlayback
+                        mediaPlaybackRequiresUserAction={false}
+                        allowsFullscreenVideo
+                        javaScriptEnabled
+                        domStorageEnabled
+                        scrollEnabled={false}
+                        bounces={false}
+                        overScrollMode="never"
+                        setSupportMultipleWindows={false}
+                        cacheEnabled
+                      />
+                    ) : (
+                      <View style={styles.shortsIdle} pointerEvents="none">
+                        <View style={styles.playCircle}>
+                          <Play size={22} color="#fff" fill="#fff" strokeWidth={0} />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Reels-style caption: title + channel bottom-left, over a
+                      scrim so it stays legible on a bright frame. pointerEvents
+                      none so it never steals a tap from the player underneath. */}
+                  <LinearGradient
+                    colors={['transparent', 'rgba(0,0,0,0.75)']}
+                    style={styles.shortsCaptionScrim}
+                    pointerEvents="none"
+                  />
+                  <View
+                    style={[
+                      styles.shortsCaption,
+                      { bottom: insets.bottom + spacing.xl, width: screenW - spacing.lg * 2 },
+                    ]}
+                    pointerEvents="none"
+                  >
+                    <Text style={styles.shortsCaptionTitle} numberOfLines={2}>
+                      {item?.title}
+                    </Text>
+                    {item?.channel ? (
+                      <Text style={styles.shortsCaptionChannel} numberOfLines={1}>
+                        {item.channel}
+                        {item?.views ? ` · ${item.views}` : ''}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              );
+            }}
+          />
+
+          {/* Rendered AFTER the list so it stacks above every page and its taps
+              always land. box-none lets the gap between the buttons fall through
+              to the feed, so swiping there still scrolls. */}
+          <View style={[styles.playerBar, { top: insets.top }]} pointerEvents="box-none">
+            <TouchableOpacity
+              style={styles.playerBackBtn}
+              onPress={closeShorts}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <ChevronLeft size={26} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.playerDoneBtn}
+              onPress={closeShorts}
+              hitSlop={16}
+              activeOpacity={0.7}
+            >
+              <X size={18} color="#fff" />
+              <Text style={styles.playerDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -623,6 +831,57 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
     textAlign: 'center',
     paddingHorizontal: spacing.lg,
+  },
+
+  // ── Shorts feed (full-screen vertical pager) ───────────────────────────
+  // Opaque black, not the translucent backdrop the centred modal uses: this is a
+  // full-bleed surface, and any transparency would let the destination page show
+  // through between snaps.
+  shortsFeed: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000',
+  },
+  // Exactly one screen tall — this is what makes snapToInterval={screenH} land
+  // cleanly on one short per page.
+  shortsPage: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
+  },
+  shortsStage: {
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  // Inactive rows: the thumbnail already fills the stage behind this, so we only
+  // add the play glyph + a light scrim to read as "not playing yet".
+  shortsIdle: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  shortsCaptionScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: '28%',
+  },
+  shortsCaption: {
+    position: 'absolute',
+    left: spacing.lg,
+    gap: spacing.xs,
+  },
+  shortsCaptionTitle: {
+    color: '#fff',
+    fontSize: fontSize.md,
+    lineHeight: 21,
+    fontWeight: fontWeight.semibold,
+  },
+  shortsCaptionChannel: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
   },
 
   // Topic chips
