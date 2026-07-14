@@ -35,26 +35,26 @@ import {
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
+import { EsimBundle, coverageLabel, dataLabelFor } from '../../../lib/esim';
 
 type CheckoutStep = 'contact' | 'kyc' | 'pay';
 
-type Bundle = {
-  bundleName: string;
-  displayName?: string;
-  countryCode?: string;
-  countryName?: string;
-  data?: string;
-  validity?: string | number;
-  sellingPrice?: number;
-  currency?: string;
-  provider?: 'matrix' | 'esim_go' | string;
-  requiresKyc?: boolean;
-};
+// The REAL bundle shape (GET /esim/bundles/:name, and data.bundles[] in the
+// catalogue). The previous type here described the old mock data — `bundleName`,
+// `displayName`, `data`, `validity` and `requiresKyc` do not exist on the wire,
+// so every one of them rendered blank.
+type Bundle = EsimBundle;
 
 export default function ESimCheckoutScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ bundle: string }>();
+  const params = useLocalSearchParams<{
+    bundle: string;
+    country?: string;
+    provider?: string;
+    bundleId?: string;
+  }>();
   const bundleName = params.bundle;
+  const originCountry = (params.country || '').toUpperCase();
   const { user } = useAuth();
   const { themeColors } = useTheme();
 
@@ -88,7 +88,7 @@ export default function ESimCheckoutScreen() {
 
   const requiresMatrixKyc = useMemo(() => {
     if (!bundle) return false;
-    return (bundle.provider || '').toLowerCase() === 'matrix' || bundle.requiresKyc === true;
+    return (bundle.provider || '').toLowerCase() === 'matrix' || bundle.requiresKYC === true;
   }, [bundle]);
 
   useEffect(() => {
@@ -96,24 +96,62 @@ export default function ESimCheckoutScreen() {
     (async () => {
       if (!bundleName) return;
       setLoading(true);
+
+      // Pass the country the customer clicked through from, so a regional plan
+      // is priced (and discounted) exactly as the card showed it.
+      let found: Bundle | null = null;
       try {
-        const res = await esimAPI.getBundleDetails(bundleName);
-        if (!mounted) return;
-        setBundle(res?.data || res?.bundle || null);
-      } catch (err: any) {
+        const res: any = await esimAPI.getBundleDetails(bundleName, originCountry || undefined);
+        found = res?.data || res?.bundle || null;
+      } catch {
+        // Fall through to the catalogue lookup below.
+      }
+
+      // Most bundle names contain a literal "/" ("... - 10 Days / Data Only"),
+      // which breaks the /esim/bundles/:name path even percent-encoded — 22 of
+      // Japan's 32 plans are named that way. The web hits the same wall and
+      // falls back to the catalogue, so do the same rather than dead-end the
+      // customer on a plan they just tapped Buy on.
+      if (!found) {
+        try {
+          const cat: any = await esimAPI.getCatalogue(
+            originCountry ? { country: originCountry } : {},
+          );
+          const list: Bundle[] = cat?.data?.bundles ?? [];
+          // Match on the provider id first — the same regional plan NAME is sold
+          // under many countries, so name alone picks an arbitrary one (it
+          // showed "Albania" for a plan bought from the Japan page).
+          found =
+            list.find((b) => b.providerBundleId && b.providerBundleId === params.bundleId) ??
+            list.find(
+              (b) =>
+                b.name === bundleName &&
+                (!originCountry || (b.country ?? '').toUpperCase() === originCountry),
+            ) ??
+            list.find((b) => b.name === bundleName) ??
+            null;
+        } catch {
+          // Both routes failed — report it below.
+        }
+      }
+
+      if (!mounted) return;
+
+      if (found) {
+        setBundle(found);
+      } else {
         Toast.show({
           type: 'error',
           text1: 'Could not load plan',
-          text2: err?.message || 'Please try again.',
+          text2: 'Please go back and pick the plan again.',
         });
-      } finally {
-        if (mounted) setLoading(false);
       }
+      setLoading(false);
     })();
     return () => {
       mounted = false;
     };
-  }, [bundleName]);
+  }, [bundleName, originCountry, params.bundleId]);
 
   // Pre-fill from auth profile
   useEffect(() => {
@@ -201,7 +239,7 @@ export default function ESimCheckoutScreen() {
       let currentOrderId = orderId;
       if (!currentOrderId) {
         const createRes = await esimAPI.createOrder({
-          bundleName: bundle.bundleName,
+          bundleName: bundle.name,
           customerFirstName: firstName.trim(),
           customerLastName: lastName.trim(),
           customerName: `${firstName.trim()} ${lastName.trim()}`,
@@ -264,10 +302,10 @@ export default function ESimCheckoutScreen() {
         keyId: keyId || ENV.razorpayKeyId,
         orderId: rzpOrderId,
         amountInPaise: amount || toPaise(bundle.sellingPrice || 0),
-        currency: currency || bundle.currency || 'INR',
-        description: bundle.displayName || bundle.bundleName,
+        currency: currency || bundle.sellingCurrency || 'INR',
+        description: bundle.name,
         prefill: { email: email.trim(), contact: phone.trim(), name: `${firstName} ${lastName}`.trim() },
-        notes: { orderId: currentOrderId!, bundleName: bundle.bundleName },
+        notes: { orderId: currentOrderId!, bundleName: bundle.name },
       });
 
       if (result.status === 'cancelled') {
@@ -380,24 +418,29 @@ export default function ESimCheckoutScreen() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Plan summary card */}
+          {/* Plan summary card — real provider fields only. */}
           <Card style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
-              <Text style={styles.summaryTitle}>
-                {bundle.displayName || bundle.bundleName}
-              </Text>
+              <Text style={styles.summaryTitle}>{bundle.name}</Text>
               {bundle.provider ? (
                 <Badge label={bundle.provider.toUpperCase()} variant="primary" size="sm" />
               ) : null}
             </View>
             <Text style={styles.summaryMeta}>
-              {bundle.countryName || bundle.countryCode || 'Global'} · {bundle.data || ''} · {bundle.validity || ''} days
+              {coverageLabel(bundle)} · {dataLabelFor(bundle)} · {bundle.durationDays} days
             </Text>
             <View style={styles.summaryPriceRow}>
               <Text style={styles.summaryPriceLabel}>Total</Text>
-              <Text style={styles.summaryPriceValue}>
-                {bundle.currency || '₹'} {(bundle.sellingPrice || 0).toLocaleString('en-IN')}
-              </Text>
+              <View style={styles.summaryPriceStack}>
+                {(bundle.discountPercent ?? 0) > 0 && !!bundle.originalPrice && (
+                  <Text style={styles.summaryPriceWas}>
+                    ₹{bundle.originalPrice.toLocaleString('en-IN')}
+                  </Text>
+                )}
+                <Text style={styles.summaryPriceValue}>
+                  ₹{(bundle.sellingPrice || 0).toLocaleString('en-IN')}
+                </Text>
+              </View>
             </View>
           </Card>
 
@@ -547,7 +590,7 @@ export default function ESimCheckoutScreen() {
                 ) : null}
               </Card>
               <Text style={[styles.sectionHint, { color: themeColors.textTertiary }]}>
-                You'll be charged {bundle.currency || '₹'}
+                You'll be charged ₹
                 {(bundle.sellingPrice || 0).toLocaleString('en-IN')}. The eSIM
                 QR code arrives instantly on success.
               </Text>
@@ -557,7 +600,7 @@ export default function ESimCheckoutScreen() {
 
         <View style={[styles.footer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
           <Button
-            title={step === 'pay' ? `Pay ${bundle.currency || '₹'}${(bundle.sellingPrice || 0).toLocaleString('en-IN')}` : 'Continue'}
+            title={step === 'pay' ? `Pay ₹${(bundle.sellingPrice || 0).toLocaleString('en-IN')}` : 'Continue'}
             onPress={step === 'pay' ? handlePay : handleNext}
             variant="primary"
             size="lg"
@@ -630,7 +673,14 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   summaryPriceLabel: { fontSize: fontSize.md, color: colors.textSecondary },
-  summaryPriceValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.primary[600] },
+  summaryPriceStack: { alignItems: 'flex-end' },
+  summaryPriceWas: {
+    fontSize: fontSize.sm,
+    color: colors.textSecondary,
+    textDecorationLine: 'line-through',
+  },
+  // eSIM is a brand-red surface (the logo's secondary), not the app's orange.
+  summaryPriceValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: '#E61417' },
   section: { marginTop: spacing.xl, gap: spacing.md },
   sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
   sectionHint: { fontSize: fontSize.sm, color: colors.textTertiary, lineHeight: 20 },

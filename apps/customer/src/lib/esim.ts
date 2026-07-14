@@ -187,6 +187,20 @@ export function bundleKey(b: EsimBundle): string {
 }
 
 /**
+ * What this plan covers, in words.
+ *
+ * Do NOT show `countryName` for a regional plan. The backend leaves it as the
+ * first country of the coverage list, so a 60-country global plan bought from
+ * the Japan page reports "Albania" — technically covered, but it reads like the
+ * customer bought the wrong thing.
+ */
+export function coverageLabel(b: EsimBundle): string {
+  const n = coverageCountFor(b);
+  if (isRegionalBundle(b)) return n && n > 1 ? `${n} countries` : b.region || 'Regional';
+  return b.countryName || b.country || 'Global';
+}
+
+/**
  * Web's popularity heuristic (country page): needs >= 2 plans; score favours a
  * discount and the sweet-spot data sizes. Returns the set of popular plan names.
  */

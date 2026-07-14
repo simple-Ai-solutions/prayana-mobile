@@ -15,8 +15,12 @@ class EsimAPI {
     return makeAPICall(`/esim/catalogue${tail}`);
   }
 
-  async getBundleDetails(bundleName) {
-    return makeAPICall(`/esim/bundles/${encodeURIComponent(bundleName)}`);
+  async getBundleDetails(bundleName, country) {
+    // Forward the catalogue country so a regional plan is priced for the country
+    // the customer clicked through from — otherwise the checkout total can differ
+    // from the discounted price the plan card just showed them.
+    const qs = country ? `?country=${encodeURIComponent(country)}` : "";
+    return makeAPICall(`/esim/bundles/${encodeURIComponent(bundleName)}${qs}`);
   }
 
   // Order lifecycle
