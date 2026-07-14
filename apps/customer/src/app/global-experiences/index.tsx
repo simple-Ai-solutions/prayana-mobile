@@ -49,7 +49,7 @@ const TEAL = '#4AC0CC';
 const PAGE = 24;
 
 export default function GlobalExperiencesScreen() {
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
 
   const [cities, setCities] = useState<CityGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +60,22 @@ export default function GlobalExperiencesScreen() {
   // Accordion: one country's rail open at a time, the first by default — the
   // PWA's mobile behaviour. Showing every rail at once buries the page.
   const [openCountry, setOpenCountry] = useState<string | null>(null);
+
+  /**
+   * Drill-down: the FULL activity list for the selected place, paginated.
+   *
+   * The browse rails only carry the sample the by-city call returns (20 per
+   * city), so filtering to a country cannot just re-slice those — Vietnam has
+   * 8,801 experiences, not the 20 we happen to hold. We fetch the real list.
+   *
+   * That fetch goes by CITY, not country: `?country=Vietnam` reports a total of
+   * 13 (the server matches a sparsely-set location.country), while `?city=Hanoi`
+   * correctly reports 8,801. City is the field that is actually populated.
+   */
+  const [placeItems, setPlaceItems] = useState<Experience[]>([]);
+  const [placeTotal, setPlaceTotal] = useState(0);
+  const [placeLoading, setPlaceLoading] = useState(false);
+  const [placeSkip, setPlaceSkip] = useState(0);
 
   // Search switches the page from browse-by-country to a flat grid.
   const [query, setQuery] = useState('');
@@ -139,37 +155,85 @@ export default function GlobalExperiencesScreen() {
 
   const countryGroups = useMemo(() => groupByCountry(cities), [cities]);
 
-  const visibleGroups = useMemo(
-    () => (country ? countryGroups.filter((g) => g.country === country) : countryGroups),
-    [countryGroups, country],
-  );
 
-  // Open the first visible country. Re-runs when the chip filter changes, so
-  // filtering to a country leaves that country's rail open rather than closed.
+  // First country open by default, as the PWA does on mobile.
   useEffect(() => {
-    const first = visibleGroups[0]?.country ?? null;
-    setOpenCountry((cur) =>
-      cur && visibleGroups.some((g) => g.country === cur) ? cur : first,
-    );
-  }, [visibleGroups]);
+    setOpenCountry((cur) => cur ?? countryGroups[0]?.country ?? null);
+  }, [countryGroups]);
 
   const toggleCountry = useCallback((c: string) => {
     setOpenCountry((cur) => (cur === c ? null : c));
   }, []);
 
+  /**
+   * Load the selected place's real activities. A country may span several
+   * cities (India has 12), so fan out across its cities and interleave, rather
+   * than showing only the first city's tours.
+   */
+  const loadPlace = useCallback(
+    async (group: CountryGroup, skip: number, append: boolean) => {
+      setPlaceLoading(true);
+      try {
+        const perCity = Math.max(4, Math.ceil(PAGE / group.cities.length));
+        const pages = await Promise.all(
+          group.cities.map(async (city) => {
+            try {
+              const res: any = await activityMarketplaceAPI.getGlobalActivities({
+                city,
+                limit: perCity,
+                skip,
+              });
+              return {
+                items: (res?.data ?? []) as Experience[],
+                total: Number(res?.total ?? 0),
+              };
+            } catch {
+              return { items: [] as Experience[], total: 0 };
+            }
+          }),
+        );
+
+        const items = pages.flatMap((p) => p.items);
+        const total = pages.reduce((n, p) => n + p.total, 0);
+
+        setPlaceItems((prev) => {
+          const merged = append ? [...prev, ...items] : items;
+          // The same tour can surface under more than one city query.
+          const seen = new Set<string>();
+          return merged.filter((e) => !seen.has(e._id) && seen.add(e._id));
+        });
+        setPlaceTotal(total);
+        setPlaceSkip(skip + perCity);
+      } finally {
+        setPlaceLoading(false);
+      }
+    },
+    [],
+  );
+
+  /** Show only this place's activities — the country chips and "View more". */
+  const selectPlace = useCallback(
+    (g: CountryGroup | null) => {
+      setQuery('');
+      setSearching(false);
+      setPlaceItems([]);
+      setPlaceTotal(0);
+      setPlaceSkip(0);
+
+      if (!g) {
+        setCountry(null);
+        return;
+      }
+      setCountry(g.country);
+      loadPlace(g, 0, false);
+    },
+    [loadPlace],
+  );
+
   const openExperience = useCallback((e: Experience) => {
     router.push(`/activity/${e._id}`);
   }, []);
 
-  const viewMore = useCallback((g: CountryGroup) => {
-    // Drilling into a country is the country filter applied — the API groups by
-    // city, so there is no separate per-country endpoint to call. Keep the rail
-    // open, or the customer taps "View more" and lands on a collapsed banner.
-    setCountry(g.country);
-    setOpenCountry(g.country);
-    setQuery('');
-    setSearching(false);
-  }, []);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -182,29 +246,64 @@ export default function GlobalExperiencesScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
         }
       >
-        {/* ─── HERO ─── */}
+        {/* ─── HERO ─── the PWA's is a soft blush wash with DARK type, not a
+             saturated gradient with white type. "experiences" is the one word
+             carrying the orange. */}
         <LinearGradient
-          colors={[colors.primary[500], '#FB923C', TEAL]}
+          colors={
+            isDarkMode
+              ? ['#1F1512', themeColors.background]
+              : ['#FDF2EC', '#FCE9F0', themeColors.background]
+          }
           start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
+          end={{ x: 0, y: 1 }}
           style={styles.hero}
         >
           <View style={styles.heroTop}>
             <TouchableOpacity
               onPress={() => router.back()}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={styles.backBtn}
+              style={[styles.backBtn, { backgroundColor: themeColors.surface }]}
               accessibilityRole="button"
               accessibilityLabel="Go back"
             >
-              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+              <Ionicons name="chevron-back" size={22} color={themeColors.text} />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.heroTitle}>Tours, tickets &amp; experiences</Text>
-          <Text style={styles.heroSub}>
-            Skip the queues, book real experiences — handpicked across the world.
+          <View style={[styles.eyebrow, { backgroundColor: themeColors.surface }]}>
+            <Ionicons name="globe-outline" size={13} color={colors.primary[500]} />
+            <Text style={[styles.eyebrowText, { color: colors.primary[500] }]}>
+              Worldwide tours · Viator &amp; Headout
+            </Text>
+          </View>
+
+          <Text style={[styles.heroTitle, { color: themeColors.text }]}>
+            Tours, tickets &amp;{'\n'}
+            <Text style={{ color: colors.primary[500] }}>experiences</Text>
           </Text>
+          <Text style={[styles.heroSub, { color: themeColors.textSecondary }]}>
+            Skip-the-line tickets, expert-led tours and bucket-list moments — hand-picked around the
+            world.
+          </Text>
+
+          {/* Trust row. Only claims the catalogue backs: instant confirmation and
+              mobile tickets are real product properties. No invented "2M+
+              travellers" or a made-up aggregate rating. */}
+          <View style={styles.trust}>
+            <View style={styles.trustItem}>
+              <Ionicons name="shield-checkmark-outline" size={13} color="#16A34A" />
+              <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
+                Instant confirmation
+              </Text>
+            </View>
+            <View style={styles.trustItem}>
+              <Ionicons name="phone-portrait-outline" size={13} color="#16A34A" />
+              <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
+                Mobile tickets
+              </Text>
+            </View>
+          </View>
         </LinearGradient>
 
         {/* ─── SEARCH (floats over the hero edge) ─── */}
@@ -319,41 +418,92 @@ export default function GlobalExperiencesScreen() {
                 label="All places"
                 icon="earth"
                 active={!country}
-                onPress={() => setCountry(null)}
+                onPress={() => selectPlace(null)}
               />
               {countryGroups.map((g) => (
                 <Chip
                   key={g.country}
                   label={g.country}
                   active={country === g.country}
-                  onPress={() => setCountry(country === g.country ? null : g.country)}
+                  onPress={() => selectPlace(country === g.country ? null : g)}
                 />
               ))}
             </ScrollView>
 
-            <View style={styles.section}>
-              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                {country ? country : 'Top experiences by country'}
-              </Text>
-              <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                {country
-                  ? `${visibleGroups[0]?.total.toLocaleString('en-IN') ?? 0} experiences`
-                  : 'Handpicked tours and tickets, booked through Viator and Headout.'}
-              </Text>
-            </View>
+            {country ? (
+              /* ─── ONE PLACE — its own activities, the full paginated list ─── */
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{country}</Text>
+                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                  {placeTotal > 0
+                    ? `${placeTotal.toLocaleString('en-IN')} experience${placeTotal === 1 ? '' : 's'}`
+                    : placeLoading
+                      ? 'Loading experiences…'
+                      : 'No experiences here yet.'}
+                </Text>
 
-            <View style={styles.countries}>
-              {visibleGroups.map((g) => (
-                <CountryExperiences
-                  key={g.country}
-                  group={g}
-                  open={openCountry === g.country}
-                  onToggle={toggleCountry}
-                  onPressExperience={openExperience}
-                  onViewMore={viewMore}
-                />
-              ))}
-            </View>
+                {placeLoading && !placeItems.length ? (
+                  <View style={styles.state}>
+                    <ActivityIndicator size="large" color={colors.primary[500]} />
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.grid}>
+                      {placeItems.map((e) => (
+                        <View key={e._id} style={styles.gridCell}>
+                          <ExperienceCard experience={e} onPress={openExperience} />
+                        </View>
+                      ))}
+                    </View>
+
+                    {placeItems.length > 0 && placeItems.length < placeTotal && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          const g = countryGroups.find((x) => x.country === country);
+                          if (g && !placeLoading) loadPlace(g, placeSkip, true);
+                        }}
+                        disabled={placeLoading}
+                        style={[styles.loadMore, { borderColor: themeColors.border }]}
+                        accessibilityRole="button"
+                      >
+                        {placeLoading ? (
+                          <ActivityIndicator size="small" color={colors.primary[500]} />
+                        ) : (
+                          <Text style={[styles.loadMoreText, { color: themeColors.text }]}>
+                            Load more
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+              </View>
+            ) : (
+              /* ─── ALL PLACES — the country accordion ─── */
+              <>
+                <View style={styles.section}>
+                  <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                    Top experiences by country
+                  </Text>
+                  <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                    Handpicked tours and tickets, booked through Viator and Headout.
+                  </Text>
+                </View>
+
+                <View style={styles.countries}>
+                  {countryGroups.map((g) => (
+                    <CountryExperiences
+                      key={g.country}
+                      group={g}
+                      open={openCountry === g.country}
+                      onToggle={toggleCountry}
+                      onPressExperience={openExperience}
+                      onViewMore={selectPlace}
+                    />
+                  ))}
+                </View>
+              </>
+            )}
           </>
         )}
       </ScrollView>
@@ -398,7 +548,11 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   body: { paddingBottom: spacing['2xl'] },
 
-  hero: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing['2xl'] + spacing.lg },
+  hero: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing['2xl'] + spacing.lg,
+  },
   heroTop: { flexDirection: 'row', marginBottom: spacing.lg },
   backBtn: {
     width: 36,
@@ -406,21 +560,38 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.20)',
   },
+
+  eyebrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    borderRadius: 999,
+    marginBottom: spacing.md,
+  },
+  eyebrowText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+
+  // Sizes come from the shared theme (fontSize['3xl'] = 30). The theme sets no
+  // fontFamily on purpose — the design system's typeface IS the native system
+  // stack, and no webfont is bundled.
   heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 27,
+    fontSize: fontSize['3xl'],
     fontWeight: fontWeight.bold,
     letterSpacing: -0.75,
-    lineHeight: 33,
+    lineHeight: 36,
   },
   heroSub: {
-    color: 'rgba(255,255,255,0.90)',
     fontSize: fontSize.sm,
     marginTop: spacing.sm,
     lineHeight: 20,
   },
+
+  trust: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
+  trustItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  trustText: { fontSize: fontSize.xs },
 
   searchWrap: { paddingHorizontal: spacing.lg, marginTop: -26 },
   searchBar: {
