@@ -17,12 +17,21 @@ const CARD_W = Math.round(SCREEN_W * 0.62);
 
 interface Props {
   group: CountryGroup;
+  /**
+   * Accordion state. The PWA is explicit about this on mobile: "a full-width
+   * country banner that expands its rail when tapped; only one country is open
+   * at a time". Rendering every rail at once is a wall of content.
+   */
+  open: boolean;
+  onToggle: (country: string) => void;
   onPressExperience: (e: Experience) => void;
   onViewMore: (group: CountryGroup) => void;
 }
 
 export const CountryExperiences: React.FC<Props> = ({
   group,
+  open,
+  onToggle,
   onPressExperience,
   onViewMore,
 }) => {
@@ -37,51 +46,70 @@ export const CountryExperiences: React.FC<Props> = ({
         { backgroundColor: themeColors.surface, borderColor: themeColors.border },
       ]}
     >
-      {/* Header — the country's real total, straight from the catalogue. */}
-      <ImageBackground
-        source={group.heroImage ? { uri: group.heroImage } : undefined}
-        style={styles.hero}
-        imageStyle={styles.heroImg}
-        resizeMode="cover"
-      >
-        <LinearGradient
-          colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.65)']}
-          style={StyleSheet.absoluteFill}
-        />
-        <View style={styles.heroText}>
-          <Text style={styles.country} numberOfLines={1}>
-            {group.country}
-          </Text>
-          <Text style={styles.count}>
-            {group.total.toLocaleString('en-IN')} experience{group.total === 1 ? '' : 's'}
-          </Text>
-        </View>
-      </ImageBackground>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.rail}
-      >
-        {group.items.map((e) => (
-          <ExperienceCard
-            key={e._id}
-            experience={e}
-            width={CARD_W}
-            onPress={onPressExperience}
-          />
-        ))}
-      </ScrollView>
-
+      {/* Banner — tap to expand/collapse. The count is the country's real
+          catalogue total, not the handful of items we fetched. */}
       <TouchableOpacity
-        onPress={() => onViewMore(group)}
-        style={styles.more}
+        onPress={() => onToggle(group.country)}
+        activeOpacity={0.9}
         accessibilityRole="button"
-        accessibilityLabel={`View more experiences in ${group.country}`}
+        accessibilityState={{ expanded: open }}
+        accessibilityLabel={`${group.country}, ${group.total} experiences`}
       >
-        <Text style={styles.moreText}>View more</Text>
-        <Ionicons name="chevron-forward" size={15} color={TEAL} />
+        <ImageBackground
+          source={group.heroImage ? { uri: group.heroImage } : undefined}
+          style={styles.hero}
+          imageStyle={styles.heroImg}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.65)']}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.heroRow}>
+            <View style={styles.heroText}>
+              <Text style={styles.country} numberOfLines={1}>
+                {group.country}
+              </Text>
+              <Text style={styles.count}>
+                {group.total.toLocaleString('en-IN')} experience{group.total === 1 ? '' : 's'}
+              </Text>
+            </View>
+
+            <View style={styles.chevron}>
+              <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color="#FFFFFF" />
+            </View>
+          </View>
+        </ImageBackground>
       </TouchableOpacity>
+
+      {open && (
+        <>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.rail}
+          >
+            {group.items.map((e) => (
+              <ExperienceCard
+                key={e._id}
+                experience={e}
+                width={CARD_W}
+                onPress={onPressExperience}
+              />
+            ))}
+          </ScrollView>
+
+          <TouchableOpacity
+            onPress={() => onViewMore(group)}
+            style={styles.more}
+            accessibilityRole="button"
+            accessibilityLabel={`View more experiences in ${group.country}`}
+          >
+            <Text style={styles.moreText}>View more</Text>
+            <Ionicons name="chevron-forward" size={15} color={TEAL} />
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 };
@@ -95,7 +123,21 @@ const styles = StyleSheet.create({
 
   hero: { height: 130, justifyContent: 'flex-end', backgroundColor: '#1f2937' },
   heroImg: {},
-  heroText: { padding: spacing.lg },
+  heroRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    padding: spacing.lg,
+  },
+  heroText: { flex: 1 },
+  chevron: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
   country: {
     color: '#FFFFFF',
     fontSize: 24,

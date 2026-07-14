@@ -57,6 +57,9 @@ export default function GlobalExperiencesScreen() {
   const [error, setError] = useState('');
 
   const [country, setCountry] = useState<string | null>(null);
+  // Accordion: one country's rail open at a time, the first by default — the
+  // PWA's mobile behaviour. Showing every rail at once buries the page.
+  const [openCountry, setOpenCountry] = useState<string | null>(null);
 
   // Search switches the page from browse-by-country to a flat grid.
   const [query, setQuery] = useState('');
@@ -141,14 +144,29 @@ export default function GlobalExperiencesScreen() {
     [countryGroups, country],
   );
 
+  // Open the first visible country. Re-runs when the chip filter changes, so
+  // filtering to a country leaves that country's rail open rather than closed.
+  useEffect(() => {
+    const first = visibleGroups[0]?.country ?? null;
+    setOpenCountry((cur) =>
+      cur && visibleGroups.some((g) => g.country === cur) ? cur : first,
+    );
+  }, [visibleGroups]);
+
+  const toggleCountry = useCallback((c: string) => {
+    setOpenCountry((cur) => (cur === c ? null : c));
+  }, []);
+
   const openExperience = useCallback((e: Experience) => {
     router.push(`/activity/${e._id}`);
   }, []);
 
   const viewMore = useCallback((g: CountryGroup) => {
-    // Drilling into a country is just the country filter applied — the API
-    // groups by city, so there is no separate per-country endpoint to call.
+    // Drilling into a country is the country filter applied — the API groups by
+    // city, so there is no separate per-country endpoint to call. Keep the rail
+    // open, or the customer taps "View more" and lands on a collapsed banner.
     setCountry(g.country);
+    setOpenCountry(g.country);
     setQuery('');
     setSearching(false);
   }, []);
@@ -329,6 +347,8 @@ export default function GlobalExperiencesScreen() {
                 <CountryExperiences
                   key={g.country}
                   group={g}
+                  open={openCountry === g.country}
+                  onToggle={toggleCountry}
                   onPressExperience={openExperience}
                   onViewMore={viewMore}
                 />
