@@ -29,15 +29,19 @@ import { resolveImageUrl } from '@prayana/shared-utils';
 
 import { OverviewTab } from '../../../components/place-detail/OverviewTab';
 import { VisitInfoTab } from '../../../components/place-detail/VisitInfoTab';
+import { TicketsTab } from '../../../components/place-detail/TicketsTab';
 import { HowToReachTab } from '../../../components/place-detail/HowToReachTab';
 import { NearbyTab } from '../../../components/place-detail/NearbyTab';
 import { GalleryTab } from '../../../components/place-detail/GalleryTab';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
+// Tab order mirrors the web's DestinationTabs: Tickets sits between Visit Info
+// and How to Reach.
 const TABS = [
   { key: 'overview', label: 'Overview', icon: 'sparkles-outline' as const },
   { key: 'visit', label: 'Visit Info', icon: 'information-circle-outline' as const },
+  { key: 'tickets', label: 'Tickets', icon: 'ticket-outline' as const },
   { key: 'reach', label: 'How to Reach', icon: 'navigate-outline' as const },
   { key: 'nearby', label: 'Nearby', icon: 'location-outline' as const },
   { key: 'gallery', label: 'Gallery', icon: 'images-outline' as const },
@@ -455,6 +459,19 @@ function PlaceDetailContent() {
           return showSkeleton ? <TabSkeleton /> : <OverviewTab placeData={placeData} />;
         case 'visit':
           return showSkeleton ? <TabSkeleton /> : <VisitInfoTab placeData={placeData} />;
+        case 'tickets':
+          // Not gated behind showSkeleton: TicketsTab fetches its own booking
+          // links from the place name + location, both of which we already have
+          // from the route, so it can start loading while the description tiers
+          // are still streaming — and it renders its own skeletons.
+          return (
+            <TicketsTab
+              placeData={placeData}
+              placeName={placeData?.name || placeName || ''}
+              location={resolvedLocation}
+              imageGallery={allImages}
+            />
+          );
         case 'reach':
           return (
             <HowToReachTab

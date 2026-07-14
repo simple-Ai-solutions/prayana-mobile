@@ -73,7 +73,18 @@ function youtubeEmbedHtml(videoId: string): string {
 }
 
 interface Props {
+  /** The destination this rail belongs to (e.g. "Darjeeling"). */
   locationName: string;
+  /**
+   * Optional override for what we actually search YouTube for. The destination
+   * page wants videos about the destination, so it passes nothing and we search
+   * `locationName`. The place-detail Gallery tab wants videos about the PLACE,
+   * so it passes e.g. "Tiger Hill Darjeeling" — the place name qualified by its
+   * location, which is specific enough that YouTube doesn't hand back generic
+   * city footage. Kept optional so the existing destination call site is
+   * untouched.
+   */
+  searchName?: string;
 }
 
 const TOPICS = [
@@ -97,7 +108,10 @@ const GRID_GAP = spacing.md;
 // from-red-500 to-rose-600) — this is the Prayana secondary accent, not orange.
 const SHORTS_GRADIENT = ['#ef4444', '#e11d48'] as const;
 
-export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
+export const DestinationVideos: React.FC<Props> = ({ locationName, searchName }) => {
+  // What we actually query YouTube for. Falls back to the destination name, so
+  // the existing destination-page call site behaves exactly as before.
+  const queryName = searchName?.trim() || locationName;
   const { themeColors } = useTheme();
   // Read live, not at module scope: a module-scope Dimensions.get() is captured
   // once at import time and is wrong after rotation (and on some devices at
@@ -124,7 +138,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
       setLoading(true);
       try {
         const res: any = await videosAPI.search({
-          q: `${locationName} ${suffix}`,
+          q: `${queryName} ${suffix}`,
           max: 10,
         });
         if (cancelled) return;
@@ -142,7 +156,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
     return () => {
       cancelled = true;
     };
-  }, [locationName, suffix]);
+  }, [queryName, suffix]);
 
   // Shorts are fetched SEPARATELY with shorts=1, exactly like the web does.
   useEffect(() => {
@@ -151,7 +165,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
       setShortsLoading(true);
       try {
         const res: any = await videosAPI.search({
-          q: `${locationName} ${suffix}`,
+          q: `${queryName} ${suffix}`,
           max: 14,
           shorts: 1,
         });
@@ -170,7 +184,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
     return () => {
       cancelled = true;
     };
-  }, [locationName, suffix]);
+  }, [queryName, suffix]);
 
   // Play in-app rather than handing the user off to the YouTube app.
   const openVideo = useCallback((video: any, vertical: boolean) => {
@@ -346,7 +360,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
         <View style={styles.center}>
           <YouTubeIcon size={40} />
           <Text style={[styles.centerText, { color: themeColors.textSecondary }]}>
-            No videos found for {locationName}.
+            No videos found for {queryName}.
           </Text>
         </View>
       ) : (
