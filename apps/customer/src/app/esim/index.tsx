@@ -45,6 +45,7 @@ import {
 import { CountryFlag } from '../../components/esim/CountryFlag';
 import { EsimDestinationHero } from '../../components/esim/EsimDestinationHero';
 import { EsimPlanCard, ACCENT_RED } from '../../components/esim/EsimPlanCard';
+import { EsimProductDetails } from '../../components/esim/EsimProductDetails';
 import { EsimHowItWorks } from '../../components/esim/EsimHowItWorks';
 import { EsimFAQ } from '../../components/esim/EsimFAQ';
 import { EsimCompatibleDevices } from '../../components/esim/EsimCompatibleDevices';
@@ -78,6 +79,9 @@ export default function EsimScreen() {
   const [sortOpen, setSortOpen] = useState(false);
   const [showAllCountries, setShowAllCountries] = useState(false);
   const [scope, setScope] = useState<CoverageScope>('country');
+  // Standard = metered data; Unlimited = the isUnlimited plans. The PWA offers
+  // this as a second filter row, tagging Unlimited as NEW.
+  const [planType, setPlanType] = useState<'data' | 'unlimited'>('data');
 
   /**
    * The catalogue is country-scoped: called WITHOUT a country it returns the
@@ -161,13 +165,30 @@ export default function EsimScreen() {
   const effectiveScope: CoverageScope =
     scope === 'country' && scoped.country.length === 0 ? 'global' : scope;
 
+  // Standard vs Unlimited, within the chosen scope. Fall back rather than show
+  // an empty tab when a destination sells only one of the two.
+  const byType = useMemo(() => {
+    const inScope = scoped[effectiveScope];
+    return {
+      data: inScope.filter((b) => !b.isUnlimited),
+      unlimited: inScope.filter((b) => !!b.isUnlimited),
+    };
+  }, [scoped, effectiveScope]);
+
+  const effectiveType: 'data' | 'unlimited' =
+    byType[planType].length === 0
+      ? planType === 'data'
+        ? 'unlimited'
+        : 'data'
+      : planType;
+
   const visible = useMemo(() => {
     // The search box picks a DESTINATION, so it must not also filter the plan
     // list. It used to: searching "Thailand" and then selecting it left the
     // query filtering plans, and since Thai plans are named "Thailand eSIM ..."
     // while the global bundles are not, the Regional/Global tab silently
     // rendered zero plans.
-    const inScope = scoped[effectiveScope];
+    const inScope = byType[effectiveType];
     const sorted = sortBundles(inScope, sortBy);
     const popular = popularPlanNames(sorted);
     // Hoist popular plans, as the web does.
@@ -176,7 +197,7 @@ export default function EsimScreen() {
       ...sorted.filter((b) => !popular.has(b.name)),
     ];
     return { list: hoisted, popular };
-  }, [scoped, effectiveScope, sortBy]);
+  }, [byType, effectiveType, sortBy]);
 
   const goToCheckout = useCallback(
     (plan: EsimBundle) => {
@@ -347,6 +368,7 @@ export default function EsimScreen() {
                       setSearch('');
                       setShowAllCountries(false);
                       setScope('country');
+                      setPlanType('data');
                     }}
                     style={[
                       styles.countryChip,
@@ -499,6 +521,41 @@ export default function EsimScreen() {
             </View>
           )}
 
+          {/* Standard vs Unlimited — only when the destination sells both. */}
+          {!loading && !error && byType.data.length > 0 && byType.unlimited.length > 0 && (
+            <View style={[styles.scopeTabs, { borderColor: themeColors.border }]}>
+              {([
+                { key: 'data' as const, label: 'Standard', isNew: false },
+                { key: 'unlimited' as const, label: 'Unlimited', isNew: true },
+              ]).map((t) => {
+                const active = effectiveType === t.key;
+                return (
+                  <TouchableOpacity
+                    key={t.key}
+                    onPress={() => setPlanType(t.key)}
+                    style={[styles.scopeTab, active && { backgroundColor: ACCENT_RED }]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text
+                      style={[
+                        styles.scopeTabText,
+                        { color: active ? '#FFFFFF' : themeColors.textSecondary },
+                      ]}
+                    >
+                      {t.label}
+                    </Text>
+                    {t.isNew && (
+                      <View style={styles.newBadge}>
+                        <Text style={styles.newBadgeText}>NEW</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           {/* Global plans cost more and hand the customer a foreign number —
               say so plainly, since the cheapest plan on the list is often one. */}
           {!loading && !error && effectiveScope === 'global' && (
@@ -563,8 +620,19 @@ export default function EsimScreen() {
           </View>
         )}
 
-        <EsimHowItWorks />
+        {/* Section order mirrors the PWA: the spec table and the destination
+            pitch sit directly under the plans, then the shared explainers. */}
+        {country && !loading && !error && visible.list.length > 0 && (
+          <EsimProductDetails
+            plans={visible.list}
+            scope={effectiveScope}
+            countryName={selectedCountryName ?? country}
+            countryCode={country}
+          />
+        )}
+
         <EsimCompatibleDevices />
+        <EsimHowItWorks />
         <EsimFAQ />
 
         <View style={styles.footerNote}>
@@ -768,13 +836,23 @@ const styles = StyleSheet.create({
   },
   scopeTab: {
     flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 5,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
     borderRadius: 999,
   },
   scopeTabText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+  // Web tags Unlimited with a yellow NEW chip (#FACC15 on #7C2D12).
+  newBadge: {
+    backgroundColor: '#FACC15',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  newBadgeText: { color: '#7C2D12', fontSize: 8, fontWeight: fontWeight.bold },
 
   scopeWarning: {
     flexDirection: 'row',
