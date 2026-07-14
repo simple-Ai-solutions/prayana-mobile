@@ -75,6 +75,46 @@ const BRAND = {
   flame: '#FB923C', // logo gradient stop — CTA only
 } as const;
 
+// "Plan a Trip" choice-sheet illustrations (web parity: /icons/plan-illus-*.png).
+const PLAN_ILLUS_SOLO = require('../../../assets/plan/plan-illus-solo.png');
+const PLAN_ILLUS_FRIENDS = require('../../../assets/plan/plan-illus-friends.png');
+
+// The two planning modes offered by the choice sheet. Colours are SEMANTIC to the
+// mode (emerald = fast/solo, blue = collaborative) and match the web sheet exactly,
+// so they intentionally do not use the brand teal/orange.
+const PLAN_CHOICES = [
+  {
+    id: 'quick',
+    title: '1 Min Plan',
+    desc: 'Get an AI itinerary in just 60 seconds.',
+    cta: 'Start now',
+    badge: 'Fast & Easy',
+    badgeIcon: 'flash' as const,
+    illus: PLAN_ILLUS_SOLO,
+    color: '#059669', // emerald-600
+    colorDark: '#34D399', // emerald-400
+    tintLight: '#ECFDF5', // emerald-50
+    tintDark: 'rgba(16,185,129,0.15)',
+    ring: 'rgba(16,185,129,0.30)',
+    route: '/quick-itinerary',
+  },
+  {
+    id: 'friends',
+    title: 'Plan with Friends',
+    desc: 'Chat & build the perfect trip together.',
+    cta: 'Invite & plan',
+    badge: 'Together',
+    badgeIcon: 'sparkles' as const,
+    illus: PLAN_ILLUS_FRIENDS,
+    color: '#2563EB', // blue-600
+    colorDark: '#60A5FA', // blue-400
+    tintLight: '#EFF6FF', // blue-50
+    tintDark: 'rgba(37,99,235,0.15)',
+    ring: 'rgba(37,99,235,0.30)',
+    route: '/trip/setup',
+  },
+] as const;
+
 // Hero background — ONE fixed scenic photograph (web parity: the web hero stopped
 // rotating remote photos and now uses /icons/hero-scenery.jpg with a Ken Burns drift).
 const HERO_SCENERY = require('../../../assets/hero-scenery.jpg');
@@ -492,6 +532,9 @@ export default function HomeScreen() {
   const [showAllVisaFree, setShowAllVisaFree] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [showQuickItinerary, setShowQuickItinerary] = useState(false);
+  // "Plan a Trip" choice sheet — web parity (HeroSection's showPlanChoice modal).
+  // The hero CTA no longer jumps straight into the full planner; it asks first.
+  const [showPlanChoice, setShowPlanChoice] = useState(false);
 
   // Animated floating orbs
   const orbAnim1 = useRef(new Animated.Value(0)).current;
@@ -704,7 +747,7 @@ export default function HomeScreen() {
             </Animated.View>
             <TouchableOpacity
               activeOpacity={0.88}
-              onPress={() => router.push('/trip/setup' as any)}
+              onPress={() => setShowPlanChoice(true)}
               style={styles.ctaButton}
             >
               <LinearGradient
@@ -1429,6 +1472,140 @@ export default function HomeScreen() {
         </Pressable>
       </Modal>
 
+      {/* "Plan a Trip" choice sheet — mirrors the web HeroSection showPlanChoice modal.
+          Two modes: a 60-second AI plan, or the collaborative planner. Emoji don't
+          render in this build, so the web's 👋 / 🔒 are Ionicons here. */}
+      <Modal
+        visible={showPlanChoice}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => setShowPlanChoice(false)}
+      >
+        <Pressable style={styles.planBackdrop} onPress={() => setShowPlanChoice(false)}>
+          <ScrollView
+            contentContainerStyle={styles.planScroll}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Pressable
+              style={[
+                styles.planCardSheet,
+                { backgroundColor: isDarkMode ? '#111827' : '#FFFFFF' },
+              ]}
+              onPress={(e) => e.stopPropagation?.()}
+            >
+              {/* Close */}
+              <TouchableOpacity
+                onPress={() => setShowPlanChoice(false)}
+                style={styles.planClose}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={20} color="#374151" />
+              </TouchableOpacity>
+
+              {/* Header — "Hey Explorer!" + script heading with a teal, underlined accent */}
+              <View style={styles.planHeader}>
+                <View style={styles.planEyebrow}>
+                  <Ionicons name="hand-left" size={14} color={BRAND.teal} />
+                  <Text
+                    style={[
+                      styles.planEyebrowText,
+                      { color: isDarkMode ? '#E5E7EB' : '#374151' },
+                    ]}
+                  >
+                    Hey Explorer!
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    styles.planHeading,
+                    { color: isDarkMode ? '#FFFFFF' : '#111827' },
+                  ]}
+                >
+                  How shall we <Text style={styles.planHeadingAccent}>plan your trip?</Text>
+                </Text>
+                {/* RN can't underline a colour-independent decoration cleanly, so the
+                    web's teal underline is drawn as a rule under the accent. */}
+                <View style={styles.planHeadingRule} />
+              </View>
+
+              {/* The two modes */}
+              {PLAN_CHOICES.map((choice) => (
+                <TouchableOpacity
+                  key={choice.id}
+                  activeOpacity={0.85}
+                  accessibilityRole="button"
+                  accessibilityLabel={choice.title}
+                  onPress={() => {
+                    setShowPlanChoice(false);
+                    router.push(choice.route as any);
+                  }}
+                  style={[
+                    styles.planChoice,
+                    {
+                      borderColor: choice.ring,
+                      backgroundColor: isDarkMode ? choice.tintDark : choice.tintLight,
+                    },
+                  ]}
+                >
+                  {/* Illustration fills the card's image area */}
+                  <View style={styles.planIllusWrap}>
+                    <Image source={choice.illus} style={styles.planIllus} resizeMode="cover" />
+                    <View style={styles.planBadge}>
+                      <Ionicons name={choice.badgeIcon} size={11} color={choice.color} />
+                      <Text style={[styles.planBadgeText, { color: choice.color }]}>
+                        {choice.badge}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.planChoiceBody}>
+                    <View style={styles.planChoiceText}>
+                      <Text
+                        style={[
+                          styles.planChoiceTitle,
+                          { color: isDarkMode ? choice.colorDark : choice.color },
+                        ]}
+                      >
+                        {choice.title}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.planChoiceDesc,
+                          { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
+                        ]}
+                      >
+                        {choice.desc}
+                      </Text>
+                    </View>
+                    <View style={[styles.planChoiceArrow, { backgroundColor: choice.color }]}>
+                      <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              {/* Trust note */}
+              <View style={styles.planFooter}>
+                <Ionicons name="lock-closed" size={12} color={isDarkMode ? '#6B7280' : '#9CA3AF'} />
+                <Text
+                  style={[
+                    styles.planFooterText,
+                    { color: isDarkMode ? '#6B7280' : '#9CA3AF' },
+                  ]}
+                >
+                  Your data is private and secure
+                </Text>
+              </View>
+            </Pressable>
+          </ScrollView>
+        </Pressable>
+      </Modal>
+
       {/* Floating AI Chat Button (matching web FloatingChatButton) */}
       {/* Hide the floating chat FAB while the Quick Itinerary popup is open
           so it doesn't overlap the form/keyboard. */}
@@ -1781,6 +1958,156 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginBottom: 16,
+  },
+
+  // ---- "Plan a Trip" CHOICE SHEET (web HeroSection parity) ----
+  // Centred card over a dark scrim. RN has no backdrop-filter, so the web's
+  // blurred backdrop is approximated with a heavier black scrim.
+  planBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+  },
+  // ScrollView so the sheet never overflows on small screens.
+  planScroll: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+  },
+  planCardSheet: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 18,
+    // Design-system RN port: shadow (iOS) + elevation (Android) together.
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.35,
+    shadowRadius: 30,
+    elevation: 16,
+  },
+  // Floating close button — sits at the card's top-right corner, like the web's.
+  planClose: {
+    position: 'absolute',
+    top: -12,
+    right: -8,
+    zIndex: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  planHeader: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  planEyebrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  planEyebrowText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  // Same script face as the hero's "Plan your" — the sheet must read as one product.
+  planHeading: {
+    fontFamily: 'Snell Roundhand',
+    fontSize: 30,
+    lineHeight: 38,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  planHeadingAccent: {
+    color: '#2FB0A6', // web's sheet accent — sits in the brand teal family
+  },
+  planHeadingRule: {
+    width: 130,
+    height: 2,
+    borderRadius: 1,
+    marginTop: 2,
+    backgroundColor: 'rgba(47,176,166,0.40)',
+  },
+  // Cards are STACKED (a phone is too narrow for the web's 2-up grid).
+  planChoice: {
+    borderRadius: 18,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginBottom: 12,
+  },
+  planIllusWrap: {
+    width: '100%',
+    height: 132,
+    position: 'relative',
+  },
+  planIllus: {
+    width: '100%',
+    height: '100%',
+  },
+  planBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  planBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  planChoiceBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  planChoiceText: {
+    flex: 1,
+  },
+  planChoiceTitle: {
+    fontFamily: 'Snell Roundhand',
+    fontSize: 26,
+    lineHeight: 32,
+  },
+  planChoiceDesc: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  // 44pt tap-affordance chip (the whole card is pressable, this is the arrow cue).
+  planChoiceArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 8,
+  },
+  planFooterText: {
+    fontSize: 11.5,
   },
 
   // Services Bar (legacy)
