@@ -36,6 +36,20 @@ import {
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
 import { EsimBundle, coverageLabel, dataLabelFor } from '../../../lib/esim';
+import { DateField } from '../../../components/common/DateField';
+
+// Date bounds, mirroring the web checkout's <input type="date"> limits.
+const TODAY = new Date();
+const MIN_DOB = new Date(1920, 0, 1);
+// At least a year old — the web uses the same guard.
+const MAX_DOB = new Date(TODAY.getFullYear() - 1, TODAY.getMonth(), TODAY.getDate());
+
+function parseISODate(iso: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+  const [y, m, d] = iso.split('-').map(Number);
+  const date = new Date(y, m - 1, d);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
 type CheckoutStep = 'contact' | 'kyc' | 'pay';
 
@@ -182,6 +196,27 @@ export default function ESimCheckoutScreen() {
 
   const validateKyc = () => {
     if (!requiresMatrixKyc) return true;
+
+    // Matrix requires a DOB and the travel window. These used to be optional
+    // free-text fields, so an order could be submitted with them blank and be
+    // rejected by the provider AFTER the customer had committed — catch it here,
+    // where it is still a form error and not a failed purchase.
+    if (!dob) {
+      Toast.show({
+        type: 'error',
+        text1: 'Date of birth required',
+        text2: 'Matrix needs it to activate the eSIM.',
+      });
+      return false;
+    }
+    if (!travelStart || !travelEnd) {
+      Toast.show({
+        type: 'error',
+        text1: 'Travel dates required',
+        text2: 'Pick when you leave and when you return.',
+      });
+      return false;
+    }
     if (!passportNo.trim() || passportNo.trim().length < 6) {
       Toast.show({
         type: 'error',
@@ -240,6 +275,17 @@ export default function ESimCheckoutScreen() {
       if (!currentOrderId) {
         const createRes = await esimAPI.createOrder({
           bundleName: bundle.name,
+          // Send the provider's id and the provider too. A bundle NAME is not
+          // unique — the same regional plan is sold under many countries — so
+          // the id is what lets the server resolve exactly the plan that was
+          // tapped.
+          providerBundleId: bundle.providerBundleId || undefined,
+          provider: bundle.provider || undefined,
+          // The country the customer shopped from, so a regional plan keeps the
+          // country-scoped price they were shown. Distinct from `country` below,
+          // which is the billing address country.
+          coverageCountry: originCountry || bundle.country || undefined,
+
           customerFirstName: firstName.trim(),
           customerLastName: lastName.trim(),
           customerName: `${firstName.trim()} ${lastName.trim()}`,
@@ -481,28 +527,43 @@ export default function ESimCheckoutScreen() {
                 placeholder="+91 98xxx xxxxx"
                 keyboardType="phone-pad"
               />
-              <TextInput
-                label="Date of birth (YYYY-MM-DD)"
+              {/* Real calendars. These were free-text "YYYY-MM-DD" boxes, which
+                  is how a purchase silently fails: Matrix validates the format,
+                  so a single typo — or an untouched field — rejects the order. */}
+              <DateField
+                label="Date of birth"
                 value={dob}
-                onChangeText={setDob}
-                placeholder="1995-04-21"
+                onChange={setDob}
+                placeholder="Select your date of birth"
+                minimumDate={MIN_DOB}
+                maximumDate={MAX_DOB}
+                editable={!submitting}
               />
               <View style={styles.row2}>
                 <View style={{ flex: 1 }}>
-                  <TextInput
+                  <DateField
                     label="Travel start"
                     value={travelStart}
-                    onChangeText={setTravelStart}
-                    placeholder="2026-05-01"
+                    onChange={(iso) => {
+                      setTravelStart(iso);
+                      // A return before departure is not a date range. Clear it
+                      // rather than posting an impossible trip to the provider.
+                      if (travelEnd && travelEnd < iso) setTravelEnd('');
+                    }}
+                    placeholder="Departure"
+                    minimumDate={TODAY}
+                    editable={!submitting}
                   />
                 </View>
                 <View style={{ width: spacing.md }} />
                 <View style={{ flex: 1 }}>
-                  <TextInput
+                  <DateField
                     label="Travel end"
                     value={travelEnd}
-                    onChangeText={setTravelEnd}
-                    placeholder="2026-05-15"
+                    onChange={setTravelEnd}
+                    placeholder="Return"
+                    minimumDate={parseISODate(travelStart) ?? TODAY}
+                    editable={!submitting}
                   />
                 </View>
               </View>

@@ -20,10 +20,12 @@ interface Props {
    * number to hand (`region.plansCount`) counts COUNTRIES, not plans.
    */
   planCount?: number;
+  /** Highlighted while its countries are the ones being shown. */
+  selected?: boolean;
   onPress: () => void;
 }
 
-export const EsimRegionRow: React.FC<Props> = ({ region, fromINR, planCount, onPress }) => {
+export const EsimRegionRow: React.FC<Props> = ({ region, fromINR, planCount, selected = false, onPress }) => {
   const { themeColors } = useTheme();
 
   const highlights =
@@ -39,7 +41,8 @@ export const EsimRegionRow: React.FC<Props> = ({ region, fromINR, planCount, onP
         styles.row,
         {
           backgroundColor: themeColors.surface,
-          borderColor: themeColors.border,
+          borderColor: selected ? '#E61417' : themeColors.border,
+          borderWidth: selected ? 2 : 1,
           opacity: pressed ? 0.9 : 1,
         },
       ]}

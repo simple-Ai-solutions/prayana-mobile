@@ -86,6 +86,10 @@ export default function EsimScreen() {
   const [sortBy, setSortBy] = useState<SortKey>('value');
   const [sortOpen, setSortOpen] = useState(false);
   const [showAllCountries, setShowAllCountries] = useState(false);
+  // The region row the customer drilled into, if any. Tapping "Europe" used to
+  // jump straight to a single country's plans; it now filters the destination
+  // picker down to that region, which is what the row is offering.
+  const [region, setRegion] = useState<string | null>(null);
   const [scope, setScope] = useState<CoverageScope>('country');
   // Standard = metered data; Unlimited = the isUnlimited plans. The PWA offers
   // this as a second filter row, tagging Unlimited as NEW.
@@ -314,26 +318,56 @@ export default function EsimScreen() {
    * shortlist, so picking, say, Peru doesn't make the highlighted chip vanish.
    */
   const searchQuery = search.trim().toLowerCase();
-  const isSearching = searchQuery.length > 0 && !country;
+  // Searching is just "there is a query". This used to ALSO require that no
+  // country was selected, which silently killed the search box the moment you
+  // picked one — the Search button did nothing and typing filtered nothing.
+  const isSearching = searchQuery.length > 0;
+
+  const matchedCountries = useMemo(() => {
+    // A chosen region narrows the pool first. ESIM_REGIONS lists a handful of
+    // sample codes per region for pricing, so pool from those plus anything the
+    // catalogue itself tags with the region.
+    let pool = countries;
+    if (region && !isSearching) {
+      const r = ESIM_REGIONS.find((x) => x.name === region);
+      if (r) {
+        const codes = new Set(r.sampleCodes);
+        pool = countries.filter(
+          (c) =>
+            codes.has(c.iso) ||
+            (c.region ?? '').toLowerCase().includes(r.filterKey.toLowerCase()),
+        );
+      }
+    }
+
+    if (!isSearching) return pool;
+    return pool.filter(
+      (c) =>
+        c.name.toLowerCase().includes(searchQuery) || c.iso.toLowerCase().includes(searchQuery),
+    );
+  }, [countries, searchQuery, isSearching, region]);
 
   const visibleCountries = useMemo(() => {
-    const matches = isSearching
-      ? countries.filter(
-          (c) =>
-            c.name.toLowerCase().includes(searchQuery) ||
-            c.iso.toLowerCase().includes(searchQuery),
-        )
-      : countries;
-
-    if (isSearching || showAllCountries) return matches;
+    if (isSearching || showAllCountries) return matchedCountries;
 
     // Collapsed shortlist — plus the selection, wherever it ranks.
-    const shortlist = matches.slice(0, FEATURED_COUNT);
-    const picked = country ? matches.find((c) => c.iso === country) : undefined;
+    const shortlist = matchedCountries.slice(0, FEATURED_COUNT);
+    const picked = country ? matchedCountries.find((c) => c.iso === country) : undefined;
     return picked && !shortlist.some((c) => c.iso === country)
       ? [picked, ...shortlist.slice(0, FEATURED_COUNT - 1)]
       : shortlist;
-  }, [countries, searchQuery, isSearching, country, showAllCountries]);
+  }, [matchedCountries, isSearching, country, showAllCountries]);
+
+  /** Jump straight to the top match — what the red Search button commits to. */
+  const runSearch = useCallback(() => {
+    const hit = matchedCountries[0];
+    if (!hit) return;
+    setCountry(hit.iso);
+    setSearch('');
+    setShowAllCountries(false);
+    setScope('country');
+    setPlanType('data');
+  }, [matchedCountries]);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -399,11 +433,15 @@ export default function EsimScreen() {
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search a country or plan..."
+              placeholder="Search a country..."
               placeholderTextColor={themeColors.textTertiary}
               style={[styles.searchInput, { color: themeColors.text }]}
               autoCorrect={false}
               returnKeyType="search"
+              // Hitting Search on the keyboard must do the same thing as the
+              // button, or the field feels broken to anyone who types and taps
+              // Return.
+              onSubmitEditing={runSearch}
             />
             {search.length > 0 && (
               <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
@@ -411,18 +449,16 @@ export default function EsimScreen() {
               </TouchableOpacity>
             )}
 
-            {/* The PWA's red Search button, flush inside the field. */}
+            {/* The PWA's red Search button, flush inside the field. Dimmed when
+                there is nothing to jump to, rather than looking tappable and
+                doing nothing. */}
             <TouchableOpacity
-              onPress={() => {
-                const hit = visibleCountries[0];
-                if (isSearching && hit) {
-                  setCountry(hit.iso);
-                  setSearch('');
-                  setScope('country');
-                  setPlanType('data');
-                }
-              }}
-              style={styles.searchBtn}
+              onPress={runSearch}
+              disabled={!matchedCountries.length || !isSearching}
+              style={[
+                styles.searchBtn,
+                (!matchedCountries.length || !isSearching) && styles.searchBtnOff,
+              ]}
               accessibilityRole="button"
               accessibilityLabel="Search"
             >
@@ -431,23 +467,38 @@ export default function EsimScreen() {
           </View>
         </View>
 
-        {/* Promo bar — the free VIP month bundled with every eligible eSIM. */}
-        <TouchableOpacity
-          onPress={() => router.push('/vip')}
-          style={[styles.promo, { backgroundColor: themeColors.surface }]}
-          accessibilityRole="button"
-        >
-          <View style={styles.promoPill}>
-            <Text style={styles.promoPillText}>₹999 VALUE</Text>
-          </View>
-          <Text style={[styles.promoText, { color: themeColors.text }]} numberOfLines={1}>
-            +50 Planner Credits
-          </Text>
-          <View style={styles.promoCta}>
-            <Text style={styles.promoCtaText}>Buy now</Text>
-            <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
+        {/* Promo bar — the free VIP month that comes with any eSIM over ₹500.
+            Its CTA used to push '/vip', a route this app does not have, so the
+            tap did nothing at all. The perk IS the eSIM, so it now scrolls to
+            the plans that carry it (or to the picker if no country is chosen
+            yet), and it hides once you are already looking at plans. */}
+        {!country && (
+          <TouchableOpacity
+            onPress={() => {
+              const first = countries[0];
+              if (first) {
+                setCountry(first.iso);
+                setSearch('');
+                setScope('country');
+                setPlanType('data');
+              }
+            }}
+            style={[styles.promo, { backgroundColor: themeColors.surface }]}
+            accessibilityRole="button"
+            accessibilityLabel="Free VIP month, worth ₹999, with any eSIM over ₹500"
+          >
+            <View style={styles.promoPill}>
+              <Text style={styles.promoPillText}>₹999 VALUE</Text>
+            </View>
+            <Text style={[styles.promoText, { color: themeColors.text }]} numberOfLines={1}>
+              Free VIP + 50 credits
+            </Text>
+            <View style={styles.promoCta}>
+              <Text style={styles.promoCtaText}>Buy now</Text>
+              <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* ─── DESTINATIONS — every country the catalogue actually sells ─── */}
         {/* ─── BROWSE BY REGION ─── */}
@@ -469,16 +520,14 @@ export default function EsimScreen() {
                   region={r}
                   fromINR={regionFrom[r.name]?.fromINR}
                   planCount={regionFrom[r.name]?.planCount}
+                  selected={region === r.name}
                   onPress={() => {
-                    // Jump to the region's first highlight country, which is what
-                    // the row is actually advertising a price for.
-                    const first = countries.find((c) => r.sampleCodes.includes(c.iso));
-                    if (first) {
-                      setCountry(first.iso);
-                      setSearch('');
-                      setScope('country');
-                      setPlanType('data');
-                    }
+                    // Filter the picker to this region — do NOT jump to a single
+                    // country. Tapping "Europe" and landing on France's plans is
+                    // not what the row promises.
+                    setRegion((cur) => (cur === r.name ? null : r.name));
+                    setSearch('');
+                    setShowAllCountries(true);
                   }}
                 />
               ))}
@@ -486,16 +535,24 @@ export default function EsimScreen() {
           </View>
         )}
 
+        {/* Destination picker. Once a country is chosen this collapses — leaving
+            "Recommended for You" on screen under the plans you are already
+            reading is just noise. It comes back while you search for another. */}
+        {(!country || isSearching) && (
         <View style={styles.section}>
           <View style={styles.plansHeader}>
             <View style={styles.plansHeaderText}>
               <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                {isSearching ? 'Destinations' : 'Recommended for You'}
+                {isSearching ? 'Destinations' : region ? region : 'Recommended for You'}
               </Text>
               <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                {countries.length
-                  ? `${countries.length} destinations · tap one to see its plans`
-                  : 'Tap a country to see its plans'}
+                {isSearching
+                  ? `${matchedCountries.length} match${matchedCountries.length === 1 ? '' : 'es'}`
+                  : region
+                    ? `${matchedCountries.length} destinations in ${region} · tap one`
+                    : countries.length
+                      ? `${countries.length} destinations · tap one to see its plans`
+                      : 'Tap a country to see its plans'}
               </Text>
             </View>
 
@@ -534,6 +591,7 @@ export default function EsimScreen() {
                       setCountry(country === c.iso ? null : c.iso);
                       setSearch('');
                       setShowAllCountries(false);
+                      setRegion(null);
                       setScope('country');
                       setPlanType('data');
                     }}
@@ -549,6 +607,7 @@ export default function EsimScreen() {
             </Text>
           )}
         </View>
+        )}
 
         {/* ─── PLANS — only once a destination is chosen, since the catalogue is
              country-scoped and returns no bundles without one. ─── */}
@@ -902,6 +961,7 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     marginRight: -spacing.sm,
   },
+  searchBtnOff: { opacity: 0.4 },
   searchBtnText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 
   // Promo bar
