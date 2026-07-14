@@ -1,17 +1,25 @@
 // "Videos" tab for the destination search-results page.
-// Fetches hand-picked YouTube travel videos via /youtube/search and opens them
-// in YouTube on tap. Topic filters mirror the PWA (Guide / To Do / Vlogs / Food).
+// Fetches hand-picked YouTube travel videos via /youtube/search and plays them
+// INSIDE the app (YouTube embed in a modal, mirroring the web's VideoToursRail
+// player) instead of kicking the user out to the YouTube app. Topic filters
+// mirror the PWA (Guide / To Do / Vlogs / Food).
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Image,
-  TouchableOpacity,
   ActivityIndicator,
-  Linking,
+  Modal,
+  Dimensions,
+  StatusBar,
 } from 'react-native';
-import { Play } from 'lucide-react-native';
+// Both from gesture-handler: this tab renders inside the destination page's
+// gesture-handler ScrollView, and a plain RN Touchable nested in one never
+// receives the tap (the same bug that made the result tabs unresponsive).
+import { TouchableOpacity } from 'react-native-gesture-handler';
+import { WebView } from 'react-native-webview';
+import { Play, X } from 'lucide-react-native';
 import { YouTubeIcon } from './YouTubeIcon';
 import {
   useTheme,
@@ -23,6 +31,12 @@ import {
   shadow,
 } from '@prayana/shared-ui';
 import { videosAPI } from '@prayana/shared-services';
+
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+
+// The video the player modal is showing. `vertical` sizes the frame 9:16 for
+// Shorts vs 16:9 for regular videos, exactly like the web player does.
+type PlayingVideo = { id: string; title?: string; vertical: boolean } | null;
 
 interface Props {
   locationName: string;
@@ -40,6 +54,8 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
   const [topic, setTopic] = useState('guide');
   const [videos, setVideos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [playing, setPlaying] = useState<PlayingVideo>(null);
+  const [playerLoading, setPlayerLoading] = useState(true);
 
   const load = useCallback(
     async (topicId: string) => {
@@ -65,10 +81,19 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
     load(topic);
   }, [topic, load]);
 
-  const openVideo = useCallback((id: string) => {
+  // Play in-app rather than handing the user off to the YouTube app.
+  const openVideo = useCallback((video: any) => {
+    const id = typeof video === 'string' ? video : video?.id;
     if (!id) return;
-    Linking.openURL(`https://www.youtube.com/watch?v=${id}`).catch(() => {});
+    setPlayerLoading(true);
+    setPlaying({
+      id,
+      title: typeof video === 'object' ? video?.title : undefined,
+      vertical: !!(typeof video === 'object' && video?.isShort),
+    });
   }, []);
+
+  const closeVideo = useCallback(() => setPlaying(null), []);
 
   return (
     <View>
@@ -122,7 +147,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
                 key={id || idx}
                 style={[styles.card, shadow.sm, { backgroundColor: themeColors.surface }]}
                 activeOpacity={0.85}
-                onPress={() => openVideo(id)}
+                onPress={() => openVideo({ ...v, id })}
               >
                 <View>
                   {thumb ? (
@@ -154,11 +179,131 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
           })}
         </View>
       )}
+
+      {/* ── In-app player ──────────────────────────────────────────────────
+          Mirrors the web's VideoToursRail modal: the official YouTube embed
+          (autoplay + playsinline + rel=0) on a near-black backdrop, sized 9:16
+          for Shorts and 16:9 for regular videos. Tapping the backdrop or the
+          X closes it, so it never traps the user. */}
+      <Modal
+        visible={!!playing}
+        animationType="fade"
+        transparent
+        statusBarTranslucent
+        onRequestClose={closeVideo}
+        supportedOrientations={['portrait', 'landscape']}
+      >
+        <StatusBar barStyle="light-content" />
+        <TouchableOpacity
+          style={styles.playerBackdrop}
+          activeOpacity={1}
+          onPress={closeVideo}
+        >
+          {/* Stop taps inside the frame from closing the modal. */}
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {}}
+            style={[
+              styles.playerFrame,
+              playing?.vertical ? styles.playerVertical : styles.playerHorizontal,
+            ]}
+          >
+            {playing && (
+              <WebView
+                source={{
+                  uri: `https://www.youtube.com/embed/${playing.id}?autoplay=1&playsinline=1&rel=0&modestbranding=1`,
+                }}
+                style={styles.webview}
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+                allowsFullscreenVideo
+                javaScriptEnabled
+                domStorageEnabled
+                onLoadEnd={() => setPlayerLoading(false)}
+              />
+            )}
+            {playerLoading && (
+              <View style={styles.playerLoading}>
+                <ActivityIndicator color="#fff" size="large" />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.playerClose}
+            onPress={closeVideo}
+            hitSlop={12}
+            activeOpacity={0.8}
+          >
+            <X size={22} color="#fff" />
+          </TouchableOpacity>
+
+          {!!playing?.title && (
+            <Text style={styles.playerTitle} numberOfLines={2}>
+              {playing.title}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
 
+// 9:16 for Shorts, 16:9 for regular — matching the web player's two sizes.
+const H_WIDTH = SCREEN_W - spacing.lg * 2;
+const V_HEIGHT = Math.min(SCREEN_H * 0.78, 720);
+
 const styles = StyleSheet.create({
+  playerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  playerFrame: {
+    borderRadius: borderRadius.lg,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  playerHorizontal: {
+    width: H_WIDTH,
+    height: (H_WIDTH * 9) / 16,
+  },
+  playerVertical: {
+    height: V_HEIGHT,
+    width: (V_HEIGHT * 9) / 16,
+    maxWidth: SCREEN_W - spacing.lg * 2,
+  },
+  webview: {
+    flex: 1,
+    backgroundColor: '#000',
+  },
+  playerLoading: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
+  },
+  playerClose: {
+    position: 'absolute',
+    top: 56,
+    right: spacing.lg,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  playerTitle: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+    textAlign: 'center',
+    marginTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
   topicRow: {
     flexDirection: 'row',
     gap: spacing.sm,
