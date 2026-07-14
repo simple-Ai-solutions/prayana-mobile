@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuth } from '@prayana/shared-hooks';
-import { useTheme } from '@prayana/shared-ui';
+import { useTheme, PrayanaLogo } from '@prayana/shared-ui';
 import { colors } from '../../theme/vendorColors';
 import { Card } from '../../components/ui';
 import {
@@ -200,13 +201,9 @@ export default function LoginScreen() {
     }
   };
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)');
-    }
-  };
+  // Login is the app's root screen, so there is usually nothing to go back to.
+  // The chevron only appears when login was pushed (e.g. from signup).
+  const canGoBack = router.canGoBack();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -219,19 +216,24 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Back Button */}
-          <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-            onPress={handleBack}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.backButtonText, { color: themeColors.textSecondary }]}>&#8592; Back</Text>
-          </TouchableOpacity>
+          {/* Back chevron — only when there is a screen behind us */}
+          {canGoBack && (
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            >
+              <Ionicons name="chevron-back" size={26} color={themeColors.text} />
+            </TouchableOpacity>
+          )}
 
           {/* Brand Header */}
           <View style={styles.brandSection}>
             <View style={styles.brandBadge}>
-              <Text style={styles.brandBadgeIcon}>&#128737;</Text>
+              <PrayanaLogo size={32} />
             </View>
             <Text style={[styles.brandTitle, { color: themeColors.text }]}>Partner Login</Text>
             <Text style={[styles.brandSubtitle, { color: themeColors.textSecondary }]}>
@@ -426,23 +428,13 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  // Back Button
+  // Back chevron
   backButton: {
     alignSelf: 'flex-start',
-    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    backgroundColor: '#ffffff',
+    justifyContent: 'center',
+    paddingVertical: 4,
     marginBottom: 16,
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
   },
 
   // Brand Section
@@ -454,14 +446,15 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: colors.primary[500],
+    backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
-  },
-  brandBadgeIcon: {
-    fontSize: 28,
-    color: '#ffffff',
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   brandTitle: {
     fontSize: 24,

@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Card, Avatar } from '../../components/ui';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '../../theme/vendorColors';
 import { useAuth } from '@prayana/shared-hooks';
@@ -15,7 +16,6 @@ interface MenuItemData {
   label: string;
   subtitle?: string;
   route: string;
-  color?: string;
 }
 
 interface MenuSection {
@@ -23,19 +23,29 @@ interface MenuSection {
   items: MenuItemData[];
 }
 
+// Every tile is the same dark-blue glyph on a light-blue gradient, so the list
+// reads as one system and the labels — not the colors — carry the meaning.
+const ICON_COLOR = colors.primary[700];
+const ICON_TILE_GRADIENT = [colors.primary[50], colors.primary[100]] as const;
+
 // ─── Menu Item ────────────────────────────────────────────────────────────────
 
 function MenuItem({ item, onPress }: { item: MenuItemData; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.menuItem} onPress={onPress} activeOpacity={0.7}>
-      <View style={[styles.menuIcon, { backgroundColor: (item.color || colors.primary[500]) + '15' }]}>
-        <Ionicons name={item.icon} size={20} color={item.color || colors.primary[500]} />
-      </View>
+      <LinearGradient
+        colors={ICON_TILE_GRADIENT}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.menuIcon}
+      >
+        <Ionicons name={item.icon} size={20} color={ICON_COLOR} />
+      </LinearGradient>
       <View style={styles.menuContent}>
         <Text style={styles.menuLabel}>{item.label}</Text>
         {item.subtitle && <Text style={styles.menuSubtitle}>{item.subtitle}</Text>}
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+      <Ionicons name="chevron-forward" size={18} color={colors.primary[500]} />
     </TouchableOpacity>
   );
 }
@@ -62,21 +72,18 @@ export default function MoreScreen() {
           label: 'Activities',
           subtitle: 'Your listed experiences',
           route: '/(tabs)/activities',
-          color: colors.primary[500],
         },
         {
           icon: 'cube-outline',
           label: 'Holiday Packages',
           subtitle: 'Multi-day packages & departures',
           route: '/packages',
-          color: colors.info,
         },
         {
           icon: 'car-outline',
           label: 'Transport',
           subtitle: 'Vehicle rentals & drivers',
           route: '/transport',
-          color: colors.success,
         },
       ],
     },
@@ -88,21 +95,18 @@ export default function MoreScreen() {
           label: 'Bookings',
           subtitle: 'Incoming & past orders',
           route: '/(tabs)/orders',
-          color: colors.primary[500],
         },
         {
           icon: 'chatbubbles-outline',
           label: 'Messages',
           subtitle: 'Customer conversations',
           route: '/messaging',
-          color: colors.info,
         },
         {
           icon: 'today-outline',
           label: 'Calendar',
           subtitle: 'Availability & schedule',
           route: '/(tabs)/calendar',
-          color: colors.success,
         },
       ],
     },
@@ -114,21 +118,18 @@ export default function MoreScreen() {
           label: 'Analytics',
           subtitle: 'Revenue, bookings & trends',
           route: '/analytics',
-          color: colors.info,
         },
         {
           icon: 'star-outline',
           label: 'Performance',
           subtitle: 'Quality score & reviews',
           route: '/performance',
-          color: colors.warning,
         },
         {
           icon: 'pricetag-outline',
           label: 'Coupons',
           subtitle: 'Create & manage promo codes',
           route: '/coupons',
-          color: colors.primary[500],
         },
       ],
     },
@@ -140,14 +141,12 @@ export default function MoreScreen() {
           label: 'Finance',
           subtitle: 'Earnings, payouts & bank details',
           route: '/finance',
-          color: colors.success,
         },
         {
           icon: 'shield-checkmark-outline',
           label: 'Verification',
           subtitle: 'KYC, GSTIN, PAN & documents',
           route: '/verification',
-          color: colors.warning,
         },
         {
           icon: 'settings-outline',
@@ -165,7 +164,6 @@ export default function MoreScreen() {
           label: 'Help & Support',
           subtitle: 'Tickets, FAQ, contact us',
           route: '/support',
-          color: colors.info,
         },
       ],
     },
@@ -190,7 +188,7 @@ export default function MoreScreen() {
               <Text style={styles.profileName}>{businessName}</Text>
               <Text style={styles.profileEmail}>{email}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={colors.textTertiary} />
+            <Ionicons name="chevron-forward" size={18} color={colors.primary[500]} />
           </TouchableOpacity>
         </Card>
 
@@ -288,6 +286,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    // Blue-tinted lift rather than a grey one, so it sits under the gradient.
+    shadowColor: colors.primary[700],
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
   },
   menuContent: {
     flex: 1,

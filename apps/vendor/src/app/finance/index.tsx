@@ -333,7 +333,7 @@ export default function FinanceScreen() {
         ]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+          <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>Finance</Text>
         <View style={styles.headerSpacer} />

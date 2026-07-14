@@ -39,10 +39,11 @@ function AuthGuard() {
     const inAuthGroup = segments[0] === '(auth)';
 
     if (!isAuthenticated && !inAuthGroup) {
-      // Unauthenticated users land on the marketing/landing screen first
-      // (matches the web /business hero). From there they choose Get started
-      // (signup) or Sign in (login).
-      router.replace('/(auth)/landing');
+      // Unauthenticated users go straight to sign-in. The marketing hero lives
+      // on the web /business page; someone who already installed the app just
+      // needs to get in. Signup is reachable from login's "Register your
+      // business" link.
+      router.replace('/(auth)/login');
     } else if (isAuthenticated && inAuthGroup) {
       router.replace('/(tabs)');
     }

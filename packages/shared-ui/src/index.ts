@@ -12,6 +12,7 @@ export { PriceDisplay } from './PriceDisplay';
 export { StatusBadge } from './StatusBadge';
 export { SearchBar } from './SearchBar';
 export { Stepper } from './Stepper';
+export { PrayanaLogo } from './PrayanaLogo';
 
 // Theme
 export {

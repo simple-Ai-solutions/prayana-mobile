@@ -390,7 +390,7 @@ function Header({ themeColors, onBack }: { themeColors: any; onBack: () => void 
   return (
     <View style={[styles.header, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
       <TouchableOpacity onPress={onBack} style={styles.headerBtn} hitSlop={8}>
-        <Ionicons name="arrow-back" size={22} color={themeColors.text} />
+        <Ionicons name="chevron-back" size={22} color={themeColors.text} />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: themeColors.text }]}>Pricing rules</Text>
       <View style={styles.headerBtn} />

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { signInWithCustomToken } from 'firebase/auth';
@@ -201,7 +202,8 @@ export default function PhoneLoginScreen() {
           {/* Header */}
           <View style={styles.headerSection}>
             <TouchableOpacity
-              style={[styles.backButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+              style={styles.backButton}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               onPress={() => {
                 if (step === 'otp') {
                   setStep('phone');
@@ -211,7 +213,7 @@ export default function PhoneLoginScreen() {
                 }
               }}
             >
-              <Text style={[styles.backArrow, { color: themeColors.text }]}>&#8592;</Text>
+              <Ionicons name="chevron-back" size={26} color={themeColors.text} />
             </TouchableOpacity>
             <Text style={styles.brandLabel}>Prayana Business</Text>
             <Text style={[styles.headerTitle, { color: themeColors.text }]}>
@@ -343,19 +345,11 @@ const styles = StyleSheet.create({
     marginBottom: 36,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    alignSelf: 'flex-start',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 4,
     marginBottom: 24,
-  },
-  backArrow: {
-    fontSize: 20,
-    color: '#1a1a1a',
   },
   brandLabel: {
     fontSize: 13,

@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@prayana/shared-hooks';
@@ -85,13 +86,37 @@ export default function SignupScreen() {
       // Navigate to main app - business onboarding will be handled there
       router.replace('/(tabs)');
     } catch (error: any) {
-      let message = 'Registration failed. Please try again.';
+      // The email is already registered — a dead-end alert here just makes the
+      // user retry the same email forever. Send them to sign-in instead.
       if (error.code === 'auth/email-already-in-use') {
-        message = 'An account with this email already exists.';
-      } else if (error.code === 'auth/invalid-email') {
+        Alert.alert(
+          'Account already exists',
+          `${email.trim()} is already registered. Sign in instead, or use "Forgot password?" if you don't remember it.`,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Sign in',
+              onPress: () =>
+                router.canGoBack() ? router.back() : router.replace('/(auth)/login'),
+            },
+          ],
+        );
+        return;
+      }
+
+      let message = 'Registration failed. Please try again.';
+      if (error.code === 'auth/invalid-email') {
         message = 'Invalid email address.';
       } else if (error.code === 'auth/weak-password') {
         message = 'Password is too weak. Use at least 6 characters.';
+      } else if (error.code === 'auth/network-request-failed') {
+        message = 'Network error. Check your connection and try again.';
+      } else if (error.code === 'auth/too-many-requests') {
+        message = 'Too many attempts. Wait a moment and try again.';
+      } else if (error.code === 'auth/operation-not-allowed') {
+        message = 'Email sign-up is disabled for this project.';
+      } else if (error.code) {
+        message = `Registration failed (${error.code}).`;
       }
       Alert.alert('Registration Failed', message);
     } finally {
@@ -113,10 +138,11 @@ export default function SignupScreen() {
           {/* Header */}
           <View style={styles.headerSection}>
             <TouchableOpacity
-              style={[styles.backButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+              style={styles.backButton}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               onPress={() => router.back()}
             >
-              <Text style={[styles.backArrow, { color: themeColors.text }]}>&#8592;</Text>
+              <Ionicons name="chevron-back" size={26} color={themeColors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: themeColors.text }]}>Register Your Business</Text>
             <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
@@ -270,19 +296,11 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    alignSelf: 'flex-start',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 4,
     marginBottom: 20,
-  },
-  backArrow: {
-    fontSize: 20,
-    color: '#1a1a1a',
   },
   headerTitle: {
     fontSize: 24,

@@ -368,7 +368,7 @@ export default function DriversScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+          <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>Driver Management</Text>
         <TouchableOpacity

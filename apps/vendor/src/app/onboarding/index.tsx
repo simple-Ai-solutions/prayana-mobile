@@ -95,17 +95,10 @@ const PAYOUT_TABS: PayoutTabOption[] = [
   { id: 'stripe', label: 'Stripe', icon: 'globe-outline', sub: 'International', comingSoon: true },
 ];
 
-interface StepMeta {
-  id: number;
-  label: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-const STEPS: StepMeta[] = [
-  { id: 1, label: 'Business Setup', icon: 'business-outline' },
-  { id: 2, label: 'Vendor Agreement', icon: 'document-text-outline' },
-  { id: 3, label: 'Payout', icon: 'card-outline' },
-];
+// The wizard is 3 linear steps: Business Setup -> Vendor Agreement -> Payout.
+// Each step's own heading names it, and the header shows "Step N of 3", so no
+// step-list data is needed for rendering.
+const TOTAL_STEPS = 3;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9+\-() ]{10,}$/;
@@ -617,7 +610,7 @@ export default function OnboardingWizardScreen() {
       <Text style={[styles.sectionLabel, styles.sectionLabelSpaced, { color: themeColors.textSecondary }]}>
         IDENTITY
       </Text>
-      <View style={styles.identityRow}>
+      <View style={styles.identityStack}>
         <View style={styles.logoColumn}>
           <TouchableOpacity
             style={[styles.logoBox, { borderColor: themeColors.border, backgroundColor: themeColors.inputBackground }]}
@@ -627,7 +620,7 @@ export default function OnboardingWizardScreen() {
             {logoUploading ? (
               <ActivityIndicator size="small" color={colors.primary[500]} />
             ) : logoUri ? (
-              <Image source={{ uri: logoUri }} style={styles.logoImage} />
+              <Image source={{ uri: logoUri }} style={styles.logoImage} resizeMode="contain" />
             ) : (
               <View style={styles.logoPlaceholder}>
                 <Ionicons name="cloud-upload-outline" size={20} color={themeColors.textTertiary} />
@@ -672,33 +665,29 @@ export default function OnboardingWizardScreen() {
       <Text style={[styles.sectionLabel, styles.sectionLabelSpaced, { color: themeColors.textSecondary }]}>
         LOCATION
       </Text>
-      <View style={styles.row}>
-        <View style={styles.rowHalf}>
-          <TextInput
-            label="City"
-            placeholder="City (e.g., Hampi)"
-            value={city}
-            onChangeText={setCity}
-            autoCapitalize="words"
+      <TextInput
+        label="City"
+        placeholder="City (e.g., Hampi)"
+        value={city}
+        onChangeText={setCity}
+        autoCapitalize="words"
+      />
+      <View style={styles.field}>
+        <Text style={[styles.fieldLabel, { color: themeColors.text }]}>State</Text>
+        <TouchableOpacity
+          style={[styles.selector, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}
+          onPress={() => setShowStatePicker((s) => !s)}
+          activeOpacity={0.8}
+        >
+          <Text style={{ color: state ? themeColors.text : themeColors.textTertiary, fontSize: fontSize.md }}>
+            {state || 'Select state'}
+          </Text>
+          <Ionicons
+            name={showStatePicker ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={themeColors.textSecondary}
           />
-        </View>
-        <View style={styles.rowHalf}>
-          <Text style={[styles.fieldLabel, { color: themeColors.text }]}>State</Text>
-          <TouchableOpacity
-            style={[styles.selector, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}
-            onPress={() => setShowStatePicker((s) => !s)}
-            activeOpacity={0.8}
-          >
-            <Text style={{ color: state ? themeColors.text : themeColors.textTertiary, fontSize: fontSize.md }}>
-              {state || 'Select state'}
-            </Text>
-            <Ionicons
-              name={showStatePicker ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={themeColors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
       </View>
       {showStatePicker && (
         <View style={[styles.stateDropdown, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
@@ -999,41 +988,9 @@ export default function OnboardingWizardScreen() {
     </View>
   );
 
-  // ---- Segmented progress bar ----
-
-  const renderProgressBar = () => (
-    <View style={styles.progressRow}>
-      {STEPS.map((step) => {
-        const isCompleted = step.id < currentStep;
-        const isCurrent = step.id === currentStep;
-        const pillColor = isCompleted
-          ? colors.success
-          : isCurrent
-          ? colors.primary[500]
-          : themeColors.border;
-        const labelColor = isCurrent
-          ? themeColors.text
-          : isCompleted
-          ? colors.success
-          : themeColors.textTertiary;
-        return (
-          <View key={step.id} style={styles.progressItem}>
-            <View style={[styles.progressPill, { backgroundColor: pillColor }]} />
-            <View style={styles.progressLabelRow}>
-              <Ionicons
-                name={isCompleted ? 'checkmark-circle' : step.icon}
-                size={13}
-                color={labelColor}
-              />
-              <Text style={[styles.progressLabel, { color: labelColor }]} numberOfLines={1}>
-                {step.label}
-              </Text>
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
+  // No progress graphic: the header's "Step N of 3" already states progress
+  // precisely, and a bar or stepper under it would only redraw the same fact
+  // while costing ~90px of a phone screen that the form needs.
 
   if (isSubmitting && currentStep === 3) {
     // keep footer interactive elsewhere; only the final complete blocks fully
@@ -1054,17 +1011,16 @@ export default function OnboardingWizardScreen() {
               style={[styles.backButton, { backgroundColor: themeColors.inputBackground }]}
               activeOpacity={0.7}
             >
-              <Ionicons name="arrow-back" size={22} color={themeColors.text} />
+              <Ionicons name="chevron-back" size={22} color={themeColors.text} />
             </TouchableOpacity>
             <View style={styles.headerTitleWrap}>
               <Text style={[styles.headerTitle, { color: themeColors.text }]}>Business Registration</Text>
               <Text style={[styles.headerStep, { color: themeColors.textSecondary }]}>
-                Step {currentStep} of 3
+                Step {currentStep} of {TOTAL_STEPS}
               </Text>
             </View>
             <View style={styles.backButtonPlaceholder} />
           </View>
-          {renderProgressBar()}
         </View>
 
         {/* Scroll content */}
@@ -1187,7 +1143,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
   },
   backButton: {
     width: 40,
@@ -1202,24 +1157,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.text },
   headerStep: { fontSize: fontSize.xs, color: colors.textSecondary, marginTop: 2 },
 
-  // Progress bar
-  progressRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
-  },
-  progressItem: { flex: 1 },
-  progressPill: {
-    height: 5,
-    borderRadius: borderRadius.full,
-    marginBottom: spacing.xs,
-  },
-  progressLabelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  progressLabel: { fontSize: 11, fontWeight: fontWeight.medium, flexShrink: 1 },
 
   // Scroll
   scrollContent: { paddingBottom: spacing['3xl'] },
@@ -1279,12 +1216,12 @@ const styles = StyleSheet.create({
   bestForText: { fontSize: 11, fontWeight: fontWeight.semibold },
   selectedBadge: { position: 'absolute', top: spacing.md, right: spacing.md, zIndex: 1 },
 
-  // Identity
-  identityRow: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-  logoColumn: { alignItems: 'center', width: 88 },
+  // Identity — every control is stacked and spans the full width.
+  identityStack: { gap: spacing.md },
+  logoColumn: { alignSelf: 'stretch', alignItems: 'center' },
   logoBox: {
-    width: 88,
-    height: 88,
+    alignSelf: 'stretch',
+    height: 104,
     borderRadius: borderRadius.lg,
     borderWidth: 2,
     borderStyle: 'dashed',
@@ -1298,11 +1235,10 @@ const styles = StyleSheet.create({
   logoRemove: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: spacing.xs },
   logoRemoveText: { fontSize: 11, color: colors.error },
   logoHint: { fontSize: 10, textAlign: 'center', marginTop: spacing.xs },
-  identityFields: { flex: 1 },
+  identityFields: { alignSelf: 'stretch' },
 
-  // Location / generic
-  row: { flexDirection: 'row', gap: spacing.md },
-  rowHalf: { flex: 1 },
+  // Location / generic — fields stack one per row, each full width.
+  field: { alignSelf: 'stretch', marginBottom: spacing.md },
   fieldLabel: { fontSize: fontSize.sm, fontWeight: fontWeight.medium, color: colors.text, marginBottom: spacing.xs },
   selector: {
     flexDirection: 'row',

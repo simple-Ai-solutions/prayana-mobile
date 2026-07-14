@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme } from '@prayana/shared-ui';
+import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme, PrayanaLogo } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';
 import { useAuth, useAutoLocationDetection } from '@prayana/shared-hooks';
 import { useAppStore } from '@prayana/shared-stores';
@@ -29,7 +29,6 @@ import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
 import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
 import { RecentItineraries } from '../../components/home/RecentItineraries';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
-import { PrayanaLogo } from '../../components/home/PrayanaLogo';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 

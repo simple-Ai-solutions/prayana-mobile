@@ -288,7 +288,7 @@ export default function NewVehicleScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+          <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>New Vehicle</Text>
         <View style={styles.headerSpacer} />

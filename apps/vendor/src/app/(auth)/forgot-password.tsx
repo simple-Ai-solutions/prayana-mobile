@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@prayana/shared-ui';
@@ -67,10 +68,11 @@ export default function ForgotPasswordScreen() {
           {/* Header */}
           <View style={styles.headerSection}>
             <TouchableOpacity
-              style={[styles.backButton, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+              style={styles.backButton}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               onPress={() => router.back()}
             >
-              <Text style={[styles.backArrow, { color: themeColors.text }]}>&#8592;</Text>
+              <Ionicons name="chevron-back" size={26} color={themeColors.text} />
             </TouchableOpacity>
             <Text style={[styles.headerTitle, { color: themeColors.text }]}>Reset Password</Text>
             <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
@@ -173,19 +175,11 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
+    alignSelf: 'flex-start',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 4,
     marginBottom: 20,
-  },
-  backArrow: {
-    fontSize: 20,
-    color: '#1a1a1a',
   },
   headerTitle: {
     fontSize: 24,

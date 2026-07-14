@@ -55,11 +55,6 @@ export const colors = {
     900: '#172554',
   },
   borderFocused: blue[600],
-  // Dark-hero palette for the landing/marketing surfaces (web hero is a
-  // slate-950 -> blue-950 -> slate-900 gradient with blue-300 accent text).
-  heroGradient: ['#020617', '#172554', '#0f172a'] as const, // slate-950, blue-950, slate-900
-  heroAccent: blue[300],   // "Grow with PrayanaAI" gradient text + icon accents
-  heroGlow: '#3b82f6',     // blur orb glow
 } as const;
 
 // Re-export the untouched shared tokens so vendor screens can import everything

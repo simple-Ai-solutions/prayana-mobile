@@ -350,7 +350,7 @@ export default function EditActivityScreen() {
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
         <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+            <Ionicons name="chevron-back" size={24} color={themeColors.text} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, { color: themeColors.text }]}>Edit Activity</Text>
           <View style={styles.headerSpacer} />
@@ -367,7 +367,7 @@ export default function EditActivityScreen() {
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+          <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: themeColors.text }]}>Edit Activity</Text>
         <TouchableOpacity onPress={handleDelete} style={styles.deleteHeaderBtn}>
