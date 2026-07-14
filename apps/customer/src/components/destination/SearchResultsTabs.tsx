@@ -39,35 +39,40 @@ export const SearchResultsTabs: React.FC<Props> = ({ activeTab, onChange }) => {
         const active = activeTab === tab.id;
         const Icon = tab.Icon;
         return (
-          <TouchableOpacity
-            key={tab.id}
-            style={styles.tab}
-            activeOpacity={0.7}
-            onPress={() => onChange(tab.id)}
-          >
-            <Icon
-              size={18}
-              color={
-                tab.brand
-                  ? '#FF0000'
-                  : active
-                  ? colors.primary[500]
-                  : themeColors.textTertiary
-              }
-            />
-            <Text
-              style={[
-                styles.label,
-                { color: active ? colors.primary[600] : themeColors.textTertiary },
-              ]}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.85}
+          // The flex lives on this View, not on the Touchable: gesture-handler's
+          // TouchableOpacity doesn't stretch to a flex:1 style the way RN's does,
+          // so the four tabs sized to their own text and bunched up on the left.
+          // The View splits the bar into quarters; the Touchable fills its quarter.
+          <View key={tab.id} style={styles.tabSlot}>
+            <TouchableOpacity
+              style={styles.tab}
+              activeOpacity={0.7}
+              onPress={() => onChange(tab.id)}
             >
-              {tab.label}
-            </Text>
-            {active && <View style={styles.underline} />}
-          </TouchableOpacity>
+              <Icon
+                size={18}
+                color={
+                  tab.brand
+                    ? '#FF0000'
+                    : active
+                    ? colors.primary[500]
+                    : themeColors.textTertiary
+                }
+              />
+              <Text
+                style={[
+                  styles.label,
+                  { color: active ? colors.primary[600] : themeColors.textTertiary },
+                ]}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+              >
+                {tab.label}
+              </Text>
+              {active && <View style={styles.underline} />}
+            </TouchableOpacity>
+          </View>
         );
       })}
     </View>
@@ -77,16 +82,24 @@ export const SearchResultsTabs: React.FC<Props> = ({ activeTab, onChange }) => {
 const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
+    // The bar lives inside the page's ScrollView, whose content container does
+    // not stretch children — without an explicit full width the row collapsed to
+    // its content and the four tabs bunched up on the left instead of splitting
+    // the screen into quarters.
+    width: '100%',
+    alignSelf: 'stretch',
     borderBottomWidth: 1,
     paddingHorizontal: spacing.sm,
   },
-  tab: {
+  // Layout: each slot takes exactly one quarter of the bar.
+  tabSlot: {
     flex: 1,
-    // Without a zero basis the longest label ("Hidden Gems") sizes its tab to
-    // its own text, so the four tabs bunched up against each other instead of
-    // splitting the bar into equal quarters.
     flexBasis: 0,
     minWidth: 0,
+  },
+  // Touch target: fills its slot.
+  tab: {
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
