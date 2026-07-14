@@ -87,6 +87,12 @@ const TOPICS = [
 const SHORT_W = 150;
 const SHORT_H = Math.round((SHORT_W * 16) / 9);
 
+// Two-column grid gap. The card width is derived from the live screen width
+// inside the component (see cardW) so both columns are exactly equal and the
+// last, possibly lone, card sits flush left instead of being flung across the
+// row by space-between.
+const GRID_GAP = spacing.md;
+
 // Brand red/rose used for the Shorts chip gradient (mirrors the web's
 // from-red-500 to-rose-600) — this is the Prayana secondary accent, not orange.
 const SHORTS_GRADIENT = ['#ef4444', '#e11d48'] as const;
@@ -97,6 +103,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
   // once at import time and is wrong after rotation (and on some devices at
   // first mount), which left the player frame mis-sized / off-centre.
   const { width: screenW, height: screenH } = useWindowDimensions();
+  const cardW = Math.floor((screenW - spacing.lg * 2 - GRID_GAP) / 2);
   const insets = useSafeAreaInsets();
   const [topic, setTopic] = useState('guide');
   const [videos, setVideos] = useState<any[]>([]);
@@ -322,7 +329,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
               style={[
                 styles.card,
                 shadow.sm,
-                { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                { width: cardW, backgroundColor: themeColors.surface, borderColor: themeColors.border },
               ]}
             >
               <View style={[styles.thumb, { backgroundColor: themeColors.border }]} />
@@ -353,7 +360,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
                 style={[
                   styles.card,
                   shadow.sm,
-                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                  { width: cardW, backgroundColor: themeColors.surface, borderColor: themeColors.border },
                 ]}
                 activeOpacity={0.85}
                 onPress={() => openVideo({ ...v, id }, false)}
@@ -418,15 +425,20 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
         hardwareAccelerated
       >
         <StatusBar barStyle="light-content" />
-        <TouchableOpacity
-          style={[styles.playerBackdrop, { width: screenW, height: screenH }]}
-          activeOpacity={1}
-          onPress={closeVideo}
-        >
-          {/* Stop taps inside the frame from closing the modal. */}
+        {/* The backdrop is a plain View, and the tap-to-close lives on a sibling
+            layer BEHIND the frame (below). Wrapping the frame in a Touchable —
+            even one with a no-op onPress, which is what we had — swallows every
+            touch inside it, so YouTube's own controls never saw a tap: the video
+            could not be paused or scrubbed, and the player felt dead. */}
+        <View style={[styles.playerBackdrop, { width: screenW, height: screenH }]}>
+          {/* Tap-outside-to-close: fills the screen, sits UNDER the frame. */}
           <TouchableOpacity
+            style={StyleSheet.absoluteFill}
             activeOpacity={1}
-            onPress={() => {}}
+            onPress={closeVideo}
+          />
+
+          <View
             style={[
               styles.playerFrame,
               playing?.vertical ? verticalFrame : horizontalFrame,
@@ -480,23 +492,23 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
                 <ActivityIndicator color="#fff" size="large" />
               </View>
             )}
-          </TouchableOpacity>
+          </View>
 
           {/* Absolutely positioned so it can't push the frame off-centre. */}
           {!!playing?.title && (
             <Text
               style={[styles.playerTitle, { bottom: insets.bottom + spacing['2xl'] }]}
               numberOfLines={2}
+              pointerEvents="none"
             >
               {playing.title}
             </Text>
           )}
 
-          {/* Close bar. A lone X in the corner was too easy to miss, and tapping
-              the backdrop is unreliable because the WebView swallows touches over
-              the frame — so getting out of the player felt like a trap. Give it a
-              full-width bar with a back chevron and a "Done" label, both of which
-              close, sitting below the notch. */}
+          {/* Close bar — rendered LAST so it stacks above the frame and its taps
+              always land. A lone X in the corner was too easy to miss; a back
+              chevron plus a "Done" button makes leaving obvious. box-none lets
+              taps between the two buttons fall through to the backdrop. */}
           <View style={[styles.playerBar, { top: insets.top }]} pointerEvents="box-none">
             <TouchableOpacity
               style={styles.playerBackBtn}
@@ -516,7 +528,7 @@ export const DestinationVideos: React.FC<Props> = ({ locationName }) => {
               <Text style={styles.playerDoneText}>Done</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
     </View>
   );
@@ -703,18 +715,20 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   centerText: { fontSize: fontSize.sm, textAlign: 'center' },
+  // A fixed gap with an explicitly-computed card width, rather than 48% +
+  // space-between: with an odd number of cards space-between shoved the last row
+  // apart, so the grid never lined up.
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    gap: GRID_GAP,
     paddingHorizontal: spacing.lg,
   },
   card: {
-    width: '48%',
+    // width is applied inline from the live screen width (cardW).
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     overflow: 'hidden',
-    marginBottom: spacing.md,
   },
   // 4:3 thumbnail — the web's pb-[75%]. Locking the ratio here is what makes
   // every card the same height so the rows stop going ragged.
