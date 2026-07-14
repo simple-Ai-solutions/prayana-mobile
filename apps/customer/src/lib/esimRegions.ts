@@ -8,6 +8,11 @@
 export interface EsimRegion {
   name: string;
   filterKey: string;
+  /**
+   * NOT a plan count, despite the web's name for it — it counts COUNTRIES (42,
+   * beside totalCountries: 43, for Europe). Never render it as "N plans": the
+   * real figure is fetched from the catalogue (Europe sells 292).
+   */
   plansCount: number;
   totalCountries: number;
   accent: string;

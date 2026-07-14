@@ -232,9 +232,12 @@ export default function EsimScreen() {
       const prices = sampled.map((d) => d.fromINR).filter((p) => p > 0);
       out[r.name] = {
         fromINR: prices.length ? Math.min(...prices) : undefined,
-        // Live count across the region's sampled countries. The static
-        // plansCount in the web's table under-reports badly (it says 42 for
-        // Europe where the site shows 292), so never trust it.
+        // Count the bundles the catalogue actually returns for this region.
+        //
+        // Do NOT use the table's `plansCount` for this: despite the name it is a
+        // COUNT OF COUNTRIES (42 alongside totalCountries: 43 for Europe), not a
+        // count of plans. Rendering it as "42 plans" would be plainly wrong —
+        // Europe sells 292.
         planCount: sampled.reduce((n, d) => n + d.planCount, 0),
       };
     }

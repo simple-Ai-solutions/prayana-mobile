@@ -14,7 +14,11 @@ interface Props {
   region: EsimRegion;
   /** Cheapest bundle found across the region's sample countries. */
   fromINR?: number;
-  /** Live plan count across those countries. The static table under-reports. */
+  /**
+   * Bundles the catalogue actually returns for this region. Absent until the
+   * fetch lands — and then the badge is simply omitted, because the only other
+   * number to hand (`region.plansCount`) counts COUNTRIES, not plans.
+   */
   planCount?: number;
   onPress: () => void;
 }
@@ -45,9 +49,14 @@ export const EsimRegionRow: React.FC<Props> = ({ region, fromINR, planCount, onP
         style={styles.thumb}
         imageStyle={styles.thumbImg}
       >
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>{planCount ?? region.plansCount} plans</Text>
-        </View>
+        {/* No badge until the real count arrives. Falling back to
+            region.plansCount would print "42 plans" for Europe — that number is
+            a country count, and Europe actually sells 292 plans. */}
+        {!!planCount && (
+          <View style={styles.countBadge}>
+            <Text style={styles.countText}>{planCount} plans</Text>
+          </View>
+        )}
       </ImageBackground>
 
       <View style={styles.body}>
