@@ -1,22 +1,32 @@
-// Global Experiences — worldwide tours & attractions (Headout + Viator).
-// Mirrors the PWA /global-experiences: search + per-city rails (Explore view),
-// switching to an infinite-scroll filtered grid when searching/filtering.
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+// Explore World — tours, tickets & experiences from Viator and Headout.
+//
+// Ported from the PWA's /global-experiences: a hero, a country filter rail, and
+// "Top experiences by country" — each country a photo card wrapping a rail of
+// experiences. Typing switches to a flat search grid, as on the web.
+//
+// Theme: this is the app's standard surface, so it uses the shared ORANGE
+// primary (colors.primary[500]) for CTAs and the logo TEAL (#4AC0CC) for the
+// provider chip and "View more" — matching the web's ActivityCard. It is not a
+// brand-red surface like eSIM.
+//
+// Everything shown is real: the counts, prices and ratings come from
+// GET /activities/global/by-city. The API sends no `isFeatured`, so — unlike the
+// PWA — there is no "Bestseller" ribbon here. A badge the data cannot support
+// would be a fabrication.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
-  FlatList,
   TextInput,
-  TouchableOpacity,
   ActivityIndicator,
-  Image,
+  RefreshControl,
 } from 'react-native';
+import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronLeft, Search, Globe, X } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
   useTheme,
   colors,
@@ -26,47 +36,60 @@ import {
   borderRadius,
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI } from '@prayana/shared-services';
-import { GlobalActivityCard } from '../../components/experiences/GlobalActivityCard';
+import {
+  CityGroup,
+  CountryGroup,
+  Experience,
+  groupByCountry,
+} from '../../lib/experiences';
+import { ExperienceCard } from '../../components/experiences/ExperienceCard';
+import { CountryExperiences } from '../../components/experiences/CountryExperiences';
 
+const TEAL = '#4AC0CC';
 const PAGE = 24;
 
 export default function GlobalExperiencesScreen() {
   const { themeColors } = useTheme();
 
-  // Explore (rails) mode vs. search/grid mode
+  const [cities, setCities] = useState<CityGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
+
+  const [country, setCountry] = useState<string | null>(null);
+
+  // Search switches the page from browse-by-country to a flat grid.
   const [query, setQuery] = useState('');
   const [searching, setSearching] = useState(false);
-
-  // City rails
-  const [cityRails, setCityRails] = useState<any[]>([]);
-  const [loadingRails, setLoadingRails] = useState(true);
-
-  // Filtered grid
-  const [gridItems, setGridItems] = useState<any[]>([]);
+  const [gridItems, setGridItems] = useState<Experience[]>([]);
   const [gridLoading, setGridLoading] = useState(false);
   const [gridSkip, setGridSkip] = useState(0);
   const [gridHasMore, setGridHasMore] = useState(true);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load city rails on mount
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res: any = await activityMarketplaceAPI.getGlobalByCity({ cities: 12, perCity: 10 });
-        const rails = res?.data || res?.cities || res || [];
-        if (active) setCityRails(Array.isArray(rails) ? rails : []);
-      } catch (e: any) {
-        console.warn('[GlobalExperiences] rails failed:', e?.message);
-        if (active) setCityRails([]);
-      } finally {
-        if (active) setLoadingRails(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
+  const load = useCallback(async () => {
+    setError('');
+    try {
+      const res: any = await activityMarketplaceAPI.getGlobalByCity({ cities: 30, perCity: 20 });
+      const list: CityGroup[] = Array.isArray(res?.data) ? res.data : [];
+      setCities(list);
+      if (!list.length) setError('No experiences available right now.');
+    } catch {
+      setCities([]);
+      setError("Couldn't load experiences. Please try again.");
+    }
   }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    load().finally(() => setLoading(false));
+  }, [load]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  }, [load]);
 
   const fetchGrid = useCallback(async (q: string, skip: number, append: boolean) => {
     setGridLoading(true);
@@ -76,12 +99,11 @@ export default function GlobalExperiencesScreen() {
         limit: PAGE,
         skip,
       });
-      const data = res?.data || res?.activities || [];
+      const data: Experience[] = res?.data || res?.activities || [];
       setGridItems((prev) => (append ? [...prev, ...data] : data));
       setGridHasMore(data.length >= PAGE);
       setGridSkip(skip + data.length);
-    } catch (e: any) {
-      console.warn('[GlobalExperiences] grid failed:', e?.message);
+    } catch {
       if (!append) setGridItems([]);
     } finally {
       setGridLoading(false);
@@ -103,7 +125,7 @@ export default function GlobalExperiencesScreen() {
         fetchGrid(text, 0, false);
       }, 350);
     },
-    [fetchGrid]
+    [fetchGrid],
   );
 
   const clearSearch = useCallback(() => {
@@ -112,166 +134,327 @@ export default function GlobalExperiencesScreen() {
     setGridItems([]);
   }, []);
 
-  const loadMore = useCallback(() => {
-    if (gridLoading || !gridHasMore) return;
-    fetchGrid(query, gridSkip, true);
-  }, [gridLoading, gridHasMore, query, gridSkip, fetchGrid]);
+  const countryGroups = useMemo(() => groupByCountry(cities), [cities]);
+
+  const visibleGroups = useMemo(
+    () => (country ? countryGroups.filter((g) => g.country === country) : countryGroups),
+    [countryGroups, country],
+  );
+
+  const openExperience = useCallback((e: Experience) => {
+    router.push(`/activity/${e._id}`);
+  }, []);
+
+  const viewMore = useCallback((g: CountryGroup) => {
+    // Drilling into a country is just the country filter applied — the API
+    // groups by city, so there is no separate per-country endpoint to call.
+    setCountry(g.country);
+    setQuery('');
+    setSearching(false);
+  }, []);
 
   return (
-    <SafeAreaView
-      style={[styles.container, { backgroundColor: themeColors.background }]}
-      edges={['top']}
-    >
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-          <ChevronLeft size={26} color={themeColors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Global Experiences</Text>
-        <View style={{ width: 26 }} />
-      </View>
-
-      {/* Search bar */}
-      <View style={[styles.searchBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-        <Search size={18} color={themeColors.textTertiary} />
-        <TextInput
-          value={query}
-          onChangeText={onSearchChange}
-          placeholder="Search cities, attractions, tours…"
-          placeholderTextColor={themeColors.textTertiary}
-          style={[styles.searchInput, { color: themeColors.text }]}
-          returnKeyType="search"
-        />
-        {query.length > 0 && (
-          <TouchableOpacity onPress={clearSearch}>
-            <X size={18} color={themeColors.textTertiary} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {searching ? (
-        /* ---- SEARCH / GRID MODE ---- */
-        <FlatList
-          data={gridItems}
-          numColumns={2}
-          keyExtractor={(item, i) => item._id || String(i)}
-          columnWrapperStyle={{ paddingHorizontal: spacing.lg, justifyContent: 'space-between' }}
-          renderItem={({ item }) => <GlobalActivityCard activity={item} />}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.5}
-          ListEmptyComponent={
-            gridLoading ? (
-              <ActivityIndicator color={colors.primary[500]} style={{ marginTop: spacing['2xl'] }} />
-            ) : (
-              <Text style={[styles.empty, { color: themeColors.textTertiary }]}>
-                No experiences found for “{query}”.
-              </Text>
-            )
-          }
-          ListFooterComponent={
-            gridLoading && gridItems.length > 0 ? (
-              <ActivityIndicator color={colors.primary[500]} style={{ marginVertical: spacing.lg }} />
-            ) : null
-          }
-          contentContainerStyle={{ paddingTop: spacing.md, paddingBottom: spacing['3xl'] }}
-        />
-      ) : (
-        /* ---- EXPLORE / RAILS MODE ---- */
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: spacing['3xl'] }}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.body}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
+        }
+      >
+        {/* ─── HERO ─── */}
+        <LinearGradient
+          colors={[colors.primary[500], '#FB923C', TEAL]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.hero}
         >
-          <LinearGradient colors={[colors.primary[500], colors.primary[700]]} style={styles.hero}>
-            <Globe size={28} color="#fff" />
-            <Text style={styles.heroTitle}>Explore the world</Text>
-            <Text style={styles.heroSub}>10,000+ tours & attractions across 90+ countries</Text>
-          </LinearGradient>
+          <View style={styles.heroTop}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.backBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
 
-          {loadingRails ? (
-            <ActivityIndicator color={colors.primary[500]} size="large" style={{ marginTop: spacing['2xl'] }} />
-          ) : cityRails.length === 0 ? (
-            <Text style={[styles.empty, { color: themeColors.textTertiary }]}>
-              Couldn’t load experiences right now.
+          <Text style={styles.heroTitle}>Tours, tickets &amp; experiences</Text>
+          <Text style={styles.heroSub}>
+            Skip the queues, book real experiences — handpicked across the world.
+          </Text>
+        </LinearGradient>
+
+        {/* ─── SEARCH (floats over the hero edge) ─── */}
+        <View style={styles.searchWrap}>
+          <View
+            style={[
+              styles.searchBar,
+              { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+            ]}
+          >
+            <Ionicons name="search" size={18} color={themeColors.textTertiary} />
+            <TextInput
+              value={query}
+              onChangeText={onSearchChange}
+              placeholder="Search cities, attractions, tours…"
+              placeholderTextColor={themeColors.textTertiary}
+              style={[styles.searchInput, { color: themeColors.text }]}
+              autoCorrect={false}
+              returnKeyType="search"
+            />
+            {query.length > 0 && (
+              <TouchableOpacity
+                onPress={clearSearch}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityRole="button"
+                accessibilityLabel="Clear search"
+              >
+                <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {loading ? (
+          <View style={styles.state}>
+            <ActivityIndicator size="large" color={colors.primary[500]} />
+          </View>
+        ) : error ? (
+          <View style={styles.state}>
+            <Ionicons name="alert-circle-outline" size={40} color={themeColors.textTertiary} />
+            <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>{error}</Text>
+            <TouchableOpacity
+              onPress={() => {
+                setLoading(true);
+                load().finally(() => setLoading(false));
+              }}
+              style={styles.retry}
+              accessibilityRole="button"
+            >
+              <Text style={styles.retryText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
+        ) : searching ? (
+          /* ─── SEARCH RESULTS ─── */
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+              {gridLoading && !gridItems.length
+                ? 'Searching…'
+                : `${gridItems.length} result${gridItems.length === 1 ? '' : 's'}`}
             </Text>
-          ) : (
-            cityRails.map((rail: any, idx: number) => {
-              const items = rail.items || rail.activities || [];
-              if (!items.length) return null;
-              return (
-                <View key={rail.city || rail.cityCode || idx} style={{ marginTop: spacing.xl }}>
-                  <View style={styles.railHeader}>
-                    <Text style={[styles.railTitle, { color: themeColors.text }]}>
-                      {rail.city}{rail.country ? `, ${rail.country}` : ''}
-                    </Text>
-                    {!!rail.total && (
-                      <Text style={[styles.railCount, { color: colors.primary[600] }]}>
-                        {rail.total}+ things to do
+
+            {gridLoading && !gridItems.length ? (
+              <View style={styles.state}>
+                <ActivityIndicator color={colors.primary[500]} />
+              </View>
+            ) : gridItems.length === 0 ? (
+              <View style={styles.state}>
+                <Ionicons name="search-outline" size={40} color={themeColors.textTertiary} />
+                <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
+                  Nothing matches “{query.trim()}”.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <View style={styles.grid}>
+                  {gridItems.map((e) => (
+                    <View key={e._id} style={styles.gridCell}>
+                      <ExperienceCard experience={e} onPress={openExperience} />
+                    </View>
+                  ))}
+                </View>
+
+                {gridHasMore && (
+                  <TouchableOpacity
+                    onPress={() => !gridLoading && fetchGrid(query, gridSkip, true)}
+                    disabled={gridLoading}
+                    style={[styles.loadMore, { borderColor: themeColors.border }]}
+                    accessibilityRole="button"
+                  >
+                    {gridLoading ? (
+                      <ActivityIndicator size="small" color={colors.primary[500]} />
+                    ) : (
+                      <Text style={[styles.loadMoreText, { color: themeColors.text }]}>
+                        Load more
                       </Text>
                     )}
-                  </View>
-                  <FlatList
-                    horizontal
-                    data={items}
-                    showsHorizontalScrollIndicator={false}
-                    keyExtractor={(it, i) => it._id || String(i)}
-                    contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
-                    renderItem={({ item }) => (
-                      <View style={{ width: 180 }}>
-                        <GlobalActivityCard activity={item} width={180} />
-                      </View>
-                    )}
-                  />
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
-      )}
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+          </View>
+        ) : (
+          /* ─── BROWSE BY COUNTRY ─── */
+          <>
+            {/* Country filter rail */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.chipRail}
+            >
+              <Chip
+                label="All places"
+                icon="earth"
+                active={!country}
+                onPress={() => setCountry(null)}
+              />
+              {countryGroups.map((g) => (
+                <Chip
+                  key={g.country}
+                  label={g.country}
+                  active={country === g.country}
+                  onPress={() => setCountry(country === g.country ? null : g.country)}
+                />
+              ))}
+            </ScrollView>
+
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                {country ? country : 'Top experiences by country'}
+              </Text>
+              <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                {country
+                  ? `${visibleGroups[0]?.total.toLocaleString('en-IN') ?? 0} experiences`
+                  : 'Handpicked tours and tickets, booked through Viator and Headout.'}
+              </Text>
+            </View>
+
+            <View style={styles.countries}>
+              {visibleGroups.map((g) => (
+                <CountryExperiences
+                  key={g.country}
+                  group={g}
+                  onPressExperience={openExperience}
+                  onViewMore={viewMore}
+                />
+              ))}
+            </View>
+          </>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
+const Chip: React.FC<{
+  label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
+  active: boolean;
+  onPress: () => void;
+}> = ({ label, icon, active, onPress }) => {
+  const { themeColors } = useTheme();
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      style={[
+        styles.chip,
+        {
+          backgroundColor: active ? colors.primary[500] : themeColors.surface,
+          borderColor: active ? colors.primary[500] : themeColors.border,
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
+      {!!icon && (
+        <Ionicons name={icon} size={14} color={active ? '#FFFFFF' : themeColors.textSecondary} />
+      )}
+      <Text
+        style={[styles.chipText, { color: active ? '#FFFFFF' : themeColors.text }]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
+  safe: { flex: 1 },
+  body: { paddingBottom: spacing['2xl'] },
+
+  hero: { paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing['2xl'] + spacing.lg },
+  heroTop: { flexDirection: 'row', marginBottom: spacing.lg },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.20)',
   },
-  iconBtn: { padding: spacing.xs },
-  headerTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 27,
+    fontWeight: fontWeight.bold,
+    letterSpacing: -0.75,
+    lineHeight: 33,
+  },
+  heroSub: {
+    color: 'rgba(255,255,255,0.90)',
+    fontSize: fontSize.sm,
+    marginTop: spacing.sm,
+    lineHeight: 20,
+  },
+
+  searchWrap: { paddingHorizontal: spacing.lg, marginTop: -26 },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-  },
-  searchInput: { flex: 1, paddingVertical: spacing.md, fontSize: fontSize.md },
-  hero: {
-    margin: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.xl,
-    padding: spacing.xl,
-    alignItems: 'flex-start',
-    gap: spacing.xs,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  heroTitle: { color: '#fff', fontSize: fontSize['2xl'], fontWeight: fontWeight.bold, marginTop: spacing.sm },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: fontSize.sm },
-  railHeader: {
+  searchInput: { flex: 1, paddingVertical: spacing.md + 2, fontSize: fontSize.md },
+
+  chipRail: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  railTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold },
-  railCount: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
-  empty: { fontSize: fontSize.sm, textAlign: 'center', marginTop: spacing['2xl'], paddingHorizontal: spacing.xl },
+  chipText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+
+  section: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
+  sectionTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, letterSpacing: -0.75 },
+  sectionSub: { fontSize: fontSize.sm, marginTop: 2, lineHeight: 19 },
+
+  countries: { paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.lg },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
+  gridCell: { width: '47.5%', flexGrow: 1 },
+
+  loadMore: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  loadMoreText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+
+  state: { alignItems: 'center', paddingVertical: spacing['2xl'], gap: spacing.md },
+  stateText: { fontSize: fontSize.sm, textAlign: 'center', paddingHorizontal: spacing.lg },
+  retry: {
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: 999,
+    backgroundColor: colors.primary[500],
+  },
+  retryText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 });
