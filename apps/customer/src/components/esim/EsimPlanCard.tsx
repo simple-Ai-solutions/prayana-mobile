@@ -18,6 +18,7 @@ import {
   isRegionalBundle,
   speedLabelFor,
 } from '../../lib/esim';
+import { EsimBundleBonus, isBundleEligible } from './EsimBundleBonus';
 
 // Brand accents, straight from the web card.
 export const ACCENT_RED = '#E61417';
@@ -197,6 +198,9 @@ export const EsimPlanCard: React.FC<Props> = ({
             </View>
           ))}
         </View>
+
+        {/* Free VIP bundle — a real server-granted perk on plans >= ₹500. */}
+        {isBundleEligible(plan) && <EsimBundleBonus />}
 
         {/* Price */}
         <View style={styles.priceRow}>

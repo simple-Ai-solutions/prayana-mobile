@@ -43,6 +43,7 @@ import {
   splitByScope,
 } from '../../lib/esim';
 import { CountryFlag } from '../../components/esim/CountryFlag';
+import { EsimDestinationHero } from '../../components/esim/EsimDestinationHero';
 import { EsimPlanCard, ACCENT_RED } from '../../components/esim/EsimPlanCard';
 import { EsimHowItWorks } from '../../components/esim/EsimHowItWorks';
 import { EsimFAQ } from '../../components/esim/EsimFAQ';
@@ -383,16 +384,38 @@ export default function EsimScreen() {
              country-scoped and returns no bundles without one. ─── */}
         {country && (
         <View style={styles.section}>
+          {/* Destination hero — the photo card the PWA leads with. */}
+          {!loading && !error && bundles.length > 0 && (
+            <EsimDestinationHero
+              countryName={selectedCountryName ?? country}
+              countryCode={country}
+              bundles={bundles}
+            />
+          )}
+
+          {/* Green eyebrow: "🇹🇭 THAILAND · COUNTRY PLAN" */}
+          {!loading && !error && (
+            <View style={styles.eyebrowRow}>
+              <CountryFlag countryCode={country} size={18} />
+              <Text style={styles.planEyebrowText} numberOfLines={1}>
+                {(selectedCountryName ?? country).toUpperCase()} ·{' '}
+                {effectiveScope === 'global' ? 'REGIONAL / GLOBAL PLAN' : 'COUNTRY PLAN'}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.plansHeader}>
             <View style={styles.plansHeaderText}>
               <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                {selectedCountryName ? `${selectedCountryName} plans` : 'Available plans'}
+                {selectedCountryName
+                  ? `Pick a ${selectedCountryName} eSIM plan`
+                  : 'Pick an eSIM plan'}
               </Text>
               {!loading && !error && (
                 <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
                   {effectiveScope === 'global'
                     ? 'Covers many countries · foreign number · outbound calls only'
-                    : 'Local data eSIM · activates the moment you land'}
+                    : 'Local data eSIM · 4G LTE · Activates the moment you land'}
                 </Text>
               )}
             </View>
@@ -675,6 +698,22 @@ const styles = StyleSheet.create({
   countryChipClear: { backgroundColor: 'transparent' },
   countryChipText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
 
+  // Green eyebrow above the plans headline, as on the web (#16A34A).
+  eyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
+  },
+  planEyebrowText: {
+    flexShrink: 1,
+    color: '#16A34A',
+    fontSize: 11,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 0.8,
+  },
+
   plansHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -750,15 +789,11 @@ const styles = StyleSheet.create({
   },
   scopeWarningText: { flex: 1, fontSize: fontSize.xs, lineHeight: 18 },
 
-  // Plan grid — 2-up, like the web's grid-cols-2 on small screens.
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-    marginTop: spacing.sm,
-  },
-  // The flex must live on this wrapper: a gesture-handler Touchable ignores flex.
-  gridCell: { width: '47.5%', flexGrow: 1 },
+  // Single column, matching the PWA at phone width. A 2-up grid cannot fit the
+  // free-VIP bundle panel, the feature rows and the price without everything
+  // wrapping into an unreadable mess.
+  grid: { marginTop: spacing.sm },
+  gridCell: { width: '100%' },
 
   // States
   stateBox: { alignItems: 'center', paddingVertical: spacing['2xl'], gap: spacing.md },
