@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   providerText: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: fontSize.xs,
     fontWeight: fontWeight.bold,
     letterSpacing: 0.6,
   },
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
   },
   price: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, letterSpacing: -0.4 },
-  per: { fontSize: 10 },
+  per: { fontSize: fontSize.xs },
 
   cta: {
     width: 32,

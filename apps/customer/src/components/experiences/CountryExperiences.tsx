@@ -140,7 +140,8 @@ const styles = StyleSheet.create({
   },
   country: {
     color: '#FFFFFF',
-    fontSize: 24,
+    // fontSize['2xl'] is exactly 24 — use the token, not the number.
+    fontSize: fontSize['2xl'],
     fontWeight: fontWeight.bold,
     letterSpacing: -0.6,
   },
