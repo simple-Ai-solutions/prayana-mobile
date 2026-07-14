@@ -45,6 +45,7 @@ import {
 import { ESIM_REGIONS } from '../../lib/esimRegions';
 import { CountryFlag } from '../../components/esim/CountryFlag';
 import { EsimCountryCard } from '../../components/esim/EsimCountryCard';
+import { EsimHeroVideo } from '../../components/esim/EsimHeroVideo';
 import { EsimRegionRow } from '../../components/esim/EsimRegionRow';
 import { EsimDestinationHero } from '../../components/esim/EsimDestinationHero';
 import { EsimPlanCard, ACCENT_RED } from '../../components/esim/EsimPlanCard';
@@ -52,9 +53,6 @@ import { EsimProductDetails } from '../../components/esim/EsimProductDetails';
 import { EsimHowItWorks } from '../../components/esim/EsimHowItWorks';
 import { EsimFAQ } from '../../components/esim/EsimFAQ';
 import { EsimCompatibleDevices } from '../../components/esim/EsimCompatibleDevices';
-
-const HERO_IMAGE =
-  'https://images.unsplash.com/photo-1488085061387-422e29b40080?auto=format&fit=crop&w=1600&q=80';
 
 const SORT_KEYS: SortKey[] = ['value', 'price-low', 'price-high', 'data', 'duration'];
 
@@ -347,7 +345,9 @@ export default function EsimScreen() {
         }
       >
         {/* ─── HERO ─── */}
-        <ImageBackground source={{ uri: HERO_IMAGE }} style={styles.hero} imageStyle={styles.heroImg}>
+        {/* The PWA hero plays a looping background video; so does this one, over
+            the same poster image it falls back to. */}
+        <EsimHeroVideo style={styles.hero}>
           <LinearGradient
             colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.72)']}
             style={StyleSheet.absoluteFill}
@@ -385,7 +385,7 @@ export default function EsimScreen() {
               eSIM data plans for 190+ countries. Instant activation, no SIM swap.
             </Text>
           </View>
-        </ImageBackground>
+        </EsimHeroVideo>
 
         {/* ─── FLOATING SEARCH (overlaps the hero edge, like the web) ─── */}
         <View style={styles.searchWrap}>
