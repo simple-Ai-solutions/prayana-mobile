@@ -43,6 +43,7 @@ import {
   splitByScope,
 } from '../../lib/esim';
 import { ESIM_REGIONS } from '../../lib/esimRegions';
+import { useRequireAuth } from '../../lib/useRequireAuth';
 import { CountryFlag } from '../../components/esim/CountryFlag';
 import { EsimCountryCard } from '../../components/esim/EsimCountryCard';
 import { EsimHeroVideo } from '../../components/esim/EsimHeroVideo';
@@ -68,6 +69,7 @@ interface CountryDeal {
 export default function EsimScreen() {
   const router = useRouter();
   const { themeColors, isDarkMode } = useTheme();
+  const requireAuth = useRequireAuth();
   // Lets other screens open straight into a destination's plans, e.g.
   // /esim?country=JP.
   const params = useLocalSearchParams<{ country?: string; debugCountry?: string }>();
@@ -292,6 +294,16 @@ export default function EsimScreen() {
 
   const goToCheckout = useCallback(
     (plan: EsimBundle) => {
+      // An eSIM can only be bought by a real signed-in user (the order call
+      // needs an auth token; a guest has none). Gate BEFORE checkout so the
+      // customer is asked to sign in up front, not after filling the whole form.
+      if (
+        !requireAuth({
+          reason: 'Sign in to buy an eSIM — your order and QR code are tied to your account.',
+        })
+      ) {
+        return;
+      }
       router.push({
         pathname: '/esim/checkout/[bundle]',
         params: {
@@ -302,7 +314,7 @@ export default function EsimScreen() {
         },
       });
     },
-    [router],
+    [router, requireAuth],
   );
 
   const selectedCountryName = countries.find((c) => c.iso === country)?.name ?? country ?? null;
