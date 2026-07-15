@@ -11,6 +11,7 @@ export { StarRating } from './StarRating';
 export { PriceDisplay } from './PriceDisplay';
 export { StatusBadge } from './StatusBadge';
 export { SearchBar } from './SearchBar';
+export { RequiredLabel } from './RequiredLabel';
 export { Stepper } from './Stepper';
 export { PrayanaLogo } from './PrayanaLogo';
 

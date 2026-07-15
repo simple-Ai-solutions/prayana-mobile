@@ -23,6 +23,7 @@ import {
   EmptyState,
   LoadingSpinner,
   useTheme,
+  RequiredLabel,
 } from '@prayana/shared-ui';
 import {
   colors,
@@ -407,7 +408,7 @@ export default function DriversScreen() {
                   <Text style={[styles.sectionTitle, { color: themeColors.text }]}>New Driver</Text>
                 </View>
 
-                <Text style={labelStyle}>Full Name *</Text>
+                <RequiredLabel style={labelStyle}>Full Name</RequiredLabel>
                 <RNTextInput
                   value={name}
                   onChangeText={setName}
@@ -418,7 +419,7 @@ export default function DriversScreen() {
 
                 <View style={styles.row}>
                   <View style={styles.halfField}>
-                    <Text style={labelStyle}>Phone *</Text>
+                    <RequiredLabel style={labelStyle}>Phone</RequiredLabel>
                     <RNTextInput
                       value={phone}
                       onChangeText={setPhone}
@@ -454,7 +455,7 @@ export default function DriversScreen() {
 
                 <View style={styles.row}>
                   <View style={styles.halfField}>
-                    <Text style={labelStyle}>License Number *</Text>
+                    <RequiredLabel style={labelStyle}>License Number</RequiredLabel>
                     <RNTextInput
                       value={licenseNumber}
                       onChangeText={setLicenseNumber}
@@ -465,7 +466,7 @@ export default function DriversScreen() {
                     />
                   </View>
                   <View style={styles.halfField}>
-                    <Text style={labelStyle}>License Expiry *</Text>
+                    <RequiredLabel style={labelStyle}>License Expiry</RequiredLabel>
                     <RNTextInput
                       value={licenseExpiry}
                       onChangeText={setLicenseExpiry}
@@ -476,7 +477,7 @@ export default function DriversScreen() {
                   </View>
                 </View>
 
-                <Text style={labelStyle}>License Type *</Text>
+                <RequiredLabel style={labelStyle}>License Type</RequiredLabel>
                 <MultiSelect options={LICENSE_TYPE_OPTIONS} selected={licenseType} onToggle={toggleLicenseType} />
 
                 <Text style={labelStyle}>Languages Spoken</Text>

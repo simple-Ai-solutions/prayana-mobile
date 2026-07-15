@@ -23,6 +23,7 @@ import {
   StatusBadge,
   EmptyState,
   useTheme,
+  RequiredLabel,
 } from '@prayana/shared-ui';
 import {
   colors,
@@ -637,7 +638,7 @@ export default function CouponsScreen() {
               />
 
               {/* Discount type segmented control */}
-              <Text style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Discount Type *</Text>
+              <RequiredLabel style={[styles.fieldLabel, { color: themeColors.textSecondary }]}>Discount Type</RequiredLabel>
               <View style={[styles.segmented, { borderColor: themeColors.border }]}>
                 {(['percent', 'fixed'] as DiscountType[]).map((type) => {
                   const active = form.discountType === type;

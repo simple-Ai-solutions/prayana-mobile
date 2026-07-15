@@ -405,9 +405,14 @@ export default function NewActivityScreen() {
                 </View>
               ))}
               {images.length < MAX_IMAGES && (
-                <TouchableOpacity style={styles.imageAddBtn} onPress={pickImages}>
+                <TouchableOpacity
+                  style={[styles.imageAddBtn, images.length === 0 && styles.imageAddBtnFull]}
+                  onPress={pickImages}
+                >
                   <Ionicons name="add-outline" size={28} color={colors.primary[500]} />
-                  <Text style={styles.imageAddText}>Add</Text>
+                  <Text style={styles.imageAddText}>
+                    {images.length === 0 ? 'Add photos' : 'Add'}
+                  </Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -801,6 +806,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.primary[50],
+  },
+  // Empty state: a full-width, centered upload zone instead of a small square.
+  imageAddBtnFull: {
+    width: '100%',
+    height: 120,
   },
   imageAddText: {
     fontSize: fontSize.xs,

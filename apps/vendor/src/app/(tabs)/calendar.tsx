@@ -52,6 +52,17 @@ const TABS = [
   },
 ];
 
+// Package trip statuses shown in the calendar legend (mirrors the web Packages
+// calendar). Colors are explicit hexes since the theme has no 6-status ramp.
+const PACKAGE_STATUS_LEGEND: { label: string; color: string }[] = [
+  { label: 'Pending payment', color: '#f97316' },
+  { label: 'Partially paid', color: '#f59e0b' },
+  { label: 'Confirmed', color: '#3b82f6' },
+  { label: 'In progress', color: '#22c55e' },
+  { label: 'Completed', color: '#10b981' },
+  { label: 'Cancelled', color: '#ef4444' },
+];
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface Booking {
@@ -376,6 +387,23 @@ export default function CalendarScreen() {
     return days;
   }, [currentYear, currentMonth, bookingsByDate, blockedDates]);
 
+  // Packages share the month grid but have no trip data wired yet, so the cells
+  // carry no status dots. TODO(packages): populate from a vendor
+  // package-departures API once one exists (see the Day-details TODO below).
+  const packageDays = useMemo(
+    () =>
+      calendarDays.map((d) => ({
+        ...d,
+        bookingCount: 0,
+        hasConfirmed: false,
+        hasPending: false,
+        hasCompleted: false,
+        hasCancelled: false,
+        isBlocked: false,
+      })),
+    [calendarDays]
+  );
+
   // ── Selected day bookings ────────────────────────────────────────────────
 
   const selectedBookings = useMemo(() => {
@@ -436,22 +464,81 @@ export default function CalendarScreen() {
         </View>
 
         {activeTab === 'packages' ? (
-          <Card style={styles.emptyCard}>
-            <View style={styles.emptyDay}>
-              <Ionicons name="map-outline" size={32} color={colors.textTertiary} />
-              <Text style={styles.emptyDayText}>
-                View upcoming trips and departures across your packages
-              </Text>
-              <TouchableOpacity
-                style={styles.emptyCTA}
-                onPress={() => router.push('/packages')}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.emptyCTAText}>Go to Packages</Text>
-                <Ionicons name="arrow-forward" size={16} color="#ffffff" />
+          <>
+            {/* Month Navigation */}
+            <View style={styles.monthNav}>
+              <TouchableOpacity onPress={goToPrevMonth} style={styles.monthArrow}>
+                <Ionicons name="chevron-back" size={24} color={colors.text} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={goToToday}>
+                <Text style={styles.monthTitle}>
+                  {MONTHS[currentMonth]}{' '}
+                  <Text style={styles.monthTitleYear}>{currentYear}</Text>
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={goToNextMonth} style={styles.monthArrow}>
+                <Ionicons name="chevron-forward" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
-          </Card>
+
+            {/* Calendar Grid */}
+            <Card style={styles.calendarCard}>
+              <View style={styles.weekdayRow}>
+                {WEEKDAYS.map((day) => (
+                  <View key={day} style={styles.weekdayCell}>
+                    <Text style={styles.weekdayText}>{day.toUpperCase()}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.daysGrid}>
+                {packageDays.map((day, i) => (
+                  <DayCell
+                    key={i}
+                    day={day}
+                    selected={
+                      day.date > 0 &&
+                      selectedDate === dateKey(day.year, day.month, day.date)
+                    }
+                    onPress={() => {
+                      if (day.date > 0 && day.isCurrentMonth) {
+                        setSelectedDate(dateKey(day.year, day.month, day.date));
+                      }
+                    }}
+                  />
+                ))}
+              </View>
+
+              {/* Legend — package trip statuses (mirrors the web Packages calendar) */}
+              <View style={styles.legend}>
+                {PACKAGE_STATUS_LEGEND.map((s) => (
+                  <View key={s.label} style={styles.legendItem}>
+                    <View style={[styles.legendDot, { backgroundColor: s.color }]} />
+                    <Text style={styles.legendText}>{s.label}</Text>
+                  </View>
+                ))}
+              </View>
+            </Card>
+
+            {/* Day details */}
+            <Card style={styles.selectedCard}>
+              <Text style={styles.selectedDateTitle}>{selectedDateFormatted}</Text>
+              <Text style={styles.selectedCount}>Trips departing on this date</Text>
+              {/*
+                TODO(packages): wire the real data. There is no vendor
+                package-trips/departures endpoint in shared-services yet
+                (businessAPI.getMyBookings returns activity bookings;
+                holidayPackagesAPI is the traveller side). Once a vendor
+                package-departures API exists: fetch it, group trips by date,
+                list them here for the selected date, and drive the calendar
+                dots + the legend from their statuses.
+              */}
+              <View style={styles.emptyDay}>
+                <Ionicons name="calendar-outline" size={32} color={colors.textTertiary} />
+                <Text style={styles.emptyDayText}>No trips scheduled for this date yet</Text>
+              </View>
+            </Card>
+          </>
         ) : (
           <>
             {/* Month Navigation */}

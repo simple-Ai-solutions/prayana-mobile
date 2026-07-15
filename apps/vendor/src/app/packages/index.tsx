@@ -88,34 +88,39 @@ function destinationLabel(pkg: PackageItem) {
   return first?.name || first?.city || 'No destination';
 }
 
+const STAT_TONES: Record<string, { bg: string; fg: string }> = {
+  green: { bg: colors.successLight, fg: colors.success },
+  amber: { bg: colors.warningLight, fg: '#a16207' },
+  blue: { bg: colors.primary[50], fg: colors.primary[600] },
+  purple: { bg: '#f3e8ff', fg: '#9333ea' },
+};
+
 function StatTile({
   icon,
   label,
   value,
-  accent,
-  bg,
+  tone = 'blue',
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string | number;
-  accent: string;
-  bg: string;
+  tone?: keyof typeof STAT_TONES;
 }) {
-  const { themeColors } = useTheme();
+  const t = STAT_TONES[tone];
   return (
-    <Card style={styles.statCard}>
-      <View style={[styles.statIcon, { backgroundColor: bg }]}>
-        <Ionicons name={icon} size={18} color={accent} />
+    <View style={styles.statTile}>
+      <View style={[styles.statIcon, { backgroundColor: t.bg }]}>
+        <Ionicons name={icon} size={18} color={t.fg} />
       </View>
       <View style={styles.statTextWrap}>
-        <Text style={[styles.statLabel, { color: themeColors.textSecondary }]} numberOfLines={1}>
+        <Text style={styles.statLabel} numberOfLines={1}>
           {label}
         </Text>
-        <Text style={[styles.statValue, { color: themeColors.text }]} numberOfLines={1}>
+        <Text style={styles.statValue} numberOfLines={1}>
           {value}
         </Text>
       </View>
-    </Card>
+    </View>
   );
 }
 
@@ -284,34 +289,10 @@ export default function PackagesScreen() {
 
       {/* Dashboard stat tiles */}
       <View style={styles.statsGrid}>
-        <StatTile
-          icon="checkmark-circle-outline"
-          label="Active packages"
-          value={activeCount}
-          accent={colors.success}
-          bg={colors.successLight}
-        />
-        <StatTile
-          icon="time-outline"
-          label="Pending approval"
-          value={pendingCount}
-          accent={colors.warning}
-          bg={colors.warningLight}
-        />
-        <StatTile
-          icon="cube-outline"
-          label="Total bookings"
-          value={totalBookings}
-          accent={colors.primary[500]}
-          bg={colors.primary[50]}
-        />
-        <StatTile
-          icon="cash-outline"
-          label="Total revenue"
-          value={rupee(totalRevenue)}
-          accent="#7c3aed"
-          bg="#f3e8ff"
-        />
+        <StatTile icon="checkmark-circle" tone="green" label="Active packages" value={activeCount} />
+        <StatTile icon="time" tone="amber" label="Pending approval" value={pendingCount} />
+        <StatTile icon="cube" tone="blue" label="Total bookings" value={totalBookings} />
+        <StatTile icon="cash" tone="purple" label="Total revenue" value={rupee(totalRevenue)} />
       </View>
 
       {/* Recent bookings strip */}
@@ -622,20 +603,24 @@ const styles = StyleSheet.create({
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
   },
-  statCard: {
-    flexBasis: '47%',
+  statTile: {
+    flexBasis: '48%',
     flexGrow: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
     padding: spacing.md,
   },
   statIcon: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',

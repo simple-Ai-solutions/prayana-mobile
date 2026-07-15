@@ -21,6 +21,7 @@ import {
   Button,
   LoadingSpinner,
   useTheme,
+  RequiredLabel,
 } from '@prayana/shared-ui';
 import {
   colors,
@@ -388,7 +389,7 @@ export default function EditActivityScreen() {
           <Card style={styles.formSection}>
             <SectionHeader title="Basic Info" icon="information-circle-outline" />
 
-            <Text style={labelStyle}>Activity Name *</Text>
+            <RequiredLabel style={labelStyle}>Activity Name</RequiredLabel>
             <RNTextInput
               value={name}
               onChangeText={setName}
@@ -397,14 +398,14 @@ export default function EditActivityScreen() {
               style={inputStyle}
             />
 
-            <Text style={labelStyle}>Category *</Text>
+            <RequiredLabel style={labelStyle}>Category</RequiredLabel>
             <ChipSelector
               options={CATEGORIES}
               selected={category}
               onToggle={(val) => setCategory(val === category ? '' : val)}
             />
 
-            <Text style={labelStyle}>Description *</Text>
+            <RequiredLabel style={labelStyle}>Description</RequiredLabel>
             <RNTextInput
               value={description}
               onChangeText={setDescription}
@@ -454,7 +455,7 @@ export default function EditActivityScreen() {
             <SectionHeader title="Pricing" icon="pricetag-outline" />
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <Text style={labelStyle}>Adult Price ({'\u20B9'}) *</Text>
+                <RequiredLabel style={labelStyle}>Adult Price ({'\u20B9'})</RequiredLabel>
                 <RNTextInput
                   value={adultPrice}
                   onChangeText={setAdultPrice}
@@ -495,7 +496,7 @@ export default function EditActivityScreen() {
             <SectionHeader title="Details" icon="document-text-outline" />
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <Text style={labelStyle}>Duration (hours) *</Text>
+                <RequiredLabel style={labelStyle}>Duration (hours)</RequiredLabel>
                 <RNTextInput
                   value={duration}
                   onChangeText={setDuration}
@@ -554,7 +555,7 @@ export default function EditActivityScreen() {
               placeholderTextColor={themeColors.textTertiary}
               style={inputStyle}
             />
-            <Text style={labelStyle}>City *</Text>
+            <RequiredLabel style={labelStyle}>City</RequiredLabel>
             <RNTextInput
               value={city}
               onChangeText={setCity}

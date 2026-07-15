@@ -15,7 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
-import { Card, EmptyState, Button, SearchBar } from '../../components/ui';
+import { Card, EmptyState, SearchBar } from '../../components/ui';
 import {
   colors,
   fontSize,
@@ -692,7 +692,6 @@ export default function ActivitiesScreen() {
             </Text>
           </View>
         </View>
-        <Button title="+ Add" onPress={() => router.push('/activity/new')} size="sm" />
       </View>
 
       {/* List */}

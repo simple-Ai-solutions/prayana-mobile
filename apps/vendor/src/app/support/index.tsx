@@ -25,6 +25,7 @@ import {
   Badge,
   EmptyState,
   TextInput,
+  RequiredLabel,
 } from '@prayana/shared-ui';
 // Brand-colored (BLUE) components come from the vendor barrel.
 import { Button } from '../../components/ui';
@@ -369,7 +370,7 @@ export default function SupportScreen() {
                 })}
               </View>
 
-              <Text style={styles.fieldLabel}>Message *</Text>
+              <RequiredLabel style={styles.fieldLabel}>Message</RequiredLabel>
               <RNTextInput
                 value={message}
                 onChangeText={setMessage}

@@ -18,6 +18,7 @@ import {
   Button,
   Stepper,
   useTheme,
+  RequiredLabel,
 } from '@prayana/shared-ui';
 import {
   colors,
@@ -315,7 +316,7 @@ export default function NewVehicleScreen() {
             <SectionHeader title="Service Type" icon="car-sport-outline" />
             <ChipSelector options={SERVICE_TYPES} selected={serviceType} onSelect={onServiceChange} />
 
-            <Text style={labelStyle}>Title *</Text>
+            <RequiredLabel style={labelStyle}>Title</RequiredLabel>
             <RNTextInput
               value={title}
               onChangeText={setTitle}
@@ -324,7 +325,7 @@ export default function NewVehicleScreen() {
               style={inputStyle}
             />
 
-            <Text style={labelStyle}>Description *</Text>
+            <RequiredLabel style={labelStyle}>Description</RequiredLabel>
             <RNTextInput
               value={description}
               onChangeText={setDescription}
@@ -336,7 +337,7 @@ export default function NewVehicleScreen() {
               textAlignVertical="top"
             />
 
-            <Text style={labelStyle}>Vehicle Type *</Text>
+            <RequiredLabel style={labelStyle}>Vehicle Type</RequiredLabel>
             <ChipSelector
               options={vehicleTypeOptions}
               selected={vehicleType}
@@ -350,7 +351,7 @@ export default function NewVehicleScreen() {
 
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <Text style={labelStyle}>Make *</Text>
+                <RequiredLabel style={labelStyle}>Make</RequiredLabel>
                 <RNTextInput
                   value={make}
                   onChangeText={setMake}
@@ -360,7 +361,7 @@ export default function NewVehicleScreen() {
                 />
               </View>
               <View style={styles.halfField}>
-                <Text style={labelStyle}>Model *</Text>
+                <RequiredLabel style={labelStyle}>Model</RequiredLabel>
                 <RNTextInput
                   value={model}
                   onChangeText={setModel}
@@ -446,7 +447,7 @@ export default function NewVehicleScreen() {
 
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <Text style={labelStyle}>City *</Text>
+                <RequiredLabel style={labelStyle}>City</RequiredLabel>
                 <RNTextInput
                   value={city}
                   onChangeText={setCity}

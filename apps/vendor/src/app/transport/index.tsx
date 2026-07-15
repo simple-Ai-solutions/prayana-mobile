@@ -49,21 +49,6 @@ interface Vehicle {
   rating?: { average?: number; count?: number };
 }
 
-interface TransportBooking {
-  _id: string;
-  id?: string;
-  bookingReference?: string;
-  status?: string;
-  customerName?: string;
-  customer?: { name?: string };
-  serviceType?: string;
-  tripDetails?: { pickupDate?: string; pickupLocation?: string };
-  pricing?: { totalAmount?: number };
-  payment?: { status?: string };
-}
-
-type Tab = 'vehicles' | 'bookings';
-
 const SERVICE_LABELS: Record<string, string> = {
   chauffeur_driven: 'Chauffeur Driven',
   self_drive_4wheeler: 'Self Drive · 4W',
@@ -81,8 +66,6 @@ const STATUS_FILTERS: { key: StatusFilterKey; label: string; dot: string }[] = [
   { key: 'draft', label: 'Drafts', dot: colors.primary[500] },
   { key: 'archived', label: 'Archived', dot: colors.error },
 ];
-
-const BOOKING_STATUS_FILTERS = ['all', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -102,43 +85,42 @@ function money(n?: number): string {
   return `₹${(n ?? 0).toLocaleString('en-IN')}`;
 }
 
-function formatDate(value?: string): string {
-  if (!value) return '-';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 
 // ─── Stat Tile ────────────────────────────────────────────────────────────────
+
+const STAT_TONES: Record<string, { bg: string; fg: string }> = {
+  green: { bg: colors.successLight, fg: colors.success },
+  amber: { bg: colors.warningLight, fg: '#a16207' },
+  blue: { bg: colors.primary[50], fg: colors.primary[600] },
+  purple: { bg: '#f3e8ff', fg: '#9333ea' },
+};
 
 function StatTile({
   icon,
   label,
   value,
-  tone,
+  tone = 'blue',
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   value: string | number;
-  tone: string;
+  tone?: keyof typeof STAT_TONES;
 }) {
-  const { themeColors } = useTheme();
+  const t = STAT_TONES[tone];
   return (
-    <Card style={styles.statCard} padding="sm">
-      <View style={styles.statRow}>
-        <View style={[styles.statIconWrap, { backgroundColor: `${tone}22` }]}>
-          <Ionicons name={icon} size={18} color={tone} />
-        </View>
-        <View style={styles.statTextCol}>
-          <Text style={[styles.statLabel, { color: themeColors.textSecondary }]} numberOfLines={1}>
-            {label}
-          </Text>
-          <Text style={[styles.statValue, { color: themeColors.text }]} numberOfLines={1}>
-            {value}
-          </Text>
-        </View>
+    <View style={styles.statTile}>
+      <View style={[styles.statIcon, { backgroundColor: t.bg }]}>
+        <Ionicons name={icon} size={18} color={t.fg} />
       </View>
-    </Card>
+      <View style={styles.statTextWrap}>
+        <Text style={styles.statLabel} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={styles.statValue} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -314,93 +296,25 @@ function VehicleCard({
   );
 }
 
-// ─── Booking Row ──────────────────────────────────────────────────────────────
-
-function BookingRow({ item }: { item: TransportBooking }) {
-  const { themeColors } = useTheme();
-  const customer = item.customerName || item.customer?.name || 'Customer';
-
-  return (
-    <Card style={styles.bookingCard} padding="sm">
-      <View style={styles.bookingHead}>
-        <Text style={[styles.bookingRef, { color: themeColors.text }]} numberOfLines={1}>
-          {item.bookingReference || `#${(item._id || item.id || '').slice(-6)}`}
-        </Text>
-        <StatusBadge status={item.status || 'pending'} />
-      </View>
-
-      <View style={styles.bookingMetaLine}>
-        <Ionicons name="person-outline" size={13} color={themeColors.textTertiary} />
-        <Text style={[styles.bookingMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
-          {customer}
-        </Text>
-      </View>
-
-      <View style={styles.bookingMetaLine}>
-        <Ionicons name="car-outline" size={13} color={themeColors.textTertiary} />
-        <Text style={[styles.bookingMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
-          {serviceLabel(item.serviceType)}
-        </Text>
-      </View>
-
-      <View style={styles.bookingMetaLine}>
-        <Ionicons name="calendar-outline" size={13} color={themeColors.textTertiary} />
-        <Text style={[styles.bookingMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
-          Pickup {formatDate(item.tripDetails?.pickupDate)}
-        </Text>
-      </View>
-
-      <View style={[styles.bookingFooter, { borderTopColor: themeColors.border }]}>
-        <Text style={[styles.bookingAmount, { color: themeColors.text }]}>
-          {money(item.pricing?.totalAmount)}
-        </Text>
-        {item.payment?.status ? (
-          <StatusBadge status={item.payment.status} />
-        ) : null}
-      </View>
-    </Card>
-  );
-}
-
-// ─── Empty-state onboarding steps (vehicles, zero listings) ─────────────────────
-
-const ONBOARDING_STEPS = [
-  { n: 1, title: 'Vehicle details', desc: 'Make, model, capacity, photos' },
-  { n: 2, title: 'Pricing & service', desc: 'Hourly, daily, or per-trip rates' },
-  { n: 3, title: 'Documents', desc: 'RC, permit, insurance, fitness' },
-];
-
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function TransportScreen() {
   const router = useRouter();
   const { themeColors } = useTheme();
 
-  const [tab, setTab] = useState<Tab>('vehicles');
-
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [bookings, setBookings] = useState<TransportBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const [search, setSearch] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState<StatusFilterKey>('all');
-  const [bookingFilter, setBookingFilter] = useState<string>('all');
 
   const fetchData = useCallback(async () => {
     try {
-      const [vehicleRes, bookingRes] = await Promise.all([
-        vehicleAPI.getMyVehicleListings().catch(() => null),
-        vehicleAPI.getBusinessTransportBookings().catch(() => null),
-      ]);
-
+      const vehicleRes = await vehicleAPI.getMyVehicleListings().catch(() => null);
       const vData = vehicleRes?.data ?? vehicleRes;
       const vList = vData?.vehicles || vData?.listings || (Array.isArray(vData) ? vData : []);
       setVehicles(Array.isArray(vList) ? vList : []);
-
-      const bData = bookingRes?.data ?? bookingRes;
-      const bList = bData?.bookings || (Array.isArray(bData) ? bData : []);
-      setBookings(Array.isArray(bList) ? bList : []);
     } catch (err: any) {
       console.warn('[Transport] fetch failed:', err?.message);
     }
@@ -540,18 +454,6 @@ export default function TransportScreen() {
     });
   }, [vehicles, vehicleFilter, search]);
 
-  const filteredBookings = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return bookings.filter((b) => {
-      if (bookingFilter !== 'all' && (b.status || '').toLowerCase() !== bookingFilter) {
-        return false;
-      }
-      if (!q) return true;
-      const hay = `${b.bookingReference || ''} ${b.customerName || b.customer?.name || ''}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [bookings, bookingFilter, search]);
-
   const editVehicle = useCallback(
     (vehicle: Vehicle) => {
       const id = vehicle._id || vehicle.id;
@@ -565,14 +467,15 @@ export default function TransportScreen() {
   const renderVehicleHeader = () => (
     <View>
       {/* Stat tiles */}
-      <View style={styles.statGrid}>
-        <StatTile icon="checkmark-circle-outline" tone={colors.success} label="Active vehicles" value={stats.activeCount} />
-        <StatTile icon="time-outline" tone={colors.warning} label="Pending approval" value={stats.pendingCount} />
-        <StatTile icon="cube-outline" tone={colors.primary[500]} label="Total bookings" value={stats.totalBookings} />
-        <StatTile icon="cash-outline" tone={colors.info || colors.primary[600]} label="Total revenue" value={money(stats.totalRevenue)} />
+      <View style={styles.statsGrid}>
+        <StatTile icon="checkmark-circle" tone="green" label="Active vehicles" value={stats.activeCount} />
+        <StatTile icon="time" tone="amber" label="Pending approval" value={stats.pendingCount} />
+        <StatTile icon="cube" tone="blue" label="Total bookings" value={stats.totalBookings} />
+        <StatTile icon="cash" tone="purple" label="Total revenue" value={money(stats.totalRevenue)} />
       </View>
 
-      {/* Status filter chips */}
+      {/* Status filter chips — hidden until there's a vehicle, matching Activities */}
+      {vehicles.length > 0 ? (
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -608,6 +511,7 @@ export default function TransportScreen() {
           );
         })}
       </ScrollView>
+      ) : null}
     </View>
   );
 
@@ -625,39 +529,11 @@ export default function TransportScreen() {
           <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
-          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Transport Dashboard</Text>
+          <Text style={[styles.headerTitle, { color: themeColors.text }]}>Transport</Text>
           <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]} numberOfLines={1}>
             Manage your vehicles, bookings, and drivers
           </Text>
         </View>
-        <TouchableOpacity onPress={() => router.push('/transport/analytics')} style={styles.headerAction}>
-          <Ionicons name="stats-chart-outline" size={22} color={colors.primary[500]} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Tabs — segmented control, matching the calendar's Activities/Packages */}
-      <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-        {([
-          { key: 'vehicles', label: 'My Vehicles', count: vehicles.length },
-          { key: 'bookings', label: 'Bookings', count: bookings.length },
-        ] as { key: Tab; label: string; count: number }[]).map((t) => {
-          const active = tab === t.key;
-          return (
-            <TouchableOpacity
-              key={t.key}
-              style={[styles.tab, active && styles.tabActive]}
-              onPress={() => setTab(t.key)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabText, { color: active ? '#ffffff' : themeColors.textSecondary }]}>
-                {t.label}
-              </Text>
-              <Text style={[styles.tabCount, { color: active ? '#ffffff' : themeColors.textTertiary }]}>
-                {t.count}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
       </View>
 
       {/* Search */}
@@ -667,7 +543,7 @@ export default function TransportScreen() {
           <RNTextInput
             value={search}
             onChangeText={setSearch}
-            placeholder={tab === 'vehicles' ? 'Search by title, city or model…' : 'Search bookings…'}
+            placeholder="Search by title, city or model…"
             placeholderTextColor={themeColors.textTertiary}
             style={[styles.searchInput, { color: themeColors.text }]}
           />
@@ -679,157 +555,62 @@ export default function TransportScreen() {
         </View>
       </View>
 
-      {/* Booking filter pills (bookings tab only) */}
-      {tab === 'bookings' ? (
-        <View style={styles.pillRow}>
-          <FlashList
-            data={BOOKING_STATUS_FILTERS as unknown as string[]}
-            keyExtractor={(f) => f}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.pillContent}
-            renderItem={({ item: f }) => {
-              const active = bookingFilter === f;
-              return (
-                <TouchableOpacity
-                  style={[
-                    styles.pill,
-                    { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                    active && styles.pillActive,
-                  ]}
-                  onPress={() => setBookingFilter(f)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.pillText, { color: themeColors.textSecondary }, active && styles.pillTextActive]}>
-                    {f === 'all' ? 'All' : f.replace(/[_-]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </Text>
-                </TouchableOpacity>
-              );
-            }}
-          />
-        </View>
-      ) : null}
-
       {/* Content */}
       {loading ? (
         <LoadingSpinner fullScreen message="Loading transport..." />
-      ) : tab === 'vehicles' ? (
-        vehicles.length === 0 ? (
-          // Zero-listing onboarding empty state
-          <ScrollView
-            contentContainerStyle={styles.onboardScroll}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
-            }
-          >
-            <View style={[styles.onboardIcon, { backgroundColor: colors.primary[50] }]}>
-              <Ionicons name="car-sport-outline" size={30} color={colors.primary[600]} />
-            </View>
-            <Text style={[styles.onboardTitle, { color: themeColors.text }]}>No vehicles listed yet</Text>
-            <Text style={[styles.onboardDesc, { color: themeColors.textSecondary }]}>
-              Add your first vehicle to start receiving bookings from travellers.
-            </Text>
-            <TouchableOpacity
-              style={styles.onboardCta}
-              activeOpacity={0.85}
-              onPress={() => router.push('/transport/new')}
-            >
-              <Ionicons name="add" size={18} color="#ffffff" />
-              <Text style={styles.onboardCtaText}>Add your first vehicle</Text>
-            </TouchableOpacity>
-
-            <View style={styles.stepsWrap}>
-              {ONBOARDING_STEPS.map((step) => (
-                <Card key={step.n} style={styles.stepCard} padding="sm">
-                  <View style={styles.stepHead}>
-                    <View style={styles.stepNum}>
-                      <Text style={styles.stepNumText}>{step.n}</Text>
-                    </View>
-                    <Text style={[styles.stepTitle, { color: themeColors.text }]}>{step.title}</Text>
-                  </View>
-                  <Text style={[styles.stepDesc, { color: themeColors.textSecondary }]}>{step.desc}</Text>
-                </Card>
-              ))}
-            </View>
-          </ScrollView>
-        ) : filteredVehicles.length === 0 ? (
-          // Filtered / search empty state
-          <FlashList
-            data={[]}
-            keyExtractor={() => 'empty'}
-            renderItem={null as any}
-            ListHeaderComponent={renderVehicleHeader}
-            ListEmptyComponent={
-              <View style={styles.emptyWrap}>
-                <EmptyState
-                  icon={
-                    <Ionicons
-                      name={search ? 'search-outline' : 'car-sport-outline'}
-                      size={56}
-                      color={colors.gray[300]}
-                    />
-                  }
-                  title={
-                    search
-                      ? `No vehicles match "${search}"`
-                      : `No ${vehicleFilter} vehicles`
-                  }
-                  description={
-                    search
-                      ? 'Try a different search term or clear the filter.'
-                      : 'Try a different filter to see your other vehicles.'
-                  }
-                  actionLabel={search ? 'Clear filters' : 'Show all vehicles'}
-                  onAction={() => {
-                    setSearch('');
-                    setVehicleFilter('all');
-                  }}
-                />
-              </View>
-            }
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
-            }
-          />
-        ) : (
-          <FlashList
-            data={filteredVehicles}
-            keyExtractor={(item) => item._id || item.id || item.title || ''}
-            ListHeaderComponent={renderVehicleHeader}
-            renderItem={({ item }) => (
-              <VehicleCard
-                item={item}
-                onEdit={() => editVehicle(item)}
-                onToggleStatus={() =>
-                  setStatus(item, (item.status || 'active').toLowerCase() === 'active' ? 'paused' : 'active')
-                }
-                onMoveToDraft={() => moveToDraft(item)}
-                onArchive={() => archiveVehicle(item)}
-                onDelete={() => deleteVehicle(item)}
-              />
-            )}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
-            }
-          />
-        )
-      ) : filteredBookings.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <EmptyState
-            icon={<Ionicons name="receipt-outline" size={56} color={colors.gray[300]} />}
-            title="No bookings yet"
-            description="Once a traveller books one of your vehicles, it will show up here."
-          />
-        </View>
       ) : (
         <FlashList
-          data={filteredBookings}
-          keyExtractor={(item) => item._id || item.id || item.bookingReference || ''}
-          renderItem={({ item }) => <BookingRow item={item} />}
+          data={filteredVehicles}
+          keyExtractor={(item) => item._id || item.id || item.title || ''}
+          ListHeaderComponent={renderVehicleHeader}
+          renderItem={({ item }) => (
+            <VehicleCard
+              item={item}
+              onEdit={() => editVehicle(item)}
+              onToggleStatus={() =>
+                setStatus(item, (item.status || 'active').toLowerCase() === 'active' ? 'paused' : 'active')
+              }
+              onMoveToDraft={() => moveToDraft(item)}
+              onArchive={() => archiveVehicle(item)}
+              onDelete={() => deleteVehicle(item)}
+            />
+          )}
+          ListEmptyComponent={
+            <View style={styles.emptyWrap}>
+              <EmptyState
+                icon={
+                  <Ionicons
+                    name={search ? 'search-outline' : 'car-sport-outline'}
+                    size={56}
+                    color={colors.gray[300]}
+                  />
+                }
+                title={
+                  vehicles.length === 0
+                    ? 'No vehicles listed yet'
+                    : search
+                      ? `No vehicles match "${search}"`
+                      : `No ${vehicleFilter} vehicles`
+                }
+                description={
+                  vehicles.length === 0
+                    ? 'Add your first vehicle to start receiving bookings from travellers.'
+                    : search
+                      ? 'Try a different search term or clear the filter.'
+                      : 'Try a different filter to see your other vehicles.'
+                }
+                actionLabel={vehicles.length === 0 ? 'Add your first vehicle' : 'Clear filters'}
+                onAction={
+                  vehicles.length === 0
+                    ? () => router.push('/transport/new')
+                    : () => {
+                        setSearch('');
+                        setVehicleFilter('all');
+                      }
+                }
+              />
+            </View>
+          }
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -838,16 +619,14 @@ export default function TransportScreen() {
         />
       )}
 
-      {/* FAB (vehicles tab only) */}
-      {tab === 'vehicles' && vehicles.length > 0 ? (
-        <TouchableOpacity
-          style={styles.fab}
-          activeOpacity={0.85}
-          onPress={() => router.push('/transport/new')}
-        >
-          <Ionicons name="add" size={28} color="#ffffff" />
-        </TouchableOpacity>
-      ) : null}
+      {/* FAB — always available to add a vehicle, matching Activities */}
+      <TouchableOpacity
+        style={styles.fab}
+        activeOpacity={0.85}
+        onPress={() => router.push('/transport/new')}
+      >
+        <Ionicons name="add" size={28} color="#ffffff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -898,40 +677,6 @@ const styles = StyleSheet.create({
   },
 
   // Tabs
-  // Segmented control (mirrors the calendar's Activities/Packages toggle).
-  tabBar: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    marginHorizontal: spacing.xl,
-    marginTop: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    padding: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: borderRadius.lg,
-  },
-  tabActive: {
-    backgroundColor: colors.primary[600],
-    ...shadow.sm,
-  },
-  tabText: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-  },
-  tabCount: {
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
-  },
-
   // Search
   searchWrap: {
     paddingHorizontal: spacing.xl,
@@ -953,49 +698,47 @@ const styles = StyleSheet.create({
   },
 
   // Stat tiles
-  statGrid: {
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  statCard: {
+  statTile: {
+    flexBasis: '48%',
     flexGrow: 1,
-    flexBasis: '47%',
-  },
-  statRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
   },
-  statIconWrap: {
+  statIcon: {
     width: 36,
     height: 36,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statTextCol: {
+  statTextWrap: {
     flex: 1,
     minWidth: 0,
   },
   statLabel: {
     fontSize: fontSize.xs,
-    fontWeight: fontWeight.medium,
     color: colors.textSecondary,
+    fontWeight: fontWeight.medium,
   },
   statValue: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.text,
-    marginTop: 1,
   },
 
   // Filter pills
-  pillRow: {
-    height: 52,
-    justifyContent: 'center',
-  },
   pillScroll: {
     marginBottom: spacing.xs,
   },
@@ -1172,47 +915,6 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
   },
 
-  // Booking card
-  bookingCard: {
-    marginBottom: spacing.md,
-  },
-  bookingHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  bookingRef: {
-    flex: 1,
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.bold,
-    color: colors.text,
-    marginRight: spacing.sm,
-  },
-  bookingMetaLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.xs,
-  },
-  bookingMeta: {
-    flex: 1,
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-  },
-  bookingFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-  },
-  bookingAmount: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.text,
-  },
 
   // Onboarding empty state
   onboardScroll: {

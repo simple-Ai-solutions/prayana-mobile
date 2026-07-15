@@ -18,6 +18,7 @@ import {
   Button,
   Stepper,
   useTheme,
+  RequiredLabel,
 } from '@prayana/shared-ui';
 import {
   colors,
@@ -540,7 +541,7 @@ export default function PackageForm({
           <Card style={styles.formSection}>
             <SectionHeader title="Basic Info" icon="information-circle-outline" />
 
-            <Text style={labelStyle}>Package Title *</Text>
+            <RequiredLabel style={labelStyle}>Package Title</RequiredLabel>
             <RNTextInput
               value={values.title}
               onChangeText={(t) => set('title', t)}
@@ -589,7 +590,7 @@ export default function PackageForm({
           <Card style={styles.formSection}>
             <SectionHeader title="Duration & Destinations" icon="map-outline" />
 
-            <Text style={labelStyle}>Number of Nights *</Text>
+            <RequiredLabel style={labelStyle}>Number of Nights</RequiredLabel>
             <RNTextInput
               value={values.nights}
               onChangeText={(t) => set('nights', t)}
@@ -599,7 +600,7 @@ export default function PackageForm({
               keyboardType="numeric"
             />
 
-            <Text style={labelStyle}>Destinations *</Text>
+            <RequiredLabel style={labelStyle}>Destinations</RequiredLabel>
             {values.destinations.map((dest, index) => (
               <View key={index} style={[styles.destCard, { borderColor: themeColors.border, backgroundColor: themeColors.inputBackground }]}>
                 <View style={styles.destHeader}>
@@ -664,7 +665,7 @@ export default function PackageForm({
 
             <View style={styles.row}>
               <View style={styles.halfField}>
-                <Text style={labelStyle}>Base Price ({'₹'}) *</Text>
+                <RequiredLabel style={labelStyle}>Base Price ({'₹'})</RequiredLabel>
                 <RNTextInput
                   value={values.basePrice}
                   onChangeText={(t) => set('basePrice', t)}
