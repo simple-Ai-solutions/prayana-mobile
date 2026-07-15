@@ -44,6 +44,20 @@ const MIN_DOB = new Date(1920, 0, 1);
 // At least a year old — the web uses the same guard.
 const MAX_DOB = new Date(TODAY.getFullYear() - 1, TODAY.getMonth(), TODAY.getDate());
 
+/**
+ * Phone in the form the provider expects: E.164-ish with a country code.
+ * A bare 10-digit Indian number becomes +91XXXXXXXXXX; an already-prefixed
+ * number is left alone. Matrix rejects a number with no country code.
+ */
+function normalisePhone(raw: string): string {
+  const t = raw.trim();
+  if (t.startsWith('+')) return t;
+  const digits = t.replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  return digits ? `+${digits}` : '';
+}
+
 function parseISODate(iso: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
   const [y, m, d] = iso.split('-').map(Number);
@@ -306,7 +320,9 @@ export default function ESimCheckoutScreen() {
           customerLastName: lastName.trim(),
           customerName: `${firstName.trim()} ${lastName.trim()}`,
           customerEmail: email.trim(),
-          customerPhone: phone.trim(),
+          // Send the phone WITH its country code, as the web does
+          // (`${countryCode}${phone}`). Matrix rejects a bare local number.
+          customerPhone: normalisePhone(phone),
           customerDOB: dob || undefined,
           travelStartDate: travelStart || undefined,
           travelEndDate: travelEnd || undefined,
@@ -316,8 +332,16 @@ export default function ESimCheckoutScreen() {
           state: state.trim() || undefined,
           pincode: pincode.trim() || undefined,
           country,
+          // Price the customer saw — the server re-quotes against it and rejects
+          // on divergence, so it can never be over/under-charged. The web sends
+          // this; mobile omitted it.
+          quotedPrice: bundle.sellingPrice,
         });
         if (!createRes?.success || !createRes?.data?._id) {
+          // Log the full response so the exact server reason is visible in dev,
+          // not just the toast — several Matrix rejections carry a specific
+          // message ("...require a complete billing address", price drift, etc.).
+          console.warn('[eSIM] createOrder failed:', JSON.stringify(createRes));
           Toast.show({
             type: 'error',
             text1: 'Could not create order',

@@ -21,12 +21,14 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
+  Linking,
 } from 'react-native';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Toast from 'react-native-toast-message';
 import {
   useTheme,
   colors,
@@ -40,6 +42,7 @@ import {
   CityGroup,
   CountryGroup,
   Experience,
+  affiliateUrl,
   groupByCountry,
 } from '../../lib/experiences';
 import { ExperienceCard } from '../../components/experiences/ExperienceCard';
@@ -231,6 +234,18 @@ export default function GlobalExperiencesScreen() {
   );
 
   const openExperience = useCallback((e: Experience) => {
+    // Viator/Headout listings open at their affiliate booking URL (our tracking
+    // is baked into it); only our own inventory routes to the in-app detail
+    // page. The web makes exactly this split — mobile was sending everything to
+    // /activity/{id}, so third-party tours hit a half-empty detail screen and
+    // any affiliate commission was lost.
+    const url = affiliateUrl(e);
+    if (url) {
+      Linking.openURL(url).catch(() => {
+        Toast.show({ type: 'error', text1: "Couldn't open the booking page" });
+      });
+      return;
+    }
     router.push(`/activity/${e._id}`);
   }, []);
 
