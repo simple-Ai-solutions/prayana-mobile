@@ -2,6 +2,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { useTheme } from '@prayana/shared-ui';
+import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 import { colors } from '../../theme/vendorColors';
 
 // The selected tab is a solid, brand-blue glyph; the rest are light outlines in
@@ -143,6 +144,14 @@ function MoreIcon({ color, size, focused }: IconProps) {
 export default function TabLayout() {
   const { themeColors } = useTheme();
 
+  // Until the vendor has a business account, the Dashboard renders a full-screen
+  // "Welcome / Complete Onboarding" guide (see (tabs)/index.tsx). Hide the tab
+  // bar in that state so nothing competes with that single call-to-action — the
+  // other tabs only have meaning once a business exists. The store is persisted
+  // and `setBusinessAccount` fires during onboarding, so the bar appears the
+  // moment the business is registered, without a reload.
+  const hasBusiness = useBusinessStore((s) => !!s.businessAccount);
+
   const renderIcon =
     (Icon: (p: IconProps) => React.ReactElement) =>
     ({ focused }: { focused: boolean }) => (
@@ -160,14 +169,16 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: ACTIVE_COLOR,
         tabBarInactiveTintColor: themeColors.textTertiary,
-        tabBarStyle: {
-          backgroundColor: themeColors.tabBar,
-          borderTopColor: themeColors.tabBarBorder,
-          borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 30,
-          paddingTop: 8,
-        },
+        tabBarStyle: hasBusiness
+          ? {
+              backgroundColor: themeColors.tabBar,
+              borderTopColor: themeColors.tabBarBorder,
+              borderTopWidth: 1,
+              height: 85,
+              paddingBottom: 30,
+              paddingTop: 8,
+            }
+          : { display: 'none' },
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',

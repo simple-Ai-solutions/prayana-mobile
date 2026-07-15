@@ -19,6 +19,7 @@ import * as WebBrowser from 'expo-web-browser';
 import Toast from 'react-native-toast-message';
 
 import { TextInput, Card, Button, LoadingSpinner, useTheme } from '../../components/ui';
+import { VerifyIdentity } from '../../components/VerifyIdentity';
 import {
   colors,
   fontSize,
@@ -95,10 +96,11 @@ const PAYOUT_TABS: PayoutTabOption[] = [
   { id: 'stripe', label: 'Stripe', icon: 'globe-outline', sub: 'International', comingSoon: true },
 ];
 
-// The wizard is 3 linear steps: Business Setup -> Vendor Agreement -> Payout.
-// Each step's own heading names it, and the header shows "Step N of 3", so no
-// step-list data is needed for rendering.
-const TOTAL_STEPS = 3;
+// The wizard is 4 linear steps: Business Setup -> Vendor Agreement -> Payout ->
+// Verify identity (KYC). The identity step is skippable ("complete later from
+// dashboard"), so the first three still get the vendor onto the platform.
+// Each step's own heading names it, and the header shows "Step N of 4".
+const TOTAL_STEPS = 4;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[0-9+\-() ]{10,}$/;
@@ -122,9 +124,9 @@ export default function OnboardingWizardScreen() {
     setBusinessAccount,
   } = useBusinessStore();
 
-  // 3-step wizard, 1-indexed. Seeded from the store so a reload returns to step.
+  // 4-step wizard, 1-indexed. Seeded from the store so a reload returns to step.
   const [currentStep, setCurrentStep] = useState<number>(
-    onboardingStep >= 1 && onboardingStep <= 3 ? onboardingStep : 1
+    onboardingStep >= 1 && onboardingStep <= TOTAL_STEPS ? onboardingStep : 1
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -460,46 +462,43 @@ export default function OnboardingWizardScreen() {
       !!bankName.trim()) ||
     (payoutTab === 'upi' && upiId.trim().length > 0);
 
-  const completeOnboarding = useCallback(
+  // Persist the chosen payout method (if any) then advance to the identity step.
+  // Onboarding is no longer finished here — KYC is the last, skippable step.
+  const persistPayout = useCallback(
     async (payload: Record<string, any>) => {
       setIsSubmitting(true);
       try {
-        // Persist a real payout config only when a method was chosen.
         if (payload.method && payload.method !== 'skip') {
           await businessAPI.configurePayout(payload);
         }
-        // Server understands step 5 = onboarding fully complete.
-        await businessAPI.saveOnboardingStep(5, payload);
+        await businessAPI.saveOnboardingStep(4, payload);
         setOnboardingData('payoutDetails', payload);
-        Toast.show({ type: 'success', text1: 'Setup complete! Welcome aboard.' });
-        router.push('/(tabs)');
+        goToStep(4);
       } catch (error: any) {
         Toast.show({
           type: 'error',
-          text1: 'Could not finish setup',
+          text1: 'Could not save payout',
           text2: error?.message || 'Please try again.',
         });
+      } finally {
         setIsSubmitting(false);
       }
     },
-    [setOnboardingData, router]
+    [setOnboardingData, goToStep]
   );
 
-  const handlePayoutComplete = useCallback(() => {
+  const handlePayoutNext = useCallback(() => {
     if (payoutTab === 'bank_transfer') {
-      completeOnboarding({
+      persistPayout({
         method: accountNumber ? 'bank_transfer' : 'skip',
         bankDetails: accountNumber
           ? { accountHolderName, accountNumber, ifscCode, bankName, branchName }
           : null,
       });
     } else if (payoutTab === 'upi') {
-      completeOnboarding({
-        method: upiId ? 'upi' : 'skip',
-        upiId: upiId || null,
-      });
+      persistPayout({ method: upiId ? 'upi' : 'skip', upiId: upiId || null });
     } else {
-      completeOnboarding({ method: 'skip' });
+      persistPayout({ method: 'skip' });
     }
   }, [
     payoutTab,
@@ -509,12 +508,26 @@ export default function OnboardingWizardScreen() {
     bankName,
     branchName,
     upiId,
-    completeOnboarding,
+    persistPayout,
   ]);
 
-  const handleSkipToDashboard = useCallback(() => {
-    completeOnboarding({ method: 'skip' });
-  }, [completeOnboarding]);
+  // Final step — mark onboarding complete (server step 5) and land on the
+  // dashboard. KYC documents can still be finished later from there.
+  const finishOnboarding = useCallback(async () => {
+    setIsSubmitting(true);
+    try {
+      await businessAPI.saveOnboardingStep(5, { completed: true });
+      Toast.show({ type: 'success', text1: 'Setup complete! Welcome aboard.' });
+      router.push('/(tabs)');
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Could not finish setup',
+        text2: error?.message || 'Please try again.',
+      });
+      setIsSubmitting(false);
+    }
+  }, [router]);
 
   // ---------------------------------------------------------------------
   // Navigation
@@ -988,13 +1001,15 @@ export default function OnboardingWizardScreen() {
     </View>
   );
 
-  // No progress graphic: the header's "Step N of 3" already states progress
+  // Step 4 — Verify identity (KYC). The shared VerifyIdentity component renders
+  // its own heading + all document sections; the wizard supplies the footer.
+  const renderIdentityStep = () => (
+    <VerifyIdentity variant="onboarding" onSkip={finishOnboarding} />
+  );
+
+  // No progress graphic: the header's "Step N of 4" already states progress
   // precisely, and a bar or stepper under it would only redraw the same fact
   // while costing ~90px of a phone screen that the form needs.
-
-  if (isSubmitting && currentStep === 3) {
-    // keep footer interactive elsewhere; only the final complete blocks fully
-  }
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]}>
@@ -1033,6 +1048,7 @@ export default function OnboardingWizardScreen() {
           {currentStep === 1 && renderSetupStep()}
           {currentStep === 2 && renderAgreementStep()}
           {currentStep === 3 && renderPayoutStep()}
+          {currentStep === 4 && renderIdentityStep()}
         </ScrollView>
 
         {/* Footer */}
@@ -1080,40 +1096,44 @@ export default function OnboardingWizardScreen() {
                 size="lg"
                 style={styles.backAction}
               />
-              {!payoutComplete && (
-                <TouchableOpacity
-                  onPress={handleSkipToDashboard}
-                  disabled={isSubmitting}
-                  style={styles.skipButton}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.skipText, { color: themeColors.textSecondary }]}>Skip to Dashboard</Text>
-                </TouchableOpacity>
-              )}
               <Button
-                title={payoutComplete ? 'Complete Setup' : 'Next'}
-                onPress={handlePayoutComplete}
+                title={payoutComplete ? 'Continue' : 'Skip'}
+                onPress={handlePayoutNext}
                 variant="primary"
                 size="lg"
                 loading={isSubmitting}
                 disabled={isSubmitting}
                 style={styles.primaryAction}
-                icon={
-                  !isSubmitting ? (
-                    <Ionicons
-                      name={payoutComplete ? 'checkmark-circle-outline' : 'arrow-forward'}
-                      size={18}
-                      color="#ffffff"
-                    />
-                  ) : undefined
-                }
+                icon={!isSubmitting ? <Ionicons name="arrow-forward" size={18} color="#ffffff" /> : undefined}
+              />
+            </>
+          )}
+
+          {currentStep === 4 && (
+            <>
+              <Button
+                title="Back"
+                onPress={handleBack}
+                variant="outline"
+                size="lg"
+                style={styles.backAction}
+              />
+              <Button
+                title="Skip for now"
+                onPress={finishOnboarding}
+                variant="primary"
+                size="lg"
+                loading={isSubmitting}
+                disabled={isSubmitting}
+                style={styles.primaryAction}
+                icon={!isSubmitting ? <Ionicons name="arrow-forward" size={18} color="#ffffff" /> : undefined}
               />
             </>
           )}
         </View>
       </KeyboardAvoidingView>
 
-      {isSubmitting && currentStep === 3 && (
+      {isSubmitting && currentStep === 4 && (
         <View style={styles.overlay} pointerEvents="none">
           <LoadingSpinner size="large" message="Finishing setup..." />
         </View>
@@ -1380,8 +1400,6 @@ const styles = StyleSheet.create({
   },
   primaryAction: { flex: 1 },
   backAction: { flex: 0.35 },
-  skipButton: { paddingHorizontal: spacing.sm, paddingVertical: spacing.sm },
-  skipText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
   overlay: {
     ...StyleSheet.absoluteFillObject,
