@@ -267,6 +267,22 @@ export default function ESimCheckoutScreen() {
 
   const handlePay = async () => {
     if (!bundle) return;
+
+    // An eSIM order needs a real, signed-in account. The auth token provider
+    // returns null for a logged-out OR guest session (uid === 'guest-user'), so
+    // without this guard createOrder is sent with no Authorization header and
+    // the server rejects it — the order "silently" never gets created. Catch it
+    // here and say why, instead of surfacing a generic "Could not create order".
+    if (!user || (user as any).uid === 'guest-user') {
+      Toast.show({
+        type: 'error',
+        text1: 'Please sign in to buy an eSIM',
+        text2: 'Create a free account or log in, then try again.',
+      });
+      router.push('/(auth)/login');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
