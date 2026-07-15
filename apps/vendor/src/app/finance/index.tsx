@@ -25,6 +25,7 @@ import {
   fontWeight,
   spacing,
   borderRadius,
+  shadow,
 } from '../../theme/vendorColors';
 import { payoutAPI, businessAPI } from '@prayana/shared-services';
 
@@ -339,36 +340,40 @@ export default function FinanceScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Tabs */}
+      {/* Tabs (toggle) */}
       <View
         style={[
-          styles.tabBar,
-          { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border },
+          styles.tabsRow,
+          { backgroundColor: themeColors.surface, borderColor: themeColors.border },
         ]}
       >
         {(
           [
-            { key: 'earnings', label: 'Earnings' },
-            { key: 'payout', label: 'Payout Settings' },
-          ] as { key: Tab; label: string }[]
+            { key: 'earnings', label: 'Earnings', icon: 'cash-outline' },
+            { key: 'payout', label: 'Payout Settings', icon: 'card-outline' },
+          ] as { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[]
         ).map((t) => {
           const active = tab === t.key;
           return (
             <TouchableOpacity
               key={t.key}
-              style={styles.tabItem}
-              activeOpacity={0.7}
+              style={[styles.tab, active && styles.tabActive]}
+              activeOpacity={0.8}
               onPress={() => setTab(t.key)}
             >
+              <Ionicons
+                name={t.icon}
+                size={16}
+                color={active ? '#ffffff' : themeColors.textSecondary}
+              />
               <Text
                 style={[
                   styles.tabText,
-                  { color: active ? colors.primary[500] : themeColors.textSecondary },
+                  { color: active ? '#ffffff' : themeColors.textSecondary },
                 ]}
               >
                 {t.label}
               </Text>
-              {active ? <View style={styles.tabUnderline} /> : null}
             </TouchableOpacity>
           );
         })}
@@ -821,27 +826,32 @@ const styles = StyleSheet.create({
     width: 36,
   },
 
-  // Tabs
-  tabBar: {
+  // Tabs (toggle / segmented control — mirrors the Calendar page)
+  tabsRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
+    gap: spacing.xs,
+    marginTop: spacing.md,
+    marginBottom: spacing.xs,
+    borderRadius: borderRadius.xl,
+    padding: 4,
+    borderWidth: 1,
+    alignSelf: 'center',
   },
-  tabItem: {
-    flex: 1,
+  tab: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+  },
+  tabActive: {
+    backgroundColor: colors.primary[600],
+    ...shadow.sm,
   },
   tabText: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.semibold,
-  },
-  tabUnderline: {
-    position: 'absolute',
-    bottom: 0,
-    height: 2,
-    width: '60%',
-    borderRadius: 1,
-    backgroundColor: colors.primary[500],
   },
 
   scrollContent: {
