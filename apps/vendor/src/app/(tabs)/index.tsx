@@ -18,6 +18,7 @@ import {
   StatusBadge,
   LoadingSpinner,
   Button,
+  PrayanaLogo,
 } from '../../components/ui';
 import {
   colors,
@@ -296,7 +297,9 @@ export default function DashboardScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.onboardingCta}>
-          <Ionicons name="storefront-outline" size={64} color={colors.primary[300]} />
+          <View style={styles.onboardingLogo}>
+            <PrayanaLogo size={48} />
+          </View>
           <Text style={styles.onboardingTitle}>Welcome to Prayana Business</Text>
           <Text style={styles.onboardingDesc}>
             Set up your business profile to start listing activities and receiving bookings.
@@ -402,7 +405,7 @@ export default function DashboardScreen() {
               title={`${draftCount} draft listing${draftCount > 1 ? 's' : ''} need${draftCount === 1 ? 's' : ''} attention`}
               message="Complete photos, description, and pricing to submit for approval. Listings won't go live until reviewed."
               ctaLabel="View draft listings"
-              onPress={() => router.push('/(tabs)/activities')}
+              onPress={() => router.push('/activity')}
             />
           )}
         </View>
@@ -882,6 +885,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing['3xl'],
+  },
+  // White tile behind the brand mark, matching the login/landing lockup.
+  onboardingLogo: {
+    width: 88,
+    height: 88,
+    borderRadius: borderRadius.xl,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 4,
   },
   onboardingTitle: {
     fontSize: fontSize.xl,

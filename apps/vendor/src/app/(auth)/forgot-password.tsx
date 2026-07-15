@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTheme } from '@prayana/shared-ui';
+import { colors } from '../../theme/vendorColors';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '@prayana/shared-services';
 
@@ -113,7 +114,7 @@ export default function ForgotPasswordScreen() {
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
                 <TextInput
-                  style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                  style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                   placeholder="you@business.com"
                   placeholderTextColor={themeColors.textTertiary}
                   value={email}
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#1e3a8a',
+    backgroundColor: colors.primary[500],
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
@@ -264,7 +265,7 @@ const styles = StyleSheet.create({
   resendText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e3a8a',
+    color: colors.primary[500],
   },
 
   // Footer
@@ -280,6 +281,6 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1e3a8a',
+    color: colors.primary[500],
   },
 });

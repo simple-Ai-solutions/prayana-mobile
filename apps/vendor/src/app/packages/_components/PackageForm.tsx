@@ -325,7 +325,7 @@ function ListEditor({
           placeholderTextColor={themeColors.textTertiary}
           style={[
             styles.listEditorTextInput,
-            { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text },
+            { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text },
           ]}
           onSubmitEditing={handleAdd}
           returnKeyType="done"
@@ -510,7 +510,7 @@ export default function PackageForm({
   const labelStyle = [styles.label, { color: themeColors.textSecondary }];
   const inputStyle = [
     styles.input,
-    { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text },
+    { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text },
   ];
 
   return (
@@ -793,7 +793,17 @@ export default function PackageForm({
 
           {/* Navigation / Actions */}
           {isLastStep ? (
-            <View style={styles.actions}>
+            // Stacked full-width: the primary CTA leads and "Submit for Review"
+            // no longer wraps to two lines the way it did at half-width.
+            <View style={styles.actionsStacked}>
+              <Button
+                title={mode === 'edit' ? 'Save & Submit' : 'Submit for Review'}
+                onPress={() => handleSave(true)}
+                size="lg"
+                loading={submitting}
+                disabled={savingDraft}
+                fullWidth
+              />
               <Button
                 title={mode === 'edit' ? 'Save Changes' : 'Save as Draft'}
                 onPress={() => handleSave(false)}
@@ -801,15 +811,7 @@ export default function PackageForm({
                 size="lg"
                 loading={savingDraft}
                 disabled={submitting}
-                style={styles.actionBtn}
-              />
-              <Button
-                title={mode === 'edit' ? 'Save & Submit' : 'Submit for Review'}
-                onPress={() => handleSave(true)}
-                size="lg"
-                loading={submitting}
-                disabled={savingDraft}
-                style={styles.actionBtn}
+                fullWidth
               />
             </View>
           ) : (
@@ -1027,5 +1029,6 @@ const styles = StyleSheet.create({
   // Actions
   actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl },
   actionBtn: { flex: 1 },
+  actionsStacked: { gap: spacing.sm, marginTop: spacing.xl },
   bottomSpacer: { height: spacing['3xl'] },
 });

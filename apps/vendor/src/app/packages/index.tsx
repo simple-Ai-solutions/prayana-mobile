@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   RefreshControl,
   FlatList,
+  ScrollView,
   TextInput as RNTextInput,
   Alert,
 } from 'react-native';
@@ -28,6 +29,7 @@ import {
   borderRadius,
 } from '../../theme/vendorColors';
 import { packageAPI } from '@prayana/shared-services';
+import { DEV_BYPASS_AUTH } from '../../config/devFlags';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -143,7 +145,11 @@ export default function PackagesScreen() {
       setDashboard(dash || null);
     } catch (err: any) {
       console.warn('[Packages] fetch failed:', err?.message);
-      Toast.show({ type: 'error', text1: 'Failed to load packages', text2: err?.message });
+      // Under the dev auth bypass every authenticated call 401s; that's expected,
+      // so don't nag — the empty state covers it. Real errors still show in prod.
+      if (!DEV_BYPASS_AUTH) {
+        Toast.show({ type: 'error', text1: 'Failed to load packages', text2: err?.message });
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -349,7 +355,9 @@ export default function PackagesScreen() {
       <View
         style={[
           styles.searchBar,
-          { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border },
+          // White fill + visible border reads as an editable field, not a
+          // disabled grey box (matches Transport and the shared SearchBar).
+          { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder },
         ]}
       >
         <Ionicons name="search" size={18} color={themeColors.textTertiary} />
@@ -368,7 +376,12 @@ export default function PackagesScreen() {
       </View>
 
       {/* Filter pills */}
-      <View style={styles.filterRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterScroll}
+        contentContainerStyle={styles.filterRow}
+      >
         {FILTERS.map((f) => {
           const active = filter === f.key;
           const count = filterCount(f.key);
@@ -419,7 +432,7 @@ export default function PackagesScreen() {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
     </View>
   );
 
@@ -530,7 +543,10 @@ export default function PackagesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Top bar */}
       <View style={[styles.topBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/activities'))}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <Ionicons name="chevron-back" size={26} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Packages</Text>
@@ -668,7 +684,10 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: fontSize.md, color: colors.text, paddingVertical: 2 },
 
   // Filters
-  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  // Bleed to the screen edges (cancel the list's lg padding) so chips can scroll
+  // under the edges; the content padding re-aligns the first/last chip.
+  filterScroll: { marginBottom: spacing.md, marginHorizontal: -spacing.lg },
+  filterRow: { flexDirection: 'row', gap: spacing.sm, paddingHorizontal: spacing.lg },
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',

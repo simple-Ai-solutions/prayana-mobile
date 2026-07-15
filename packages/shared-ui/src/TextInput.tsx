@@ -34,11 +34,16 @@ export function TextInput({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      {label && <Text style={[styles.label, { color: themeColors.text }]}>{label}</Text>}
+      {label && (
+        <Text style={[styles.label, { color: themeColors.text }]}>
+          {label.replace(/\s*\*\s*$/, '')}
+          {/\*\s*$/.test(label) && <Text style={styles.requiredMark}> *</Text>}
+        </Text>
+      )}
       <View
         style={[
           styles.inputWrapper,
-          { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border },
+          { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder },
           isFocused && [styles.inputFocused, { borderColor: brand[500] }],
           error && styles.inputError,
         ]}
@@ -80,6 +85,11 @@ const styles = StyleSheet.create({
     fontWeight: fontWeight.medium,
     color: colors.text,
     marginBottom: spacing.xs,
+  },
+  // Red asterisk marking a required field (label ending in "*").
+  requiredMark: {
+    color: colors.error,
+    fontWeight: fontWeight.bold,
   },
   inputWrapper: {
     flexDirection: 'row',

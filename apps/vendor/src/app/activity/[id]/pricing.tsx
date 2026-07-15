@@ -446,7 +446,7 @@ function Field({
         autoCapitalize={autoCapitalize || 'sentences'}
         style={[
           styles.field,
-          { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text },
+          { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text },
         ]}
       />
     </View>

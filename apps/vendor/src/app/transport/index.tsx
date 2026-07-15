@@ -587,7 +587,7 @@ export default function TransportScreen() {
               key={f.key}
               style={[
                 styles.pill,
-                { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder },
                 active && styles.pillActive,
               ]}
               onPress={() => setVehicleFilter(f.key)}
@@ -618,7 +618,10 @@ export default function TransportScreen() {
     >
       {/* Header */}
       <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)/activities'))}
+          style={styles.backBtn}
+        >
           <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <View style={styles.headerTitleWrap}>
@@ -632,8 +635,8 @@ export default function TransportScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Tabs (with counts) */}
-      <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+      {/* Tabs — segmented control, matching the calendar's Activities/Packages */}
+      <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
         {([
           { key: 'vehicles', label: 'My Vehicles', count: vehicles.length },
           { key: 'bookings', label: 'Bookings', count: bookings.length },
@@ -642,14 +645,14 @@ export default function TransportScreen() {
           return (
             <TouchableOpacity
               key={t.key}
-              style={[styles.tab, active && { borderBottomColor: colors.primary[500] }]}
+              style={[styles.tab, active && styles.tabActive]}
               onPress={() => setTab(t.key)}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, { color: active ? colors.primary[600] : themeColors.textSecondary }]}>
+              <Text style={[styles.tabText, { color: active ? '#ffffff' : themeColors.textSecondary }]}>
                 {t.label}
               </Text>
-              <Text style={[styles.tabCount, { color: active ? colors.primary[600] : themeColors.textTertiary }]}>
+              <Text style={[styles.tabCount, { color: active ? '#ffffff' : themeColors.textTertiary }]}>
                 {t.count}
               </Text>
             </TouchableOpacity>
@@ -659,7 +662,7 @@ export default function TransportScreen() {
 
       {/* Search */}
       <View style={styles.searchWrap}>
-        <View style={[styles.searchBox, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
+        <View style={[styles.searchBox, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder }]}>
           <Ionicons name="search-outline" size={18} color={themeColors.textTertiary} />
           <RNTextInput
             value={search}
@@ -895,21 +898,30 @@ const styles = StyleSheet.create({
   },
 
   // Tabs
+  // Segmented control (mirrors the calendar's Activities/Packages toggle).
   tabBar: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    gap: spacing.xs,
+    marginHorizontal: spacing.xl,
+    marginTop: spacing.sm,
     backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   tab: {
     flex: 1,
     flexDirection: 'row',
     gap: 6,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
     justifyContent: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderRadius: borderRadius.lg,
+  },
+  tabActive: {
+    backgroundColor: colors.primary[600],
+    ...shadow.sm,
   },
   tabText: {
     fontSize: fontSize.md,

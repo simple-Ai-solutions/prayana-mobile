@@ -39,6 +39,11 @@ const lightColors = {
   tabBarBorder: '#e5e5e5',
   headerGradient: ['#f0fdfc', '#ffffff'] as const,
   inputBackground: '#f5f5f5',
+  // Text-entry fields: a white fill with a clearly-visible border reads as an
+  // editable outlined control. (inputBackground stays a muted grey — it also
+  // backs non-editable surfaces like segmented tracks, tags, and placeholders.)
+  field: '#ffffff',
+  fieldBorder: '#d4d4d4',
 };
 
 // Dark colors
@@ -62,6 +67,10 @@ const darkColors = {
   tabBarBorder: '#262626',
   headerGradient: ['#171717', '#0a0a0a'] as const,
   inputBackground: '#262626',
+  // In dark mode a field lifts above the near-black background; the border adds
+  // the extra definition that separates it from a static grey surface.
+  field: '#1a1a1a',
+  fieldBorder: '#404040',
 };
 
 const ThemeContext = createContext<ThemeContextType>({

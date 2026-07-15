@@ -71,7 +71,7 @@ export default function MoreScreen() {
           icon: 'ticket-outline',
           label: 'Activities',
           subtitle: 'Your listed experiences',
-          route: '/(tabs)/activities',
+          route: '/activity',
         },
         {
           icon: 'cube-outline',

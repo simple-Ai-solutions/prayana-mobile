@@ -241,7 +241,7 @@ export default function PhoneLoginScreen() {
                   />
                 </View>
                 <TextInput
-                  style={[styles.phoneInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                  style={[styles.phoneInput, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                   placeholder="98765 43210"
                   placeholderTextColor={themeColors.textTertiary}
                   value={phone}
@@ -277,7 +277,7 @@ export default function PhoneLoginScreen() {
                     }}
                     style={[
                       styles.otpInput,
-                      { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text },
+                      { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text },
                       digit ? styles.otpInputFilled : null,
                     ]}
                     value={digit}

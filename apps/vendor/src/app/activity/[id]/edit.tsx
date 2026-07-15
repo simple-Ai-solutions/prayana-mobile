@@ -132,7 +132,7 @@ function ListEditor({
           onChangeText={setInput}
           placeholder={placeholder}
           placeholderTextColor={themeColors.textTertiary}
-          style={[styles.listEditorTextInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+          style={[styles.listEditorTextInput, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
           onSubmitEditing={handleAdd}
           returnKeyType="done"
         />
@@ -343,7 +343,7 @@ export default function EditActivityScreen() {
 
   // Theme overrides for repeated style fragments (StyleSheet kept static).
   const labelStyle = [styles.label, { color: themeColors.textSecondary }];
-  const inputStyle = [styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }];
+  const inputStyle = [styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }];
 
   if (loading) {
     return (

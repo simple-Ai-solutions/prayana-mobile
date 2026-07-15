@@ -4,10 +4,11 @@ import Svg, { Path, Rect, Circle } from 'react-native-svg';
 import { useTheme } from '@prayana/shared-ui';
 import { colors } from '../../theme/vendorColors';
 
-// The selected tab is a solid, dark-blue glyph; the rest are light outlines in
+// The selected tab is a solid, brand-blue glyph; the rest are light outlines in
 // the same grey as their labels. Weight (filled vs stroked) does the work, so
-// the active tab reads instantly even at a glance.
-const ACTIVE_COLOR = colors.primary[700]; // #1e40af
+// the active tab reads instantly even at a glance. Uses the same primary[500]
+// (#2563eb) as every other primary action, so the app's blue stays consistent.
+const ACTIVE_COLOR = colors.primary[500];
 
 interface IconProps {
   color: string;

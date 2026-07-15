@@ -93,6 +93,7 @@ export {
   SearchBar,
   Stepper,
   EmptyState,
+  PrayanaLogo,
   useTheme,
   ThemeProvider,
 } from '@prayana/shared-ui';

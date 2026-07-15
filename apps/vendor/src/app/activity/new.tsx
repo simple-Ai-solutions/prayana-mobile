@@ -147,7 +147,7 @@ function ListEditor({
           onChangeText={setInput}
           placeholder={placeholder}
           placeholderTextColor={themeColors.textTertiary}
-          style={[styles.listEditorTextInput, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+          style={[styles.listEditorTextInput, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
           onSubmitEditing={handleAdd}
           returnKeyType="done"
         />
@@ -326,7 +326,7 @@ export default function NewActivityScreen() {
 
   // Theme overrides for repeated style fragments (StyleSheet kept static).
   const labelStyle = [styles.label, { color: themeColors.textSecondary }];
-  const inputStyle = [styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }];
+  const inputStyle = [styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -352,7 +352,7 @@ export default function NewActivityScreen() {
           <Card style={styles.formSection}>
             <SectionHeader title="Basic Info" icon="information-circle-outline" />
 
-            <Text style={labelStyle}>Activity Name *</Text>
+            <Text style={labelStyle}>Activity Name <Text style={styles.requiredMark}>*</Text></Text>
             <RNTextInput
               value={name}
               onChangeText={setName}
@@ -361,14 +361,14 @@ export default function NewActivityScreen() {
               style={inputStyle}
             />
 
-            <Text style={labelStyle}>Category *</Text>
+            <Text style={labelStyle}>Category <Text style={styles.requiredMark}>*</Text></Text>
             <ChipSelector
               options={CATEGORIES}
               selected={category}
               onToggle={(val) => setCategory(val === category ? '' : val)}
             />
 
-            <Text style={labelStyle}>Description *</Text>
+            <Text style={labelStyle}>Description <Text style={styles.requiredMark}>*</Text></Text>
             <RNTextInput
               value={description}
               onChangeText={setDescription}
@@ -417,9 +417,9 @@ export default function NewActivityScreen() {
           <Card style={styles.formSection}>
             <SectionHeader title="Pricing" icon="pricetag-outline" />
 
-            <View style={styles.row}>
-              <View style={styles.halfField}>
-                <Text style={labelStyle}>Adult Price ({'\u20B9'}) *</Text>
+            <View style={styles.fieldStack}>
+              <View style={styles.fieldFull}>
+                <Text style={labelStyle}>Adult Price ({'\u20B9'}) <Text style={styles.requiredMark}>*</Text></Text>
                 <RNTextInput
                   value={adultPrice}
                   onChangeText={setAdultPrice}
@@ -429,7 +429,7 @@ export default function NewActivityScreen() {
                   keyboardType="numeric"
                 />
               </View>
-              <View style={styles.halfField}>
+              <View style={styles.fieldFull}>
                 <Text style={labelStyle}>Child Price ({'\u20B9'})</Text>
                 <RNTextInput
                   value={childPrice}
@@ -460,9 +460,9 @@ export default function NewActivityScreen() {
           <Card style={styles.formSection}>
             <SectionHeader title="Details" icon="document-text-outline" />
 
-            <View style={styles.row}>
-              <View style={styles.halfField}>
-                <Text style={labelStyle}>Duration (hours) *</Text>
+            <View style={styles.fieldStack}>
+              <View style={styles.fieldFull}>
+                <Text style={labelStyle}>Duration (hours) <Text style={styles.requiredMark}>*</Text></Text>
                 <RNTextInput
                   value={duration}
                   onChangeText={setDuration}
@@ -472,7 +472,7 @@ export default function NewActivityScreen() {
                   keyboardType="numeric"
                 />
               </View>
-              <View style={styles.halfField}>
+              <View style={styles.fieldFull}>
                 <Text style={labelStyle}>Max Participants</Text>
                 <RNTextInput
                   value={maxParticipants}
@@ -523,7 +523,7 @@ export default function NewActivityScreen() {
               style={inputStyle}
             />
 
-            <Text style={labelStyle}>City *</Text>
+            <Text style={labelStyle}>City <Text style={styles.requiredMark}>*</Text></Text>
             <RNTextInput
               value={city}
               onChangeText={setCity}
@@ -577,8 +577,17 @@ export default function NewActivityScreen() {
             ))}
           </Card>
 
-          {/* Actions */}
+          {/* Actions — stacked full-width so the primary CTA leads and
+              "Submit for Review" doesn't wrap at half-width. */}
           <View style={styles.actions}>
+            <Button
+              title="Submit for Review"
+              onPress={() => handleSubmit(false)}
+              size="lg"
+              loading={submitting}
+              disabled={savingDraft}
+              fullWidth
+            />
             <Button
               title="Save as Draft"
               onPress={() => handleSubmit(true)}
@@ -586,15 +595,7 @@ export default function NewActivityScreen() {
               size="lg"
               loading={savingDraft}
               disabled={submitting}
-              style={styles.actionBtn}
-            />
-            <Button
-              title="Submit for Review"
-              onPress={() => handleSubmit(false)}
-              size="lg"
-              loading={submitting}
-              disabled={savingDraft}
-              style={styles.actionBtn}
+              fullWidth
             />
           </View>
 
@@ -669,6 +670,11 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     marginTop: spacing.md,
   },
+  // Red asterisk marking a required field.
+  requiredMark: {
+    color: colors.error,
+    fontWeight: fontWeight.bold,
+  },
   input: {
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.md,
@@ -683,12 +689,12 @@ const styles = StyleSheet.create({
     minHeight: 100,
     paddingTop: spacing.md,
   },
-  row: {
-    flexDirection: 'row',
+  // Fields stack one per row at full width (no more half-width pairs).
+  fieldStack: {
     gap: spacing.md,
   },
-  halfField: {
-    flex: 1,
+  fieldFull: {
+    alignSelf: 'stretch',
   },
 
   // Chips
@@ -846,12 +852,8 @@ const styles = StyleSheet.create({
 
   // Actions
   actions: {
-    flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing.sm,
     marginTop: spacing.xl,
-  },
-  actionBtn: {
-    flex: 1,
   },
 
   bottomSpacer: {

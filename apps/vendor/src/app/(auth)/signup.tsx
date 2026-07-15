@@ -155,7 +155,7 @@ export default function SignupScreen() {
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Business Name</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                 placeholder="e.g., Hampi Adventure Tours"
                 placeholderTextColor={themeColors.textTertiary}
                 value={businessName}
@@ -168,7 +168,7 @@ export default function SignupScreen() {
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Contact Name</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                 placeholder="Your full name"
                 placeholderTextColor={themeColors.textTertiary}
                 value={contactName}
@@ -181,7 +181,7 @@ export default function SignupScreen() {
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                 placeholder="business@example.com"
                 placeholderTextColor={themeColors.textTertiary}
                 value={email}
@@ -196,7 +196,7 @@ export default function SignupScreen() {
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Phone</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                 placeholder="+91 98765 43210"
                 placeholderTextColor={themeColors.textTertiary}
                 value={phone}
@@ -233,7 +233,7 @@ export default function SignupScreen() {
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Confirm Password</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                 placeholder="Re-enter your password"
                 placeholderTextColor={themeColors.textTertiary}
                 value={confirmPassword}

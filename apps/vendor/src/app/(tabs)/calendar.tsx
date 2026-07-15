@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
     padding: 4,
     borderWidth: 1,
     borderColor: colors.border,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
   },
   tab: {
     flexDirection: 'row',

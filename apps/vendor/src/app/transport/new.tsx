@@ -280,7 +280,7 @@ export default function NewVehicleScreen() {
   const labelStyle = [styles.label, { color: themeColors.textSecondary }];
   const inputStyle = [
     styles.input,
-    { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text },
+    { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text },
   ];
 
   return (

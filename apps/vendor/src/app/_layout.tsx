@@ -14,6 +14,7 @@ import { ENV } from '../config/env';
 import { queryClient } from '../lib/queryClient';
 import { initSentry, setSentryUser } from '../lib/sentry';
 import { resolveDeepLink } from '../lib/deepLinks';
+import { DEV_BYPASS_AUTH } from '../config/devFlags';
 
 // Suppress the on-screen LogBox overlay (dev-only, pinned at the bottom).
 // User-facing errors are surfaced via top toasts; the bottom LogBox is just
@@ -28,15 +29,41 @@ const API_URL = ENV.apiUrl;
 setBaseURL(API_URL);
 console.log('[VendorApp] API URL set to:', API_URL);
 
+// ⚠️ TEMPORARY LOCAL DEV BYPASS — toggled via config/devFlags.ts (DEV_BYPASS_AUTH). ⚠️
+// When on, skips sign-in and drops straight into (tabs) with a fake user so the
+// vendor UI can be browsed without credentials. There is no real Firebase
+// session, so getIdToken() returns null and backend calls go out unauthenticated
+// (expect 401s); data screens read the same flag to stay quiet about those.
+const DEV_FAKE_USER = {
+  uid: 'dev-bypass-user',
+  email: 'dev@local.test',
+  displayName: 'Dev Vendor',
+  emailVerified: true,
+} as any;
+
 function AuthGuard() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, setUser, setIsAuthenticated } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+
+  // Seed the fake session once Firebase has settled, so onAuthStateChanged's
+  // initial null->signed-out pass cannot clobber it.
+  useEffect(() => {
+    if (!DEV_BYPASS_AUTH || isLoading || isAuthenticated) return;
+    console.warn('[VendorApp] DEV_BYPASS_AUTH is ON — auth is bypassed. Do not commit.');
+    setUser(DEV_FAKE_USER);
+    setIsAuthenticated(true);
+  }, [isLoading, isAuthenticated, setUser, setIsAuthenticated]);
 
   useEffect(() => {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === '(auth)';
+
+    if (DEV_BYPASS_AUTH) {
+      if (inAuthGroup) router.replace('/(tabs)');
+      return;
+    }
 
     if (!isAuthenticated && !inAuthGroup) {
       // Unauthenticated users go straight to sign-in. The marketing hero lives

@@ -144,6 +144,7 @@ const styles = StyleSheet.create({
   // Text
   text: {
     fontWeight: fontWeight.semibold,
+    textAlign: 'center',
   },
   text_primary: {
     color: '#ffffff',

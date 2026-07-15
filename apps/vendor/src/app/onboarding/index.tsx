@@ -675,7 +675,7 @@ export default function OnboardingWizardScreen() {
       <View style={styles.field}>
         <Text style={[styles.fieldLabel, { color: themeColors.text }]}>State</Text>
         <TouchableOpacity
-          style={[styles.selector, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}
+          style={[styles.selector, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder }]}
           onPress={() => setShowStatePicker((s) => !s)}
           activeOpacity={0.8}
         >

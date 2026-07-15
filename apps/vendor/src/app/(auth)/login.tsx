@@ -249,7 +249,7 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email Address</Text>
                   <TextInput
-                    style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                    style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                     placeholder="your@email.com"
                     placeholderTextColor={themeColors.textTertiary}
                     value={email}
@@ -333,7 +333,7 @@ export default function LoginScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={[styles.inputLabel, { color: themeColors.textSecondary }]}>Email Address</Text>
                   <TextInput
-                    style={[styles.input, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border, color: themeColors.text }]}
+                    style={[styles.input, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder, color: themeColors.text }]}
                     placeholder="your@email.com"
                     placeholderTextColor={themeColors.textTertiary}
                     value={email}

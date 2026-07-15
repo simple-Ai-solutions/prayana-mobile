@@ -34,6 +34,7 @@ import {
   fontSize,
   fontWeight,
   borderRadius,
+  shadow,
 } from '../../theme/vendorColors';
 import { supportAPI } from '@prayana/shared-services';
 
@@ -192,36 +193,44 @@ export default function SupportScreen() {
           activeOpacity={0.8}
           onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE}`)}
         >
-          <View style={styles.contactIcon}>
-            <Ionicons name="call" size={20} color="#fff" />
+          <View style={styles.contactRowLeft}>
+            <View style={styles.contactIcon}>
+              <Ionicons name="call" size={20} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.contactLabel}>CALL US</Text>
+              <Text style={styles.contactValue}>+91 9632 790 625</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.contactLabel}>CALL US</Text>
-            <Text style={styles.contactValue}>+91 9632 790 625</Text>
-          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.contactRow}
+          style={[styles.contactRow, styles.contactRowDivider]}
           activeOpacity={0.8}
           onPress={() => Linking.openURL(`https://wa.me/${SUPPORT_PHONE.replace('+', '')}`)}
         >
-          <View style={styles.contactIcon}>
-            <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+          <View style={styles.contactRowLeft}>
+            <View style={styles.contactIcon}>
+              <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.contactLabel}>WHATSAPP</Text>
+              <Text style={styles.contactValue}>+91 9632 790 625</Text>
+            </View>
           </View>
-          <View>
-            <Text style={styles.contactLabel}>WHATSAPP</Text>
-            <Text style={styles.contactValue}>+91 9632 790 625</Text>
-          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
         </TouchableOpacity>
 
-        <View style={styles.contactRow}>
-          <View style={styles.contactIcon}>
-            <Ionicons name="time" size={20} color="#fff" />
-          </View>
-          <View>
-            <Text style={styles.contactLabel}>RESPONSE TIME</Text>
-            <Text style={styles.contactValue}>Under 30 minutes</Text>
+        <View style={[styles.contactRow, styles.contactRowDivider]}>
+          <View style={styles.contactRowLeft}>
+            <View style={styles.contactIcon}>
+              <Ionicons name="time" size={20} color="#fff" />
+            </View>
+            <View>
+              <Text style={styles.contactLabel}>RESPONSE TIME</Text>
+              <Text style={styles.contactValue}>Under 30 minutes</Text>
+            </View>
           </View>
         </View>
       </LinearGradient>
@@ -453,10 +462,27 @@ const styles = StyleSheet.create({
   contactCard: {
     marginHorizontal: spacing.lg,
     borderRadius: borderRadius.xl ?? 16,
-    padding: spacing.lg,
-    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
+    // Colored shadow lifts the card off the grey page.
+    shadowColor: colors.primary[700],
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 6,
   },
-  contactRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing.md,
+  },
+  contactRowLeft: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  // Hairline separating the stacked contact methods.
+  contactRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.15)',
+  },
   contactIcon: {
     width: 44,
     height: 44,
@@ -475,10 +501,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.gray[300],
     backgroundColor: colors.background,
   },
-  filterTabActive: { backgroundColor: colors.primary[500], borderColor: colors.primary[500] },
+  filterTabActive: {
+    backgroundColor: colors.primary[500],
+    borderColor: colors.primary[500],
+    ...shadow.sm,
+  },
   filterTabText: { fontSize: fontSize.sm, color: colors.textSecondary, fontWeight: fontWeight.medium },
   filterTabTextActive: { color: '#fff' },
 
