@@ -39,6 +39,8 @@ interface UserStats {
   totalBookings: number;
   memberSince: string;
   loyaltyPoints: number;
+  /** Membership tier from the backend (Bronze/Silver/Gold/Platinum). */
+  tier: string;
 }
 
 interface MenuItem {
@@ -159,6 +161,7 @@ export default function ProfileScreen() {
     totalBookings: 0,
     memberSince: '',
     loyaltyPoints: 0,
+    tier: 'Bronze',
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -174,17 +177,20 @@ export default function ProfileScreen() {
     }
 
     try {
-      const profile: any = await (fetchUserProfile as any)(user.uid);
+      // GET /auth/profile returns { data: { profile } } (getProfileForDisplay).
+      // The old code read fields off the raw envelope, so every stat was 0.
+      const res: any = await fetchUserProfile();
+      const profile = res?.data?.profile || res?.data;
       if (profile) {
         setStats({
-          totalTrips: profile.totalTrips ?? profile.tripsCount ?? 0,
-          totalBookings: profile.totalBookings ?? profile.bookingsCount ?? 0,
+          totalTrips: profile.travelStats?.tripsCompleted ?? 0,
+          totalBookings: profile.membership?.bookingStats?.completedCount ?? 0,
           memberSince:
-            profile.memberSince ??
-            profile.createdAt ??
+            profile.membership?.memberSince ??
             user.metadata?.creationTime ??
             '',
           loyaltyPoints: profile.membership?.loyaltyPoints ?? 0,
+          tier: profile.membership?.tier || 'Bronze',
         });
       }
     } catch (err: any) {
@@ -316,7 +322,7 @@ export default function ProfileScreen() {
       items: [
         {
           label: 'Membership & Rewards',
-          subtitle: `${stats.loyaltyPoints.toLocaleString()} points · Premium Member`,
+          subtitle: `${stats.loyaltyPoints.toLocaleString()} points · ${stats.tier} Member`,
           icon: 'ribbon-outline',
           route: '/profile/membership',
           iconColor: '#f97316',
@@ -491,7 +497,7 @@ export default function ProfileScreen() {
                 <View style={styles.profileBadgeRow}>
                   <View style={styles.memberBadge}>
                     <Ionicons name="star" size={10} color="#92400E" />
-                    <Text style={styles.memberBadgeText}>Premium</Text>
+                    <Text style={styles.memberBadgeText}>{stats.tier}</Text>
                   </View>
                   <TouchableOpacity
                     style={styles.editProfileBadge}

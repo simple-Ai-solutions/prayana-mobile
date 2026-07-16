@@ -35,7 +35,7 @@ import {
   Button,
   useTheme,
 } from '@prayana/shared-ui';
-import { bookingAPI } from '@prayana/shared-services';
+import { bookingAPI, esimAPI, holidayPackagesAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 
 // ===== Types =====
@@ -86,7 +86,75 @@ interface Booking {
   createdAt: string;
 }
 
+/**
+ * eSIM order shape — the slice of server/models/EsimOrder.js this list renders.
+ * getMyOrders returns { data: { orders, pagination } }.
+ */
+interface EsimOrder {
+  _id: string;
+  orderReference: string;
+  status:
+    | 'pending_payment'
+    | 'pending_kyc'
+    | 'pending_validation'
+    | 'processing'
+    | 'active'
+    | 'completed'
+    | 'cancelled'
+    | 'failed'
+    | 'refunded';
+  bundle?: {
+    name?: string;
+    country?: string;
+    countryName?: string;
+    dataAmountMB?: number;
+    isUnlimited?: boolean;
+    durationDays?: number;
+  };
+  pricing?: { totalPrice?: number };
+  createdAt: string;
+}
+
+/** Holiday-package booking — mirrors web my-bookings' package card fields. */
+interface PackageBooking {
+  _id: string;
+  bookingReference?: string;
+  status: string;
+  package?: { title?: string; images?: string[]; destination?: string };
+  packageSnapshot?: { title?: string; coverImage?: string; destination?: string };
+  travelDate?: string;
+  travellers?: { adults?: number; children?: number };
+  pricing?: { total?: number };
+  totalAmount?: number;
+  createdAt: string;
+}
+
 // ===== Constants =====
+
+// Top-level product pills, same trio and order as the web my-bookings page:
+// a turf booking must not surface under Holiday Packages, and eSIMs are their
+// own section so the three never mix.
+const CATEGORIES = [
+  { key: 'esim', label: 'eSIMs' },
+  { key: 'activities', label: 'Activities' },
+  { key: 'packages', label: 'Packages' },
+] as const;
+
+type CategoryKey = typeof CATEGORIES[number]['key'];
+
+// eSIM orders use their own status vocabulary; fold them into the shared
+// filter buckets so the same tabs work for both (copied from web).
+const ESIM_STATUS_BUCKET: Record<EsimOrder['status'], TabKey> = {
+  pending_payment: 'upcoming',
+  pending_kyc: 'upcoming',
+  pending_validation: 'upcoming',
+  processing: 'upcoming',
+  active: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  failed: 'cancelled',
+  refunded: 'cancelled',
+};
 
 const STATUS_TABS = [
   { key: 'all', label: 'All' },
@@ -160,6 +228,51 @@ function filterBookings(bookings: Booking[], tab: TabKey): Booking[] {
   }
 }
 
+function filterEsimOrders(orders: EsimOrder[], tab: TabKey): EsimOrder[] {
+  if (tab === 'all') return orders;
+  return orders.filter((o) => ESIM_STATUS_BUCKET[o.status] === tab);
+}
+
+function filterPackageBookings(items: PackageBooking[], tab: TabKey): PackageBooking[] {
+  switch (tab) {
+    case 'all':
+      return items;
+    case 'upcoming':
+      return items.filter(
+        (b) =>
+          (b.status === 'pending' || b.status === 'confirmed') &&
+          (!b.travelDate || new Date(b.travelDate) >= new Date())
+      );
+    case 'confirmed':
+      return items.filter((b) => b.status === 'confirmed');
+    case 'completed':
+      return items.filter((b) => b.status === 'completed');
+    case 'cancelled':
+      return items.filter((b) => b.status === 'cancelled' || b.status === 'refunded');
+    default:
+      return items;
+  }
+}
+
+/** "1.5 GB" / "500 MB" from a megabyte count. */
+function formatDataAmount(mb?: number): string {
+  if (mb == null) return '';
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
+  }
+  return `${mb} MB`;
+}
+
+/** Country code → flag emoji, same trick the web uses. */
+function countryToFlag(code?: string): string {
+  if (!code || code.length !== 2) return '🌐';
+  const base = 127397;
+  return String.fromCodePoint(
+    ...code.toUpperCase().split('').map((c) => base + c.charCodeAt(0))
+  );
+}
+
 // ===== Skeleton Card Component =====
 
 function SkeletonCard() {
@@ -225,9 +338,20 @@ export default function MyBookingsScreen() {
   // State
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [activeTab, setActiveTab] = useState<TabKey>('all');
+  // Top-level category, activities first — same default as the web.
+  const [category, setCategory] = useState<CategoryKey>('activities');
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
+
+  // eSIM orders + package bookings load lazily the first time their pill is
+  // opened (mirrors web my-bookings lines 239/252).
+  const [esimOrders, setEsimOrders] = useState<EsimOrder[]>([]);
+  const [esimLoading, setEsimLoading] = useState(false);
+  const [esimLoaded, setEsimLoaded] = useState(false);
+  const [packageBookings, setPackageBookings] = useState<PackageBooking[]>([]);
+  const [packageLoading, setPackageLoading] = useState(false);
+  const [packageLoaded, setPackageLoaded] = useState(false);
 
   // Review modal state
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
@@ -273,6 +397,59 @@ export default function MyBookingsScreen() {
     fetchBookings();
   }, [fetchBookings]);
 
+  const isGuest = !user?.uid || user.uid === 'guest-user';
+
+  // Fetch eSIM orders the first time the eSIM pill is opened.
+  const fetchEsimOrders = useCallback(async () => {
+    if (isGuest) return;
+    setEsimLoading(true);
+    try {
+      const res = await esimAPI.getMyOrders();
+      // getMyOrders returns { data: { orders, pagination } }
+      const list = res?.data?.orders ?? res?.data ?? [];
+      setEsimOrders(Array.isArray(list) ? list : []);
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to load eSIM orders',
+        text2: error?.message || 'Please try again later',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setEsimLoading(false);
+      setEsimLoaded(true);
+    }
+  }, [isGuest]);
+
+  useEffect(() => {
+    if (category === 'esim' && !esimLoaded) fetchEsimOrders();
+  }, [category, esimLoaded, fetchEsimOrders]);
+
+  // Fetch holiday-package bookings the first time that pill is opened.
+  const fetchPackageBookings = useCallback(async () => {
+    if (isGuest) return;
+    setPackageLoading(true);
+    try {
+      const res = await holidayPackagesAPI.getMyBookings();
+      const list = res?.data ?? [];
+      setPackageBookings(Array.isArray(list) ? list : []);
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to load package bookings',
+        text2: error?.message || 'Please try again later',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setPackageLoading(false);
+      setPackageLoaded(true);
+    }
+  }, [isGuest]);
+
+  useEffect(() => {
+    if (category === 'packages' && !packageLoaded) fetchPackageBookings();
+  }, [category, packageLoaded, fetchPackageBookings]);
+
   // Deep-link: ?reviewBookingId=xxx auto-opens the review modal.
   // Used by booking detail's "Write Review" button.
   useEffect(() => {
@@ -288,7 +465,10 @@ export default function MyBookingsScreen() {
   const onRefresh = useCallback(() => {
     setIsRefreshing(true);
     fetchBookings();
-  }, [fetchBookings]);
+    // Also refresh whichever secondary list the user is looking at.
+    if (category === 'esim' && esimLoaded) fetchEsimOrders();
+    if (category === 'packages' && packageLoaded) fetchPackageBookings();
+  }, [fetchBookings, category, esimLoaded, packageLoaded, fetchEsimOrders, fetchPackageBookings]);
 
   // ===== Cancel Booking =====
 
@@ -401,8 +581,40 @@ export default function MyBookingsScreen() {
   // ===== Filtered Data =====
 
   const filteredBookings = filterBookings(bookings, activeTab);
+  const filteredEsimOrders = filterEsimOrders(esimOrders, activeTab);
+  const filteredPackageBookings = filterPackageBookings(packageBookings, activeTab);
 
   // ===== Render Functions =====
+
+  const renderCategoryPills = () => (
+    <View style={[styles.categoryRow, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+      {CATEGORIES.map((cat) => {
+        const isActive = category === cat.key;
+        return (
+          <TouchableOpacity
+            key={cat.key}
+            onPress={() => setCategory(cat.key)}
+            activeOpacity={0.7}
+            style={[
+              styles.categoryPill,
+              { backgroundColor: isDarkMode ? themeColors.surfaceElevated : colors.gray[100] },
+              isActive && styles.categoryPillActive,
+            ]}
+          >
+            <Text
+              style={[
+                styles.categoryPillText,
+                { color: themeColors.textSecondary },
+                isActive && styles.categoryPillTextActive,
+              ]}
+            >
+              {cat.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
 
   const renderStatusTabs = () => (
     <ScrollView
@@ -413,9 +625,12 @@ export default function MyBookingsScreen() {
     >
       {STATUS_TABS.map((tab) => {
         const isActive = activeTab === tab.key;
+        // Count within the ACTIVE category, so the badges match the list below.
         const count =
-          tab.key === 'all'
-            ? bookings.length
+          category === 'esim'
+            ? filterEsimOrders(esimOrders, tab.key).length
+            : category === 'packages'
+            ? filterPackageBookings(packageBookings, tab.key).length
             : filterBookings(bookings, tab.key).length;
 
         return (
@@ -610,6 +825,129 @@ export default function MyBookingsScreen() {
     );
   };
 
+  // eSIM order card — flag + destination + status, data/validity chips, price.
+  // Tapping opens /esim/order/[orderId], same as the web card links to.
+  const renderEsimCard = ({ item }: { item: EsimOrder }) => {
+    const destination =
+      item.bundle?.countryName || item.bundle?.name || item.bundle?.country || 'eSIM';
+    const dataText = item.bundle?.isUnlimited
+      ? 'Unlimited'
+      : formatDataAmount(item.bundle?.dataAmountMB);
+    return (
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => router.push(`/esim/order/${item._id}` as any)}
+      >
+        <Card style={styles.bookingCard}>
+          <View style={styles.statusBadgeContainer}>
+            <StatusBadge status={item.status} />
+          </View>
+          <View style={styles.cardBody}>
+            <View style={[styles.esimFlagBox, { backgroundColor: isDarkMode ? themeColors.surfaceElevated : colors.gray[100] }]}>
+              <Text style={styles.esimFlag}>{countryToFlag(item.bundle?.country)}</Text>
+            </View>
+            <View style={styles.cardContent}>
+              <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={1}>
+                {destination}
+              </Text>
+              <Text style={[styles.bookingRef, { color: themeColors.textTertiary }]} numberOfLines={1}>
+                {item.orderReference}
+              </Text>
+              <View style={styles.infoRow}>
+                <Ionicons name="cellular-outline" size={13} color={themeColors.textTertiary} />
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
+                  {dataText}
+                  {item.bundle?.durationDays != null ? ` • ${item.bundle.durationDays} days` : ''}
+                </Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="time-outline" size={13} color={themeColors.textTertiary} />
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
+                  Ordered {formatDate(item.createdAt)}
+                </Text>
+              </View>
+              {item.pricing?.totalPrice != null && (
+                <Text style={[styles.priceText, { color: themeColors.text }]}>
+                  {formatCurrency(item.pricing.totalPrice)}
+                </Text>
+              )}
+            </View>
+          </View>
+        </Card>
+      </TouchableOpacity>
+    );
+  };
+
+  // Holiday-package booking card. Detail route doesn't exist on mobile yet, so
+  // the card is informational (no navigation) — same fields the web card shows.
+  const renderPackageCard = ({ item, index }: { item: PackageBooking; index: number }) => {
+    const title = item.package?.title || item.packageSnapshot?.title || 'Holiday Package';
+    const image = item.package?.images?.[0] || item.packageSnapshot?.coverImage;
+    const destination = item.package?.destination || item.packageSnapshot?.destination;
+    const travellerParts: string[] = [];
+    if (item.travellers?.adults) travellerParts.push(`${item.travellers.adults} Adult${item.travellers.adults > 1 ? 's' : ''}`);
+    if (item.travellers?.children) travellerParts.push(`${item.travellers.children} Child${item.travellers.children > 1 ? 'ren' : ''}`);
+    const total = item.pricing?.total ?? item.totalAmount ?? 0;
+    return (
+      <Card style={styles.bookingCard}>
+        <View style={styles.statusBadgeContainer}>
+          <StatusBadge status={item.status} />
+        </View>
+        <View style={styles.cardBody}>
+          {image ? (
+            <Image source={{ uri: image }} style={styles.activityImage} resizeMode="cover" />
+          ) : (
+            <LinearGradient
+              colors={getGradientForIndex(index) as any}
+              style={styles.activityImage}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="airplane-outline" size={28} color="rgba(255,255,255,0.7)" />
+            </LinearGradient>
+          )}
+          <View style={styles.cardContent}>
+            <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={1}>
+              {title}
+            </Text>
+            {!!item.bookingReference && (
+              <Text style={[styles.bookingRef, { color: themeColors.textTertiary }]} numberOfLines={1}>
+                {item.bookingReference}
+              </Text>
+            )}
+            {!!destination && (
+              <View style={styles.infoRow}>
+                <Ionicons name="location-outline" size={13} color={themeColors.textTertiary} />
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>{destination}</Text>
+              </View>
+            )}
+            {!!item.travelDate && (
+              <View style={styles.infoRow}>
+                <Ionicons name="calendar-outline" size={13} color={themeColors.textTertiary} />
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
+                  {formatDate(item.travelDate)}
+                </Text>
+              </View>
+            )}
+            {travellerParts.length > 0 && (
+              <View style={styles.infoRow}>
+                <Ionicons name="people-outline" size={13} color={themeColors.textTertiary} />
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
+                  {travellerParts.join(', ')}
+                </Text>
+              </View>
+            )}
+            {total > 0 && (
+              <Text style={[styles.priceText, { color: themeColors.text }]}>
+                {formatCurrency(total)}
+              </Text>
+            )}
+          </View>
+        </View>
+      </Card>
+    );
+  };
+
   const renderEmptyState = () => {
     if (isLoading) return null;
 
@@ -633,12 +971,37 @@ export default function MyBookingsScreen() {
     }
 
     const isFiltered = activeTab !== 'all';
+    // Category-specific empty copy + CTA, matching the web's per-section states.
+    const emptyMeta: Record<CategoryKey, { icon: any; title: string; description: string; actionLabel?: string; onAction?: () => void }> = {
+      esim: {
+        icon: 'cellular-outline',
+        title: 'No eSIMs yet',
+        description: 'Stay connected abroad — grab a travel eSIM in minutes.',
+        actionLabel: 'Browse eSIM plans',
+        onAction: () => router.push('/esim' as any),
+      },
+      activities: {
+        icon: 'receipt-outline',
+        title: 'No bookings yet',
+        description: 'Explore activities and book your next adventure!',
+        actionLabel: 'Explore Activities',
+        onAction: () => router.push('/(tabs)/explore' as any),
+      },
+      packages: {
+        icon: 'airplane-outline',
+        title: 'No package bookings yet',
+        description: 'Browse curated holiday packages for your next trip.',
+        actionLabel: 'Browse Packages',
+        onAction: () => router.push('/packages' as any),
+      },
+    };
+    const meta = emptyMeta[category];
     return (
       <EmptyState
         icon={
           <View style={[styles.emptyIcon, { backgroundColor: themeColors.surfaceElevated }]}>
             <Ionicons
-              name={isFiltered ? 'filter-outline' : 'receipt-outline'}
+              name={isFiltered ? 'filter-outline' : meta.icon}
               size={48}
               color={themeColors.textTertiary}
             />
@@ -646,16 +1009,14 @@ export default function MyBookingsScreen() {
         }
         title={
           isFiltered
-            ? `No ${STATUS_TABS.find((t) => t.key === activeTab)?.label?.toLowerCase()} bookings`
-            : 'No bookings yet'
+            ? `No ${STATUS_TABS.find((t) => t.key === activeTab)?.label?.toLowerCase()} ${category === 'esim' ? 'eSIMs' : 'bookings'}`
+            : meta.title
         }
         description={
-          isFiltered
-            ? 'Try selecting a different status filter'
-            : 'Explore activities and book your next adventure!'
+          isFiltered ? 'Try selecting a different status filter' : meta.description
         }
-        actionLabel={isFiltered ? undefined : 'Explore Activities'}
-        onAction={isFiltered ? undefined : () => router.push('/(tabs)/explore' as any)}
+        actionLabel={isFiltered ? undefined : meta.actionLabel}
+        onAction={isFiltered ? undefined : meta.onAction}
       />
     );
   };
@@ -784,12 +1145,64 @@ export default function MyBookingsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
+      {/* Category pills — eSIMs · Activities · Packages, like the web page */}
+      {!isGuest && renderCategoryPills()}
+
       {/* Status Tabs */}
-      {!isLoading && bookings.length > 0 && renderStatusTabs()}
+      {((category === 'activities' && !isLoading && bookings.length > 0) ||
+        (category === 'esim' && esimLoaded && esimOrders.length > 0) ||
+        (category === 'packages' && packageLoaded && packageBookings.length > 0)) &&
+        renderStatusTabs()}
 
       {/* Content */}
-      {isLoading ? (
+      {category === 'activities' && isLoading ? (
         renderSkeletonList()
+      ) : category === 'esim' && (esimLoading || !esimLoaded) && !isGuest ? (
+        renderSkeletonList()
+      ) : category === 'packages' && (packageLoading || !packageLoaded) && !isGuest ? (
+        renderSkeletonList()
+      ) : category === 'esim' ? (
+        <FlatList
+          data={filteredEsimOrders}
+          keyExtractor={(item) => item._id}
+          renderItem={renderEsimCard}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredEsimOrders.length === 0 && styles.listContentEmpty,
+          ]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary[500]}
+              colors={[colors.primary[500]]}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        />
+      ) : category === 'packages' ? (
+        <FlatList
+          data={filteredPackageBookings}
+          keyExtractor={(item) => item._id}
+          renderItem={renderPackageCard}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredPackageBookings.length === 0 && styles.listContentEmpty,
+          ]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary[500]}
+              colors={[colors.primary[500]]}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        />
       ) : (
         <FlatList
           data={filteredBookings}
@@ -854,6 +1267,31 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     width: 36,
+  },
+
+  // Category pills (eSIMs · Activities · Packages)
+  categoryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+  },
+  categoryPill: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+    borderRadius: borderRadius.full,
+  },
+  categoryPillActive: {
+    backgroundColor: colors.primary[500],
+  },
+  categoryPillText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+  },
+  categoryPillTextActive: {
+    color: colors.textInverse,
   },
 
   // Status Tabs
@@ -947,6 +1385,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.md,
     paddingRight: spacing['2xl'],
+  },
+  // eSIM card — flag emoji stands in for the activity photo.
+  esimFlagBox: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  esimFlag: {
+    fontSize: 40,
   },
   activityTitle: {
     fontSize: fontSize.md,

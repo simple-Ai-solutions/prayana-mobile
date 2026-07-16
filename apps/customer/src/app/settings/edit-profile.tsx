@@ -26,8 +26,9 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
-import { updateUserProfile } from '@prayana/shared-services';
+import { fetchUserProfile, updateUserProfile } from '@prayana/shared-services';
 import Toast from 'react-native-toast-message';
+import { DateField } from '../../components/common/DateField';
 
 // ============================================================
 // FORM FIELD COMPONENT
@@ -109,18 +110,26 @@ function FormField({
   );
 }
 
+// Gender options, same set the web profile offers.
+const GENDER_OPTIONS = ['Male', 'Female', 'Other', 'Prefer not to say'] as const;
+
 // ============================================================
 // EDIT PROFILE SCREEN
 // ============================================================
 export default function EditProfileScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
 
   // --- State ---
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  // personalInfo — the web profile's Personal Info section (gender / DOB /
+  // location); stored under user.personalInfo on the backend.
+  const [gender, setGender] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState(''); // ISO "YYYY-MM-DD"
+  const [location, setLocation] = useState('');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hasChanges, setHasChanges] = useState(false);
@@ -129,23 +138,49 @@ export default function EditProfileScreen() {
   const [initialValues, setInitialValues] = useState({
     displayName: '',
     phone: '',
+    gender: '',
+    dateOfBirth: '',
+    location: '',
   });
 
   // ============================================================
   // LOAD USER DATA
   // ============================================================
+  // Seed instantly from Firebase, then hydrate from the backend profile —
+  // Firebase knows nothing about phone (when set via profile), gender, DOB or
+  // location, which all live in Mongo. Same source the web profile reads.
   useEffect(() => {
     if (user) {
-      const name = user.displayName || '';
-      const mail = user.email || '';
-      const ph = user.phoneNumber || '';
-
-      setDisplayName(name);
-      setEmail(mail);
-      setPhone(ph);
-      setInitialValues({ displayName: name, phone: ph });
+      setDisplayName((prev) => prev || user.displayName || '');
+      setEmail((prev) => prev || user.email || '');
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!user?.uid || user.uid === 'guest-user') return;
+    (async () => {
+      try {
+        const res: any = await fetchUserProfile();
+        const p = res?.data?.profile || res?.data || {};
+        const name = p.name || user.displayName || '';
+        const ph = p.phone || '';
+        const g = p.personalInfo?.gender || '';
+        const dob = p.personalInfo?.dateOfBirth
+          ? new Date(p.personalInfo.dateOfBirth).toISOString().split('T')[0]
+          : '';
+        const loc = p.personalInfo?.location || '';
+        setDisplayName(name);
+        if (p.email) setEmail(p.email);
+        setPhone(ph);
+        setGender(g);
+        setDateOfBirth(dob);
+        setLocation(loc);
+        setInitialValues({ displayName: name, phone: ph, gender: g, dateOfBirth: dob, location: loc });
+      } catch {
+        // Backend unreachable — the Firebase-seeded values still let the user edit.
+      }
+    })();
+  }, [user?.uid]);
 
   // ============================================================
   // TRACK CHANGES
@@ -153,9 +188,12 @@ export default function EditProfileScreen() {
   useEffect(() => {
     const changed =
       displayName !== initialValues.displayName ||
-      phone !== initialValues.phone;
+      phone !== initialValues.phone ||
+      gender !== initialValues.gender ||
+      dateOfBirth !== initialValues.dateOfBirth ||
+      location !== initialValues.location;
     setHasChanges(changed);
-  }, [displayName, phone, initialValues]);
+  }, [displayName, phone, gender, dateOfBirth, location, initialValues]);
 
   // ============================================================
   // VALIDATE
@@ -201,14 +239,26 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
+      // Server contract is PUT /auth/profile with { name, phone, personalInfo }
+      // (routes/auth.js). The old payload sent { displayName, phoneNumber },
+      // which the server ignores entirely → 400 NO_UPDATE_DATA: every save
+      // from mobile silently failed. Field names now match the web client.
       await updateUserProfile({
-        displayName: displayName.trim(),
-        phoneNumber: phone.trim() || undefined,
+        name: displayName.trim(),
+        phone: phone.trim() || undefined,
+        personalInfo: {
+          gender: gender || null,
+          dateOfBirth: dateOfBirth || null,
+          location: location.trim() || null,
+        },
       });
 
       setInitialValues({
         displayName: displayName.trim(),
         phone: phone.trim(),
+        gender,
+        dateOfBirth,
+        location: location.trim(),
       });
       setHasChanges(false);
 
@@ -319,6 +369,66 @@ export default function EditProfileScreen() {
           />
         </Card>
 
+        {/* ====== PERSONAL INFO (gender / DOB / location — same as web) ====== */}
+        <Card style={[styles.formCard, { backgroundColor: themeColors.card }]}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Personal Info</Text>
+
+          <View style={styles.fieldContainer}>
+            <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Gender</Text>
+            <View style={styles.genderRow}>
+              {GENDER_OPTIONS.map((opt) => {
+                const selected = gender === opt;
+                return (
+                  <TouchableOpacity
+                    key={opt}
+                    onPress={() => setGender(selected ? '' : opt)}
+                    activeOpacity={0.7}
+                    style={[
+                      styles.genderChip,
+                      {
+                        backgroundColor: selected
+                          ? colors.primary[500]
+                          : themeColors.inputBackground,
+                        borderColor: selected ? colors.primary[500] : themeColors.border,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.genderChipText,
+                        { color: selected ? '#ffffff' : themeColors.textSecondary },
+                      ]}
+                    >
+                      {opt}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.fieldContainer}>
+            <DateField
+              label="Date of Birth"
+              value={dateOfBirth}
+              onChange={setDateOfBirth}
+              placeholder="Select your date of birth"
+              maximumDate={new Date()}
+            />
+          </View>
+
+          <FormField
+            label="Location"
+            icon="location-outline"
+            value={location}
+            onChangeText={setLocation}
+            placeholder="City, Country"
+            autoCapitalize="words"
+            maxLength={100}
+            helperText="Where you're based — helps us tailor suggestions."
+          />
+        </Card>
+
         {/* ====== SAVE BUTTON ====== */}
         <View style={styles.saveSection}>
           <TouchableOpacity
@@ -405,6 +515,28 @@ const styles = StyleSheet.create({
   formCard: {
     marginHorizontal: spacing.xl,
     marginBottom: spacing.xl,
+  },
+  sectionTitle: {
+    fontSize: fontSize.md,
+    fontWeight: fontWeight.bold,
+    marginBottom: spacing.lg,
+  },
+
+  // --- Gender chips ---
+  genderRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  genderChip: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1.5,
+  },
+  genderChipText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
   },
 
   // --- Form Field ---

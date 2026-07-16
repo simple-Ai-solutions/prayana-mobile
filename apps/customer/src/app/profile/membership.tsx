@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
+import { fetchUserProfile } from '@prayana/shared-services';
 
 const BENEFITS = [
   { icon: 'headset-outline', text: 'Priority customer support', color: '#2EC4B6' },
@@ -32,9 +33,25 @@ export default function MembershipScreen() {
   const router = useRouter();
   const { isDarkMode, themeColors } = useTheme();
 
-  // Mock data — replace with real backend data
-  const loyaltyPoints = 1250;
-  const tier = 'Premium';
+  // Real membership data from the backend profile — the web profile reads
+  // profile.membership.tier + loyaltyPoints, and values points at ×0.5 ₹.
+  // (This screen previously hardcoded 1250 pts / "Premium" for everyone.)
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [tier, setTier] = useState('Bronze');
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res: any = await fetchUserProfile();
+        const p = res?.data?.profile || res?.data || {};
+        setLoyaltyPoints(p.membership?.loyaltyPoints ?? 0);
+        setTier(p.membership?.tier || 'Bronze');
+      } catch {
+        // Not signed in / offline — keep the zero-state defaults.
+      }
+    })();
+  }, []);
+
   const pointsValue = Math.floor(loyaltyPoints * 0.5);
 
   return (

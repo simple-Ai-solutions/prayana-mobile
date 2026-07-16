@@ -2,7 +2,21 @@ import React from 'react';
 import { Badge } from './Badge';
 import { ViewStyle } from 'react-native';
 
-type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show' | 'refunded';
+type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show'
+  | 'refunded'
+  // eSIM order statuses (server/models/EsimOrder.js) — without these the badge
+  // fell back to printing the raw enum, e.g. "pending_payment".
+  | 'pending_payment'
+  | 'pending_kyc'
+  | 'pending_validation'
+  | 'processing'
+  | 'active'
+  | 'failed';
 
 const statusConfig: Record<BookingStatus, { label: string; variant: 'default' | 'primary' | 'success' | 'warning' | 'error' | 'info' }> = {
   pending: { label: 'Pending', variant: 'warning' },
@@ -11,6 +25,12 @@ const statusConfig: Record<BookingStatus, { label: string; variant: 'default' | 
   cancelled: { label: 'Cancelled', variant: 'error' },
   no_show: { label: 'No Show', variant: 'error' },
   refunded: { label: 'Refunded', variant: 'default' },
+  pending_payment: { label: 'Payment Pending', variant: 'warning' },
+  pending_kyc: { label: 'KYC Pending', variant: 'warning' },
+  pending_validation: { label: 'Validating', variant: 'warning' },
+  processing: { label: 'Processing', variant: 'info' },
+  active: { label: 'Active', variant: 'success' },
+  failed: { label: 'Failed', variant: 'error' },
 };
 
 interface StatusBadgeProps {
