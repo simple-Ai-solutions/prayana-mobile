@@ -72,6 +72,11 @@ export const DateField: React.FC<Props> = ({
       value={draft}
       mode="date"
       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+      // The iOS spinner colours its digits from the SYSTEM appearance, not the
+      // app's. With the phone in dark mode the wheel drew white digits on this
+      // sheet's white background — an invisible picker ("I am not able to see
+      // date"). Pin the variant to whatever the sheet actually is.
+      themeVariant={isDarkMode ? 'dark' : 'light'}
       minimumDate={minimumDate}
       maximumDate={maximumDate}
       onChange={(event, picked) => {
