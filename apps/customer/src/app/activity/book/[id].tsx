@@ -39,6 +39,11 @@ import {
   toPaise,
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
+import {
+  LegalAcceptanceBlock,
+  isAcceptanceComplete,
+} from '../../../components/common/LegalAcceptanceBlock';
+import { AcceptedLegalDoc } from '../../../lib/legalRegistry';
 import { ENV } from '../../../config/env';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -99,7 +104,7 @@ function Counter({
   max: number;
   onChange: (v: number) => void;
 }) {
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
   return (
     <View style={[counterStyles.row, { borderBottomColor: themeColors.border }]}>
       <View style={{ flex: 1 }}>
@@ -196,7 +201,7 @@ function SelectableCard({
   onPress: () => void;
   children: React.ReactNode;
 }) {
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
   return (
     <TouchableOpacity
       activeOpacity={disabled ? 1 : 0.7}
@@ -258,7 +263,7 @@ function BreakdownRow({
   isTotal?: boolean;
   isDiscount?: boolean;
 }) {
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
   return (
     <View style={breakdownStyles.row}>
       <Text
@@ -321,7 +326,7 @@ const breakdownStyles = StyleSheet.create({
 // ===========================================================================
 
 export default function BookingFlowScreen() {
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
   const { id: activityId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
@@ -362,6 +367,12 @@ export default function BookingFlowScreen() {
   // Step 4: Payment & Confirmation
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [bookingRef, setBookingRef] = useState<string | null>(null);
+  // Versioned legal acceptances — the server rejects a booking without the
+  // full required set ("Required legal acceptances are missing"). Mobile never
+  // sent these, so every activity booking 400'd before payment.
+  const [acceptedLegalDocs, setAcceptedLegalDocs] = useState<AcceptedLegalDoc[]>([]);
+  // Pickup point, required by the server whenever the listing defines any.
+  const [boardingPointId, setBoardingPointId] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'online' | 'venue'>('online');
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [bookingComplete, setBookingComplete] = useState(false);
@@ -573,7 +584,17 @@ export default function BookingFlowScreen() {
     return true;
   };
 
+  const boardingPoints: any[] = (activity as any)?.boardingPoints ?? [];
+
   const handleCreateBooking = async () => {
+    if (boardingPoints.length > 0 && !boardingPointId) {
+      Toast.show({
+        type: 'error',
+        text1: 'Choose a boarding point',
+        text2: 'Pick where you will board — it is on the Options step.',
+      });
+      return;
+    }
     if (!validateStep3()) return;
     setBookingLoading(true);
 
@@ -595,6 +616,9 @@ export default function BookingFlowScreen() {
         customerEmail: email.trim(),
         customerPhone: phone.trim(),
         specialRequests: specialRequests.trim() || undefined,
+        acceptedLegalDocs,
+        // Server: "Please choose a boarding point." when the listing has them.
+        boardingPointId: boardingPointId || undefined,
       };
 
       const res = await bookingAPI.createBooking(payload);
@@ -804,6 +828,11 @@ export default function BookingFlowScreen() {
             value={selectedDate}
             mode="date"
             display={Platform.OS === 'ios' ? 'inline' : 'default'}
+            // The iOS calendar colours its digits from the SYSTEM appearance,
+            // not the app's — in dark mode it drew white day numbers on this
+            // white card, leaving only "today" visible. Same defect as the eSIM
+            // date wheel; pin the variant to the surface it sits on.
+            themeVariant={isDarkMode ? 'dark' : 'light'}
             minimumDate={TOMORROW}
             onChange={onDateChange}
             style={Platform.OS === 'ios' ? { height: 320 } : undefined}
@@ -961,6 +990,36 @@ export default function BookingFlowScreen() {
         </View>
       )}
 
+      {/* Boarding point — REQUIRED by the server when the listing has pickup
+          points ("Please choose a boarding point."). Mobile never collected
+          one, so bookings on treks with pickups were rejected outright. */}
+      {boardingPoints.length > 0 && (
+        <View style={{ marginBottom: spacing.xl }}>
+          <Text style={[styles.fieldLabel, { color: themeColors.text, marginBottom: spacing.sm }]}>
+            Boarding point
+          </Text>
+          {boardingPoints.map((bp: any) => (
+            <SelectableCard
+              key={bp._id}
+              selected={boardingPointId === bp._id}
+              onPress={() => setBoardingPointId(bp._id)}
+            >
+              <Text style={[styles.fieldLabel, { color: themeColors.text }]}>{bp.name}</Text>
+              {!!bp.address && (
+                <Text style={[styles.emptyText, { color: themeColors.textTertiary, textAlign: 'left', marginTop: 2 }]} numberOfLines={2}>
+                  {String(bp.address).trim()}
+                </Text>
+              )}
+              {!!bp.pickupTime && (
+                <Text style={[styles.emptyText, { color: colors.primary[500], textAlign: 'left', marginTop: 2 }]}>
+                  Pickup {formatTime(bp.pickupTime)}
+                </Text>
+              )}
+            </SelectableCard>
+          ))}
+        </View>
+      )}
+
       {/* Price Preview */}
       <Card bordered style={{ marginBottom: spacing.lg, backgroundColor: themeColors.card, borderColor: themeColors.border }}>
         <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Price Estimate</Text>
@@ -1095,12 +1154,26 @@ export default function BookingFlowScreen() {
           </View>
         </Card>
 
+        {/* Versioned legal acceptance — the server requires the full set for
+            booking:activity or the create call is rejected with 400. */}
+        <LegalAcceptanceBlock
+          vertical="activity"
+          waiverRequired={!!(activity as any)?.safetyDeclarations?.requiresWaiver}
+          value={acceptedLegalDocs}
+          onChange={setAcceptedLegalDocs}
+        />
+
         <View style={styles.stepFooter}>
           <Button
             title="Create Booking"
             onPress={handleCreateBooking}
             loading={bookingLoading}
-            disabled={bookingLoading}
+            disabled={
+              bookingLoading ||
+              !isAcceptanceComplete(acceptedLegalDocs, 'activity', {
+                waiverRequired: !!(activity as any)?.safetyDeclarations?.requiresWaiver,
+              })
+            }
             size="lg"
             fullWidth
           />
