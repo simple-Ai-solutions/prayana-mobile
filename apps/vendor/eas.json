@@ -60,7 +60,7 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "REPLACE_WITH_ASC_APP_ID_VENDOR",
+        "ascAppId": "6791665162",
         "ascApiKeyPath": "../../keystores/AuthKey_TZNR3J9LGC.p8",
         "ascApiKeyId": "TZNR3J9LGC",
         "ascApiKeyIssuerId": "f23038f7-4b3d-4eb3-b45b-d13e18ad8858"
