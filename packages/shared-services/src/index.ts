@@ -192,3 +192,6 @@ export { vehicleAPI } from './api/vehicleAPI';
 
 // Drivers (vendor management)
 export { driverAPI } from './api/driverAPI';
+
+// Refer & Earn
+export { referralAPI } from './api/referralAPI';

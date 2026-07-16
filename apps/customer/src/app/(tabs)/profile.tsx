@@ -328,6 +328,14 @@ export default function ProfileScreen() {
           iconColor: '#f97316',
           iconBg: '#fff7ed',
         },
+        {
+          label: 'Refer & Earn',
+          subtitle: 'Invite friends — you both earn credits',
+          icon: 'gift-outline',
+          route: '/profile/refer',
+          iconColor: '#059669',
+          iconBg: '#ecfdf5',
+        },
       ],
     },
     {
