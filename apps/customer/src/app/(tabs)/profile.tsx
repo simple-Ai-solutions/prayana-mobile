@@ -308,6 +308,17 @@ export default function ProfileScreen() {
           iconBg: '#ecfdf5',
         },
         {
+          // Activities, eSIMs and holiday packages — previously the bookings
+          // screen was only reachable right after checkout, so purchases
+          // "disappeared" from the app.
+          label: 'My Bookings',
+          subtitle: 'Activities, eSIMs & holiday packages',
+          icon: 'receipt-outline',
+          route: '/bookings',
+          iconColor: '#0ea5e9',
+          iconBg: '#f0f9ff',
+        },
+        {
           label: 'My Favorites',
           subtitle: 'Saved destinations & places',
           icon: 'heart-outline',
