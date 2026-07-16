@@ -35,8 +35,13 @@ import {
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
-import { EsimBundle, coverageLabel, dataLabelFor } from '../../../lib/esim';
+import { EsimBundle, capabilityFor, coverageLabel, dataLabelFor } from '../../../lib/esim';
 import { DateField } from '../../../components/common/DateField';
+
+/** "Data only" / "Data + calls" etc. — the plan's real capability. */
+function capabilityLabel(b: EsimBundle): string {
+  return capabilityFor(b).label;
+}
 
 // Date bounds, mirroring the web checkout's <input type="date"> limits.
 const TODAY = new Date();
@@ -65,7 +70,12 @@ function parseISODate(iso: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-type CheckoutStep = 'contact' | 'kyc' | 'pay';
+// Flow matches the web exactly:
+//   Standard: Review Plan -> Contact Details -> Payment
+//   Matrix:   Review Plan -> Contact Details -> Travel & Passport -> Payment
+// The old flow started at Contact and put KYC SECOND (before contact was even
+// confirmed), with no Review step — which is what the user reported seeing.
+type CheckoutStep = 'review' | 'contact' | 'travel' | 'pay';
 
 // The REAL bundle shape (GET /esim/bundles/:name, and data.bundles[] in the
 // catalogue). The previous type here described the old mock data — `bundleName`,
@@ -86,7 +96,7 @@ export default function ESimCheckoutScreen() {
   const { user } = useAuth();
   const { themeColors } = useTheme();
 
-  const [step, setStep] = useState<CheckoutStep>('contact');
+  const [step, setStep] = useState<CheckoutStep>('review');
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -268,15 +278,27 @@ export default function ESimCheckoutScreen() {
   };
 
   const handleNext = () => {
-    if (step === 'contact') {
+    if (step === 'review') {
+      Haptics.selectionAsync();
+      setStep('contact');
+    } else if (step === 'contact') {
       if (!validateContact()) return;
       Haptics.selectionAsync();
-      setStep(requiresMatrixKyc ? 'kyc' : 'pay');
-    } else if (step === 'kyc') {
+      // Travel & Passport only exists for Matrix plans; standard plans skip
+      // straight to payment.
+      setStep(requiresMatrixKyc ? 'travel' : 'pay');
+    } else if (step === 'travel') {
       if (!validateKyc()) return;
       Haptics.selectionAsync();
       setStep('pay');
     }
+  };
+
+  const handleBack = () => {
+    if (step === 'contact') return setStep('review');
+    if (step === 'travel') return setStep('contact');
+    if (step === 'pay') return setStep(requiresMatrixKyc ? 'travel' : 'contact');
+    router.back();
   };
 
   const handlePay = async () => {
@@ -475,17 +497,20 @@ export default function ESimCheckoutScreen() {
     );
   }
 
-  const stepIndex = step === 'contact' ? 0 : step === 'kyc' ? 1 : requiresMatrixKyc ? 2 : 1;
-  const totalSteps = requiresMatrixKyc ? 3 : 2;
+  // Labels + index match the web's STEPS_MATRIX / STEPS_STANDARD.
   const stepLabels = requiresMatrixKyc
-    ? ['Contact', 'KYC', 'Pay']
-    : ['Contact', 'Pay'];
+    ? ['Review', 'Contact', 'Travel', 'Payment']
+    : ['Review', 'Contact', 'Payment'];
+  const stepOrder: CheckoutStep[] = requiresMatrixKyc
+    ? ['review', 'contact', 'travel', 'pay']
+    : ['review', 'contact', 'pay'];
+  const stepIndex = Math.max(0, stepOrder.indexOf(step));
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.backgroundSecondary }]} edges={['top']}>
       {/* Top bar */}
       <View style={[styles.topBar, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={handleBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={26} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Checkout</Text>
@@ -529,6 +554,57 @@ export default function ESimCheckoutScreen() {
               </View>
             </View>
           </Card>
+
+          {/* ─── STEP 1: REVIEW PLAN ─── */}
+          {step === 'review' && (
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Plan details</Text>
+
+              <View style={styles.reviewRows}>
+                <ReviewRow label="Coverage" value={coverageLabel(bundle)} />
+                <ReviewRow label="Data" value={dataLabelFor(bundle)} />
+                <ReviewRow label="Validity" value={`${bundle.durationDays} days`} />
+                <ReviewRow
+                  label="Plan type"
+                  value={capabilityLabel(bundle)}
+                />
+                <ReviewRow
+                  label="Activation"
+                  value="Starts when the eSIM connects to a supported network"
+                />
+                {requiresMatrixKyc && (
+                  <ReviewRow label="KYC" value="Passport required before activation" />
+                )}
+              </View>
+
+              {/* Free VIP bundle — a real server-granted perk on plans >= ₹500. */}
+              {(bundle.sellingPrice ?? 0) >= 500 && (
+                <View style={styles.bonusBox}>
+                  <View style={styles.bonusHead}>
+                    <View style={styles.freePill}>
+                      <Text style={styles.freePillText}>FREE</Text>
+                    </View>
+                    <Text style={[styles.bonusHeadText, { color: themeColors.text }]}>
+                      INCLUDED WITH THIS eSIM
+                    </Text>
+                  </View>
+                  <View style={styles.bonusRow}>
+                    <Ionicons name="ribbon-outline" size={15} color={themeColors.text} />
+                    <Text style={[styles.bonusItem, { color: themeColors.text }]}>1 Month VIP</Text>
+                    <View style={styles.worthChip}>
+                      <Text style={styles.worthText}>worth ₹999</Text>
+                    </View>
+                  </View>
+                  <View style={styles.bonusRow}>
+                    <Ionicons name="wallet-outline" size={15} color={themeColors.text} />
+                    <Text style={[styles.bonusItem, { color: themeColors.text }]}>
+                      +50 Planner Credits
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
 
           {step === 'contact' && (
             <View style={styles.section}>
@@ -610,7 +686,7 @@ export default function ESimCheckoutScreen() {
             </View>
           )}
 
-          {step === 'kyc' && (
+          {step === 'travel' && (
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Identity & address</Text>
               <Text style={[styles.sectionHint, { color: themeColors.textTertiary }]}>
@@ -701,7 +777,17 @@ export default function ESimCheckoutScreen() {
 
         <View style={[styles.footer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
           <Button
-            title={step === 'pay' ? `Pay ₹${(bundle.sellingPrice || 0).toLocaleString('en-IN')}` : 'Continue'}
+            title={
+              step === 'pay'
+                ? `Pay ₹${(bundle.sellingPrice || 0).toLocaleString('en-IN')}`
+                : step === 'review'
+                  ? 'Continue'
+                  : step === 'contact'
+                    ? requiresMatrixKyc
+                      ? 'Continue to Travel Details'
+                      : 'Continue to Payment'
+                    : 'Continue to Payment'
+            }
             onPress={step === 'pay' ? handlePay : handleNext}
             variant="primary"
             size="lg"
@@ -783,6 +869,27 @@ const styles = StyleSheet.create({
   // eSIM is a brand-red surface (the logo's secondary), not the app's orange.
   summaryPriceValue: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: '#E61417' },
   section: { marginTop: spacing.xl, gap: spacing.md },
+
+  // Review Plan step
+  reviewRows: { gap: 0 },
+  bonusBox: {
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(230,20,23,0.16)',
+    backgroundColor: 'rgba(230,20,23,0.05)',
+    gap: spacing.sm,
+  },
+  bonusHead: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  freePill: { backgroundColor: '#E61417', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4 },
+  freePillText: { color: '#FFFFFF', fontSize: 9, fontWeight: fontWeight.bold, letterSpacing: 0.8 },
+  bonusHeadText: { fontSize: 9, fontWeight: fontWeight.bold, letterSpacing: 0.6 },
+  bonusRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  bonusItem: { flexShrink: 1, fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+  worthChip: { backgroundColor: 'rgba(230,20,23,0.10)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
+  worthText: { fontSize: 9, fontWeight: fontWeight.bold, color: '#E61417' },
+
   sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
   sectionHint: { fontSize: fontSize.sm, color: colors.textTertiary, lineHeight: 20 },
   row2: { flexDirection: 'row', alignItems: 'flex-end' },
