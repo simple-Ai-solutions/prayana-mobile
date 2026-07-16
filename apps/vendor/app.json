@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "scheme": "prayanabiz",
-    "owner": "prayanaai",
+    "owner": "srikanthvaijapur",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -32,10 +32,16 @@
         "NSCameraUsageDescription": "Take photos of your activities, listings, and KYC documents.",
         "NSPhotoLibraryUsageDescription": "Upload activity images and business documents from your library.",
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationQueriesSchemes": ["tel", "mailto", "whatsapp"],
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "mailto",
+          "whatsapp"
+        ],
         "CFBundleURLTypes": [
           {
-            "CFBundleURLSchemes": ["prayanabiz"]
+            "CFBundleURLSchemes": [
+              "prayanabiz"
+            ]
           },
           {
             "CFBundleURLSchemes": [
@@ -54,9 +60,10 @@
       "versionCode": 1,
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "CAMERA",
-        "POST_NOTIFICATIONS",
-        "VIBRATE"
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO"
       ],
       "blockedPermissions": [
         "ACCESS_BACKGROUND_LOCATION",
@@ -67,15 +74,27 @@
         {
           "action": "VIEW",
           "data": [
-            { "scheme": "https", "host": "business.prayanaai.com", "pathPrefix": "/app" }
+            {
+              "scheme": "https",
+              "host": "business.prayanaai.com",
+              "pathPrefix": "/app"
+            }
           ],
-          "category": ["BROWSABLE", "DEFAULT"],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ],
           "autoVerify": true
         }
       ]
     },
     "plugins": [
-      ["expo-router", { "root": "./src/app" }],
+      [
+        "expo-router",
+        {
+          "root": "./src/app"
+        }
+      ],
       "expo-secure-store",
       "expo-image-picker",
       "expo-document-picker",
@@ -83,10 +102,11 @@
     ],
     "extra": {
       "router": {
-        "origin": false
+        "origin": false,
+        "root": "./src/app"
       },
       "eas": {
-        "projectId": "REPLACE_WITH_VENDOR_EAS_PROJECT_ID"
+        "projectId": "7443b2d6-fa3b-4d9a-b53d-b7439adcc50d"
       }
     }
   }
