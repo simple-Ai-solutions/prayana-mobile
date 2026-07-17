@@ -332,7 +332,9 @@ export default function PackagesScreen() {
         </Card>
       )}
 
-      {/* Search */}
+      {/* Search + filters — hidden until there's a package, matching Activities */}
+      {packages.length > 0 && (
+      <>
       <View
         style={[
           styles.searchBar,
@@ -414,6 +416,8 @@ export default function PackagesScreen() {
           );
         })}
       </ScrollView>
+      </>
+      )}
     </View>
   );
 
@@ -531,7 +535,12 @@ export default function PackagesScreen() {
           <Ionicons name="chevron-back" size={26} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Packages</Text>
-        <View style={{ width: 26 }} />
+        <TouchableOpacity
+          onPress={() => router.push('/packages/bookings')}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Ionicons name="calendar-outline" size={24} color={themeColors.text} />
+        </TouchableOpacity>
       </View>
 
       {loading ? (
@@ -548,15 +557,28 @@ export default function PackagesScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
-              <EmptyState
-                icon={<Ionicons name="cube-outline" size={56} color={colors.gray[300]} />}
-                title={search || filter !== 'all' ? 'No matching packages' : 'No packages yet'}
-                description={
-                  search || filter !== 'all'
-                    ? 'Try a different search or filter.'
-                    : 'Create your first holiday package to start selling.'
-                }
-              />
+              {packages.length === 0 ? (
+                // First-run empty state — mirrors Activities ("No activities yet")
+                // so all three listing types read as one family.
+                <EmptyState
+                  icon={<Ionicons name="cube-outline" size={44} color={colors.primary[500]} />}
+                  title="No packages yet"
+                  description="Create your first holiday package to start receiving bookings from travelers."
+                  actionLabel="Create First Package"
+                  onAction={() => router.push('/packages/new')}
+                />
+              ) : (
+                <EmptyState
+                  icon={<Ionicons name="search-outline" size={44} color={colors.primary[500]} />}
+                  title="No matching packages"
+                  description="Try a different search or filter."
+                  actionLabel="Clear filters"
+                  onAction={() => {
+                    setSearch('');
+                    setFilter('all');
+                  }}
+                />
+              )}
             </View>
           }
         />

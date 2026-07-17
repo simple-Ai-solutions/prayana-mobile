@@ -164,7 +164,11 @@ export default function TabLayout() {
     );
 
   return (
+    // Dashboard is declared 3rd so it sits in the center slot of the bar
+    // (Orders · Listings · Dashboard · Calendar · More), but it stays the
+    // landing tab — initialRouteName wins over declaration order.
     <Tabs
+      initialRouteName="index"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: ACTIVE_COLOR,
@@ -174,9 +178,13 @@ export default function TabLayout() {
               backgroundColor: themeColors.tabBar,
               borderTopColor: themeColors.tabBarBorder,
               borderTopWidth: 1,
+              // Equal padding above and below the icon+label cluster (~42pt)
+              // so it sits vertically centered in the 85pt bar instead of
+              // hugging the top border; the labels still clear the iPhone
+              // home-indicator pill at the very bottom.
               height: 85,
-              paddingBottom: 30,
-              paddingTop: 8,
+              paddingTop: 20,
+              paddingBottom: 20,
             }
           : { display: 'none' },
         tabBarLabelStyle: {
@@ -186,16 +194,16 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{ title: 'Dashboard', tabBarIcon: renderIcon(DashboardIcon) }}
-      />
-      <Tabs.Screen
         name="orders"
         options={{ title: 'Orders', tabBarIcon: renderIcon(OrdersIcon) }}
       />
       <Tabs.Screen
         name="activities"
         options={{ title: 'Listings', tabBarIcon: renderIcon(ActivitiesIcon) }}
+      />
+      <Tabs.Screen
+        name="index"
+        options={{ title: 'Dashboard', tabBarIcon: renderIcon(DashboardIcon) }}
       />
       <Tabs.Screen
         name="calendar"

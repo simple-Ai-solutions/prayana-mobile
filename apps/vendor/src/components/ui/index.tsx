@@ -93,7 +93,12 @@ export {
   SearchBar,
   Stepper,
   EmptyState,
-  PrayanaLogo,
   useTheme,
   ThemeProvider,
 } from '@prayana/shared-ui';
+
+// Vendor-exclusive brand mark (pin-"P" + teal comet, from assets/Final.svg) —
+// this logo is for the vendor mobile app ONLY. It intentionally shadows the
+// shared-ui PrayanaLogo (paper-plane swoosh) that the customer app keeps using,
+// so do NOT move it into @prayana/shared-ui or import it from the customer app.
+export { PrayanaLogo } from './PrayanaLogo';

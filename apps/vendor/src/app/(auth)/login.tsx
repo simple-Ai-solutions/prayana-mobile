@@ -18,9 +18,9 @@ import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
 import { makeRedirectUri } from 'expo-auth-session';
 import { useAuth } from '@prayana/shared-hooks';
-import { useTheme, PrayanaLogo } from '@prayana/shared-ui';
+import { useTheme } from '@prayana/shared-ui';
 import { colors } from '../../theme/vendorColors';
-import { Card } from '../../components/ui';
+import { Card, PrayanaLogo } from '../../components/ui';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,

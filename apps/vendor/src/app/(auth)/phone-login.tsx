@@ -18,6 +18,7 @@ import { signInWithCustomToken } from 'firebase/auth';
 import { useAuth } from '@prayana/shared-hooks';
 import { useTheme } from '@prayana/shared-ui';
 import { colors } from '../../theme/vendorColors';
+import { PrayanaLogo } from '../../components/ui';
 import {
   sendPhoneOtp,
   verifyPhoneOtp,
@@ -215,7 +216,10 @@ export default function PhoneLoginScreen() {
             >
               <Ionicons name="chevron-back" size={26} color={themeColors.text} />
             </TouchableOpacity>
-            <Text style={styles.brandLabel}>Prayana Business</Text>
+            <View style={styles.brandBadge}>
+              <PrayanaLogo size={30} />
+            </View>
+            <Text style={styles.brandLabel}>Partners Hub</Text>
             <Text style={[styles.headerTitle, { color: themeColors.text }]}>
               {step === 'phone' ? 'Phone Sign In' : 'Verify OTP'}
             </Text>
@@ -350,6 +354,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 4,
     marginBottom: 24,
+  },
+  brandBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 15,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   brandLabel: {
     fontSize: 13,

@@ -780,7 +780,7 @@ export default function SettingsScreen() {
               <View style={styles.menuDivider} />
               <MenuItem
                 icon="information-circle-outline"
-                label="About Prayana Business"
+                label="About Partners Hub"
                 subtitle="Version 1.0.0"
               />
               <View style={styles.menuDivider} />

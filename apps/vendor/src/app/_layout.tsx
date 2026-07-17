@@ -8,13 +8,14 @@ import Toast from 'react-native-toast-message';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@prayana/shared-hooks';
 import { ThemeProvider, useTheme } from '@prayana/shared-ui';
+import useBusinessStore from '@prayana/shared-stores/src/useBusinessStore';
 import { colors as vendorColors } from '../theme/vendorColors';
 import { setBaseURL } from '@prayana/shared-services';
 import { ENV } from '../config/env';
 import { queryClient } from '../lib/queryClient';
 import { initSentry, setSentryUser } from '../lib/sentry';
 import { resolveDeepLink } from '../lib/deepLinks';
-import { DEV_BYPASS_AUTH } from '../config/devFlags';
+import { DEV_BYPASS_AUTH, DEV_BYPASS_ONBOARDING } from '../config/devFlags';
 
 // Suppress the on-screen LogBox overlay (dev-only, pinned at the bottom).
 // User-facing errors are surfaced via top toasts; the bottom LogBox is just
@@ -41,8 +42,24 @@ const DEV_FAKE_USER = {
   emailVerified: true,
 } as any;
 
+// Minimal business shape the dashboard/tabs read — enough to treat the vendor as
+// fully onboarded (verified, payout on file) so the tab bar shows and no setup
+// nudges fire. Only used when DEV_BYPASS_ONBOARDING is on.
+const DEV_FAKE_BUSINESS = {
+  _id: 'dev-bypass-business',
+  businessName: 'Dev Test Business',
+  accountType: 'company',
+  verificationStatus: 'approved',
+  location: { city: 'Bengaluru', state: 'Karnataka', country: 'India' },
+  contact: { email: 'dev@local.test', phone: '' },
+  stats: { averageRating: 4.8, totalReviews: 12 },
+  payoutDetails: { method: 'upi' },
+} as any;
+
 function AuthGuard() {
   const { isAuthenticated, isLoading, user, setUser, setIsAuthenticated } = useAuth();
+  const businessAccount = useBusinessStore((s) => s.businessAccount);
+  const setBusinessAccount = useBusinessStore((s) => s.setBusinessAccount);
   const segments = useSegments();
   const router = useRouter();
 
@@ -54,6 +71,15 @@ function AuthGuard() {
     setUser(DEV_FAKE_USER);
     setIsAuthenticated(true);
   }, [isLoading, isAuthenticated, setUser, setIsAuthenticated]);
+
+  // Seed a fake business account so onboarding is skipped and the app lands on
+  // the dashboard with the tab bar. Only fills in when none exists, so a real
+  // (or previously-seeded) account is never clobbered.
+  useEffect(() => {
+    if (!DEV_BYPASS_ONBOARDING || businessAccount) return;
+    console.warn('[VendorApp] DEV_BYPASS_ONBOARDING is ON — seeding a fake business. Do not commit.');
+    setBusinessAccount(DEV_FAKE_BUSINESS);
+  }, [businessAccount, setBusinessAccount]);
 
   useEffect(() => {
     if (isLoading) return;

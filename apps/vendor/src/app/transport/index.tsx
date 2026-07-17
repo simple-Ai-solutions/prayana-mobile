@@ -536,7 +536,8 @@ export default function TransportScreen() {
         </View>
       </View>
 
-      {/* Search */}
+      {/* Search — hidden until there's a vehicle, matching Activities */}
+      {vehicles.length > 0 ? (
       <View style={styles.searchWrap}>
         <View style={[styles.searchBox, { backgroundColor: themeColors.field, borderColor: themeColors.fieldBorder }]}>
           <Ionicons name="search-outline" size={18} color={themeColors.textTertiary} />
@@ -554,6 +555,7 @@ export default function TransportScreen() {
           ) : null}
         </View>
       </View>
+      ) : null}
 
       {/* Content */}
       {loading ? (
@@ -578,28 +580,31 @@ export default function TransportScreen() {
           ListEmptyComponent={
             <View style={styles.emptyWrap}>
               <EmptyState
+                // First-run empty state mirrors Activities/Packages ("No … yet",
+                // blue 44pt icon, "<Verb> First <Noun>" CTA) so all three
+                // listing types read as one family.
                 icon={
                   <Ionicons
                     name={search ? 'search-outline' : 'car-sport-outline'}
-                    size={56}
-                    color={colors.gray[300]}
+                    size={44}
+                    color={colors.primary[500]}
                   />
                 }
                 title={
                   vehicles.length === 0
-                    ? 'No vehicles listed yet'
+                    ? 'No vehicles yet'
                     : search
                       ? `No vehicles match "${search}"`
                       : `No ${vehicleFilter} vehicles`
                 }
                 description={
                   vehicles.length === 0
-                    ? 'Add your first vehicle to start receiving bookings from travellers.'
+                    ? 'Add your first vehicle to start receiving bookings from travelers.'
                     : search
                       ? 'Try a different search term or clear the filter.'
                       : 'Try a different filter to see your other vehicles.'
                 }
-                actionLabel={vehicles.length === 0 ? 'Add your first vehicle' : 'Clear filters'}
+                actionLabel={vehicles.length === 0 ? 'Add First Vehicle' : 'Clear filters'}
                 onAction={
                   vehicles.length === 0
                     ? () => router.push('/transport/new')
@@ -736,6 +741,34 @@ const styles = StyleSheet.create({
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
     color: colors.text,
+  },
+
+  // Quick actions (drivers / analytics / bookings)
+  quickRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  quickAction: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  quickIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.medium,
   },
 
   // Filter pills

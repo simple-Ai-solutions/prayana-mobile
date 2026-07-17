@@ -62,6 +62,17 @@ class PackageAPI {
       headers: await getAuthHeaders(),
     });
   }
+
+  // Vendor-facing package bookings (powers the package bookings calendar).
+  // Mirrors the web partner portal's PackageBookingsCalendar data source.
+  async getBusinessBookings(status = "all", page = 1) {
+    const params = new URLSearchParams();
+    if (status && status !== "all") params.append("status", status);
+    params.append("page", String(page));
+    return makeAPICall(`/package-bookings/business?${params.toString()}`, {
+      headers: await getAuthHeaders(),
+    });
+  }
 }
 
 export const packageAPI = new PackageAPI();

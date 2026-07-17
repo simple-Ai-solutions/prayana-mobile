@@ -9,3 +9,10 @@
 // quiet (show their empty state) instead of nagging with a "failed to load"
 // toast about an error that is expected in this mode.
 export const DEV_BYPASS_AUTH = false;
+
+// Seeds a fake business account (see app/_layout.tsx) so the app skips the
+// onboarding wizard and lands on the dashboard with the tab bar visible. Needed
+// to browse the post-onboarding UI while DEV_BYPASS_AUTH is on, since real
+// registration 401s without a Firebase token. Set back to false to see the
+// pre-onboarding "Welcome / Complete Onboarding" state again.
+export const DEV_BYPASS_ONBOARDING = false;

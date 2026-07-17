@@ -145,6 +145,31 @@ class ActivityMarketplaceAPI {
     });
   }
 
+  // Date-level availability (calendar blocking) — mirrors the partner web
+  // portal's AvailabilityCalendar, which hit these routes with raw fetch.
+  async getAvailability(id, startDate, endDate) {
+    const params = new URLSearchParams({ startDate, endDate });
+    return makeAPICall(`/activities/${id}/availability?${params.toString()}`, {
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  async bulkBlockDates(id, { dates, isBlocked, reason }) {
+    return makeAPICall(`/activities/${id}/availability/bulk-block`, {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ dates, isBlocked, ...(reason ? { reason } : {}) }),
+    });
+  }
+
+  async addRecurringAvailabilityRule(id, rule) {
+    return makeAPICall(`/activities/${id}/availability/recurring`, {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify(rule),
+    });
+  }
+
   // ===== ACTIVITY TYPE CONFIG =====
 
   async getActivityTypeConfigs() {

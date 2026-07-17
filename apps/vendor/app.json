@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Prayana Business",
+    "name": "Partners Hub",
     "slug": "prayana-business",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,7 +19,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#f97316"
+      "backgroundColor": "#ffffff"
     },
     "ios": {
       "supportsTablet": true,
@@ -48,7 +48,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#f97316"
+        "backgroundColor": "#ffffff"
       },
       "package": "com.prayanaai.business",
       "versionCode": 1,

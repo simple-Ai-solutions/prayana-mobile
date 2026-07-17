@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@prayana/shared-hooks';
 import { useTheme } from '@prayana/shared-ui';
 import { colors } from '../../theme/vendorColors';
+import { PrayanaLogo } from '../../components/ui';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { auth } from '@prayana/shared-services';
 
@@ -144,9 +145,12 @@ export default function SignupScreen() {
             >
               <Ionicons name="chevron-back" size={26} color={themeColors.text} />
             </TouchableOpacity>
+            <View style={styles.brandBadge}>
+              <PrayanaLogo size={30} />
+            </View>
             <Text style={[styles.headerTitle, { color: themeColors.text }]}>Register Your Business</Text>
             <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>
-              Join Prayana Business and start listing your activities
+              Join Partners Hub and start listing your activities
             </Text>
           </View>
 
@@ -301,6 +305,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 4,
     marginBottom: 20,
+  },
+  brandBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: 15,
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    shadowColor: '#1e3a8a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 24,

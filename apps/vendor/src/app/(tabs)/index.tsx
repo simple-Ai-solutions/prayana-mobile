@@ -525,7 +525,7 @@ export default function DashboardScreen() {
           <View style={styles.onboardingLogo}>
             <PrayanaLogo size={48} />
           </View>
-          <Text style={styles.onboardingTitle}>Welcome to Prayana Business</Text>
+          <Text style={styles.onboardingTitle}>Welcome to Partners Hub</Text>
           <Text style={styles.onboardingDesc}>
             Set up your business profile to start listing activities and receiving bookings.
           </Text>
@@ -622,6 +622,9 @@ export default function DashboardScreen() {
 
         {/* Header — greeting + primary CTA */}
         <View style={styles.header}>
+          <View style={styles.headerLogo}>
+            <PrayanaLogo size={26} />
+          </View>
           <View style={styles.headerText}>
             <Text style={styles.greeting}>
               {greetingWord}
@@ -831,6 +834,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  headerLogo: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+    ...shadow.sm,
   },
   headerText: {
     flex: 1,
