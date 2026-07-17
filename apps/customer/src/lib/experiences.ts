@@ -102,6 +102,20 @@ export function isInternal(e: Experience): boolean {
   return !s || s === 'internal';
 }
 
+/**
+ * The affiliate booking URL for a Viator/Headout listing — the one carrying our
+ * tracking (mcid/pid). null for our own inventory, which books in-app instead.
+ *
+ * The web opens exactly this in a new tab for external listings and only routes
+ * internal ones to /activity/{id}. Mobile was pushing EVERYTHING to the internal
+ * detail page, so third-party experiences went to a half-empty detail screen
+ * rather than their real booking page — and any affiliate commission was lost.
+ */
+export function affiliateUrl(e: Experience): string | null {
+  if (isInternal(e)) return null;
+  return e.externalData?.productUrl ?? null;
+}
+
 /** Confirmed on booking, no waiting on the host. */
 export function isInstant(e: Experience): boolean {
   return !!e.instantBooking?.enabled;
