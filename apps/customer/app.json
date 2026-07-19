@@ -129,6 +129,7 @@
       "./plugins/withSentryHermesFix",
       "./plugins/withModularHeaders",
       "./plugins/withStripPushEntitlements",
+      "./plugins/withUpiQueries",
       "expo-video"
     ],
     "extra": {
