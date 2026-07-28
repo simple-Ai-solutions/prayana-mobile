@@ -29,6 +29,7 @@ import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
 import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
 import { RecentItineraries } from '../../components/home/RecentItineraries';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
+import { PromoTrio } from '../../components/home/PromoTrio';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -137,12 +138,17 @@ const HEADLINE_DESTINATIONS = ['Manali', 'Shimla', 'Switzerland', 'Kerala', 'Kod
 // "More ways to explore" — pastel cards with NEW/SOON badges (web parity).
 // Icons use the transparent cutouts — the originals have an opaque white plate
 // that reads as a white box on the pastel cards.
+// Web parity (components/common/MoreWaysToExplore.jsx): exactly four cards —
+// Travel eSIM (New), Things to Do (New), Holiday Deals (Soon), Divya Darshana
+// (Soon). "Soon" cards open a coming-soon alert instead of navigating, matching
+// the web's ComingSoonModal. (The old mobile-only "Explore World" card is
+// dropped — it has no web equivalent.)
 const MORE_WAYS = [
   { id: 'esim', label: 'Travel eSIM', tag: 'NEW', tagColor: '#E61417', bg: '#FDECE4', icon: require('../../../assets/hero-icons/cutout/esim.png'), route: '/esim' },
-  { id: 'world', label: 'Explore World', tag: 'NEW', tagColor: '#7C3AED', bg: '#ECE7FB', icon: require('../../../assets/hero-icons/cutout/global-experiences.png'), route: '/global-experiences' },
   { id: 'things', label: 'Things to Do', tag: 'NEW', tagColor: '#E11D48', bg: '#FDE6EA', icon: require('../../../assets/hero-icons/cutout/activities.png'), route: '/activities' },
-  { id: 'deals', label: 'Holiday Deals', tag: 'SOON', tagColor: '#F59E0B', bg: '#FDF3D8', icon: require('../../../assets/hero-icons/cutout/holiday-packages.png'), route: '/packages' },
-];
+  { id: 'deals', label: 'Holiday Deals', tag: 'SOON', tagColor: '#F59E0B', bg: '#FDF3D8', icon: require('../../../assets/hero-icons/cutout/holiday-packages.png'), soon: 'Holiday Deals' },
+  { id: 'divya', label: 'Divya Darshana', tag: 'SOON', tagColor: '#F59E0B', bg: '#FBEFD8', icon: require('../../../assets/hero-icons/cutout/divya-darshana.png'), soon: 'Divya Darshana' },
+] as const;
 
 // ============================================================
 // SECTION 2: DISCOVER BY INTEREST (matching web DiscoverByInterest)
@@ -535,25 +541,6 @@ export default function HomeScreen() {
   // The hero CTA no longer jumps straight into the full planner; it asks first.
   const [showPlanChoice, setShowPlanChoice] = useState(false);
 
-  // Animated floating orbs
-  const orbAnim1 = useRef(new Animated.Value(0)).current;
-  const orbAnim2 = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    const createFloat = (anim: Animated.Value, duration: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(anim, { toValue: 1, duration, useNativeDriver: true }),
-          Animated.timing(anim, { toValue: 0, duration, useNativeDriver: true }),
-        ])
-      );
-    createFloat(orbAnim1, 4000).start();
-    createFloat(orbAnim2, 5000).start();
-  }, []);
-
-  const orbTranslate1 = orbAnim1.interpolate({ inputRange: [0, 1], outputRange: [0, -12] });
-  const orbTranslate2 = orbAnim2.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
-
   // Fetch data — only activities (destinations are hardcoded, matching web PWA)
   // Use ref to prevent concurrent duplicate requests
   const fetchInFlightRef = useRef<AbortController | null>(null);
@@ -634,13 +621,30 @@ export default function HomeScreen() {
           <Text style={styles.appHeaderBrand}>PrayanaAI</Text>
         </View>
         <View style={styles.appHeaderRight}>
-          {/* India flag — drawn rather than the 🇮🇳 emoji, which renders as "?"
-              boxes in this RN build (regional-indicator pairs have no glyph). */}
-          <View style={styles.appHeaderFlag}>
-            <View style={{ flex: 1, backgroundColor: '#FF9933' }} />
-            <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
-            <View style={{ flex: 1, backgroundColor: '#138808' }} />
-          </View>
+          {/* Community — web-parity header nav entry point */}
+          <TouchableOpacity onPress={() => router.push('/community' as any)} hitSlop={8}>
+            <Ionicons name="people-outline" size={22} color={themeColors.text} />
+          </TouchableOpacity>
+          {/* Country + currency selector (web parity: the TopNavigation flag +
+              currency pill that opens LocationPreferences). Taps into the country
+              settings screen. The India flag is drawn — the 🇮🇳 emoji renders as
+              "?" boxes in this RN build (regional-indicator pairs have no glyph). */}
+          <TouchableOpacity
+            style={[styles.countryPill, { borderColor: themeColors.border }]}
+            onPress={() => router.push('/settings/country' as any)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Country and currency"
+          >
+            <View style={styles.appHeaderFlag}>
+              <View style={{ flex: 1, backgroundColor: '#FF9933' }} />
+              <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
+              <View style={{ flex: 1, backgroundColor: '#138808' }} />
+            </View>
+            <Text style={[styles.countryPillText, { color: themeColors.textSecondary }]}>
+              {userPreferences.currency || 'INR'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={toggleTheme} hitSlop={8}>
             <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={22} color={themeColors.text} />
           </TouchableOpacity>
@@ -795,7 +799,11 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={m.id}
                 style={[styles.wayCard, { backgroundColor: m.bg }]}
-                onPress={() => router.push(m.route as any)}
+                onPress={() =>
+                  'route' in m
+                    ? router.push(m.route as any)
+                    : Alert.alert(`${m.soon} — coming soon`, "We're putting the final touches on this. Check back shortly.")
+                }
                 activeOpacity={0.85}
               >
                 <View style={[styles.wayTag, { backgroundColor: m.tagColor }]}>
@@ -1425,6 +1433,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </LinearGradient>
 
+        {/* Promo trio — eSIM / Divya Darshana / Holiday Packages (web parity:
+            EsimHomepageSection + DivyaDarshanaPromoCard + HolidayPackagesPromoCard). */}
+        <PromoTrio />
+
         {/* Bottom spacer for tab bar */}
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -1705,7 +1717,20 @@ const styles = StyleSheet.create({
   appHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+  },
+  countryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  countryPillText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   appHeaderFlag: {
     width: 22,

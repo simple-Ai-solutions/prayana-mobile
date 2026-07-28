@@ -34,6 +34,7 @@ import {
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
 import { useRequireAuth } from '../../lib/useRequireAuth';
+import { trackRecentlyViewed } from '../../lib/recentlyViewedActivities';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 280;
@@ -428,6 +429,9 @@ export default function ActivityDetailScreen() {
       const response = await activityMarketplaceAPI.getActivityById(id);
       if (response?.success && response.data) {
         setActivity(response.data);
+        // Feed the "Pick up where you left off" rail on Things to Do (web parity:
+        // the detail page records the view in recently-viewed history).
+        trackRecentlyViewed(response.data);
       } else {
         setError('Activity not found.');
       }

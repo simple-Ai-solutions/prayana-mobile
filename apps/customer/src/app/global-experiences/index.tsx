@@ -1,18 +1,21 @@
 // Explore World — tours, tickets & experiences from Viator and Headout.
 //
-// Ported from the PWA's /global-experiences: a hero, a country filter rail, and
-// "Top experiences by country" — each country a photo card wrapping a rail of
-// experiences. Typing switches to a flat search grid, as on the web.
+// Full parity with the PWA's /global-experiences. Two mutually-exclusive body
+// states (web: isFiltered):
 //
-// Theme: this is the app's standard surface, so it uses the shared ORANGE
-// primary (colors.primary[500]) for CTAs and the logo TEAL (#4AC0CC) for the
-// provider chip and "View more" — matching the web's ActivityCard. It is not a
-// brand-red surface like eSIM.
+//   • EXPLORE (default): hero → Top experiences by country (accordion) →
+//     "Every wonder. One booking." destination tiles → per-city rails
+//     ("What travellers can't stop booking") → India magazine hero.
+//   • FILTERED (a place/search/category is active): hero (filtered title) →
+//     TypeTabs (All / Tours / Attraction tickets) → results header (count +
+//     Sort) → Filters drawer → results grid.
 //
-// Everything shown is real: the counts, prices and ratings come from
-// GET /activities/global/by-city. The API sends no `isFeatured`, so — unlike the
-// PWA — there is no "Bestseller" ribbon here. A badge the data cannot support
-// would be a fabrication.
+// Accent system is the web's orange → rose → fuchsia (this is the worldwide
+// Viator/Headout surface, distinct from the teal Things-to-Do marketplace). The
+// logo TEAL (#4AC0CC) still marks the Prayana-AI provider chip inside cards.
+//
+// Everything shown is real: counts, prices and ratings come from
+// GET /activities/global(/by-city). No invented "Bestseller" ribbons.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -22,10 +25,11 @@ import {
   ActivityIndicator,
   RefreshControl,
   Linking,
+  Modal,
 } from 'react-native';
-import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
+import { ScrollView, TouchableOpacity, Pressable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
@@ -45,49 +49,68 @@ import {
   affiliateUrl,
   groupByCountry,
 } from '../../lib/experiences';
+import {
+  SEARCH_HINTS,
+  POPULAR_ATTRACTIONS,
+  TYPE_TABS,
+  CATEGORY_FILTERS,
+  GLOBAL_SORTS,
+} from '../../lib/globalExperiencesData';
 import { ExperienceCard } from '../../components/experiences/ExperienceCard';
 import { CountryExperiences } from '../../components/experiences/CountryExperiences';
+import { DestinationTile } from '../../components/experiences/DestinationTile';
+import { CityRail } from '../../components/experiences/CityRail';
+import { IndiaMagazineHero } from '../../components/experiences/IndiaMagazineHero';
 
-const TEAL = '#4AC0CC';
+const ORANGE = '#F97316';
+const ROSE = '#E11D48';
 const PAGE = 24;
+
+// A "selection" that flips the page into filtered mode.
+interface Selection {
+  city?: string;
+  country?: string;
+  label: string; // hero title suffix
+}
 
 export default function GlobalExperiencesScreen() {
   const { themeColors, isDarkMode } = useTheme();
+  // Inbound cross-links (Things-to-Do city cards, hero rail) deep-link with
+  // ?country=/?city=/?q= — the web does the same. These seed the filtered view.
+  const params = useLocalSearchParams<{ country?: string; city?: string; q?: string }>();
 
   const [cities, setCities] = useState<CityGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
 
-  const [country, setCountry] = useState<string | null>(null);
-  // Accordion: one country's rail open at a time, the first by default — the
-  // PWA's mobile behaviour. Showing every rail at once buries the page.
+  // Explore-view accordion (Top experiences by country).
   const [openCountry, setOpenCountry] = useState<string | null>(null);
 
-  /**
-   * Drill-down: the FULL activity list for the selected place, paginated.
-   *
-   * The browse rails only carry the sample the by-city call returns (20 per
-   * city), so filtering to a country cannot just re-slice those — Vietnam has
-   * 8,801 experiences, not the 20 we happen to hold. We fetch the real list.
-   *
-   * That fetch goes by CITY, not country: `?country=Vietnam` reports a total of
-   * 13 (the server matches a sparsely-set location.country), while `?city=Hanoi`
-   * correctly reports 8,801. City is the field that is actually populated.
-   */
-  const [placeItems, setPlaceItems] = useState<Experience[]>([]);
-  const [placeTotal, setPlaceTotal] = useState(0);
-  const [placeLoading, setPlaceLoading] = useState(false);
-  const [placeSkip, setPlaceSkip] = useState(0);
-
-  // Search switches the page from browse-by-country to a flat grid.
+  // ── Filtered view state ────────────────────────────────────────────────────
+  const [selection, setSelection] = useState<Selection | null>(null);
   const [query, setQuery] = useState('');
-  const [searching, setSearching] = useState(false);
-  const [gridItems, setGridItems] = useState<Experience[]>([]);
-  const [gridLoading, setGridLoading] = useState(false);
-  const [gridSkip, setGridSkip] = useState(0);
-  const [gridHasMore, setGridHasMore] = useState(true);
+  const [typeTab, setTypeTab] = useState('all');
+  const [category, setCategory] = useState('');
+  const [sort, setSort] = useState('recommended');
+  const [sortOpen, setSortOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const [results, setResults] = useState<Experience[]>([]);
+  const [resultsTotal, setResultsTotal] = useState(0);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [resultsSkip, setResultsSkip] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Rotating search-pill placeholder (web SEARCH_HINTS).
+  const [hintIdx, setHintIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setHintIdx((i) => (i + 1) % SEARCH_HINTS.length), 3000);
+    return () => clearInterval(t);
+  }, []);
+
+  const isFiltered = Boolean(selection || query.trim() || category);
 
   const load = useCallback(async () => {
     setError('');
@@ -113,53 +136,8 @@ export default function GlobalExperiencesScreen() {
     setRefreshing(false);
   }, [load]);
 
-  const fetchGrid = useCallback(async (q: string, skip: number, append: boolean) => {
-    setGridLoading(true);
-    try {
-      const res: any = await activityMarketplaceAPI.getGlobalActivities({
-        q: q.trim(),
-        limit: PAGE,
-        skip,
-      });
-      const data: Experience[] = res?.data || res?.activities || [];
-      setGridItems((prev) => (append ? [...prev, ...data] : data));
-      setGridHasMore(data.length >= PAGE);
-      setGridSkip(skip + data.length);
-    } catch {
-      if (!append) setGridItems([]);
-    } finally {
-      setGridLoading(false);
-    }
-  }, []);
-
-  const onSearchChange = useCallback(
-    (text: string) => {
-      setQuery(text);
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (!text.trim()) {
-        setSearching(false);
-        setGridItems([]);
-        return;
-      }
-      setSearching(true);
-      debounceRef.current = setTimeout(() => {
-        setGridSkip(0);
-        fetchGrid(text, 0, false);
-      }, 350);
-    },
-    [fetchGrid],
-  );
-
-  const clearSearch = useCallback(() => {
-    setQuery('');
-    setSearching(false);
-    setGridItems([]);
-  }, []);
-
   const countryGroups = useMemo(() => groupByCountry(cities), [cities]);
 
-
-  // First country open by default, as the PWA does on mobile.
   useEffect(() => {
     setOpenCountry((cur) => cur ?? countryGroups[0]?.country ?? null);
   }, [countryGroups]);
@@ -168,77 +146,107 @@ export default function GlobalExperiencesScreen() {
     setOpenCountry((cur) => (cur === c ? null : c));
   }, []);
 
-  /**
-   * Load the selected place's real activities. A country may span several
-   * cities (India has 12), so fan out across its cities and interleave, rather
-   * than showing only the first city's tours.
-   */
-  const loadPlace = useCallback(
-    async (group: CountryGroup, skip: number, append: boolean) => {
-      setPlaceLoading(true);
+  // ── Filtered-view fetch ─────────────────────────────────────────────────────
+  const fetchResults = useCallback(
+    async (opts: { sel: Selection | null; q: string; cat: string; sortBy: string; skip: number; append: boolean }) => {
+      setResultsLoading(true);
       try {
-        const perCity = Math.max(4, Math.ceil(PAGE / group.cities.length));
-        const pages = await Promise.all(
-          group.cities.map(async (city) => {
-            try {
-              const res: any = await activityMarketplaceAPI.getGlobalActivities({
-                city,
-                limit: perCity,
-                skip,
-              });
-              return {
-                items: (res?.data ?? []) as Experience[],
-                total: Number(res?.total ?? 0),
-              };
-            } catch {
-              return { items: [] as Experience[], total: 0 };
-            }
-          }),
-        );
-
-        const items = pages.flatMap((p) => p.items);
-        const total = pages.reduce((n, p) => n + p.total, 0);
-
-        setPlaceItems((prev) => {
-          const merged = append ? [...prev, ...items] : items;
-          // The same tour can surface under more than one city query.
-          const seen = new Set<string>();
-          return merged.filter((e) => !seen.has(e._id) && seen.add(e._id));
+        const res: any = await activityMarketplaceAPI.getGlobalActivities({
+          city: opts.sel?.city,
+          country: opts.sel?.city ? undefined : opts.sel?.country,
+          q: opts.q.trim() || undefined,
+          category: opts.cat || undefined,
+          limit: PAGE,
+          skip: opts.skip,
         });
-        setPlaceTotal(total);
-        setPlaceSkip(skip + perCity);
+        const data: Experience[] = res?.data || res?.activities || [];
+        setResults((prev) => (opts.append ? [...prev, ...data] : data));
+        setResultsTotal(Number(res?.total ?? data.length));
+        setHasMore(data.length >= PAGE);
+        setResultsSkip(opts.skip + data.length);
+      } catch {
+        if (!opts.append) setResults([]);
       } finally {
-        setPlaceLoading(false);
+        setResultsLoading(false);
       }
     },
     [],
   );
 
-  /** Show only this place's activities — the country chips and "View more". */
-  const selectPlace = useCallback(
-    (g: CountryGroup | null) => {
-      setQuery('');
-      setSearching(false);
-      setPlaceItems([]);
-      setPlaceTotal(0);
-      setPlaceSkip(0);
-
-      if (!g) {
-        setCountry(null);
-        return;
-      }
-      setCountry(g.country);
-      loadPlace(g, 0, false);
+  // Re-run whenever a filter dimension changes while in filtered mode.
+  const applyFilter = useCallback(
+    (next: { sel?: Selection | null; q?: string; cat?: string; sortBy?: string }) => {
+      const sel = next.sel !== undefined ? next.sel : selection;
+      const q = next.q !== undefined ? next.q : query;
+      const cat = next.cat !== undefined ? next.cat : category;
+      const sortBy = next.sortBy !== undefined ? next.sortBy : sort;
+      if (next.sel !== undefined) setSelection(next.sel);
+      if (next.q !== undefined) setQuery(next.q);
+      if (next.cat !== undefined) setCategory(next.cat);
+      if (next.sortBy !== undefined) setSort(next.sortBy);
+      setResultsSkip(0);
+      fetchResults({ sel, q, cat, sortBy, skip: 0, append: false });
     },
-    [loadPlace],
+    [selection, query, category, sort, fetchResults],
   );
 
+  const onSearchChange = useCallback(
+    (text: string) => {
+      setQuery(text);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (!text.trim() && !selection && !category) {
+        setResults([]);
+        return;
+      }
+      debounceRef.current = setTimeout(() => {
+        setResultsSkip(0);
+        fetchResults({ sel: selection, q: text, cat: category, sortBy: sort, skip: 0, append: false });
+      }, 350);
+    },
+    [fetchResults, selection, category, sort],
+  );
+
+  // A tab maps to the first category in its group (or clears it for "All").
+  const onTypeTab = useCallback(
+    (key: string) => {
+      setTypeTab(key);
+      const tab = TYPE_TABS.find((t) => t.key === key);
+      const cat = tab?.categories[0] || '';
+      applyFilter({ cat });
+    },
+    [applyFilter],
+  );
+
+  const pickCity = useCallback(
+    (g: CityGroup) => {
+      const sel: Selection = { city: g.city, country: g.country || undefined, label: g.city };
+      setTypeTab('all');
+      setCategory('');
+      applyFilter({ sel, q: '', cat: '' });
+    },
+    [applyFilter],
+  );
+
+  const pickCountry = useCallback(
+    (g: CountryGroup) => {
+      const sel: Selection = { country: g.country, label: g.country };
+      setTypeTab('all');
+      setCategory('');
+      applyFilter({ sel, q: '', cat: '' });
+    },
+    [applyFilter],
+  );
+
+  const clearFilter = useCallback(() => {
+    setSelection(null);
+    setQuery('');
+    setCategory('');
+    setTypeTab('all');
+    setResults([]);
+    setResultsTotal(0);
+  }, []);
+
   const openExperience = useCallback((e: Experience) => {
-    // Viator/Headout listings open at their affiliate booking URL (our tracking
-    // is baked into it); only our own inventory routes to the in-app detail
-    // page. The web makes exactly this split — mobile was sending everything to
-    // /activity/{id}, so third-party tours hit a half-empty detail screen and
-    // any affiliate commission was lost.
     const url = affiliateUrl(e);
     if (url) {
       Linking.openURL(url).catch(() => {
@@ -249,6 +257,41 @@ export default function GlobalExperiencesScreen() {
     router.push(`/activity/${e._id}`);
   }, []);
 
+  // Apply an inbound deep-link filter exactly once on mount (?country/?city/?q).
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    const city = typeof params.city === 'string' ? params.city : undefined;
+    const cCode = typeof params.country === 'string' ? params.country : undefined;
+    const q = typeof params.q === 'string' ? params.q : undefined;
+    if (!city && !cCode && !q) return;
+    seededRef.current = true;
+    if (city || cCode) {
+      const sel: Selection = { city, country: cCode, label: city || cCode || '' };
+      setSelection(sel);
+      fetchResults({ sel, q: q ?? '', cat: '', sortBy: 'recommended', skip: 0, append: false });
+    } else if (q) {
+      setQuery(q);
+      fetchResults({ sel: null, q, cat: '', sortBy: 'recommended', skip: 0, append: false });
+    }
+  }, [params.city, params.country, params.q, fetchResults]);
+
+  // Destination tiles: web drops India cities from this rail and pins Cape Town
+  // last. We keep it simple: all cities, biggest first (by-city order).
+  const tileCities = cities;
+  // Per-city rails: up to 10 with items.
+  const railCities = cities.filter((c) => c.items?.length).slice(0, 10);
+
+  const heroTitle = isFiltered
+    ? query.trim()
+      ? `Search: “${query.trim()}”`
+      : selection
+        ? `Things to do in ${selection.label}`
+        : 'Search results'
+    : 'Tours, tickets & experiences';
+
+  const sortLabel = GLOBAL_SORTS.find((s) => s.value === sort)?.label ?? 'Recommended';
+  const activeFilterCount = (category ? 1 : 0);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -257,13 +300,12 @@ export default function GlobalExperiencesScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.body}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary[500]} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />
         }
       >
-        {/* ─── HERO ─── the PWA's is a soft blush wash with DARK type, not a
-             saturated gradient with white type. "experiences" is the one word
-             carrying the orange. */}
+        {/* ─── HERO — blush bloom wash, dark type; "experiences" carries orange ─── */}
         <LinearGradient
           colors={
             isDarkMode
@@ -276,52 +318,61 @@ export default function GlobalExperiencesScreen() {
         >
           <View style={styles.heroTop}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => (isFiltered ? clearFilter() : router.back())}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={[styles.backBtn, { backgroundColor: themeColors.surface }]}
               accessibilityRole="button"
-              accessibilityLabel="Go back"
+              accessibilityLabel={isFiltered ? 'Back to browse' : 'Go back'}
             >
               <Ionicons name="chevron-back" size={22} color={themeColors.text} />
             </TouchableOpacity>
           </View>
 
-          <View style={[styles.eyebrow, { backgroundColor: themeColors.surface }]}>
-            <Ionicons name="globe-outline" size={13} color={colors.primary[500]} />
-            <Text style={[styles.eyebrowText, { color: colors.primary[500] }]}>
-              Worldwide tours · Viator &amp; Headout
+          {!isFiltered && (
+            <View style={[styles.eyebrow, { backgroundColor: themeColors.surface }]}>
+              <Ionicons name="globe-outline" size={13} color={ORANGE} />
+              <Text style={[styles.eyebrowText, { color: ROSE }]}>
+                Worldwide tours · Viator &amp; Headout
+              </Text>
+            </View>
+          )}
+
+          {isFiltered ? (
+            <Text style={[styles.heroTitle, { color: themeColors.text }]} numberOfLines={2}>
+              {heroTitle}
             </Text>
-          </View>
+          ) : (
+            <Text style={[styles.heroTitle, { color: themeColors.text }]}>
+              Tours, tickets &amp;{'\n'}
+              <Text style={{ color: ORANGE }}>experiences</Text>
+            </Text>
+          )}
 
-          <Text style={[styles.heroTitle, { color: themeColors.text }]}>
-            Tours, tickets &amp;{'\n'}
-            <Text style={{ color: colors.primary[500] }}>experiences</Text>
-          </Text>
           <Text style={[styles.heroSub, { color: themeColors.textSecondary }]}>
-            Skip-the-line tickets, expert-led tours and bucket-list moments — hand-picked around the
-            world.
+            {isFiltered
+              ? 'Skip-the-line entry and guided tours.'
+              : 'Skip-the-line tickets, expert-led tours and bucket-list moments — hand-picked across 90+ countries.'}
           </Text>
 
-          {/* Trust row. Only claims the catalogue backs: instant confirmation and
-              mobile tickets are real product properties. No invented "2M+
-              travellers" or a made-up aggregate rating. */}
-          <View style={styles.trust}>
-            <View style={styles.trustItem}>
-              <Ionicons name="shield-checkmark-outline" size={13} color="#16A34A" />
-              <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
-                Instant confirmation
-              </Text>
+          {!isFiltered && (
+            <View style={styles.trust}>
+              <View style={styles.trustItem}>
+                <Ionicons name="shield-checkmark-outline" size={13} color="#16A34A" />
+                <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
+                  Instant confirmation
+                </Text>
+              </View>
+              <View style={styles.trustItem}>
+                <Ionicons name="phone-portrait-outline" size={13} color="#16A34A" />
+                <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
+                  Mobile tickets
+                </Text>
+              </View>
             </View>
-            <View style={styles.trustItem}>
-              <Ionicons name="phone-portrait-outline" size={13} color="#16A34A" />
-              <Text style={[styles.trustText, { color: themeColors.textSecondary }]}>
-                Mobile tickets
-              </Text>
-            </View>
-          </View>
+          )}
         </LinearGradient>
 
-        {/* ─── SEARCH (floats over the hero edge) ─── */}
+        {/* ─── SEARCH (floats over hero edge) — orange search button ─── */}
         <View style={styles.searchWrap}>
           <View
             style={[
@@ -329,32 +380,35 @@ export default function GlobalExperiencesScreen() {
               { backgroundColor: themeColors.surface, borderColor: themeColors.border },
             ]}
           >
-            <Ionicons name="search" size={18} color={themeColors.textTertiary} />
+            <Ionicons name="search" size={18} color={themeColors.textTertiary} style={{ marginLeft: 4 }} />
             <TextInput
               value={query}
               onChangeText={onSearchChange}
-              placeholder="Search cities, attractions, tours…"
+              placeholder={SEARCH_HINTS[hintIdx]}
               placeholderTextColor={themeColors.textTertiary}
               style={[styles.searchInput, { color: themeColors.text }]}
               autoCorrect={false}
               returnKeyType="search"
             />
-            {query.length > 0 && (
+            {query.length > 0 ? (
               <TouchableOpacity
-                onPress={clearSearch}
+                onPress={() => onSearchChange('')}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityRole="button"
                 accessibilityLabel="Clear search"
               >
                 <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
               </TouchableOpacity>
+            ) : (
+              <LinearGradient colors={[ORANGE, '#E11D48']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.searchBtn}>
+                <Ionicons name="search" size={16} color="#FFFFFF" />
+              </LinearGradient>
             )}
           </View>
         </View>
 
         {loading ? (
           <View style={styles.state}>
-            <ActivityIndicator size="large" color={colors.primary[500]} />
+            <ActivityIndicator size="large" color={ORANGE} />
           </View>
         ) : error ? (
           <View style={styles.state}>
@@ -371,193 +425,260 @@ export default function GlobalExperiencesScreen() {
               <Text style={styles.retryText}>Try again</Text>
             </TouchableOpacity>
           </View>
-        ) : searching ? (
-          /* ─── SEARCH RESULTS ─── */
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-              {gridLoading && !gridItems.length
-                ? 'Searching…'
-                : `${gridItems.length} result${gridItems.length === 1 ? '' : 's'}`}
-            </Text>
+        ) : isFiltered ? (
+          /* ════════════════ FILTERED VIEW ════════════════ */
+          <>
+            {/* TypeTabs */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.typeTabs}
+            >
+              {TYPE_TABS.map((t) => {
+                const active = typeTab === t.key;
+                return (
+                  <TouchableOpacity
+                    key={t.key}
+                    onPress={() => onTypeTab(t.key)}
+                    style={[
+                      styles.typeTab,
+                      active
+                        ? { backgroundColor: ORANGE, borderColor: ORANGE }
+                        : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Text style={[styles.typeTabText, { color: active ? '#FFFFFF' : themeColors.text }]}>
+                      {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
 
-            {gridLoading && !gridItems.length ? (
-              <View style={styles.state}>
-                <ActivityIndicator color={colors.primary[500]} />
+            {/* Results header — count + Filters + Sort */}
+            <View style={styles.resultsHead}>
+              <Text style={[styles.resultsCount, { color: themeColors.text }]}>
+                {resultsLoading && !results.length
+                  ? 'Searching…'
+                  : `${resultsTotal.toLocaleString('en-IN')} result${resultsTotal === 1 ? '' : 's'} found`}
+              </Text>
+              <View style={styles.resultsActions}>
+                <TouchableOpacity
+                  onPress={() => setFiltersOpen(true)}
+                  style={[styles.filterBtn, { borderColor: themeColors.border }]}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="options-outline" size={15} color={themeColors.textSecondary} />
+                  <Text style={[styles.filterBtnText, { color: themeColors.textSecondary }]}>Filters</Text>
+                  {activeFilterCount > 0 && (
+                    <View style={styles.filterBadge}>
+                      <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                <View>
+                  <TouchableOpacity
+                    onPress={() => setSortOpen((v) => !v)}
+                    style={[styles.filterBtn, { borderColor: themeColors.border }]}
+                    accessibilityRole="button"
+                  >
+                    <Ionicons name="swap-vertical" size={15} color={themeColors.textSecondary} />
+                    <Text style={[styles.filterBtnText, { color: themeColors.textSecondary }]}>{sortLabel}</Text>
+                  </TouchableOpacity>
+                  {sortOpen && (
+                    <View style={[styles.sortMenu, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                      {GLOBAL_SORTS.map((s) => (
+                        <TouchableOpacity
+                          key={s.value}
+                          onPress={() => {
+                            setSortOpen(false);
+                            applyFilter({ sortBy: s.value });
+                          }}
+                          style={styles.sortItem}
+                        >
+                          <Text style={[styles.sortItemText, { color: s.value === sort ? ORANGE : themeColors.text }]}>
+                            {s.label}
+                          </Text>
+                          {s.value === sort && <Ionicons name="checkmark" size={15} color={ORANGE} />}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
               </View>
-            ) : gridItems.length === 0 ? (
+            </View>
+
+            {/* Results grid */}
+            {resultsLoading && !results.length ? (
+              <View style={styles.state}>
+                <ActivityIndicator size="large" color={ORANGE} />
+              </View>
+            ) : results.length === 0 ? (
               <View style={styles.state}>
                 <Ionicons name="search-outline" size={40} color={themeColors.textTertiary} />
                 <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
-                  Nothing matches “{query.trim()}”.
+                  {query.trim() ? `Nothing matches “${query.trim()}”.` : 'No experiences here yet.'}
                 </Text>
+                {category !== '' && (
+                  <TouchableOpacity onPress={() => applyFilter({ cat: '' })} style={styles.retry}>
+                    <Text style={styles.retryText}>Clear category</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
-              <>
+              <View style={styles.section}>
                 <View style={styles.grid}>
-                  {gridItems.map((e) => (
+                  {results.map((e) => (
                     <View key={e._id} style={styles.gridCell}>
                       <ExperienceCard experience={e} onPress={openExperience} />
                     </View>
                   ))}
                 </View>
-
-                {gridHasMore && (
+                {hasMore && (
                   <TouchableOpacity
-                    onPress={() => !gridLoading && fetchGrid(query, gridSkip, true)}
-                    disabled={gridLoading}
-                    style={[styles.loadMore, { borderColor: themeColors.border }]}
+                    onPress={() =>
+                      !resultsLoading &&
+                      fetchResults({ sel: selection, q: query, cat: category, sortBy: sort, skip: resultsSkip, append: true })
+                    }
+                    disabled={resultsLoading}
+                    style={styles.viewMore}
                     accessibilityRole="button"
                   >
-                    {gridLoading ? (
-                      <ActivityIndicator size="small" color={colors.primary[500]} />
+                    {resultsLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <Text style={[styles.loadMoreText, { color: themeColors.text }]}>
-                        Load more
-                      </Text>
+                      <Text style={styles.viewMoreText}>View more</Text>
                     )}
                   </TouchableOpacity>
                 )}
-              </>
+              </View>
             )}
-          </View>
+          </>
         ) : (
-          /* ─── BROWSE BY COUNTRY ─── */
+          /* ════════════════ EXPLORE VIEW ════════════════ */
           <>
-            {/* Country filter rail */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.chipRail}
-            >
-              <Chip
-                label="All places"
-                icon="earth"
-                active={!country}
-                onPress={() => selectPlace(null)}
-              />
+            {/* Top experiences by country (accordion) */}
+            <View style={styles.section}>
+              <View style={styles.topDestPill}>
+                <Ionicons name="globe-outline" size={13} color="#0F766E" />
+                <Text style={styles.topDestPillText}>TOP DESTINATIONS</Text>
+              </View>
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginTop: 8 }]}>
+                Top experiences by country
+              </Text>
+              <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                The most-booked tours, tickets &amp; attractions in each destination.
+              </Text>
+            </View>
+            <View style={styles.countries}>
               {countryGroups.map((g) => (
-                <Chip
+                <CountryExperiences
                   key={g.country}
-                  label={g.country}
-                  active={country === g.country}
-                  onPress={() => selectPlace(country === g.country ? null : g)}
+                  group={g}
+                  open={openCountry === g.country}
+                  onToggle={toggleCountry}
+                  onPressExperience={openExperience}
+                  onViewMore={pickCountry}
                 />
               ))}
-            </ScrollView>
+            </View>
 
-            {country ? (
-              /* ─── ONE PLACE — its own activities, the full paginated list ─── */
+            {/* "Every wonder. One booking." — destination tiles */}
+            {tileCities.length > 0 && (
               <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>{country}</Text>
-                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                  {placeTotal > 0
-                    ? `${placeTotal.toLocaleString('en-IN')} experience${placeTotal === 1 ? '' : 's'}`
-                    : placeLoading
-                      ? 'Loading experiences…'
-                      : 'No experiences here yet.'}
+                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                  Every wonder. <Text style={{ color: ORANGE }}>One booking.</Text>
                 </Text>
-
-                {placeLoading && !placeItems.length ? (
-                  <View style={styles.state}>
-                    <ActivityIndicator size="large" color={colors.primary[500]} />
-                  </View>
-                ) : (
-                  <>
-                    <View style={styles.grid}>
-                      {placeItems.map((e) => (
-                        <View key={e._id} style={styles.gridCell}>
-                          <ExperienceCard experience={e} onPress={openExperience} />
-                        </View>
-                      ))}
-                    </View>
-
-                    {placeItems.length > 0 && placeItems.length < placeTotal && (
-                      <TouchableOpacity
-                        onPress={() => {
-                          const g = countryGroups.find((x) => x.country === country);
-                          if (g && !placeLoading) loadPlace(g, placeSkip, true);
-                        }}
-                        disabled={placeLoading}
-                        style={[styles.loadMore, { borderColor: themeColors.border }]}
-                        accessibilityRole="button"
-                      >
-                        {placeLoading ? (
-                          <ActivityIndicator size="small" color={colors.primary[500]} />
-                        ) : (
-                          <Text style={[styles.loadMoreText, { color: themeColors.text }]}>
-                            Load more
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    )}
-                  </>
-                )}
-              </View>
-            ) : (
-              /* ─── ALL PLACES — the country accordion ─── */
-              <>
-                <View style={styles.section}>
-                  <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                    Top experiences by country
-                  </Text>
-                  <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                    Handpicked tours and tickets, booked through Viator and Headout.
-                  </Text>
-                </View>
-
-                <View style={styles.countries}>
-                  {countryGroups.map((g) => (
-                    <CountryExperiences
-                      key={g.country}
-                      group={g}
-                      open={openCountry === g.country}
-                      onToggle={toggleCountry}
-                      onPressExperience={openExperience}
-                      onViewMore={selectPlace}
-                    />
+                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                  Skip the queues at 100+ icons across 50+ countries. Instant, mobile-ready, refundable.
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.tileRail}
+                >
+                  {tileCities.map((g, i) => (
+                    <DestinationTile key={g.city + i} group={g} featured={i === 0} onPress={pickCity} />
                   ))}
-                </View>
-              </>
+                </ScrollView>
+              </View>
             )}
+
+            {/* Per-city rails — "What travellers can't stop booking" */}
+            {railCities.length > 0 && (
+              <View style={styles.section}>
+                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                  What travellers can&apos;t <Text style={{ color: ORANGE }}>stop booking</Text>
+                </Text>
+                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                  The most-booked tours and tickets — by destination.
+                </Text>
+              </View>
+            )}
+            {railCities.map((g) => (
+              <CityRail
+                key={g.city}
+                group={g}
+                onPressExperience={openExperience}
+                onSeeAll={pickCity}
+              />
+            ))}
+
+            {/* India magazine hero */}
+            <IndiaMagazineHero />
           </>
         )}
       </ScrollView>
+
+      {/* ─── FILTERS DRAWER (bottom sheet) ─── */}
+      <Modal
+        visible={filtersOpen}
+        transparent
+        animationType="slide"
+        statusBarTranslucent
+        onRequestClose={() => setFiltersOpen(false)}
+      >
+        <Pressable style={styles.drawerBackdrop} onPress={() => setFiltersOpen(false)}>
+          <Pressable
+            style={[styles.drawer, { backgroundColor: themeColors.surface }]}
+            onPress={() => {}}
+          >
+            <View style={styles.drawerHandle} />
+            <Text style={[styles.drawerTitle, { color: themeColors.text }]}>Filter by category</Text>
+            <View style={styles.catList}>
+              {CATEGORY_FILTERS.map((c) => {
+                const active = category === c.value;
+                return (
+                  <TouchableOpacity
+                    key={c.value || 'all'}
+                    onPress={() => {
+                      applyFilter({ cat: c.value });
+                      setFiltersOpen(false);
+                    }}
+                    style={[
+                      styles.catRow,
+                      active && { backgroundColor: 'rgba(249,115,22,0.10)' },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                  >
+                    <Ionicons name={c.icon as any} size={18} color={active ? ORANGE : themeColors.textSecondary} />
+                    <Text style={[styles.catRowText, { color: active ? ORANGE : themeColors.text }]}>
+                      {c.label}
+                    </Text>
+                    {active && <Ionicons name="checkmark" size={18} color={ORANGE} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
-
-const Chip: React.FC<{
-  label: string;
-  icon?: keyof typeof Ionicons.glyphMap;
-  active: boolean;
-  onPress: () => void;
-}> = ({ label, icon, active, onPress }) => {
-  const { themeColors } = useTheme();
-  return (
-    <TouchableOpacity
-      onPress={onPress}
-      style={[
-        styles.chip,
-        {
-          backgroundColor: active ? colors.primary[500] : themeColors.surface,
-          borderColor: active ? colors.primary[500] : themeColors.border,
-        },
-      ]}
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-    >
-      {!!icon && (
-        <Ionicons name={icon} size={14} color={active ? '#FFFFFF' : themeColors.textSecondary} />
-      )}
-      <Text
-        style={[styles.chipText, { color: active ? '#FFFFFF' : themeColors.text }]}
-        numberOfLines={1}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-};
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -569,14 +690,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing['2xl'] + spacing.lg,
   },
   heroTop: { flexDirection: 'row', marginBottom: spacing.lg },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
+  backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   eyebrow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -588,22 +702,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   eyebrowText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
-
-  // Sizes come from the shared theme (fontSize['3xl'] = 30). The theme sets no
-  // fontFamily on purpose — the design system's typeface IS the native system
-  // stack, and no webfont is bundled.
-  heroTitle: {
-    fontSize: fontSize['3xl'],
-    fontWeight: fontWeight.bold,
-    letterSpacing: -0.75,
-    lineHeight: 36,
-  },
-  heroSub: {
-    fontSize: fontSize.sm,
-    marginTop: spacing.sm,
-    lineHeight: 20,
-  },
-
+  heroTitle: { fontSize: fontSize['3xl'], fontWeight: fontWeight.bold, letterSpacing: -0.75, lineHeight: 36 },
+  heroSub: { fontSize: fontSize.sm, marginTop: spacing.sm, lineHeight: 20 },
   trust: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
   trustItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   trustText: { fontSize: fontSize.xs },
@@ -613,8 +713,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.xl,
+    paddingLeft: spacing.md,
+    paddingRight: 6,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOpacity: 0.12,
@@ -622,45 +724,131 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     elevation: 6,
   },
-  searchInput: { flex: 1, paddingVertical: spacing.md + 2, fontSize: fontSize.md },
-
-  chipRail: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  chipText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  searchInput: { flex: 1, paddingVertical: spacing.sm + 2, fontSize: fontSize.md },
+  searchBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 
   section: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
   sectionTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, letterSpacing: -0.75 },
   sectionSub: { fontSize: fontSize.sm, marginTop: 2, lineHeight: 19 },
 
+  topDestPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 5,
+    backgroundColor: 'rgba(13,148,136,0.10)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  topDestPillText: { color: '#0F766E', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+
   countries: { paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.lg },
+
+  tileRail: { gap: spacing.md, paddingVertical: spacing.md, paddingRight: spacing.lg },
+
+  // Filtered view
+  typeTabs: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  typeTab: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 999, borderWidth: 1 },
+  typeTabText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+
+  resultsHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+    zIndex: 20,
+  },
+  resultsCount: { fontSize: fontSize.md, fontWeight: fontWeight.bold, flexShrink: 1 },
+  resultsActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  filterBtnText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+  filterBadge: {
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    paddingHorizontal: 4,
+    backgroundColor: ORANGE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterBadgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '800' },
+  sortMenu: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    minWidth: 200,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1,
+    paddingVertical: 4,
+    zIndex: 100,
+    elevation: 20,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+  },
+  sortItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  sortItemText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
   gridCell: { width: '47.5%', flexGrow: 1 },
-
-  loadMore: {
+  viewMore: {
     marginTop: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: 999,
-    borderWidth: 1,
     alignItems: 'center',
+    backgroundColor: ORANGE,
   },
-  loadMoreText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  viewMoreText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+
+  // Filters drawer
+  drawerBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' },
+  drawer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing['2xl'],
+  },
+  drawerHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(128,128,128,0.4)',
+    alignSelf: 'center',
+    marginBottom: spacing.md,
+  },
+  drawerTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, marginBottom: spacing.md },
+  catList: { gap: 2 },
+  catRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  catRowText: { flex: 1, fontSize: fontSize.md, fontWeight: fontWeight.medium },
 
   state: { alignItems: 'center', paddingVertical: spacing['2xl'], gap: spacing.md },
   stateText: { fontSize: fontSize.sm, textAlign: 'center', paddingHorizontal: spacing.lg },
-  retry: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 999,
-    backgroundColor: colors.primary[500],
-  },
+  retry: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 999, backgroundColor: ORANGE },
   retryText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 });
