@@ -359,7 +359,12 @@ export default function ESimCheckoutScreen() {
           // this; mobile omitted it.
           quotedPrice: bundle.sellingPrice,
         });
-        if (!createRes?.success || !createRes?.data?._id) {
+        // The server returns the new order id as `data.orderId` (not `_id`).
+        // Reading `_id` here made createOrder look failed on EVERY plan — the
+        // order was created (HTTP 201) but checkout aborted before payment.
+        // Keep `_id` as a fallback in case any path returns it that way.
+        const newOrderId = createRes?.data?.orderId ?? createRes?.data?._id;
+        if (!createRes?.success || !newOrderId) {
           // Log the full response so the exact server reason is visible in dev,
           // not just the toast — several Matrix rejections carry a specific
           // message ("...require a complete billing address", price drift, etc.).
@@ -372,7 +377,7 @@ export default function ESimCheckoutScreen() {
           setSubmitting(false);
           return;
         }
-        currentOrderId = createRes.data._id;
+        currentOrderId = newOrderId;
         setOrderId(currentOrderId);
 
         // Optional: upload passport image to KYC endpoint if user picked one
