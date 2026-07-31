@@ -30,7 +30,6 @@
         "NSCameraUsageDescription": "Take photos for your trip journal, KYC verification, and to upload activity images.",
         "NSPhotoLibraryUsageDescription": "Select photos from your library for your trip, profile, or KYC documents.",
         "NSMicrophoneUsageDescription": "Optional \u2014 used only when you record a voice note in the AI travel chat.",
-        "NSUserTrackingUsageDescription": "Lets us measure ad performance and personalize travel recommendations. You can keep tracking off and the app still works.",
         "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationQueriesSchemes": [
           "tel",
@@ -119,12 +118,6 @@
       "expo-secure-store",
       "expo-location",
       "expo-web-browser",
-      [
-        "expo-tracking-transparency",
-        {
-          "userTrackingPermission": "Lets us measure ad performance and personalize travel recommendations. You can decline and still use Prayana fully."
-        }
-      ],
       "@sentry/react-native/expo",
       "./plugins/withSentryHermesFix",
       "./plugins/withModularHeaders",

@@ -211,25 +211,12 @@ function RootNavigator() {
     }
   }, [isAuthenticated, user?.uid, user?.email]);
 
-  // iOS App Tracking Transparency. Apple guideline: don't show the prompt
-  // immediately on launch — wait until the app has been in foreground briefly.
+  // No cross-app/site tracking: the app runs no ads and does no ad attribution,
+  // so it does NOT show the App Tracking Transparency prompt (showing it while
+  // declaring "no tracking" in App Privacy would be an App Store mismatch).
+  // Analytics stays product-only (never linked to ad networks).
   useEffect(() => {
-    if (Platform.OS !== 'ios') {
-      setTrackingAllowed(true);
-      return;
-    }
-    const t = setTimeout(async () => {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const ATT = require('expo-tracking-transparency');
-        const { status } = await ATT.requestTrackingPermissionsAsync();
-        setTrackingAllowed(status === 'granted');
-      } catch {
-        // Module not linked yet (first dev build) — keep tracking off.
-        setTrackingAllowed(false);
-      }
-    }, 1500);
-    return () => clearTimeout(t);
+    setTrackingAllowed(false);
   }, []);
 
   // Deep link handling — works for both custom scheme (prayana://...) and
