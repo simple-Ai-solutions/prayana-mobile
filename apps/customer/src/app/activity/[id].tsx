@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
   Animated,
   Platform,
+  Linking,
   StatusBar as RNStatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -406,6 +407,8 @@ export default function ActivityDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [similar, setSimilar] = useState<any[]>([]);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [fullscreenVisible, setFullscreenVisible] = useState(false);
   const [fullscreenIndex, setFullscreenIndex] = useState(0);
 
@@ -432,6 +435,14 @@ export default function ActivityDetailScreen() {
         // Feed the "Pick up where you left off" rail on Things to Do (web parity:
         // the detail page records the view in recently-viewed history).
         trackRecentlyViewed(response.data);
+        // Similar activities rail (web parity) — non-critical, fire-and-forget.
+        activityMarketplaceAPI
+          .getSimilarActivities(response.data._id)
+          .then((r: any) => {
+            const list = r?.data || r?.activities || [];
+            if (Array.isArray(list)) setSimilar(list.slice(0, 10));
+          })
+          .catch(() => {});
       } else {
         setError('Activity not found.');
       }
@@ -529,7 +540,18 @@ export default function ActivityDetailScreen() {
   const totalReviews =
     activity.totalReviews ?? activity.rating?.count ?? reviewMeta.total ?? 0;
 
-  const highlights: string[] = activity.highlights || activity.whatsIncluded || [];
+  // Highlights are the experience's selling points; inclusions/exclusions are a
+  // SEPARATE thing (what the price does / doesn't cover). The old code read
+  // `highlights || whatsIncluded` into one list — wrong data. Web parity:
+  // pricing.includesWhat (green ✓) vs pricing.excludesWhat (red ✗).
+  const highlights: string[] = activity.highlights || [];
+  const includesWhat: string[] =
+    activity.pricing?.includesWhat || activity.whatsIncluded || activity.includesWhat || [];
+  const excludesWhat: string[] =
+    activity.pricing?.excludesWhat || activity.whatsNotIncluded || activity.excludesWhat || [];
+  const faqs: Array<{ question: string; answer: string }> = Array.isArray(activity.faqs)
+    ? activity.faqs.filter((f: any) => f?.question && f?.answer)
+    : [];
   const categories: string[] = Array.isArray(activity.category)
     ? activity.category
     : activity.category
@@ -661,20 +683,38 @@ export default function ActivityDetailScreen() {
           )}
         </Section>
 
-        {/* Highlights */}
+        {/* Highlights — the experience's selling points */}
         {highlights.length > 0 && (
-          <Section title="What's Included">
+          <Section title="Highlights">
             {highlights.map((item, idx) => (
               <View key={idx} style={styles.highlightRow}>
-                <Ionicons
-                  name="checkmark-circle"
-                  size={18}
-                  color={colors.success}
-                  style={{ marginRight: spacing.sm }}
-                />
+                <Ionicons name="sparkles" size={16} color={colors.primary[500]} style={{ marginRight: spacing.sm, marginTop: 1 }} />
                 <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
               </View>
             ))}
+          </Section>
+        )}
+
+        {/* What's included / Not included — split, web parity */}
+        {(includesWhat.length > 0 || excludesWhat.length > 0) && (
+          <Section title="What's included">
+            {includesWhat.map((item, idx) => (
+              <View key={`inc-${idx}`} style={styles.highlightRow}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} style={{ marginRight: spacing.sm, marginTop: 1 }} />
+                <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
+              </View>
+            ))}
+            {excludesWhat.length > 0 && (
+              <>
+                <Text style={[styles.notIncludedLabel, { color: themeColors.textTertiary }]}>Not included</Text>
+                {excludesWhat.map((item, idx) => (
+                  <View key={`exc-${idx}`} style={styles.highlightRow}>
+                    <Ionicons name="close-circle" size={18} color="#EF4444" style={{ marginRight: spacing.sm, marginTop: 1 }} />
+                    <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
+                  </View>
+                ))}
+              </>
+            )}
           </Section>
         )}
 
@@ -784,6 +824,84 @@ export default function ActivityDetailScreen() {
                 </Text>
               </View>
             )}
+            {/* Open in Maps — robust alternative to an embedded MapView (which
+                doesn't render well inside a scroll on iOS). */}
+            {(() => {
+              const c = activity.location?.coordinates || activity.location?.geo;
+              const lat = c?.lat ?? c?.latitude;
+              const lng = c?.lng ?? c?.longitude;
+              const q = lat && lng ? `${lat},${lng}` : activity.location?.address;
+              if (!q) return null;
+              return (
+                <TouchableOpacity
+                  style={styles.mapsBtn}
+                  onPress={() => Linking.openURL(`https://maps.apple.com/?q=${encodeURIComponent(q)}`).catch(() => {})}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="navigate" size={16} color={colors.primary[600]} />
+                  <Text style={styles.mapsBtnText}>Open in Maps</Text>
+                </TouchableOpacity>
+              );
+            })()}
+          </Section>
+        )}
+
+        {/* FAQ — web parity (FAQSection) */}
+        {faqs.length > 0 && (
+          <Section title="FAQs">
+            {faqs.map((f, idx) => {
+              const open = openFaq === idx;
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  activeOpacity={0.8}
+                  onPress={() => setOpenFaq(open ? null : idx)}
+                  style={[styles.faqRow, { borderBottomColor: themeColors.border }]}
+                >
+                  <View style={styles.faqHead}>
+                    <Text style={[styles.faqQ, { color: themeColors.text }]}>{f.question}</Text>
+                    <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={themeColors.textTertiary} />
+                  </View>
+                  {open && <Text style={[styles.faqA, { color: themeColors.textSecondary }]}>{f.answer}</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </Section>
+        )}
+
+        {/* Similar activities — web parity (SimilarRail) */}
+        {similar.length > 0 && (
+          <Section title="You might also like">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.similarRail}>
+              {similar.map((s, i) => {
+                const img = s.images?.find((im: any) => im?.isPrimary)?.url || s.images?.[0]?.url || s.image;
+                const price = s.platformSellingPrice || s.pricing?.basePrice || 0;
+                return (
+                  <TouchableOpacity
+                    key={s._id || i}
+                    style={[styles.similarCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                    activeOpacity={0.9}
+                    onPress={() => router.push(`/activity/${s._id}` as any)}
+                  >
+                    {img ? (
+                      <Image source={{ uri: img }} style={styles.similarImg} />
+                    ) : (
+                      <View style={[styles.similarImg, { backgroundColor: colors.primary[100] }]} />
+                    )}
+                    <View style={styles.similarBody}>
+                      <Text style={[styles.similarTitle, { color: themeColors.text }]} numberOfLines={2}>
+                        {s.title}
+                      </Text>
+                      {price > 0 && (
+                        <Text style={[styles.similarPrice, { color: themeColors.text }]}>
+                          ₹{Math.round(price).toLocaleString('en-IN')}
+                        </Text>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </Section>
         )}
       </Animated.ScrollView>
@@ -944,6 +1062,36 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     lineHeight: 20,
   },
+  notIncludedLabel: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+    letterSpacing: 0.5,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+  },
+  mapsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: colors.primary[50],
+  },
+  mapsBtnText: { color: colors.primary[600], fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  faqRow: { paddingVertical: spacing.md, borderBottomWidth: StyleSheet.hairlineWidth },
+  faqHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
+  faqQ: { flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  faqA: { fontSize: fontSize.sm, lineHeight: 20, marginTop: spacing.sm },
+  similarRail: { gap: spacing.md, paddingVertical: spacing.sm, paddingRight: spacing.lg },
+  similarCard: { width: 160, borderRadius: borderRadius.lg, borderWidth: 1, overflow: 'hidden' },
+  similarImg: { width: '100%', height: 100 },
+  similarBody: { padding: spacing.sm, gap: 4 },
+  similarTitle: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, lineHeight: 16 },
+  similarPrice: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 
   // Reviews
   avgRatingContainer: {

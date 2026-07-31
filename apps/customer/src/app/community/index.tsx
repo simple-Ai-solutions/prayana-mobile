@@ -151,6 +151,7 @@ export default function CommunityFeedScreen() {
         showsHorizontalScrollIndicator={false}
         data={CATEGORIES}
         keyExtractor={(c) => c.value || "all"}
+        style={styles.catList}
         contentContainerStyle={styles.catRow}
         renderItem={({ item: c }) => {
           const active = category === c.value;
@@ -299,9 +300,13 @@ const styles = StyleSheet.create({
   tabActive: { backgroundColor: colors.primary[500], borderColor: colors.primary[500] },
   tabText: { fontSize: fontSize.xs, color: colors.gray[700], fontWeight: fontWeight.medium },
   tabTextActive: { color: "white" },
-  catRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 6 },
+  // Horizontal FlatList needs a bounded height, or the row collapses and the
+  // chips render vertically clipped (cut in half). flexGrow:0 stops it eating
+  // vertical space; alignItems centers the chips in the row.
+  catList: { flexGrow: 0 },
+  catRow: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md, gap: 8, alignItems: 'center' },
   catChip: {
-    paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999,
+    paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
     backgroundColor: "white", borderWidth: 1, borderColor: colors.gray[200],
     marginRight: 6,
   },

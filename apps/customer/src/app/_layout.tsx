@@ -286,6 +286,7 @@ function RootNavigator() {
         <Stack.Screen name="transport/[id]" />
         <Stack.Screen name="transport/checkout/[id]" />
         <Stack.Screen name="activities/index" />
+        <Stack.Screen name="experiences/[slug]" />
         <Stack.Screen name="quick-itinerary/index" />
         <Stack.Screen name="quick-itinerary/result" />
         <Stack.Screen name="global-experiences/index" />

@@ -356,6 +356,11 @@ export default function BookingFlowScreen() {
   const [variantsLoading, setVariantsLoading] = useState(false);
   const [priceBreakdown, setPriceBreakdown] = useState<any>(null);
   const [priceLoading, setPriceLoading] = useState(false);
+  // Coupon (web parity: CouponInput). The applied code is what gets re-quoted
+  // and persisted on the booking so payment charges the discounted amount.
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState('');
 
   // Step 3: Contact
   const [name, setName] = useState('');
@@ -473,10 +478,17 @@ export default function BookingFlowScreen() {
         children,
         date: selectedDate.toISOString().split('T')[0],
         variantId: selectedVariant?._id || null,
-        couponCode: undefined,
+        couponCode: appliedCoupon || undefined,
       });
       if (res?.success) {
         setPriceBreakdown(res.data || res);
+        // If a coupon was applied but the server reports no discount, surface it.
+        const bd = res.data || res;
+        if (appliedCoupon && !(bd.couponDiscount > 0 || bd.discount > 0)) {
+          setCouponError('This code could not be applied.');
+        } else {
+          setCouponError('');
+        }
       }
     } catch (err: any) {
       // Non-fatal: price preview may not be available before full selection
@@ -484,7 +496,7 @@ export default function BookingFlowScreen() {
     } finally {
       setPriceLoading(false);
     }
-  }, [activityId, adults, children, selectedDate, selectedVariant]);
+  }, [activityId, adults, children, selectedDate, selectedVariant, appliedCoupon]);
 
   useEffect(() => {
     if (step === 1) {
@@ -619,6 +631,8 @@ export default function BookingFlowScreen() {
         acceptedLegalDocs,
         // Server: "Please choose a boarding point." when the listing has them.
         boardingPointId: boardingPointId || undefined,
+        // Persist the applied coupon so payment charges the discounted amount.
+        couponCode: appliedCoupon || undefined,
       };
 
       const res = await bookingAPI.createBooking(payload);
@@ -1023,6 +1037,40 @@ export default function BookingFlowScreen() {
       {/* Price Preview */}
       <Card bordered style={{ marginBottom: spacing.lg, backgroundColor: themeColors.card, borderColor: themeColors.border }}>
         <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Price Estimate</Text>
+
+        {/* Coupon (web parity: CouponInput) */}
+        {appliedCoupon ? (
+          <View style={styles.couponApplied}>
+            <Ionicons name="pricetag" size={15} color="#059669" />
+            <Text style={styles.couponAppliedText}>{appliedCoupon} applied</Text>
+            <TouchableOpacity
+              onPress={() => { setAppliedCoupon(null); setCouponInput(''); setCouponError(''); }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.couponRemove}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.couponRow}>
+            <TextInput
+              value={couponInput}
+              onChangeText={(t) => { setCouponInput(t.toUpperCase()); setCouponError(''); }}
+              placeholder="Promo code"
+              placeholderTextColor={themeColors.textTertiary}
+              autoCapitalize="characters"
+              style={[styles.couponInput, { color: themeColors.text, borderColor: themeColors.border }]}
+            />
+            <TouchableOpacity
+              onPress={() => couponInput.trim() && setAppliedCoupon(couponInput.trim())}
+              disabled={!couponInput.trim()}
+              style={[styles.couponApply, { opacity: couponInput.trim() ? 1 : 0.5 }]}
+            >
+              <Text style={styles.couponApplyText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {!!couponError && <Text style={styles.couponErrorText}>{couponError}</Text>}
+
         {priceLoading ? (
           <ActivityIndicator color={colors.primary[500]} style={{ paddingVertical: spacing.md }} />
         ) : priceBreakdown ? (
@@ -1035,6 +1083,13 @@ export default function BookingFlowScreen() {
             )}
             {priceBreakdown.bulkDiscount > 0 && (
               <BreakdownRow label="Group discount" amount={priceBreakdown.bulkDiscount} isDiscount />
+            )}
+            {(priceBreakdown.couponDiscount > 0 || priceBreakdown.discount > 0) && (
+              <BreakdownRow
+                label={`Coupon${appliedCoupon ? ` (${appliedCoupon})` : ''}`}
+                amount={priceBreakdown.couponDiscount || priceBreakdown.discount}
+                isDiscount
+              />
             )}
             {priceBreakdown.seasonalAdjustment != null && priceBreakdown.seasonalAdjustment !== 0 && (
               <BreakdownRow
@@ -1481,6 +1536,35 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
   },
+  couponRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginVertical: spacing.sm },
+  couponInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: fontSize.sm,
+  },
+  couponApply: {
+    backgroundColor: colors.primary[500],
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm + 2,
+    borderRadius: borderRadius.md,
+  },
+  couponApplyText: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  couponApplied: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(5,150,105,0.08)',
+  },
+  couponAppliedText: { flex: 1, color: '#059669', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  couponRemove: { color: colors.error, fontSize: fontSize.xs, fontWeight: fontWeight.semibold as any },
+  couponErrorText: { color: colors.error, fontSize: fontSize.xs, marginBottom: spacing.sm },
 
   // Date button (Android)
   dateButton: {
