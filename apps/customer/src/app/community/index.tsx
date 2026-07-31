@@ -192,7 +192,9 @@ export default function CommunityFeedScreen() {
               onPress={() => router.push(`/community/${q._id}` as any)}
             >
               <View style={styles.cardHeader}>
-                <Text style={styles.cardCategory}>{q.category.toUpperCase()}</Text>
+                <View style={styles.categoryPill}>
+                  <Text style={styles.cardCategory}>{q.category.toUpperCase()}</Text>
+                </View>
                 {q.isResolved && (
                   <View style={[styles.badge, { backgroundColor: "#dcfce7" }]}>
                     <Text style={[styles.badgeText, { color: "#15803d" }]}>Resolved</Text>
@@ -235,20 +237,27 @@ export default function CommunityFeedScreen() {
 
               <View style={styles.cardFooter}>
                 <View style={styles.statRow}>
-                  <Ionicons name="arrow-up" size={12} color={themeColors.textTertiary} />
+                  <Ionicons name="arrow-up" size={14} color={themeColors.textTertiary} />
                   <Text style={[styles.statText, { color: themeColors.textTertiary }]}>{q.upvotes || 0}</Text>
                 </View>
                 <View style={styles.statRow}>
-                  <Ionicons name="chatbubble-outline" size={12} color={themeColors.textTertiary} />
+                  <Ionicons name="chatbubble-outline" size={14} color={themeColors.textTertiary} />
                   <Text style={[styles.statText, { color: themeColors.textTertiary }]}>{q.answerCount || 0}</Text>
                 </View>
                 <View style={styles.statRow}>
-                  <Ionicons name="eye-outline" size={12} color={themeColors.textTertiary} />
+                  <Ionicons name="eye-outline" size={14} color={themeColors.textTertiary} />
                   <Text style={[styles.statText, { color: themeColors.textTertiary }]}>{q.viewCount || 0}</Text>
                 </View>
-                <Text style={[styles.metaText, { color: themeColors.textTertiary }]}>
-                  {q.userName} · {timeAgo(q.createdAt)}
-                </Text>
+                <View style={styles.authorRow}>
+                  <View style={styles.authorAvatar}>
+                    <Text style={styles.authorInitial}>
+                      {(q.isAnonymous ? '?' : (q.userName || 'U').trim().charAt(0)).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={[styles.metaText, { color: themeColors.textTertiary }]} numberOfLines={1}>
+                    {q.isAnonymous ? 'Anonymous' : q.userName} · {timeAgo(q.createdAt)}
+                  </Text>
+                </View>
               </View>
             </TouchableOpacity>
           )}
@@ -320,25 +329,55 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: "white",
     marginHorizontal: spacing.md,
-    marginVertical: 6,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
-    borderWidth: 1,
+    marginVertical: 7,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    borderWidth: StyleSheet.hairlineWidth,
     borderColor: colors.gray[200],
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
-  cardHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" },
-  cardCategory: { fontSize: 10, color: colors.primary[600], fontWeight: fontWeight.bold as any, letterSpacing: 0.5 },
-  badge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 999 },
+  cardHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10, flexWrap: "wrap" },
+  // Category as a soft pill, not bare micro-text.
+  categoryPill: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: "rgba(249,115,22,0.10)",
+  },
+  cardCategory: { fontSize: 10, color: "#C2410C", fontWeight: fontWeight.bold as any, letterSpacing: 0.6 },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   badgeText: { fontSize: 10, fontWeight: fontWeight.semibold as any },
-  imageHint: { flexDirection: "row", alignItems: "center" },
+  imageHint: { flexDirection: "row", alignItems: "center", gap: 2 },
   imageHintText: { fontSize: 10, color: colors.gray[500] },
-  cardBodyRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  cardBodyRow: { flexDirection: "row", alignItems: "flex-start", gap: 12 },
   cardBodyText: { flex: 1 },
-  cardThumb: { width: 72, height: 72, borderRadius: 10, backgroundColor: colors.gray[100] },
-  cardTitle: { fontSize: fontSize.md, fontWeight: fontWeight.semibold as any, color: colors.gray[900], marginBottom: 4 },
-  cardDesc: { fontSize: fontSize.sm, color: colors.gray[600], marginBottom: 8 },
-  cardFooter: { flexDirection: "row", alignItems: "center", gap: 12, flexWrap: "wrap" },
-  statRow: { flexDirection: "row", alignItems: "center", gap: 3 },
-  statText: { fontSize: 11, color: colors.gray[500] },
-  metaText: { marginLeft: "auto", fontSize: 10, color: colors.gray[400] },
+  cardThumb: { width: 76, height: 76, borderRadius: 12, backgroundColor: colors.gray[100] },
+  cardTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold as any, color: colors.gray[900], marginBottom: 4, lineHeight: 22 },
+  cardDesc: { fontSize: fontSize.sm, color: colors.gray[600], marginBottom: 10, lineHeight: 19 },
+  cardFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.gray[100],
+  },
+  statRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  statText: { fontSize: 12, color: colors.gray[500], fontWeight: fontWeight.medium as any },
+  authorRow: { flexDirection: "row", alignItems: "center", gap: 6, marginLeft: "auto" },
+  authorAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: colors.primary[500],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  authorInitial: { color: "#fff", fontSize: 9, fontWeight: fontWeight.bold as any },
+  metaText: { fontSize: 11, color: colors.gray[500] },
 });
