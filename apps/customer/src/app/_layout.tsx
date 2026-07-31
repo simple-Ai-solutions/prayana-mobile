@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Linking } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -19,6 +19,7 @@ import { initSentry, setSentryUser } from '../lib/sentry';
 import { resolveDeepLink } from '../lib/deepLinks';
 import { setTrackingAllowed, identify } from '../lib/analytics';
 import { makeGuestUser, isGuest } from '../lib/guestSession';
+import { AnimatedSplash } from '../components/common/AnimatedSplash';
 
 // Initialize crash reporting before any other code can crash.
 initSentry();
@@ -190,6 +191,10 @@ function RootNavigator() {
   const { isLoading, user, isAuthenticated } = useAuth();
   const router = useRouter();
 
+  // Once resources are ready, hide the native (static) splash and hand off to
+  // the branded AnimatedSplash overlay — the mobile counterpart of the PWA's
+  // cinematic launch animation. It fades itself out and clears showSplash.
+  const [showSplash, setShowSplash] = useState(true);
   useEffect(() => {
     if (!isLoading) {
       SplashScreen.hideAsync().catch(() => {});
@@ -300,6 +305,10 @@ function RootNavigator() {
         <Stack.Screen name="profile/notifications" />
       </Stack>
       <Toast />
+      {/* Cinematic launch animation (web/PWA parity). Sits on top until it
+          fades itself out, then unmounts. Only after resources are ready so it
+          doesn't compete with the native splash. */}
+      {showSplash && !isLoading && <AnimatedSplash onDone={() => setShowSplash(false)} />}
     </>
   );
 }

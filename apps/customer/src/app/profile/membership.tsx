@@ -5,6 +5,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -54,6 +55,23 @@ export default function MembershipScreen() {
 
   const pointsValue = Math.floor(loyaltyPoints * 0.5);
 
+  // Tier ladder — the next tier + points needed, so the card reflects the REAL
+  // tier instead of the old hardcoded "You're a Premium Member". Thresholds are
+  // the standard Bronze→Silver→Gold→Platinum loyalty ladder.
+  const TIER_LADDER: { name: string; min: number }[] = [
+    { name: 'Bronze', min: 0 },
+    { name: 'Silver', min: 1000 },
+    { name: 'Gold', min: 5000 },
+    { name: 'Platinum', min: 15000 },
+  ];
+  const currentIdx = Math.max(
+    0,
+    TIER_LADDER.map((t) => t.name.toLowerCase()).indexOf((tier || 'Bronze').toLowerCase())
+  );
+  const nextTierObj = TIER_LADDER[currentIdx + 1] || null;
+  const nextTier = nextTierObj?.name || null;
+  const pointsToNext = nextTierObj ? Math.max(0, nextTierObj.min - loyaltyPoints) : 0;
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.backgroundSecondary }]} edges={['top']}>
       {/* Header */}
@@ -99,7 +117,16 @@ export default function MembershipScreen() {
             </View>
           </View>
 
-          <TouchableOpacity style={styles.redeemBtn} activeOpacity={0.85}>
+          <TouchableOpacity
+            style={styles.redeemBtn}
+            activeOpacity={0.85}
+            onPress={() =>
+              Alert.alert(
+                'Redeem points — coming soon',
+                'Point redemption for discounts and perks is on the way. Your points keep accruing in the meantime.'
+              )
+            }
+          >
             <Text style={styles.redeemBtnText}>Redeem Points</Text>
             <Ionicons name="arrow-forward" size={16} color="#92400E" />
           </TouchableOpacity>
@@ -150,9 +177,15 @@ export default function MembershipScreen() {
         <View style={[styles.nextTierCard, { backgroundColor: isDarkMode ? '#1a1a2e' : '#f0f9ff', borderColor: '#bae6fd' }]}>
           <Ionicons name="information-circle-outline" size={20} color="#0ea5e9" />
           <View style={{ flex: 1 }}>
-            <Text style={[styles.nextTierTitle, { color: themeColors.text }]}>You're a Premium Member</Text>
+            <Text style={[styles.nextTierTitle, { color: themeColors.text }]}>
+              {nextTier
+                ? `${pointsToNext.toLocaleString()} points to ${nextTier}`
+                : `You're at the top — ${tier} tier`}
+            </Text>
             <Text style={[styles.nextTierBody, { color: themeColors.textSecondary }]}>
-              As an early adopter, you enjoy all Premium benefits for free. Keep exploring and earning points!
+              {nextTier
+                ? `Keep booking, sharing, and planning to unlock ${nextTier} and its perks.`
+                : `You've reached the highest tier. Keep earning points to redeem for rewards.`}
             </Text>
           </View>
         </View>

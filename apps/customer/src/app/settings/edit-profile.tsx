@@ -306,7 +306,17 @@ export default function EditProfileScreen() {
       >
         {/* ====== AVATAR SECTION ====== */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarContainer}>
+          <TouchableOpacity
+            style={styles.avatarContainer}
+            activeOpacity={0.85}
+            onPress={() =>
+              Toast.show({
+                type: 'info',
+                text1: 'Profile photo — coming soon',
+                text2: 'Custom photo upload is on the way. Your initials show for now.',
+              })
+            }
+          >
             <Avatar
               name={avatarName}
               uri={avatarPhoto}
@@ -320,7 +330,7 @@ export default function EditProfileScreen() {
                 <Ionicons name="camera" size={16} color="#ffffff" />
               </LinearGradient>
             </View>
-          </View>
+          </TouchableOpacity>
           <Text style={[styles.avatarHint, { color: themeColors.textSecondary }]}>Tap to change photo</Text>
         </View>
 

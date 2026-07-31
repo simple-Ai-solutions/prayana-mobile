@@ -49,7 +49,12 @@ export default function TravelPreferencesScreen() {
     (async () => {
       try {
         const res: any = await fetchUserProfile();
-        const prefs = res?.data?.preferences || res?.user?.preferences;
+        // GET /auth/profile returns { data: { profile: {...} } } — preferences
+        // live under data.profile.preferences (getProfileForDisplay). Reading
+        // data.preferences (missing `.profile`) was always undefined, so saved
+        // travel preferences never hydrated on reopen — it looked like they never saved.
+        const profile = res?.data?.profile || res?.data || {};
+        const prefs = profile.preferences || res?.user?.preferences;
         if (prefs?.interests?.length) setSelectedInterests(prefs.interests);
         if (prefs?.travelStyle) setTravelStyle(prefs.travelStyle);
         if (prefs?.budgetRange) setBudgetRange(prefs.budgetRange);

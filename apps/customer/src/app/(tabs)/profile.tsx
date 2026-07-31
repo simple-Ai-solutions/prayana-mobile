@@ -12,7 +12,7 @@ import {
   Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -165,6 +165,11 @@ export default function ProfileScreen() {
   });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // Backend-sourced name/email so the header reflects edits made in edit-profile
+  // (which writes `name` to Mongo, NOT Firebase displayName). Falls back to the
+  // Firebase user until the profile loads.
+  const [backendName, setBackendName] = useState('');
+  const [backendEmail, setBackendEmail] = useState('');
   const [loggingOut, setLoggingOut] = useState(false);
 
   // ============================================================
@@ -182,6 +187,10 @@ export default function ProfileScreen() {
       const res: any = await fetchUserProfile();
       const profile = res?.data?.profile || res?.data;
       if (profile) {
+        // Header reflects the backend name/email, so a name edited in
+        // edit-profile shows here on return (Firebase displayName isn't updated).
+        if (profile.name) setBackendName(profile.name);
+        if (profile.email) setBackendEmail(profile.email);
         setStats({
           totalTrips: profile.travelStats?.tripsCompleted ?? 0,
           totalBookings: profile.membership?.bookingStats?.completedCount ?? 0,
@@ -204,6 +213,14 @@ export default function ProfileScreen() {
       setLoading(false);
     }
   }, [user?.uid]);
+
+  // Refetch whenever the tab regains focus — so returning from edit-profile,
+  // travel-preferences, membership, etc. shows the freshly-saved values.
+  useFocusEffect(
+    useCallback(() => {
+      loadUserStats();
+    }, [loadUserStats])
+  );
 
   useEffect(() => {
     loadUserStats();
@@ -453,8 +470,9 @@ export default function ProfileScreen() {
   // ============================================================
   // DISPLAY VALUES
   // ============================================================
-  const displayName = user?.displayName || 'Prayana User';
-  const displayEmail = user?.email || 'No email linked';
+  // Prefer the backend name/email (reflects edit-profile saves) over Firebase.
+  const displayName = backendName || user?.displayName || 'Prayana User';
+  const displayEmail = backendEmail || user?.email || 'No email linked';
   const displayPhoto = user?.photoURL || undefined;
   const initials = displayName
     .split(' ')

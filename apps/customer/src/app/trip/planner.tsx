@@ -35,6 +35,8 @@ import SOSButton from '../../components/trip/SOSButton';
 import CollaboratorAvatars from '../../components/trip/CollaboratorAvatars';
 import InviteSheet from '../../components/trip/InviteSheet';
 import TripChatSheet from '../../components/trip/TripChatSheet';
+import PollsSheet from '../../components/trip/PollsSheet';
+import { useAutoPlanOnArrival } from '../../lib/useAutoPlanOnArrival';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -158,6 +160,26 @@ export default function DayPlannerScreen() {
   const [editNotes, setEditNotes] = useState('');
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
+  // ─── Auto-plan on arrival (web parity: AutoPlanOnArrival) ───
+  // Per-day AI build status, so day tabs show a spinner while auto-planning.
+  const [dayPlanStatus, setDayPlanStatus] = useState<Record<number, 'building' | 'done' | 'error'>>({});
+  const [autoPlanning, setAutoPlanning] = useState(false);
+
+  useAutoPlanOnArrival({
+    // Only auto-plan a real, saved-or-temp trip with somewhere to plan.
+    enabled: !!(tripId || tempTripId),
+    days,
+    getDestinationForDay,
+    tripType,
+    budget,
+    addActivity,
+    onDayStatus: (dayIndex, status) => {
+      setDayPlanStatus((prev) => ({ ...prev, [dayIndex]: status }));
+      if (status === 'building') setAutoPlanning(true);
+    },
+    onComplete: () => setAutoPlanning(false),
+  });
+
   // ── Inline Add Activity Panel ──
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [addPanelSlot, setAddPanelSlot] = useState<TimeSlotKey>('morning');
@@ -174,6 +196,7 @@ export default function DayPlannerScreen() {
   const budgetSheetRef = useRef<BottomModalRef>(null);
   const inviteSheetRef = useRef<BottomModalRef>(null);
   const chatSheetRef = useRef<BottomModalRef>(null);
+  const pollsSheetRef = useRef<BottomModalRef>(null);
 
   // ─── Derived Values ───
 
@@ -673,13 +696,15 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                 {dest.name}
               </Text>
             ) : null}
-            {actCount > 0 && (
+            {dayPlanStatus[index] === 'building' ? (
+              <ActivityIndicator size="small" color={P[500]} style={{ marginTop: 2 }} />
+            ) : actCount > 0 ? (
               <View style={[styles.dayTabBadge, isSelected && styles.dayTabBadgeSelected]}>
                 <Text style={[styles.dayTabBadgeText, isSelected && styles.dayTabBadgeTextSelected]}>
                   {actCount}
                 </Text>
               </View>
-            )}
+            ) : null}
           </TouchableOpacity>
         );
       })}
@@ -920,6 +945,14 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           >
             <Ionicons name="person-add-outline" size={16} color={P[500]} />
           </TouchableOpacity>
+          {/* Group voting — "Plan with Friends" decisions (web parity: VotingPoll) */}
+          <TouchableOpacity
+            style={styles.budgetHeaderBtn}
+            onPress={() => pollsSheetRef.current?.expand()}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons name="bar-chart-outline" size={20} color={P[500]} />
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.budgetHeaderBtn}
             onPress={() => budgetSheetRef.current?.expand()}
@@ -994,17 +1027,32 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           </View>
           <View style={styles.dayInfoActions}>
             <OptimizeRouteButton dayIndex={selectedDayIndex} />
+            {/* Labelled so AI is discoverable — these were bare icons a user
+                couldn't tell generated an itinerary. "Auto-Plan" opens the full
+                builder; "AI" fills the inline suggestion panel. */}
             <TouchableOpacity
-              style={styles.iconBtn}
+              style={styles.aiLabelBtn}
               onPress={() => smartBuilderRef.current?.expand()}
-              activeOpacity={0.7}
+              activeOpacity={0.8}
             >
-              <Ionicons name="flash" size={16} color="#ffffff" />
+              <Ionicons name="flash" size={14} color="#ffffff" />
+              <Text style={styles.aiLabelBtnText}>Auto-Plan</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtnCyan} onPress={handleGenerateAI} activeOpacity={0.7}>
-              <Ionicons name="sparkles" size={16} color="#ffffff" />
+            <TouchableOpacity style={styles.aiLabelBtnCyan} onPress={handleGenerateAI} activeOpacity={0.8}>
+              <Ionicons name="sparkles" size={14} color="#ffffff" />
+              <Text style={styles.aiLabelBtnText}>AI</Text>
             </TouchableOpacity>
           </View>
+        </View>
+      )}
+
+      {/* ── Auto-plan banner (web parity: AI builds every empty day on arrival) ── */}
+      {autoPlanning && (
+        <View style={styles.autoPlanBanner}>
+          <ActivityIndicator size="small" color={P[600]} />
+          <Text style={styles.autoPlanBannerText}>
+            AI is planning your trip — filling each day with the best places…
+          </Text>
         </View>
       )}
 
@@ -1276,44 +1324,46 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
       )}
       </View>{/* end contentContainer */}
 
-      {/* ── Map Modal ── */}
-      <Modal
-        visible={showMapModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowMapModal(false)}
-      >
-        <SafeAreaView style={[styles.mapModalSafeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
-          <View style={[styles.mapModalHeader, { borderBottomColor: themeColors.border }]}>
-            <View>
-              <Text style={[styles.mapModalTitle, { color: themeColors.text }]}>
-                {currentDay?.title || 'Day'} Map
-              </Text>
-              <Text style={[styles.mapModalSubtitle, { color: themeColors.textTertiary }]}>
-                {currentActivities.length} places{currentDestination?.name ? ` · ${currentDestination.name}` : ''}
-              </Text>
+      {/* ── Map Overlay ──
+          A full-screen absolute View, NOT a React Native <Modal>. On iOS,
+          react-native-maps' MapView does not attach inside an RN Modal (the
+          Modal is a separate UIWindow the native map view manager never mounts
+          into) — the map came up as NOTHING/blank. Rendering the map in the
+          normal view hierarchy fixes that. */}
+      {showMapModal && (
+        <View style={styles.mapOverlay}>
+          <SafeAreaView style={[styles.mapModalSafeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
+            <View style={[styles.mapModalHeader, { borderBottomColor: themeColors.border }]}>
+              <View>
+                <Text style={[styles.mapModalTitle, { color: themeColors.text }]}>
+                  {currentDay?.title || 'Day'} Map
+                </Text>
+                <Text style={[styles.mapModalSubtitle, { color: themeColors.textTertiary }]}>
+                  {currentActivities.length} places{currentDestination?.name ? ` · ${currentDestination.name}` : ''}
+                </Text>
+              </View>
+              <RNTouchableOpacity
+                onPress={() => setShowMapModal(false)}
+                style={[styles.mapModalCloseBtn, { backgroundColor: themeColors.surface }]}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <Ionicons name="close" size={22} color={themeColors.textSecondary} />
+              </RNTouchableOpacity>
             </View>
-            <RNTouchableOpacity
-              onPress={() => setShowMapModal(false)}
-              style={[styles.mapModalCloseBtn, { backgroundColor: themeColors.surface }]}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <Ionicons name="close" size={22} color={themeColors.textSecondary} />
-            </RNTouchableOpacity>
-          </View>
-          <View style={styles.mapModalContent}>
-            <ItineraryMap
-              places={currentActivities}
-              visible={true}
-              onClose={() => setShowMapModal(false)}
-              dayTitle={currentDay?.title}
-              destinationName={currentDestination?.name}
-              inline
-              height={Dimensions.get('window').height - 160}
-            />
-          </View>
-        </SafeAreaView>
-      </Modal>
+            <View style={styles.mapModalContent}>
+              <ItineraryMap
+                places={currentActivities}
+                visible={true}
+                onClose={() => setShowMapModal(false)}
+                dayTitle={currentDay?.title}
+                destinationName={currentDestination?.name}
+                inline
+                height={Dimensions.get('window').height - 160}
+              />
+            </View>
+          </SafeAreaView>
+        </View>
+      )}
 
       {/* ── Schedule Modal ── */}
       <Modal
@@ -1437,6 +1487,9 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
       {/* ── Trip Chat FAB + Bottom Sheet ── */}
       <TripChatSheet sheetRef={chatSheetRef} />
+
+      {/* ── Group Voting Bottom Sheet ── */}
+      <PollsSheet sheetRef={pollsSheetRef} tripId={activeTripId} />
 
       {/* ── Activity Edit Modal ── */}
       <Modal
@@ -1806,6 +1859,17 @@ const styles = StyleSheet.create({
   mapModalContent: {
     flex: 1,
   },
+  // Full-screen overlay for the map (replaces the RN Modal that broke MapView on iOS).
+  mapOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1000,
+    elevation: 1000,
+    backgroundColor: '#000',
+  },
 
   // Day Info Actions
   dayInfoActions: {
@@ -1831,6 +1895,51 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.full,
     backgroundColor: '#06B6D4',
     ...shadow.sm,
+  },
+  // Labelled AI buttons — discoverable replacements for the bare icon buttons.
+  aiLabelBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#a855f7',
+    ...shadow.sm,
+  },
+  aiLabelBtnCyan: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 34,
+    paddingHorizontal: 12,
+    borderRadius: borderRadius.full,
+    backgroundColor: '#06B6D4',
+    ...shadow.sm,
+  },
+  aiLabelBtnText: {
+    color: '#ffffff',
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.bold,
+  },
+  autoPlanBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.lg,
+    backgroundColor: '#ECFEFF',
+    borderWidth: 1,
+    borderColor: '#A5F3FC',
+  },
+  autoPlanBannerText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.semibold,
+    color: '#0E7490',
   },
 
   // Scroll Content

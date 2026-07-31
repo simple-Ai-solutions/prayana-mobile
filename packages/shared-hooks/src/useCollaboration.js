@@ -140,6 +140,18 @@ export function useCollaboration(tripId) {
       return;
     }
 
+    // Don't connect for a TEMPORARY trip id. The setup screen mints a
+    // `temp_`/`local-` id immediately (so the UI works before the first save),
+    // but that trip has no server-side room to join — connecting just churns and
+    // spams "[Socket] Connection error: websocket error". Web guards this too;
+    // mobile did not, which is why the planner logged socket errors on an
+    // unsaved trip. Real-time collaboration begins once the trip is saved and
+    // gets a real id.
+    const tid = String(tripId);
+    if (tid.startsWith('temp_') || tid.startsWith('temp-') || tid.startsWith('local-')) {
+      return;
+    }
+
     let isActive = true;
 
     // Clear stale activities from previous session

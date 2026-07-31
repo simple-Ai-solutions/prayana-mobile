@@ -1,3 +1,12 @@
+// Identity Vault — passport, PAN, driving licence (manual/scan); Aadhaar via DigiLocker.
+//
+// Rewritten to the REAL server contract (routes/userIdentity.js):
+//   • GET /users/me/identity → { data: { passport, aadhaar, pan, drivingLicence, kycTier, ... } }
+//     each doc masked as { numberLast4, status, fullName?, expiryDate?, ... } (NOT a documents[] list).
+//   • Writes go through PATCH /users/me/identity WITH a consent block that
+//     identityAPI fetches from /consent-text — the old plain POST /:type had no
+//     route and no consent, so every save 404'd and the vault always showed empty.
+//   • Aadhaar is DigiLocker-only (no manual number entry).
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -10,6 +19,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -30,28 +40,54 @@ import {
 } from '@prayana/shared-ui';
 import { identityAPI } from '@prayana/shared-services';
 
-type DocType = 'passport' | 'aadhaar' | 'pan' | 'drivers_license' | 'visa';
+// Server-supported doc types (SUPPORTED_DOC_TYPES + aadhaar via DigiLocker).
+type DocType = 'passport' | 'aadhaar' | 'pan' | 'drivingLicence';
 
-type StoredDoc = {
-  type: DocType;
-  numberMasked?: string;
-  status?: 'verified' | 'pending' | 'expired' | 'unverified';
-  expiry?: string;
-  updatedAt?: string;
-};
+// The masked per-doc shape the server returns (sectionForDisplay / identityForDisplay).
+interface DocSection {
+  numberLast4?: string | null;
+  status?: 'verified' | 'pending' | 'expired' | 'unverified' | string | null;
+  fullName?: string | null;
+  nameOnPan?: string | null;
+  nameOnAadhaar?: string | null;
+  expiryDate?: string | null;
+  validUntil?: string | null;
+  updatedAt?: string | null;
+}
 
-const DOC_META: Record<DocType, { label: string; icon: keyof typeof Ionicons.glyphMap; description: string; placeholder: string }> = {
+interface IdentityData {
+  passport?: DocSection | null;
+  aadhaar?: DocSection | null;
+  pan?: DocSection | null;
+  drivingLicence?: DocSection | null;
+  kycTier?: string;
+  kycCompletionPercent?: number;
+}
+
+const DOC_META: Record<
+  DocType,
+  {
+    label: string;
+    icon: keyof typeof Ionicons.glyphMap;
+    description: string;
+    placeholder: string;
+    digilockerOnly?: boolean;
+    hasExpiry?: boolean;
+  }
+> = {
   passport: {
     label: 'Passport',
     icon: 'airplane-outline',
     description: 'Used for international travel + eSIM activation.',
     placeholder: 'A12345678',
+    hasExpiry: true,
   },
   aadhaar: {
     label: 'Aadhaar',
     icon: 'finger-print-outline',
-    description: 'Used for Indian booking KYC. Last 4 digits stored masked.',
-    placeholder: '1234 5678 9012',
+    description: 'Linked securely via DigiLocker — no manual entry.',
+    placeholder: '',
+    digilockerOnly: true,
   },
   pan: {
     label: 'PAN',
@@ -59,30 +95,25 @@ const DOC_META: Record<DocType, { label: string; icon: keyof typeof Ionicons.gly
     description: 'Used for tax invoices on high-value bookings.',
     placeholder: 'ABCDE1234F',
   },
-  drivers_license: {
-    label: "Driver's licence",
+  drivingLicence: {
+    label: "Driving Licence",
     icon: 'car-outline',
     description: 'Required for self-drive vehicle rentals.',
-    placeholder: 'KA01 20240000123',
-  },
-  visa: {
-    label: 'Visa',
-    icon: 'document-text-outline',
-    description: 'Optional — speeds up international booking forms.',
-    placeholder: 'V12345678',
+    placeholder: 'KA0120240000123',
+    hasExpiry: true,
   },
 };
 
-const DOC_ORDER: DocType[] = ['passport', 'aadhaar', 'pan', 'drivers_license', 'visa'];
+const DOC_ORDER: DocType[] = ['passport', 'aadhaar', 'pan', 'drivingLicence'];
 
 export default function IdentityVaultScreen() {
   const router = useRouter();
   const { themeColors, isDarkMode } = useTheme();
-  const [docs, setDocs] = useState<Record<string, StoredDoc>>({});
+  const [data, setData] = useState<IdentityData>({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  // Edit modal
+  // Edit modal (manual-entry docs only)
   const [editing, setEditing] = useState<DocType | null>(null);
   const [docNumber, setDocNumber] = useState('');
   const [expiry, setExpiry] = useState('');
@@ -90,13 +121,8 @@ export default function IdentityVaultScreen() {
 
   const fetchDocs = useCallback(async () => {
     try {
-      const res = await identityAPI.get();
-      const list: StoredDoc[] = res?.data?.documents || res?.documents || [];
-      const map: Record<string, StoredDoc> = {};
-      list.forEach((d) => {
-        map[d.type] = d;
-      });
-      setDocs(map);
+      const res: any = await identityAPI.get();
+      setData(res?.data || {});
     } catch (err: any) {
       console.warn('[Identity] fetch failed:', err?.message);
     } finally {
@@ -110,10 +136,11 @@ export default function IdentityVaultScreen() {
 
   const openEditor = (type: DocType) => {
     Haptics.selectionAsync();
+    const sec = data[type];
     setEditing(type);
     setDocNumber('');
-    setExpiry(docs[type]?.expiry || '');
-    setHolderName('');
+    setExpiry(sec?.expiryDate || sec?.validUntil || '');
+    setHolderName(sec?.fullName || sec?.nameOnPan || '');
   };
 
   const closeEditor = () => {
@@ -123,31 +150,66 @@ export default function IdentityVaultScreen() {
     setHolderName('');
   };
 
+  // Build the per-docType field object the PATCH endpoint expects.
+  const buildFields = (type: DocType): Record<string, any> => {
+    const number = docNumber.trim();
+    if (type === 'passport') {
+      return { number, fullName: holderName.trim() || undefined, expiryDate: expiry || undefined };
+    }
+    if (type === 'pan') {
+      return { number, nameOnPan: holderName.trim() || undefined };
+    }
+    if (type === 'drivingLicence') {
+      return { number, validUntil: expiry || undefined };
+    }
+    return { number };
+  };
+
   const saveDoc = async () => {
-    if (!editing) return;
+    if (!editing || editing === 'aadhaar') return;
     if (!docNumber.trim()) {
       Toast.show({ type: 'error', text1: 'Document number required' });
       return;
     }
     setSubmitting(true);
     try {
-      const res = await identityAPI.saveDoc(editing, {
-        number: docNumber.trim(),
-        expiry: expiry || undefined,
-        holderName: holderName.trim() || undefined,
-      });
-      if (res?.success) {
+      // saveDetails fetches the consent text + hash and PATCHes with the
+      // required consent block. Any 4xx (incl. consent) surfaces as a throw.
+      const res: any = await identityAPI.saveDetails(editing, buildFields(editing));
+      if (res?.success !== false) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Toast.show({ type: 'success', text1: 'Saved securely' });
         closeEditor();
-        await fetchDocs();
+        // Use the fresh identity the PATCH returns (avoids a second round-trip).
+        if (res?.data) setData(res.data);
+        else await fetchDocs();
       } else {
         Toast.show({ type: 'error', text1: 'Save failed', text2: res?.message });
       }
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'Save failed', text2: err?.message });
+      Toast.show({ type: 'error', text1: 'Save failed', text2: err?.message || 'Please try again.' });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const linkAadhaar = async () => {
+    try {
+      const res: any = await identityAPI.digilockerInitiate('aadhaar');
+      const url = res?.data?.url || res?.url || res?.data?.redirectUrl;
+      if (url) {
+        Linking.openURL(url).catch(() =>
+          Toast.show({ type: 'error', text1: "Couldn't open DigiLocker" }),
+        );
+      } else {
+        Toast.show({
+          type: 'info',
+          text1: 'DigiLocker link unavailable',
+          text2: 'Please try again shortly.',
+        });
+      }
+    } catch (err: any) {
+      Toast.show({ type: 'error', text1: 'DigiLocker error', text2: err?.message });
     }
   };
 
@@ -162,8 +224,8 @@ export default function IdentityVaultScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const res = await identityAPI.removeDoc(type);
-              if (res?.success) {
+              const res: any = await identityAPI.removeDoc(type);
+              if (res?.success !== false) {
                 Toast.show({ type: 'success', text1: 'Removed' });
                 await fetchDocs();
               }
@@ -199,6 +261,14 @@ export default function IdentityVaultScreen() {
     );
   };
 
+  const statusBadge = (status?: string | null) => {
+    const s = (status || 'unverified').toLowerCase();
+    if (s === 'verified') return { label: 'Verified', variant: 'success' as const };
+    if (s === 'expired') return { label: 'Expired', variant: 'error' as const };
+    if (s === 'pending') return { label: 'Pending', variant: 'warning' as const };
+    return { label: 'Stored', variant: 'default' as const };
+  };
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <View style={[styles.topBar, { backgroundColor: themeColors.card, borderBottomColor: themeColors.border }]}>
@@ -210,7 +280,6 @@ export default function IdentityVaultScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Privacy banner */}
         <Card style={[styles.banner, isDarkMode && { backgroundColor: themeColors.card }]}>
           <View style={styles.bannerHead}>
             <Ionicons name="lock-closed" size={18} color={colors.primary[600]} />
@@ -230,8 +299,10 @@ export default function IdentityVaultScreen() {
         ) : (
           DOC_ORDER.map((type) => {
             const meta = DOC_META[type];
-            const doc = docs[type];
-            const stored = !!doc;
+            const sec = data[type];
+            const stored = !!sec?.numberLast4;
+            const badge = stored ? statusBadge(sec?.status) : null;
+            const exp = sec?.expiryDate || sec?.validUntil;
             return (
               <Card key={type} style={[styles.docCard, { backgroundColor: themeColors.card }]}>
                 <View style={styles.docHead}>
@@ -241,34 +312,15 @@ export default function IdentityVaultScreen() {
                   <View style={{ flex: 1 }}>
                     <View style={styles.docNameRow}>
                       <Text style={[styles.docLabel, { color: themeColors.text }]}>{meta.label}</Text>
-                      {stored ? (
-                        <Badge
-                          label={
-                            doc.status === 'verified'
-                              ? 'Verified'
-                              : doc.status === 'expired'
-                                ? 'Expired'
-                                : doc.status === 'pending'
-                                  ? 'Pending'
-                                  : 'Stored'
-                          }
-                          variant={
-                            doc.status === 'verified'
-                              ? 'success'
-                              : doc.status === 'expired'
-                                ? 'error'
-                                : doc.status === 'pending'
-                                  ? 'warning'
-                                  : 'default'
-                          }
-                          size="sm"
-                        />
+                      {badge ? <Badge label={badge.label} variant={badge.variant} size="sm" /> : null}
+                      {meta.digilockerOnly && !stored ? (
+                        <Badge label="DigiLocker" variant="default" size="sm" />
                       ) : null}
                     </View>
                     {stored ? (
                       <Text style={[styles.docMeta, { color: themeColors.textSecondary }]}>
-                        {doc.numberMasked || '••••'}
-                        {doc.expiry ? ` · Exp ${doc.expiry}` : ''}
+                        ••••{sec?.numberLast4}
+                        {exp ? ` · Exp ${exp}` : ''}
                       </Text>
                     ) : (
                       <Text style={[styles.docDesc, { color: themeColors.textTertiary }]}>{meta.description}</Text>
@@ -276,12 +328,21 @@ export default function IdentityVaultScreen() {
                   </View>
                 </View>
                 <View style={styles.docActions}>
-                  <Button
-                    title={stored ? 'Update' : 'Add'}
-                    onPress={() => openEditor(type)}
-                    variant="outline"
-                    size="sm"
-                  />
+                  {meta.digilockerOnly ? (
+                    <Button
+                      title={stored ? 'Re-link' : 'Link with DigiLocker'}
+                      onPress={linkAadhaar}
+                      variant="outline"
+                      size="sm"
+                    />
+                  ) : (
+                    <Button
+                      title={stored ? 'Update' : 'Add'}
+                      onPress={() => openEditor(type)}
+                      variant="outline"
+                      size="sm"
+                    />
+                  )}
                   {stored ? (
                     <Button title="Remove" onPress={() => removeDoc(type)} variant="ghost" size="sm" />
                   ) : null}
@@ -297,9 +358,9 @@ export default function IdentityVaultScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Editor */}
+      {/* Editor — manual-entry docs only (passport / pan / drivingLicence) */}
       <Modal
-        visible={!!editing}
+        visible={!!editing && editing !== 'aadhaar'}
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={closeEditor}
@@ -307,7 +368,7 @@ export default function IdentityVaultScreen() {
         <SafeAreaView style={[styles.modalContainer, { backgroundColor: themeColors.background }]} edges={['top']}>
           <View style={[styles.modalHeader, { borderBottomColor: themeColors.border }]}>
             <Text style={[styles.modalTitle, { color: themeColors.text }]}>
-              {editing ? `${DOC_META[editing].label}` : ''}
+              {editing ? DOC_META[editing].label : ''}
             </Text>
             <TouchableOpacity onPress={closeEditor} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
               <Ionicons name="close" size={26} color={themeColors.text} />
@@ -315,9 +376,11 @@ export default function IdentityVaultScreen() {
           </View>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
-              {editing ? (
+              {editing && editing !== 'aadhaar' ? (
                 <>
-                  <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>{DOC_META[editing].description}</Text>
+                  <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>
+                    {DOC_META[editing].description}
+                  </Text>
                   <TextInput
                     label="Document number"
                     value={docNumber}
@@ -325,13 +388,22 @@ export default function IdentityVaultScreen() {
                     placeholder={DOC_META[editing].placeholder}
                     autoCapitalize="characters"
                   />
-                  <TextInput
-                    label="Holder name (as on document)"
-                    value={holderName}
-                    onChangeText={setHolderName}
-                    placeholder="Full legal name"
-                  />
-                  {(editing === 'passport' || editing === 'visa' || editing === 'drivers_license') ? (
+                  {editing === 'passport' ? (
+                    <TextInput
+                      label="Full name (as on passport)"
+                      value={holderName}
+                      onChangeText={setHolderName}
+                      placeholder="Full legal name"
+                    />
+                  ) : editing === 'pan' ? (
+                    <TextInput
+                      label="Name on PAN"
+                      value={holderName}
+                      onChangeText={setHolderName}
+                      placeholder="Full legal name"
+                    />
+                  ) : null}
+                  {DOC_META[editing].hasExpiry ? (
                     <TextInput
                       label="Expiry (YYYY-MM-DD)"
                       value={expiry}
@@ -339,6 +411,9 @@ export default function IdentityVaultScreen() {
                       placeholder="2034-08-15"
                     />
                   ) : null}
+                  <Text style={[styles.consentNote, { color: themeColors.textTertiary }]}>
+                    By saving, you consent to Prayana securely storing this document for your bookings.
+                  </Text>
                 </>
               ) : null}
             </ScrollView>
@@ -393,7 +468,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  docNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  docNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flexWrap: 'wrap' },
   docLabel: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
   docMeta: { fontSize: fontSize.sm, color: colors.textSecondary, marginTop: 2 },
   docDesc: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2, lineHeight: 16 },
@@ -428,4 +503,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   helperText: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 20 },
+  consentNote: { fontSize: fontSize.xs, lineHeight: 16, marginTop: spacing.sm },
 });

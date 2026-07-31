@@ -81,7 +81,11 @@ export default function NotificationSettingsScreen() {
   const fetchPrefs = useCallback(async () => {
     try {
       const res: any = await fetchUserProfile();
-      const prefs = res?.data?.preferences?.notifications || res?.user?.preferences?.notifications || {};
+      // Preferences live at data.profile.preferences (getProfileForDisplay), not
+      // data.preferences — the missing `.profile` meant toggles never hydrated,
+      // so they appeared not to persist across reopens.
+      const profile = res?.data?.profile || res?.data || {};
+      const prefs = profile.preferences?.notifications || res?.user?.preferences?.notifications || {};
       setChannels({
         push: prefs.push !== false,
         email: prefs.email !== false,
