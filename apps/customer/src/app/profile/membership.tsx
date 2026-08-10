@@ -132,6 +132,27 @@ export default function MembershipScreen() {
           </TouchableOpacity>
         </LinearGradient>
 
+        {/* Go VIP — upgrade to the ₹999/yr VIP membership */}
+        <TouchableOpacity
+          style={styles.vipCta}
+          activeOpacity={0.9}
+          onPress={() => router.push('/vip' as any)}
+        >
+          <LinearGradient
+            colors={['#8B5CF6', '#6D28D9']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.vipCtaGrad}
+          >
+            <Ionicons name="star" size={18} color="#FDE68A" />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.vipCtaTitle}>Go VIP — unlock more</Text>
+              <Text style={styles.vipCtaSub}>Unlimited AI trips, 12% off everything · ₹999/yr</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color="#fff" />
+          </LinearGradient>
+        </TouchableOpacity>
+
         {/* Benefits */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Premium Benefits</Text>
@@ -279,6 +300,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   redeemBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#92400E' },
+  vipCta: { marginHorizontal: spacing.xl, marginTop: spacing.lg, borderRadius: 16, overflow: 'hidden' },
+  vipCtaGrad: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.md, paddingHorizontal: spacing.lg },
+  vipCtaTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#fff' },
+  vipCtaSub: { fontSize: fontSize.xs, color: 'rgba(255,255,255,0.85)', marginTop: 2 },
 
   section: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
   sectionTitle: {

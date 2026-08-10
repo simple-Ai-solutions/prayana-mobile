@@ -22,6 +22,7 @@ import { CountryFlag } from '../../../components/esim/CountryFlag';
 import { EsimQRCode } from '../../../components/esim/EsimQRCode';
 import { EsimUsageMeter } from '../../../components/esim/EsimUsageMeter';
 import { EsimInstallGuide } from '../../../components/esim/EsimInstallGuide';
+import { EsimRechargeSection } from '../../../components/esim/EsimRechargeSection';
 
 const ACCENT_RED = '#E61417';
 
@@ -176,6 +177,14 @@ export default function EsimOrderScreen() {
         {!bundle.isUnlimited && order.status !== 'pending_payment' && (
           <EsimUsageMeter usage={usage} totalMB={totalMB} isUnlimited={bundle.isUnlimited} />
         )}
+
+        {/* Recharge / top-up — active Matrix eSIMs only (web parity). */}
+        <EsimRechargeSection
+          orderId={String(orderId)}
+          isMatrix={esim.isMatrix}
+          status={order.status}
+          onRecharged={load}
+        />
 
         {/* KYC still owed — say so loudly, it is what blocks activation. */}
         {order.kyc?.required && order.kyc.status !== 'approved' && (

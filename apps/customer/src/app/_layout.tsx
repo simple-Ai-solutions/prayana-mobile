@@ -291,6 +291,11 @@ function RootNavigator() {
         <Stack.Screen name="profile/identity" />
         <Stack.Screen name="profile/payment-methods" />
         <Stack.Screen name="profile/notifications" />
+        <Stack.Screen name="vip/index" />
+        <Stack.Screen name="my-expenses/index" />
+        <Stack.Screen name="monuments/index" />
+        <Stack.Screen name="monuments/book" />
+        <Stack.Screen name="monuments/my-tickets" />
       </Stack>
       <Toast />
       {/* Cinematic launch animation (web/PWA parity). Sits on top until it

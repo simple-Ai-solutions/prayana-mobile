@@ -82,6 +82,12 @@ export { default as disputeAPI, setDisputeAdminTokenGetter } from './api/dispute
 // eSIM
 export { esimAPI } from './api/esimAPI';
 
+// Membership / VIP
+export { membershipAPI } from './api/membershipAPI';
+
+// ONDC monument ticket booking (Beckn TRV14 BAP — async, poll-based)
+export { ondcAPI } from './api/ondcAPI';
+
 // Holiday Packages
 export { holidayPackagesAPI } from './api/holidayPackagesAPI';
 

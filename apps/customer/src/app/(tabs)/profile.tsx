@@ -336,6 +336,24 @@ export default function ProfileScreen() {
           iconBg: '#f0f9ff',
         },
         {
+          // Splitwise-style aggregate of open balances across every trip you
+          // share an expense in — settle up from one place.
+          label: 'My Expenses',
+          subtitle: 'Split & settle trip costs with friends',
+          icon: 'wallet-outline',
+          route: '/my-expenses',
+          iconColor: '#0d9488',
+          iconBg: '#f0fdfa',
+        },
+        {
+          label: 'Monument Tickets',
+          subtitle: 'Book ASI monument entry over ONDC',
+          icon: 'business-outline',
+          route: '/monuments',
+          iconColor: '#E38B29',
+          iconBg: '#fdf3e7',
+        },
+        {
           label: 'My Favorites',
           subtitle: 'Saved destinations & places',
           icon: 'heart-outline',

@@ -20,6 +20,14 @@ class CreateTripAPI {
     return makeAPICall(`/user-trips/${tripId}`);
   }
 
+  // My Expenses hub: read-only aggregate of every trip (owned + collaborator)
+  // in which the user appears in an expense. Returns slim per-trip envelopes
+  // carrying the FULL expenses[] + settledTransactions[] + collaborators[] +
+  // offlineMembers[] — balances are computed client-side (splitwiseCalculator).
+  async getMyExpenses(userId) {
+    return makeAPICall(`/my-expenses?userId=${encodeURIComponent(userId)}`);
+  }
+
   async updateTrip(tripId, tripData) {
     return makeAPICall(`/user-trips/${tripId}`, {
       method: "PUT",
