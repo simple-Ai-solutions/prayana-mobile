@@ -30,6 +30,7 @@ import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
 import { RecentItineraries } from '../../components/home/RecentItineraries';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 import { PromoTrio } from '../../components/home/PromoTrio';
+import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSheet';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -525,6 +526,7 @@ export default function HomeScreen() {
   const haloScale = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
   const haloOpacity = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
   const spin = sparkleSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [popularActivities, setPopularActivities] = useState<any[]>([]);
   const [loadingActivities, setLoadingActivities] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -800,9 +802,11 @@ export default function HomeScreen() {
                 key={m.id}
                 style={[styles.wayCard, { backgroundColor: m.bg }]}
                 onPress={() =>
-                  'route' in m
-                    ? router.push(m.route as any)
-                    : Alert.alert(`${m.soon} — coming soon`, "We're putting the final touches on this. Check back shortly.")
+                  m.id === 'things'
+                    ? setCategoriesOpen(true) // open the "All categories" sheet (web parity)
+                    : 'route' in m
+                      ? router.push(m.route as any)
+                      : Alert.alert(`${m.soon} — coming soon`, "We're putting the final touches on this. Check back shortly.")
                 }
                 activeOpacity={0.85}
               >
@@ -1624,6 +1628,9 @@ export default function HomeScreen() {
 
       {/* Quick Itinerary generate popup (opens from the hero tab) */}
       <QuickItineraryModal visible={showQuickItinerary} onClose={() => setShowQuickItinerary(false)} />
+
+      {/* "All categories" slide-in (opens from the Things to Do card — web parity) */}
+      <AllCategoriesSheet open={categoriesOpen} onClose={() => setCategoriesOpen(false)} />
     </SafeAreaView>
   );
 }
