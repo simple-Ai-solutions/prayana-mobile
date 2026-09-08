@@ -281,6 +281,7 @@ function RootNavigator() {
         <Stack.Screen name="explore-nearby/index" />
         <Stack.Screen name="favorites/index" />
         <Stack.Screen name="captain-tours/index" />
+        <Stack.Screen name="captain-tours/[slug]" />
         <Stack.Screen name="theme-itineraries/index" />
         <Stack.Screen name="travel-guides/index" />
         <Stack.Screen name="divya-darshana/index" />
