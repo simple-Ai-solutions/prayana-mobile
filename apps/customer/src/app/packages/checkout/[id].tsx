@@ -29,9 +29,15 @@ import {
   holidayPackagesAPI,
   openCheckout,
   toPaise,
+  requiredLegalDocs,
+  buildAcceptedLegalDocs,
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
+
+// Docs the server requires the customer to accept before a package booking
+// (validated server-side; a missing/stale acceptance is a 400).
+const PACKAGE_LEGAL_DOCS = requiredLegalDocs('booking:package');
 
 type Step = 'travelers' | 'dates' | 'contact' | 'pay';
 
@@ -73,6 +79,9 @@ export default function PackageCheckoutScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+
+  // Step 4: legal acceptance (required by the server before booking)
+  const [agreedLegal, setAgreedLegal] = useState(false);
   const [specialRequests, setSpecialRequests] = useState('');
 
   useEffect(() => {
@@ -172,6 +181,10 @@ export default function PackageCheckoutScreen() {
 
   const handlePay = async () => {
     if (!pkg) return;
+    if (!agreedLegal) {
+      Toast.show({ type: 'error', text1: 'Please accept the terms to continue' });
+      return;
+    }
     setSubmitting(true);
     try {
       let currentBookingId = bookingId;
@@ -182,12 +195,15 @@ export default function PackageCheckoutScreen() {
           variantName,
           travelStartDate: startDate,
           travelEndDate: endDate,
-          travelers: { adults, children },
-          totalTravelers,
+          // The server prices off totalTravelers.{adults,children,infants} — it
+          // must be an OBJECT, not a count, or every booking is priced for 1 adult.
+          totalTravelers: { adults, children, infants: 0 },
           customerName: name.trim(),
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
           specialRequests: specialRequests.trim() || undefined,
+          // Required — server rejects the booking without these acceptances.
+          acceptedLegalDocs: buildAcceptedLegalDocs('booking:package'),
         });
         if (!createRes?.success || !createRes?.data?._id) {
           Toast.show({
@@ -453,6 +469,29 @@ export default function PackageCheckoutScreen() {
                 You'll be charged ₹{estimatedTotal.toLocaleString('en-IN')} now. Final
                 price may adjust based on operator confirmation.
               </Text>
+
+              {/* Legal acceptance — required by the server before booking */}
+              <TouchableOpacity
+                style={styles.legalRow}
+                activeOpacity={0.7}
+                onPress={() => setAgreedLegal((v) => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreedLegal }}
+              >
+                <View style={[styles.checkbox, agreedLegal && styles.checkboxOn]}>
+                  {agreedLegal && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+                <Text style={styles.legalText}>
+                  I agree to the{' '}
+                  {PACKAGE_LEGAL_DOCS.map((d: { slug: string; title: string }, i: number) => (
+                    <Text key={d.slug}>
+                      <Text style={styles.legalLink}>{d.title}</Text>
+                      {i < PACKAGE_LEGAL_DOCS.length - 1 ? (i === PACKAGE_LEGAL_DOCS.length - 2 ? ' & ' : ', ') : ''}
+                    </Text>
+                  ))}
+                  .
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
@@ -465,7 +504,7 @@ export default function PackageCheckoutScreen() {
             size="lg"
             fullWidth
             loading={submitting}
-            disabled={submitting}
+            disabled={submitting || (step === 'pay' && !agreedLegal)}
             icon={
               <Ionicons
                 name={step === 'pay' ? 'lock-closed' : 'arrow-forward'}
@@ -606,6 +645,11 @@ const styles = StyleSheet.create({
   counterValue: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text, minWidth: 24, textAlign: 'center' },
 
   hint: { fontSize: fontSize.sm, color: colors.textTertiary, lineHeight: 20 },
+  legalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxOn: { backgroundColor: colors.primary[600], borderColor: colors.primary[600] },
+  legalText: { flex: 1, fontSize: fontSize.xs, color: colors.textSecondary, lineHeight: 18 },
+  legalLink: { color: colors.primary[600], fontWeight: fontWeight.semibold },
 
   review: { padding: spacing.lg, gap: spacing.sm },
   reviewRow: {
