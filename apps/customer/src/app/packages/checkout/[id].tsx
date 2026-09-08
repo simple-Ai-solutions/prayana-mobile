@@ -125,11 +125,46 @@ export default function PackageCheckoutScreen() {
     return pkg?.variants?.find((v) => v.name === variantName) || null;
   }, [pkg, variantName]);
 
-  const estimatedTotal = useMemo(() => {
+  const clientEstimate = useMemo(() => {
     const perPerson =
       selectedVariant?.pricePerPerson || pkg?.pricing?.startingFrom || 0;
     return perPerson * totalTravelers;
   }, [selectedVariant, pkg, totalTravelers]);
+
+  // Server-authoritative price (discounts, GST, TCS). Fetched once we reach the
+  // pay step with a variant + start date. The client estimate is only a
+  // placeholder until this lands.
+  const [livePrice, setLivePrice] = useState<any>(null);
+  const [pricing, setPricing] = useState(false);
+  useEffect(() => {
+    if (step !== 'pay' || !pkg || !variantName) return;
+    let alive = true;
+    setPricing(true);
+    (async () => {
+      try {
+        const res: any = await holidayPackagesAPI.calculatePrice({
+          packageId: pkg._id,
+          variantName,
+          adults,
+          children,
+          infants: 0,
+          travelDate: startDate || undefined,
+        });
+        if (alive) setLivePrice(res?.data || null);
+      } catch {
+        if (alive) setLivePrice(null);
+      } finally {
+        if (alive) setPricing(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [step, pkg, variantName, adults, children, startDate]);
+
+  // What we display + charge: server finalPrice when available, else the estimate.
+  const estimatedTotal = useMemo(() => {
+    const server = livePrice?.display?.finalPrice ?? livePrice?.finalPrice;
+    return typeof server === 'number' && server > 0 ? server : clientEstimate;
+  }, [livePrice, clientEstimate]);
 
   const stepIndex = step === 'travelers' ? 0 : step === 'dates' ? 1 : step === 'contact' ? 2 : 3;
 
@@ -219,7 +254,8 @@ export default function PackageCheckoutScreen() {
         setBookingId(currentBookingId);
       }
 
-      const orderRes = await holidayPackagesAPI.createPaymentOrder(currentBookingId!);
+      // Pay the first (due-now) installment. For "full" this is the whole amount.
+      const orderRes = await holidayPackagesAPI.createPaymentOrder(currentBookingId!, { installmentNumber: 1 });
       if (!orderRes?.success || !orderRes?.data?.orderId) {
         Toast.show({
           type: 'error',
@@ -256,10 +292,13 @@ export default function PackageCheckoutScreen() {
         return;
       }
 
+      // Server reads camelCase — snake_case keys are silently ignored, leaving
+      // the booking unpaid after a successful charge.
       const verifyRes = await holidayPackagesAPI.verifyPayment(currentBookingId!, {
-        razorpay_order_id: result.orderId,
-        razorpay_payment_id: result.paymentId,
-        razorpay_signature: result.signature,
+        razorpayOrderId: result.orderId,
+        razorpayPaymentId: result.paymentId,
+        razorpaySignature: result.signature,
+        installmentNumber: 1,
       });
 
       if (verifyRes?.success) {
@@ -468,6 +507,38 @@ export default function PackageCheckoutScreen() {
                 <ReviewRow label="Contact" value={`${name} · ${phone}`} />
                 <ReviewRow label="Email" value={email} />
               </Card>
+
+              {/* Server-authoritative price breakdown */}
+              <Card style={styles.review}>
+                {pricing ? (
+                  <View style={{ alignItems: 'center', paddingVertical: spacing.md }}>
+                    <ActivityIndicator color={colors.primary[600]} />
+                    <Text style={[styles.hint, { marginTop: spacing.sm }]}>Getting your best price…</Text>
+                  </View>
+                ) : livePrice ? (
+                  <>
+                    {!!livePrice.breakdown?.adults?.total && (
+                      <ReviewRow label={`Adults × ${livePrice.breakdown.adults.count}`} value={`₹${Number(livePrice.breakdown.adults.total).toLocaleString('en-IN')}`} />
+                    )}
+                    {!!livePrice.breakdown?.children?.total && (
+                      <ReviewRow label={`Children × ${livePrice.breakdown.children.count}`} value={`₹${Number(livePrice.breakdown.children.total).toLocaleString('en-IN')}`} />
+                    )}
+                    {livePrice.earlyBirdDiscount?.applied && (
+                      <ReviewRow label={`Early-bird −${livePrice.earlyBirdDiscount.discountPercent}%`} value={`−₹${Number(livePrice.earlyBirdDiscount.discountAmount).toLocaleString('en-IN')}`} />
+                    )}
+                    {livePrice.groupDiscount?.applied && (
+                      <ReviewRow label={`Group −${livePrice.groupDiscount.discountPercent}%`} value={`−₹${Number(livePrice.groupDiscount.discountAmount).toLocaleString('en-IN')}`} />
+                    )}
+                    {!!livePrice.taxes?.total && (
+                      <ReviewRow label={`Taxes (GST${livePrice.taxes?.tcs ? ' + TCS' : ''})`} value={`₹${Number(livePrice.taxes.total).toLocaleString('en-IN')}`} />
+                    )}
+                    <ReviewRow label="Total" value={`₹${estimatedTotal.toLocaleString('en-IN')}`} />
+                  </>
+                ) : (
+                  <ReviewRow label="Total" value={`₹${estimatedTotal.toLocaleString('en-IN')}`} />
+                )}
+              </Card>
+
               <Text style={styles.hint}>
                 You'll be charged ₹{estimatedTotal.toLocaleString('en-IN')} now. Final
                 price may adjust based on operator confirmation.
