@@ -88,9 +88,6 @@ export { membershipAPI } from './api/membershipAPI';
 // ONDC monument ticket booking (Beckn TRV14 BAP — async, poll-based)
 export { ondcAPI } from './api/ondcAPI';
 
-// Legal-doc acceptance (required by the booking APIs — mirrors server registry)
-export { LEGAL_DOCS, requiredLegalDocs, buildAcceptedLegalDocs } from './legal/legalDocs';
-
 // Holiday Packages
 export { holidayPackagesAPI } from './api/holidayPackagesAPI';
 

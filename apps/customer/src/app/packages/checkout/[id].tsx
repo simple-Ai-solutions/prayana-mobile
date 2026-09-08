@@ -29,15 +29,15 @@ import {
   holidayPackagesAPI,
   openCheckout,
   toPaise,
-  requiredLegalDocs,
-  buildAcceptedLegalDocs,
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
+import { requiredDocsFor } from '../../../lib/legalRegistry';
 
 // Docs the server requires the customer to accept before a package booking
 // (validated server-side; a missing/stale acceptance is a 400).
-const PACKAGE_LEGAL_DOCS = requiredLegalDocs('booking:package');
+const PACKAGE_LEGAL_DOCS = requiredDocsFor('booking:package');
+const PACKAGE_ACCEPTANCE = PACKAGE_LEGAL_DOCS.map((d) => ({ slug: d.slug, version: d.version }));
 
 type Step = 'travelers' | 'dates' | 'contact' | 'pay';
 
@@ -203,7 +203,7 @@ export default function PackageCheckoutScreen() {
           customerPhone: phone.trim(),
           specialRequests: specialRequests.trim() || undefined,
           // Required — server rejects the booking without these acceptances.
-          acceptedLegalDocs: buildAcceptedLegalDocs('booking:package'),
+          acceptedLegalDocs: PACKAGE_ACCEPTANCE,
         });
         if (!createRes?.success || !createRes?.data?._id) {
           Toast.show({
@@ -483,7 +483,7 @@ export default function PackageCheckoutScreen() {
                 </View>
                 <Text style={styles.legalText}>
                   I agree to the{' '}
-                  {PACKAGE_LEGAL_DOCS.map((d: { slug: string; title: string }, i: number) => (
+                  {PACKAGE_LEGAL_DOCS.map((d, i) => (
                     <Text key={d.slug}>
                       <Text style={styles.legalLink}>{d.title}</Text>
                       {i < PACKAGE_LEGAL_DOCS.length - 1 ? (i === PACKAGE_LEGAL_DOCS.length - 2 ? ' & ' : ', ') : ''}

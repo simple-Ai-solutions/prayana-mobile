@@ -31,6 +31,7 @@ import {
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
+import { requiredDocsFor } from '../../../lib/legalRegistry';
 
 type Step = 'trip' | 'contact' | 'pay';
 
@@ -38,8 +39,13 @@ type Vehicle = {
   _id: string;
   name: string;
   type?: string;
+  serviceType?: string; // 'chauffeur_driven' | self-drive variants — picks the legal context
   pricing?: { perDay?: number; perKm?: number; perHour?: number; basePrice?: number; deposit?: number };
 };
+
+// The server gates transport bookings on legal acceptance, by serviceType.
+const legalContextFor = (serviceType?: string) =>
+  serviceType === 'chauffeur_driven' ? 'booking:transport_chauffeur' : 'booking:transport_self_drive';
 
 export default function TransportCheckoutScreen() {
   const router = useRouter();
@@ -64,6 +70,9 @@ export default function TransportCheckoutScreen() {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Legal acceptance (required by the server before a transport booking)
+  const [agreedLegal, setAgreedLegal] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -126,6 +135,10 @@ export default function TransportCheckoutScreen() {
 
   const handlePay = async () => {
     if (!vehicle) return;
+    if (!agreedLegal) {
+      Toast.show({ type: 'error', text1: 'Please accept the terms to continue' });
+      return;
+    }
     setSubmitting(true);
     try {
       let currentBookingId = bookingId;
@@ -141,6 +154,8 @@ export default function TransportCheckoutScreen() {
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
           notes: notes.trim() || undefined,
+          // Required — server rejects the booking (400) without these, per serviceType.
+          acceptedLegalDocs: requiredDocsFor(legalContextFor(vehicle.serviceType)).map((d) => ({ slug: d.slug, version: d.version })),
         });
         if (!createRes?.success || !createRes?.data?._id) {
           Toast.show({ type: 'error', text1: 'Could not create booking', text2: createRes?.message });
@@ -319,6 +334,29 @@ export default function TransportCheckoutScreen() {
                 <Row label="Contact" value={`${name} · ${phone}`} />
                 <Row label="Email" value={email} />
               </Card>
+
+              {/* Legal acceptance — required by the server before booking */}
+              <TouchableOpacity
+                style={styles.legalRow}
+                activeOpacity={0.7}
+                onPress={() => setAgreedLegal((v) => !v)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreedLegal }}
+              >
+                <View style={[styles.checkbox, agreedLegal && styles.checkboxOn]}>
+                  {agreedLegal && <Ionicons name="checkmark" size={14} color="#fff" />}
+                </View>
+                <Text style={styles.legalText}>
+                  I agree to the{' '}
+                  {requiredDocsFor(legalContextFor(vehicle?.serviceType)).map((d, i, arr) => (
+                    <Text key={d.slug}>
+                      <Text style={styles.legalLink}>{d.title}</Text>
+                      {i < arr.length - 1 ? (i === arr.length - 2 ? ' & ' : ', ') : ''}
+                    </Text>
+                  ))}
+                  .
+                </Text>
+              </TouchableOpacity>
             </View>
           )}
         </ScrollView>
@@ -331,7 +369,7 @@ export default function TransportCheckoutScreen() {
             size="lg"
             fullWidth
             loading={submitting}
-            disabled={submitting}
+            disabled={submitting || (step === 'pay' && !agreedLegal)}
             icon={<Ionicons name={step === 'pay' ? 'lock-closed' : 'arrow-forward'} size={18} color="#fff" />}
           />
         </View>
@@ -387,6 +425,11 @@ const styles = StyleSheet.create({
   row2: { flexDirection: 'row', alignItems: 'flex-end' },
 
   review: { padding: spacing.lg, gap: spacing.sm },
+  legalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxOn: { backgroundColor: colors.primary[600], borderColor: colors.primary[600] },
+  legalText: { flex: 1, fontSize: fontSize.xs, color: colors.textSecondary, lineHeight: 18 },
+  legalLink: { color: colors.primary[600], fontWeight: fontWeight.semibold },
   reviewRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: spacing.xs, gap: spacing.md },
   reviewLabel: { fontSize: fontSize.sm, color: colors.textSecondary },
   reviewValue: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: colors.text, flexShrink: 1, textAlign: 'right' },
