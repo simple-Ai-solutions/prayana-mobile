@@ -16,6 +16,21 @@ class HolidayPackagesAPI {
     return makeAPICall(`/packages/featured`);
   }
 
+  // Filter facets for the listing: { total, category:{label:count}, city:{...},
+  // packageType:{...}, nights:[min,max], price:[min,max] }.
+  async getFacets() {
+    return makeAPICall(`/packages/facets`);
+  }
+
+  // Last-minute / value deals — cheapest package per destination under a ceiling.
+  async getValueDeals({ maxPrice = 25000, limit = 12, only = "" } = {}) {
+    const qs = new URLSearchParams();
+    qs.append("maxPrice", String(maxPrice));
+    qs.append("limit", String(limit));
+    if (only) qs.append("only", only);
+    return makeAPICall(`/packages/deals?${qs.toString()}`);
+  }
+
   async getByDestination(city) {
     return makeAPICall(`/packages/destination/${encodeURIComponent(city)}`);
   }

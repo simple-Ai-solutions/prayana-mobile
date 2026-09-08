@@ -51,6 +51,15 @@ const CATEGORIES: { key: PackageCategory; label: string; icon: keyof typeof Ioni
   { key: 'luxury', label: 'Luxury', icon: 'diamond-outline' },
 ];
 
+// Sort options (server keys — see /packages/search sort mapping).
+const SORTS: { key: string; label: string }[] = [
+  { key: 'rating', label: 'Top rated' },
+  { key: 'price_low', label: 'Price: low to high' },
+  { key: 'price_high', label: 'Price: high to low' },
+  { key: 'popular', label: 'Most booked' },
+  { key: 'newest', label: 'Newest' },
+];
+
 type HolidayPackage = {
   _id: string;
   slug?: string;
@@ -72,33 +81,37 @@ export default function PackagesScreen() {
 
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<PackageCategory>('all');
+  const [sort, setSort] = useState<string>('rating');
   const [packages, setPackages] = useState<HolidayPackage[]>([]);
   const [featured, setFeatured] = useState<HolidayPackage[]>([]);
+  const [deals, setDeals] = useState<HolidayPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [searchRes, featuredRes] = await Promise.all([
+      const initial = !search.trim() && activeCategory === 'all';
+      const [searchRes, featuredRes, dealsRes] = await Promise.all([
         holidayPackagesAPI.search({
           query: search.trim() || undefined,
           category: activeCategory !== 'all' ? activeCategory : undefined,
+          sort,
           limit: 30,
         }),
-        // Only fetch featured on initial load (no filters)
-        !search.trim() && activeCategory === 'all'
-          ? holidayPackagesAPI.getFeatured()
-          : Promise.resolve(null),
+        // Only fetch featured + deals on initial load (no filters)
+        initial ? holidayPackagesAPI.getFeatured() : Promise.resolve(null),
+        initial ? holidayPackagesAPI.getValueDeals({ limit: 10 }).catch(() => null) : Promise.resolve(null),
       ]);
       setPackages(searchRes?.data || searchRes?.packages || []);
       if (featuredRes) setFeatured(featuredRes?.data || featuredRes?.packages || []);
+      if (dealsRes) setDeals(dealsRes?.data || dealsRes?.packages || []);
     } catch (err: any) {
       console.warn('[Packages] load failed:', err?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [search, activeCategory]);
+  }, [search, activeCategory, sort]);
 
   useEffect(() => {
     setLoading(true);
@@ -173,6 +186,22 @@ export default function PackagesScreen() {
         })}
       </ScrollView>
 
+      {/* Sort pills */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+        {SORTS.map((s) => {
+          const active = sort === s.key;
+          return (
+            <TouchableOpacity
+              key={s.key}
+              onPress={() => setSort(s.key)}
+              style={[styles.sortChip, { borderColor: active ? colors.primary[500] : themeColors.border, backgroundColor: active ? colors.primary[500] + '18' : 'transparent' }]}
+            >
+              <Text style={[styles.sortChipText, { color: active ? colors.primary[600] : themeColors.textSecondary }]}>{s.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary[500]} />
@@ -223,6 +252,27 @@ export default function PackagesScreen() {
                     />
                   ))}
                 </ScrollView>
+                {deals.length > 0 && (
+                  <>
+                    <View style={styles.dealsHead}>
+                      <Ionicons name="flame" size={16} color="#F97316" />
+                      <Text style={[styles.sectionTitle, { color: themeColors.text, marginTop: 0 }]}>Last-minute deals</Text>
+                    </View>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
+                    >
+                      {deals.map((pkg) => (
+                        <FeaturedCard
+                          key={`deal-${pkg._id}`}
+                          pkg={pkg}
+                          onPress={() => router.push(`/packages/${encodeURIComponent(pkg.slug || pkg._id)}`)}
+                        />
+                      ))}
+                    </ScrollView>
+                  </>
+                )}
                 <Text style={[styles.sectionTitle, { marginTop: spacing.xl, color: themeColors.text }]}>
                   All packages
                 </Text>
@@ -398,6 +448,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     gap: spacing.sm,
   },
+  sortRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
+  sortChip: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  sortChipText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
+  dealsHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.xl, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
   catChip: {
     flexDirection: 'row',
     alignItems: 'center',
