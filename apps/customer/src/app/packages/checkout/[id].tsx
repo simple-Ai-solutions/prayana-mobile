@@ -33,6 +33,7 @@ import {
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
 import { requiredDocsFor } from '../../../lib/legalRegistry';
+import DateField from '../../../components/common/DateField';
 
 // Docs the server requires the customer to accept before a package booking
 // (validated server-side; a missing/stale acceptance is a 400).
@@ -407,17 +408,19 @@ export default function PackageCheckoutScreen() {
           {step === 'dates' && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Travel dates</Text>
-              <TextInput
-                label="Start date (YYYY-MM-DD)"
+              <DateField
+                label="Start date"
                 value={startDate}
-                onChangeText={setStartDate}
-                placeholder="2026-05-01"
+                onChange={setStartDate}
+                placeholder="Select start date"
+                minimumDate={new Date()}
               />
-              <TextInput
-                label="End date (YYYY-MM-DD)"
+              <DateField
+                label="End date"
                 value={endDate}
-                onChangeText={setEndDate}
-                placeholder="2026-05-08"
+                onChange={setEndDate}
+                placeholder="Select end date"
+                minimumDate={startDate ? new Date(startDate) : new Date()}
               />
               <Text style={styles.hint}>
                 Dates can be flexible — the operator will confirm based on availability.

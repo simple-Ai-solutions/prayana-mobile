@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 import { ondcAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
+import DateField from '../../components/common/DateField';
 
 const SAFFRON = '#E38B29';
 
@@ -217,8 +218,13 @@ export default function MonumentBookScreen() {
                 ))}
               </View>
               <View style={styles.divider} />
-              <Text style={[styles.label, { color: themeColors.text }]}>Visit date</Text>
-              <TextInput value={visitDate} onChangeText={setVisitDate} placeholder="YYYY-MM-DD" placeholderTextColor={themeColors.textSecondary} style={inputStyle} />
+              <DateField
+                label="Visit date"
+                value={visitDate}
+                onChange={setVisitDate}
+                placeholder="Select visit date"
+                minimumDate={new Date()}
+              />
             </View>
             {listedPrice > 0 && (
               <Text style={[styles.est, { color: themeColors.textSecondary }]}>
