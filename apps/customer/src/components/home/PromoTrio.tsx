@@ -151,7 +151,7 @@ export const PromoTrio: React.FC = () => {
         ctaBg="#FFD86B"
         ctaText="#5C1503"
         decorIcon="business-outline"
-        onPress={() => comingSoon('Divya Darshana')}
+        onPress={() => router.push('/divya-darshana')}
       />
 
       {/* Dream Holidays — emerald → teal → cyan with a warm hint */}
@@ -172,7 +172,7 @@ export const PromoTrio: React.FC = () => {
         ctaBg="#FDE68A"
         ctaText="#042F2E"
         decorIcon="airplane-outline"
-        onPress={() => comingSoon('Dream Holidays')}
+        onPress={() => router.push('/packages')}
       />
     </View>
   );

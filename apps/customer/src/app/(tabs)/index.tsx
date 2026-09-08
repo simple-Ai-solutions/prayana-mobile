@@ -147,8 +147,10 @@ const HEADLINE_DESTINATIONS = ['Manali', 'Shimla', 'Switzerland', 'Kerala', 'Kod
 const MORE_WAYS = [
   { id: 'esim', label: 'Travel eSIM', tag: 'NEW', tagColor: '#E61417', bg: '#FDECE4', icon: require('../../../assets/hero-icons/cutout/esim.png'), route: '/esim' },
   { id: 'things', label: 'Things to Do', tag: 'NEW', tagColor: '#E11D48', bg: '#FDE6EA', icon: require('../../../assets/hero-icons/cutout/activities.png'), route: '/activities' },
-  { id: 'deals', label: 'Holiday Deals', tag: 'SOON', tagColor: '#F59E0B', bg: '#FDF3D8', icon: require('../../../assets/hero-icons/cutout/holiday-packages.png'), soon: 'Holiday Deals' },
-  { id: 'divya', label: 'Divya Darshana', tag: 'SOON', tagColor: '#F59E0B', bg: '#FBEFD8', icon: require('../../../assets/hero-icons/cutout/divya-darshana.png'), soon: 'Divya Darshana' },
+  // Holiday Deals = the "Last-minute deals" section of the packages catalogue
+  // (no separate feature on web), so it routes into /packages.
+  { id: 'deals', label: 'Holiday Deals', tag: 'DEALS', tagColor: '#F59E0B', bg: '#FDF3D8', icon: require('../../../assets/hero-icons/cutout/holiday-packages.png'), route: '/packages' },
+  { id: 'divya', label: 'Divya Darshana', tag: 'NEW', tagColor: '#E38B29', bg: '#FBEFD8', icon: require('../../../assets/hero-icons/cutout/divya-darshana.png'), route: '/divya-darshana' },
 ] as const;
 
 // ============================================================
@@ -804,9 +806,7 @@ export default function HomeScreen() {
                 onPress={() =>
                   m.id === 'things'
                     ? setCategoriesOpen(true) // open the "All categories" sheet (web parity)
-                    : 'route' in m
-                      ? router.push(m.route as any)
-                      : Alert.alert(`${m.soon} — coming soon`, "We're putting the final touches on this. Check back shortly.")
+                    : router.push((m as { route: string }).route as any)
                 }
                 activeOpacity={0.85}
               >
