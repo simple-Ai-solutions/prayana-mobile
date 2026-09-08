@@ -88,6 +88,9 @@ export { membershipAPI } from './api/membershipAPI';
 // ONDC monument ticket booking (Beckn TRV14 BAP — async, poll-based)
 export { ondcAPI } from './api/ondcAPI';
 
+// Outstation Cabs (chauffeur-driven intercity; server-side pricing + Razorpay)
+export { cabAPI } from './api/cabAPI';
+
 // Holiday Packages
 export { holidayPackagesAPI } from './api/holidayPackagesAPI';
 

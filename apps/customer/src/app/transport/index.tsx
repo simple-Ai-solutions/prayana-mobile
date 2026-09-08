@@ -108,6 +108,24 @@ export default function TransportScreen() {
         </Text>
       </LinearGradient>
 
+      {/* Outstation cabs — chauffeur-driven intercity, priced live */}
+      <TouchableOpacity
+        style={[styles.cabBanner, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+        activeOpacity={0.9}
+        onPress={() => router.push('/outstation-cabs' as any)}
+      >
+        <View style={styles.cabBannerIcon}>
+          <Ionicons name="car-sport" size={22} color="#F59E0B" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.cabBannerTitle, { color: themeColors.text }]}>Outstation cabs</Text>
+          <Text style={[styles.cabBannerSub, { color: themeColors.textSecondary }]} numberOfLines={1}>
+            Chauffeur-driven intercity · one-way & round-trip
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={themeColors.textTertiary} />
+      </TouchableOpacity>
+
       {/* Type chips */}
       <ScrollView
         horizontal
@@ -271,6 +289,10 @@ const styles = StyleSheet.create({
   },
   heroTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: '#fff' },
   heroSubtitle: { fontSize: fontSize.sm, color: 'rgba(255,255,255,0.85)', marginTop: 4 },
+  cabBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginHorizontal: spacing.lg, marginTop: spacing.md, padding: spacing.md, borderRadius: borderRadius.xl, borderWidth: 1 },
+  cabBannerIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(245,158,11,0.12)', alignItems: 'center', justifyContent: 'center' },
+  cabBannerTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  cabBannerSub: { fontSize: fontSize.xs, marginTop: 2 },
 
   typeRow: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm },
   typeChip: {

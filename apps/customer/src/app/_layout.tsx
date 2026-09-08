@@ -270,6 +270,7 @@ function RootNavigator() {
         <Stack.Screen name="packages/[id]" />
         <Stack.Screen name="packages/checkout/[id]" />
         <Stack.Screen name="transport/index" />
+        <Stack.Screen name="outstation-cabs/index" />
         <Stack.Screen name="transport/[id]" />
         <Stack.Screen name="transport/checkout/[id]" />
         <Stack.Screen name="activities/index" />
