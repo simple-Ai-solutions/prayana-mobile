@@ -38,8 +38,11 @@ type ItineraryDay = {
   // Server shapes vary: activities are objects ({title,...}); meals is an object
   // ({ breakfast:{included}, lunch:{included}, dinner:{included} }) OR a string[].
   meals?: any;
-  activities?: (string | { name?: string; activity?: string; title?: string })[];
+  activities?: (string | { name?: string; activity?: string; title?: string; description?: string })[];
+  accommodation?: { hotelName?: string; hotelCategory?: string; roomType?: string; imageUrl?: string };
 };
+
+type PkgHotel = { name: string; city?: string; imageUrl?: string; rating?: number; reviewCount?: number };
 
 // Coerce an activity entry (string or object) to a display string.
 const itemLabel = (x: any): string =>
@@ -98,6 +101,7 @@ type HolidayPackage = {
   itinerary?: ItineraryDay[];
   highlights?: string[];
   isFeatured?: boolean;
+  hotels?: PkgHotel[];
   cancellationPolicy?: { description?: string };
 };
 
@@ -392,20 +396,61 @@ export default function PackageDetailScreen() {
                     {d.description ? (
                       <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{d.description}</Text>
                     ) : null}
+                    {/* Stay + meals + activities as tidy mini-rows (web DaySection) */}
+                    {d.accommodation?.hotelName ? (
+                      <View style={styles.dayLine}>
+                        <Ionicons name="bed-outline" size={13} color={themeColors.textTertiary} />
+                        <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                          {d.accommodation.hotelName}{d.accommodation.roomType ? ` · ${d.accommodation.roomType}` : ''}
+                        </Text>
+                      </View>
+                    ) : null}
                     {acts.length > 0 ? (
-                      <Text style={[styles.dayMeta, { color: themeColors.textTertiary }]}>
-                        Activities: {acts.join(', ')}
-                      </Text>
+                      <View style={styles.dayLine}>
+                        <Ionicons name="sparkles-outline" size={13} color={themeColors.textTertiary} />
+                        <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]}>{acts.join(' · ')}</Text>
+                      </View>
                     ) : null}
                     {meals.length > 0 ? (
-                      <Text style={[styles.dayMeta, { color: themeColors.textTertiary }]}>
-                        Meals: {meals.join(', ')}
-                      </Text>
+                      <View style={styles.dayLine}>
+                        <Ionicons name="restaurant-outline" size={13} color={themeColors.textTertiary} />
+                        <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]}>{meals.join(', ')}</Text>
+                      </View>
                     ) : null}
                   </View>
                 </View>
               );
             })}
+          </Card>
+        ) : null}
+
+        {/* Where you'll stay — hotels */}
+        {pkg.hotels && pkg.hotels.length > 0 ? (
+          <Card style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Where you'll stay</Text>
+            {pkg.hotels.map((h, i) => (
+              <View key={`${h.name}-${i}`} style={[styles.hotelRow, i > 0 && { borderTopColor: themeColors.border, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md }]}>
+                {h.imageUrl ? (
+                  <Image source={{ uri: h.imageUrl }} style={styles.hotelImg} contentFit="cover" />
+                ) : (
+                  <View style={[styles.hotelImg, { backgroundColor: colors.primary[100], alignItems: 'center', justifyContent: 'center' }]}>
+                    <Ionicons name="bed" size={18} color={colors.primary[400]} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.hotelName, { color: themeColors.text }]} numberOfLines={1}>{h.name}</Text>
+                  {!!h.city && <Text style={[styles.hotelCity, { color: themeColors.textSecondary }]} numberOfLines={1}>{h.city}</Text>}
+                  {h.rating ? (
+                    <View style={styles.hotelRating}>
+                      <Ionicons name="star" size={12} color="#fbbf24" />
+                      <Text style={[styles.hotelCity, { color: themeColors.textSecondary }]}>
+                        {Number(h.rating).toFixed(1)}{h.reviewCount ? ` (${h.reviewCount})` : ''}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            ))}
           </Card>
         ) : null}
 
@@ -594,8 +639,14 @@ const styles = StyleSheet.create({
   dayMeta: {
     fontSize: fontSize.xs,
     color: colors.textTertiary,
-    marginTop: 4,
+    flex: 1,
   },
+  dayLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6 },
+  hotelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
+  hotelImg: { width: 52, height: 52, borderRadius: 10 },
+  hotelName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  hotelCity: { fontSize: fontSize.xs },
+  hotelRating: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
 
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4 },
   checkText: { flex: 1, fontSize: fontSize.sm, color: colors.text },
