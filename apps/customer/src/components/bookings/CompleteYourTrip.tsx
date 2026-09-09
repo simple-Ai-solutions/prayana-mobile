@@ -28,15 +28,23 @@ const ITEMS: Item[] = [
   { key: 'monument', label: 'Monument tickets', sub: 'Skip the queue', icon: 'business', color: '#E38B29', route: '/monuments' },
 ];
 
-export function CompleteYourTrip({ exclude }: { exclude?: string }) {
+export function CompleteYourTrip({
+  exclude,
+  title = 'Complete your trip',
+  subtitle = 'Everything else you can book on Prayana',
+}: {
+  exclude?: string;
+  title?: string;
+  subtitle?: string;
+}) {
   const router = useRouter();
   const { themeColors } = useTheme();
   const items = ITEMS.filter((i) => i.key !== exclude);
 
   return (
     <View style={styles.wrap}>
-      <Text style={[styles.title, { color: themeColors.text }]}>Complete your trip</Text>
-      <Text style={[styles.sub, { color: themeColors.textSecondary }]}>Everything else you can book on Prayana</Text>
+      <Text style={[styles.title, { color: themeColors.text }]}>{title}</Text>
+      <Text style={[styles.sub, { color: themeColors.textSecondary }]}>{subtitle}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {items.map((it) => (
           <TouchableOpacity

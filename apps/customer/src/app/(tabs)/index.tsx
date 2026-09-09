@@ -31,6 +31,7 @@ import { RecentItineraries } from '../../components/home/RecentItineraries';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 import { PromoTrio } from '../../components/home/PromoTrio';
 import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSheet';
+import { CompleteYourTrip } from '../../components/bookings/CompleteYourTrip';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -1440,6 +1441,10 @@ export default function HomeScreen() {
         {/* Promo trio — eSIM / Divya Darshana / Holiday Packages (web parity:
             EsimHomepageSection + DivyaDarshanaPromoCard + HolidayPackagesPromoCard). */}
         <PromoTrio />
+
+        {/* Explore-everything launcher — the inventory PromoTrio doesn't feature
+            (activities, cabs, monuments), so every product is one tap away. */}
+        <CompleteYourTrip title="Explore Prayana" subtitle="Book activities, cabs, eSIM & more — all in one app" />
 
         {/* Bottom spacer for tab bar */}
         <View style={{ height: 32 }} />
