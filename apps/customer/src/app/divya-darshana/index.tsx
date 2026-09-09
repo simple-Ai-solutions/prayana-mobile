@@ -483,7 +483,10 @@ const styles = StyleSheet.create({
   offersBlock: { marginTop: 24, paddingVertical: 14, borderTopWidth: 1, borderBottomWidth: 1, borderColor: `${GOLD}33`, backgroundColor: 'rgba(255,248,231,0.5)' },
   offersHead: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, marginBottom: 12 },
   offersHeadText: { fontSize: 13, fontWeight: '800', color: MAROON, letterSpacing: 1 },
-  marqueeClip: { overflow: 'hidden' },
+  // overflow:hidden clips the marquee horizontally (needed), but with no
+  // vertical padding it also shaved the offer cards' drop shadow, leaving a
+  // hard-edged sliver. Give the shadow room top and bottom.
+  marqueeClip: { overflow: 'hidden', paddingVertical: 8 },
   marqueeTrack: { flexDirection: 'row', paddingLeft: 16, gap: 12 },
   offerCard: { width: 280, borderRadius: 16, padding: 18, overflow: 'hidden', ...CARD_SHADOW },
   offerTitle: { color: 'rgba(255,255,255,0.78)', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
