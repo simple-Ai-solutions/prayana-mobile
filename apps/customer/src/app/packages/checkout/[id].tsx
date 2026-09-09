@@ -58,7 +58,7 @@ type Pkg = {
 
 export default function PackageCheckoutScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, variant: variantParam } = useLocalSearchParams<{ id: string; variant?: string }>();
   const { user } = useAuth();
 
   const [pkg, setPkg] = useState<Pkg | null>(null);
@@ -95,7 +95,10 @@ export default function PackageCheckoutScreen() {
         if (!mounted) return;
         const p: Pkg = res?.data || res?.package || null;
         setPkg(p);
-        if (p?.variants?.[0]?.name) setVariantName(p.variants[0].name);
+        // Preselect the variant chosen on the detail screen (?variant=), else first.
+        const preset = p?.variants?.find((v: any) => v.name === variantParam);
+        if (preset?.name) setVariantName(preset.name);
+        else if (p?.variants?.[0]?.name) setVariantName(p.variants[0].name);
       } catch (err: any) {
         Toast.show({
           type: 'error',

@@ -38,6 +38,25 @@ type ItineraryDay = {
   activities?: string[];
 };
 
+type PkgVariant = {
+  _id?: string;
+  name: string;
+  displayName?: string;
+  hotelCategory?: string;
+  roomType?: string;
+  mealPlan?: string;
+  isDefault?: boolean;
+  pricing?: { basePrice?: number; isOnRequest?: boolean; display?: { amount?: number } };
+};
+
+const HOTEL_LABEL: Record<string, string> = {
+  budget: '3-Star', standard: '3-Star Deluxe', premium: '4-Star', luxury: '4/5-Star',
+};
+const MEAL_LABEL: Record<string, string> = {
+  EP: 'Room only', CP: 'Breakfast', MAP: 'Breakfast + Dinner', AP: 'All meals',
+};
+const variantPrice = (v: PkgVariant) => v.pricing?.display?.amount ?? v.pricing?.basePrice ?? 0;
+
 type HolidayPackage = {
   _id: string;
   slug?: string;
@@ -53,6 +72,7 @@ type HolidayPackage = {
     perPerson?: boolean;
   };
   category?: string | string[];
+  variants?: PkgVariant[];
   rating?: { average?: number; count?: number };
   images?: { url: string; alt?: string }[];
   inclusions?: string[];
@@ -71,13 +91,21 @@ export default function PackageDetailScreen() {
   const [pkg, setPkg] = useState<HolidayPackage | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [variantName, setVariantName] = useState<string | null>(null);
+  const [live, setLive] = useState<any>(null); // calculate-price result
+  const [pricing, setPricing] = useState(false);
 
   const fetchPackage = useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
       const res = await holidayPackagesAPI.getById(id);
-      setPkg(res?.data || res?.package || null);
+      const p = res?.data || res?.package || null;
+      setPkg(p);
+      // Default to the "Most Popular" (isDefault) variant, else the first.
+      const vs: PkgVariant[] = p?.variants || [];
+      const def = vs.find((v) => v.isDefault) || vs[0];
+      if (def) setVariantName(def.name);
     } catch (err: any) {
       console.warn('[PackageDetail] fetch failed:', err?.message);
     } finally {
@@ -88,6 +116,26 @@ export default function PackageDetailScreen() {
   useEffect(() => {
     fetchPackage();
   }, [fetchPackage]);
+
+  // Live server price for the chosen variant (2 adults, undated quote).
+  useEffect(() => {
+    if (!pkg || !variantName) return;
+    let alive = true;
+    setPricing(true);
+    (async () => {
+      try {
+        const res: any = await holidayPackagesAPI.calculatePrice({
+          packageId: pkg._id, variantName, adults: 2, children: 0, infants: 0,
+        });
+        if (alive) setLive(res?.data || null);
+      } catch {
+        if (alive) setLive(null);
+      } finally {
+        if (alive) setPricing(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [pkg, variantName]);
 
   if (loading) {
     return (
@@ -121,8 +169,13 @@ export default function PackageDetailScreen() {
   const days = pkg.duration?.days || 0;
   const nights = pkg.duration?.nights || Math.max(0, days - 1);
   const price = pkg.pricing?.startingFrom || 0;
+  const selectedVariant = (pkg.variants || []).find((v) => v.name === variantName) || null;
+  // Show the chosen variant's per-person price (else the "from" price).
+  const ctaPrice = selectedVariant && !selectedVariant.pricing?.isOnRequest
+    ? (variantPrice(selectedVariant) || price)
+    : price;
   const mrp = pkg.pricing?.mrp;
-  const off = mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
+  const off = mrp && mrp > ctaPrice ? Math.round(((mrp - ctaPrice) / mrp) * 100) : 0;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -204,6 +257,79 @@ export default function PackageDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        {/* Choose your package — variant selector + live price (web parity) */}
+        {pkg.variants && pkg.variants.length > 0 ? (
+          <Card style={styles.section}>
+            <View style={styles.sectionAccentRow}>
+              <View style={styles.sectionAccent} />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Choose your package</Text>
+            </View>
+            <Text style={[styles.variantHint, { color: themeColors.textSecondary }]}>
+              Hotels, meals & rooms differ by option.
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.sm }}>
+              {pkg.variants.map((v) => {
+                const active = variantName === v.name;
+                const onReq = v.pricing?.isOnRequest;
+                const vp = variantPrice(v);
+                return (
+                  <TouchableOpacity
+                    key={v._id || v.name}
+                    style={[
+                      styles.variantCard,
+                      { borderColor: active ? '#3b82f6' : themeColors.border, backgroundColor: active ? '#3b82f620' : themeColors.surface },
+                    ]}
+                    activeOpacity={0.85}
+                    onPress={() => setVariantName(v.name)}
+                  >
+                    {v.isDefault ? (
+                      <View style={styles.popularBadge}><Ionicons name="star" size={9} color="#fff" /><Text style={styles.popularText}>POPULAR</Text></View>
+                    ) : null}
+                    <Text style={[styles.variantName, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                      {(v.displayName || v.name).toUpperCase()}
+                    </Text>
+                    {onReq ? (
+                      <Text style={styles.variantOnReq}>On request</Text>
+                    ) : (
+                      <Text style={[styles.variantPrice, { color: themeColors.text }]}>
+                        ₹{Number(vp).toLocaleString('en-IN')}<Text style={styles.variantPer}> /person</Text>
+                      </Text>
+                    )}
+                    {v.hotelCategory ? (
+                      <Text style={[styles.variantFeat, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                        {HOTEL_LABEL[v.hotelCategory] || v.hotelCategory}{v.mealPlan ? ` · ${MEAL_LABEL[v.mealPlan] || v.mealPlan}` : ''}
+                      </Text>
+                    ) : null}
+                    <View style={[styles.variantSelect, active && { backgroundColor: '#2563eb' }]}>
+                      <Text style={[styles.variantSelectText, { color: active ? '#fff' : themeColors.textSecondary }]}>
+                        {active ? 'Selected' : 'Select'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Live price breakdown for the chosen variant */}
+            {pricing ? (
+              <View style={styles.livePriceRow}><ActivityIndicator size="small" color={colors.primary[500]} /><Text style={[styles.variantHint, { color: themeColors.textSecondary, marginLeft: 8 }]}>Getting your best price…</Text></View>
+            ) : live ? (
+              <View style={[styles.breakdown, { borderTopColor: themeColors.border }]}>
+                {live.earlyBirdDiscount?.applied ? (
+                  <View style={styles.bdRow}><Text style={[styles.bdK, { color: themeColors.textSecondary }]}>Early-bird −{live.earlyBirdDiscount.discountPercent}%</Text><Text style={[styles.bdV, { color: '#16a34a' }]}>−₹{Number(live.earlyBirdDiscount.discountAmount).toLocaleString('en-IN')}</Text></View>
+                ) : null}
+                {live.taxes?.total ? (
+                  <View style={styles.bdRow}><Text style={[styles.bdK, { color: themeColors.textSecondary }]}>Taxes (GST{live.taxes?.tcs ? ' + TCS' : ''})</Text><Text style={[styles.bdV, { color: themeColors.text }]}>₹{Number(live.taxes.total).toLocaleString('en-IN')}</Text></View>
+                ) : null}
+                <View style={styles.bdRow}>
+                  <Text style={[styles.bdK, { color: themeColors.text, fontWeight: fontWeight.bold }]}>Total (2 travellers)</Text>
+                  <Text style={[styles.bdTotal]}>₹{Number(live.display?.finalPrice ?? live.finalPrice ?? 0).toLocaleString('en-IN')}</Text>
+                </View>
+              </View>
+            ) : null}
+          </Card>
+        ) : null}
 
         {/* Highlights */}
         {pkg.highlights && pkg.highlights.length > 0 ? (
@@ -294,7 +420,7 @@ export default function PackageDetailScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Sticky CTA */}
+      {/* Sticky CTA — reflects the chosen variant + discount (green) */}
       <View style={[styles.cta, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
         <View style={{ flex: 1 }}>
           {off > 0 && mrp ? (
@@ -302,17 +428,18 @@ export default function PackageDetailScreen() {
               ₹{mrp.toLocaleString('en-IN')}
             </Text>
           ) : null}
-          <Text style={styles.priceValue}>
-            ₹{price.toLocaleString('en-IN')}
+          <Text style={[styles.priceValue, { color: off > 0 ? '#16a34a' : themeColors.text }]}>
+            ₹{ctaPrice.toLocaleString('en-IN')}
             <Text style={[styles.priceMeta, { color: themeColors.textSecondary }]}>
               {pkg.pricing?.perPerson === false ? ' total' : ' / person'}
             </Text>
           </Text>
         </View>
         <Button
-          title="Book package"
+          title="Book Now"
           onPress={() => {
-            const path = `/packages/checkout/${encodeURIComponent(pkg.slug || pkg._id)}`;
+            const q = variantName ? `?variant=${encodeURIComponent(variantName)}` : '';
+            const path = `/packages/checkout/${encodeURIComponent(pkg.slug || pkg._id)}${q}`;
             if (!requireAuth({ reason: 'Sign in to book this package. Travelers, dates, and payment will be saved to your account.', redirectAfter: path })) return;
             router.push(path);
           }}
@@ -384,6 +511,26 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.sm,
   },
+  // Section accent pill (web parity: 4×20 blue→indigo bar before the title)
+  sectionAccentRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.sm },
+  sectionAccent: { width: 4, height: 20, borderRadius: 2, backgroundColor: '#3b82f6' },
+  variantHint: { fontSize: fontSize.xs, marginBottom: 2 },
+  variantCard: { width: 168, borderWidth: 2, borderRadius: 12, padding: spacing.md, gap: 4 },
+  popularBadge: { position: 'absolute', top: -9, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#2563eb', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  popularText: { color: '#fff', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
+  variantName: { fontSize: 11, fontWeight: fontWeight.semibold, letterSpacing: 0.5, marginTop: 4 },
+  variantPrice: { fontSize: fontSize.xl, fontWeight: fontWeight.bold },
+  variantPer: { fontSize: 11, fontWeight: fontWeight.normal, color: '#9ca3af' },
+  variantOnReq: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#2563eb' },
+  variantFeat: { fontSize: 11 },
+  variantSelect: { marginTop: 6, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(148,163,184,0.18)', alignItems: 'center' },
+  variantSelectText: { fontSize: 12, fontWeight: fontWeight.bold },
+  livePriceRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md },
+  breakdown: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: spacing.sm, paddingTop: spacing.sm, gap: 6 },
+  bdRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  bdK: { fontSize: fontSize.sm },
+  bdV: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  bdTotal: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: '#16a34a' },
   bodyText: { fontSize: fontSize.sm, color: colors.textSecondary, lineHeight: 22 },
   bulletRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginBottom: spacing.xs },
   bulletDot: {
