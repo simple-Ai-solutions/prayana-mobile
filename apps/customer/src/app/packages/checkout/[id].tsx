@@ -44,8 +44,13 @@ type Step = 'travelers' | 'dates' | 'contact' | 'pay';
 
 type Variant = {
   name: string;
-  pricePerPerson?: number;
+  displayName?: string;
+  // The API prices variants via pricing.basePrice / pricing.display.amount —
+  // NOT a flat pricePerPerson (which is undefined → ₹0 on every card).
+  pricing?: { basePrice?: number; isOnRequest?: boolean; display?: { amount?: number } };
+  pricePerPerson?: number; // legacy fallback
   inclusions?: string[];
+  highlights?: string[];
 };
 
 type Pkg = {
@@ -55,6 +60,10 @@ type Pkg = {
   duration?: { days: number; nights: number };
   variants?: Variant[];
 };
+
+// Per-person price for a variant (converted display amount, else base, else legacy).
+const variantPrice = (v?: Variant | null) =>
+  v?.pricing?.display?.amount ?? v?.pricing?.basePrice ?? v?.pricePerPerson ?? 0;
 
 export default function PackageCheckoutScreen() {
   const router = useRouter();
@@ -129,8 +138,7 @@ export default function PackageCheckoutScreen() {
   }, [pkg, variantName]);
 
   const clientEstimate = useMemo(() => {
-    const perPerson =
-      selectedVariant?.pricePerPerson || pkg?.pricing?.startingFrom || 0;
+    const perPerson = variantPrice(selectedVariant) || pkg?.pricing?.startingFrom || 0;
     return perPerson * totalTravelers;
   }, [selectedVariant, pkg, totalTravelers]);
 
@@ -406,18 +414,22 @@ export default function PackageCheckoutScreen() {
                         activeOpacity={0.85}
                       >
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.variantName}>{v.name}</Text>
-                          {v.inclusions?.length ? (
+                          <Text style={styles.variantName}>{v.displayName || v.name}</Text>
+                          {(v.highlights?.length || v.inclusions?.length) ? (
                             <Text style={styles.variantHint} numberOfLines={2}>
-                              {v.inclusions.slice(0, 3).join(' · ')}
+                              {(v.highlights || v.inclusions || []).slice(0, 3).join(' · ')}
                             </Text>
                           ) : null}
                         </View>
                         <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={styles.variantPrice}>
-                            ₹{(v.pricePerPerson || 0).toLocaleString('en-IN')}
-                          </Text>
-                          <Text style={styles.variantHint}>per person</Text>
+                          {v.pricing?.isOnRequest ? (
+                            <Text style={styles.variantPrice}>On request</Text>
+                          ) : (
+                            <>
+                              <Text style={styles.variantPrice}>₹{variantPrice(v).toLocaleString('en-IN')}</Text>
+                              <Text style={styles.variantHint}>per person</Text>
+                            </>
+                          )}
                         </View>
                       </TouchableOpacity>
                     );
