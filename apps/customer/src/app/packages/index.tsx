@@ -178,6 +178,7 @@ export default function PackagesScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        style={styles.chipRail}
         contentContainerStyle={styles.categoryRow}
       >
         {CATEGORIES.map((cat) => {
@@ -207,7 +208,7 @@ export default function PackagesScreen() {
       </ScrollView>
 
       {/* Sort pills + Filters */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.sortRow}>
         <TouchableOpacity
           onPress={() => setFilterOpen(true)}
           style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? colors.primary[500] : themeColors.border, backgroundColor: activeFilterCount ? colors.primary[500] + '18' : 'transparent' }]}
@@ -485,15 +486,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.sm,
+    alignItems: 'center', // keep chips content-height (else they stretch to tall ovals)
   },
-  sortRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
-  sortChip: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  sortRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm, alignItems: 'center' },
+  sortChip: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, alignSelf: 'center' },
   filterChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sortChipText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
   dealsHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.xl, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
+  // A horizontal chip rail must not grow to fill vertical space, or its chips
+  // stretch into tall ovals. flexGrow:0 keeps it at content height.
+  chipRail: { flexGrow: 0, flexShrink: 0 },
   catChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'center',
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
