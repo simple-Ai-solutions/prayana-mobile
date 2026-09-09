@@ -198,7 +198,7 @@ export default function DivyaDarshanaPackagesScreen() {
                       )}
                     </View>
                     <View style={styles.cardBody}>
-                      <Text style={[styles.cardTitle, { color: MAROON }]} numberOfLines={2}>{p.title}</Text>
+                      <Text style={[styles.cardTitle, { color: MAROON }]} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{p.title}</Text>
                       {!!place && (
                         <Text style={[styles.cardPlace, { color: '#71717a' }]} numberOfLines={1}>{place}</Text>
                       )}

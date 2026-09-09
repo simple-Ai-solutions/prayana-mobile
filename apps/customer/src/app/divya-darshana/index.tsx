@@ -373,7 +373,7 @@ function ShrineCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
             <Text style={styles.heliBadgeText}>BY HELICOPTER</Text>
           </LinearGradient>
         </View>
-        <Text style={styles.shrineTitle} numberOfLines={1}>{pkg.title}</Text>
+        <Text style={styles.shrineTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>{pkg.title}</Text>
         <GoldDivider />
         <Text style={styles.shrineSub} numberOfLines={2}>{pkgPlace(pkg)}{pkg.duration?.days ? ` · ${pkg.duration.days}D/${nights}N` : ''}</Text>
         <View style={styles.shrineBottom}>
@@ -404,7 +404,7 @@ function DomeCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
         {isHeli(pkg) && <View style={styles.domeHeli}><Ionicons name="airplane" size={11} color="#fff" /></View>}
       </View>
       <View style={styles.domeBody}>
-        <Text style={styles.domeTitle} numberOfLines={2}>{pkg.title}</Text>
+        <Text style={styles.domeTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{pkg.title}</Text>
         <GoldDivider />
         {!!pkgPlace(pkg) && <Text style={styles.domePlace} numberOfLines={1}>{pkgPlace(pkg)}</Text>}
         {pkg.pricing?.startingFrom ? (
@@ -513,8 +513,8 @@ const styles = StyleSheet.create({
   durBadge: { position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   durBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   domeHeli: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: SAFFRON, alignItems: 'center', justifyContent: 'center' },
-  domeBody: { padding: 12, alignItems: 'center' },
-  domeTitle: { fontSize: 15, fontFamily: SERIF, fontWeight: '700', color: MAROON, textAlign: 'center', lineHeight: 19 },
+  domeBody: { paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' },
+  domeTitle: { fontSize: 13.5, fontFamily: SERIF, fontWeight: '700', color: MAROON, textAlign: 'center', lineHeight: 17 },
   domePlace: { fontSize: 11, color: '#71717a', textAlign: 'center' },
   domePrice: { fontSize: 14, fontWeight: '700', color: DEEP, marginTop: 4 },
   fromLabel: { fontSize: 11, fontWeight: '400', color: '#71717a' },
