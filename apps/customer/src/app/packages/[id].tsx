@@ -31,12 +31,30 @@ import { useRequireAuth } from '../../lib/useRequireAuth';
 const { width: SCREEN_W } = Dimensions.get('window');
 
 type ItineraryDay = {
-  day: number;
+  day?: number;
+  dayNumber?: number;
   title?: string;
   description?: string;
-  meals?: string[];
-  activities?: string[];
+  // Server shapes vary: activities are objects ({title,...}); meals is an object
+  // ({ breakfast:{included}, lunch:{included}, dinner:{included} }) OR a string[].
+  meals?: any;
+  activities?: (string | { name?: string; activity?: string; title?: string })[];
 };
+
+// Coerce an activity entry (string or object) to a display string.
+const itemLabel = (x: any): string =>
+  typeof x === 'string' ? x : (x?.title || x?.name || x?.activity || x?.type || '');
+
+// Meals may be a string[] or an object of {breakfast,lunch,dinner}.{included}.
+function mealLabels(meals: any): string[] {
+  if (Array.isArray(meals)) return meals.map(itemLabel).filter(Boolean);
+  if (meals && typeof meals === 'object') {
+    return ['breakfast', 'lunch', 'dinner']
+      .filter((m) => meals[m]?.included)
+      .map((m) => m.charAt(0).toUpperCase() + m.slice(1));
+  }
+  return [];
+}
 
 type PkgVariant = {
   _id?: string;
@@ -358,31 +376,36 @@ export default function PackageDetailScreen() {
         {pkg.itinerary && pkg.itinerary.length > 0 ? (
           <Card style={styles.section}>
             <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Day-by-day itinerary</Text>
-            {pkg.itinerary.map((d) => (
-              <View key={d.day} style={[styles.dayBlock, { borderTopColor: themeColors.border }]}>
-                <View style={styles.dayBadge}>
-                  <Text style={styles.dayBadgeText}>D{d.day}</Text>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.dayTitle, { color: themeColors.text }]}>
-                    {d.title || `Day ${d.day}`}
-                  </Text>
-                  {d.description ? (
-                    <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{d.description}</Text>
-                  ) : null}
-                  {d.activities && d.activities.length > 0 ? (
-                    <Text style={[styles.dayMeta, { color: themeColors.textTertiary }]}>
-                      Activities: {d.activities.join(', ')}
+            {pkg.itinerary.map((d, di) => {
+              const dayNo = d.dayNumber ?? d.day ?? di + 1;
+              const acts = (d.activities || []).map(itemLabel).filter(Boolean);
+              const meals = mealLabels(d.meals);
+              return (
+                <View key={di} style={[styles.dayBlock, { borderTopColor: themeColors.border }]}>
+                  <View style={styles.dayBadge}>
+                    <Text style={styles.dayBadgeText}>D{dayNo}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.dayTitle, { color: themeColors.text }]}>
+                      {d.title || `Day ${dayNo}`}
                     </Text>
-                  ) : null}
-                  {d.meals && d.meals.length > 0 ? (
-                    <Text style={[styles.dayMeta, { color: themeColors.textTertiary }]}>
-                      Meals: {d.meals.join(', ')}
-                    </Text>
-                  ) : null}
+                    {d.description ? (
+                      <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{d.description}</Text>
+                    ) : null}
+                    {acts.length > 0 ? (
+                      <Text style={[styles.dayMeta, { color: themeColors.textTertiary }]}>
+                        Activities: {acts.join(', ')}
+                      </Text>
+                    ) : null}
+                    {meals.length > 0 ? (
+                      <Text style={[styles.dayMeta, { color: themeColors.textTertiary }]}>
+                        Meals: {meals.join(', ')}
+                      </Text>
+                    ) : null}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
           </Card>
         ) : null}
 
