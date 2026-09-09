@@ -25,6 +25,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.prayanaai.customer",
       "buildNumber": "47",
+      "config": {
+        "googleMapsApiKey": "AIzaSyBdyvoU_7G2MLzSvi9NxPheak6USvb39VA"
+      },
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "Prayana uses your location to recommend nearby destinations, activities, and accurate trip routing.",
         "NSCameraUsageDescription": "Take photos for your trip journal, KYC verification, and to upload activity images.",
@@ -59,6 +62,11 @@
       },
       "package": "com.prayanaai.customer",
       "versionCode": 47,
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyBdyvoU_7G2MLzSvi9NxPheak6USvb39VA"
+        }
+      },
       "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",

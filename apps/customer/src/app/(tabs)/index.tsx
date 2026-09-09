@@ -34,6 +34,9 @@ import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSh
 import { CompleteYourTrip } from '../../components/bookings/CompleteYourTrip';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+// 4 "More ways" cards fit the viewport at once (web-mobile parity): row padding
+// 20*2 + 3 gaps of 10, split four ways.
+const MORE_WAYS_CARD_W = Math.floor((SCREEN_WIDTH - 40 - 30) / 4);
 
 // Helper to extract image URL from either a string or { url: string } object
 const getImageUrl = (img: any): string | null => {
@@ -795,15 +798,13 @@ export default function HomeScreen() {
             <Text style={styles.moreWaysAccent}>More ways</Text> to explore
           </Text>
           <View style={styles.moreWaysRule} />
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.moreWaysRow}
-          >
+          {/* All 4 cards fit the screen at once (web-mobile parity) — a 4-up
+              grid sized to the viewport, not a horizontal scroll. */}
+          <View style={styles.moreWaysGrid}>
             {MORE_WAYS.map((m) => (
               <TouchableOpacity
                 key={m.id}
-                style={[styles.wayCard, { backgroundColor: m.bg }]}
+                style={[styles.wayCard, { backgroundColor: m.bg, width: MORE_WAYS_CARD_W }]}
                 onPress={() =>
                   m.id === 'things'
                     ? setCategoriesOpen(true) // open the "All categories" sheet (web parity)
@@ -818,7 +819,7 @@ export default function HomeScreen() {
                 <Text style={styles.wayLabel} numberOfLines={2}>{m.label}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
         </View>
 
         {/* Recent AI-generated itineraries (Plan-a-Trip + Quick Itinerary) */}
@@ -1902,38 +1903,40 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 16,
   },
-  moreWaysRow: {
+  moreWaysGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
-    gap: 12,
   },
   wayCard: {
-    width: 128,
-    height: 148,
-    borderRadius: 16,
-    padding: 12,
+    // width set inline (MORE_WAYS_CARD_W) so all 4 fit the viewport
+    aspectRatio: 0.78,
+    borderRadius: 14,
+    padding: 8,
     justifyContent: 'space-between',
   },
   wayTag: {
     alignSelf: 'flex-start',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
   },
   wayTagText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
   wayIcon: {
-    width: 46,
-    height: 46,
+    width: 34,
+    height: 34,
     alignSelf: 'flex-start',
   },
   wayLabel: {
-    fontSize: 15,
+    fontSize: 11,
     fontWeight: '700',
     color: '#18181B',
+    lineHeight: 14,
   },
 
   // Hero Service Tabs (PWA-style: 4 brand icons + More)
