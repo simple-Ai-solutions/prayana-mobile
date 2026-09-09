@@ -308,7 +308,10 @@ export default function PackagesScreen() {
             <PackageCard
               pkg={item}
               onPress={() =>
-                router.push(`/packages/${encodeURIComponent(item.slug || item._id)}`)
+                // Navigate by _id, not slug: some slugs collide with empty
+                // duplicate documents (images/variants/itinerary all blank),
+                // whereas the _id always resolves the full package.
+                router.push(`/packages/${encodeURIComponent(item._id)}`)
               }
             />
           )}
@@ -326,7 +329,7 @@ export default function PackagesScreen() {
                       key={pkg._id}
                       pkg={pkg}
                       onPress={() =>
-                        router.push(`/packages/${encodeURIComponent(pkg.slug || pkg._id)}`)
+                        router.push(`/packages/${encodeURIComponent(pkg._id)}`)
                       }
                     />
                   ))}
@@ -346,7 +349,7 @@ export default function PackagesScreen() {
                         <FeaturedCard
                           key={`deal-${pkg._id}`}
                           pkg={pkg}
-                          onPress={() => router.push(`/packages/${encodeURIComponent(pkg.slug || pkg._id)}`)}
+                          onPress={() => router.push(`/packages/${encodeURIComponent(pkg._id)}`)}
                         />
                       ))}
                     </ScrollView>

@@ -232,9 +232,10 @@ export default function PackageDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* Floating back button */}
+      {/* Floating back button — fall back to the listing when there's no history
+          (e.g. deep-linked straight into detail), so it never dead-ends. */}
       <TouchableOpacity
-        onPress={() => router.back()}
+        onPress={() => (router.canGoBack() ? router.back() : router.replace('/packages'))}
         style={styles.fab}
         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
       >
