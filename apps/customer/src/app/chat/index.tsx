@@ -139,6 +139,16 @@ function transportLabel(mode: string) {
   return TRANSPORT_OPTIONS.find((t) => t.id === mode) || TRANSPORT_OPTIONS[0];
 }
 
+// The server sends the destination hero images as [{ url, caption }] objects,
+// but they may also arrive as plain URL strings. Normalise to a string[] so the
+// <Image uri> renders (an object uri silently shows nothing).
+function normalizeImages(raw: any): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((x) => (typeof x === 'string' ? x : x?.url || x?.mediumUrl || x?.imageUrl || null))
+    .filter((u): u is string => typeof u === 'string' && u.length > 0);
+}
+
 function getPlaceImage(place: Place): string | null {
   if (place.images && place.images.length > 0) {
     const img = place.images[0];
@@ -1105,7 +1115,7 @@ export default function ChatScreen() {
         id: generateId(), role: 'assistant', type: 'text',
         content: aiText, timestamp: new Date(),
         topPlaces: aiMsgData?.topPlaces || response?.data?.topPlaces || [],
-        images: aiMsgData?.images || response?.data?.images || [],
+        images: normalizeImages(aiMsgData?.images || response?.data?.images),
         actions: aiMsgData?.actions || [],
         relatedPlaces: aiMsgData?.relatedPlaces || [],
         // Bookable Prayana inventory + one-tap booking prompts the agent returns.
