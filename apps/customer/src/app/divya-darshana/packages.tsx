@@ -12,6 +12,7 @@ import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 import { holidayPackagesAPI } from '@prayana/shared-services';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 // Devotional palette (matches the DD landing).
 const MAROON = '#7A1F0A';
@@ -53,7 +54,10 @@ const DURATIONS: { key: string; label: string; test: (n: number) => boolean }[] 
 const hay = (p: Pkg) =>
   `${p.title} ${p.primaryDestination || ''} ${(p.destinations || []).map((d) => d.name || d.city).join(' ')}`;
 const tagsOf = (p: Pkg) => (Array.isArray(p.tags) ? p.tags.join(',') : String(p.tags || '')).toLowerCase();
-const pkgImage = (p: Pkg) => p.images?.find((i) => i.isPrimary)?.url || p.images?.[0]?.url || null;
+const pkgImage = (p: Pkg) => {
+  const url = p.images?.find((i) => i.isPrimary)?.url || p.images?.[0]?.url;
+  return url ? normalizeImageUrl(url) : null;
+};
 const pkgPlace = (p: Pkg) =>
   p.primaryDestination || p.destination?.city || p.destinations?.[0]?.name || p.destinations?.[0]?.city || '';
 
@@ -236,8 +240,10 @@ const styles = StyleSheet.create({
 
   body: { padding: spacing.lg, paddingTop: spacing.sm, paddingBottom: 40 },
   count: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, marginBottom: spacing.sm },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  gridCell: { width: '47.5%' },
+  // Two-up: 47.5% + 47.5% + space-between leaves the gutter between columns.
+  // A `gap` here on top of two 47.5% cards overflows 100% and drops the second
+  // card to the next row, leaving one narrow card per row (the "shrunk" look).
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.lg },
 
   card: { width: '47.5%', backgroundColor: '#fff', borderColor: `${GOLD}66`, borderWidth: 1, borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', shadowColor: MAROON, shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
   cardImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#FCE7C8' },

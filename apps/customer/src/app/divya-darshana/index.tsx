@@ -16,6 +16,7 @@ import { router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { holidayPackagesAPI } from '@prayana/shared-services';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 // ── Devotional palette (exact web tokens) ──
 const MAROON = '#7A1F0A';
@@ -71,7 +72,10 @@ const TESTIMONIALS = [
   { quote: 'Sattvik meals, a caring tour manager, and VIP darshan. Truly divine.', name: 'Suresh Iyer', loc: 'Chennai · Badrinath', accent: [GOLD, DEEP] as const },
 ];
 
-const pkgImage = (p: Pkg) => p.images?.find((i) => i.isPrimary)?.url || p.images?.[0]?.url || null;
+const pkgImage = (p: Pkg) => {
+  const url = p.images?.find((i) => i.isPrimary)?.url || p.images?.[0]?.url;
+  return url ? normalizeImageUrl(url) : null;
+};
 const pkgPlace = (p: Pkg) => p.primaryDestination || p.destination?.city || p.destinations?.[0]?.name || p.destinations?.[0]?.city || '';
 const isHeli = (p: Pkg) => (Array.isArray(p.tags) ? p.tags.join(',') : String(p.tags || '')).toLowerCase().includes('helicopter');
 
