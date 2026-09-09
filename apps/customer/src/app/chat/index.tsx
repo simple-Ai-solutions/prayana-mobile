@@ -15,7 +15,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -934,6 +934,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const { isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -1304,7 +1305,11 @@ export default function ChatScreen() {
       </LinearGradient>
 
       {/* CONTENT */}
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
         {isWelcomeScreen ? (
           <WelcomeScreen isDark={isDarkMode} onChipPress={handleChipPress} />
         ) : (
@@ -1351,7 +1356,7 @@ export default function ChatScreen() {
         )}
 
         {/* INPUT BAR */}
-        <View style={[styles.inputBar, { backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', borderTopColor: isDarkMode ? '#1e293b' : '#e2e8f0' }]}>
+        <View style={[styles.inputBar, { backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', borderTopColor: isDarkMode ? '#1e293b' : '#e2e8f0', paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
           {charNearLimit && (
             <Text style={[styles.charCount, { color: inputText.length >= MAX_CHAR ? '#ef4444' : '#f59e0b' }]}>
               {MAX_CHAR - inputText.length} left
