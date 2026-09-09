@@ -37,6 +37,7 @@ import {
 } from '@prayana/shared-ui';
 import { bookingAPI, esimAPI, holidayPackagesAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
+import { CompleteYourTrip } from '../../components/bookings/CompleteYourTrip';
 
 // ===== Types =====
 
@@ -1172,6 +1173,7 @@ export default function MyBookingsScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={filteredEsimOrders.length > 0 ? <CompleteYourTrip exclude="esim" /> : null}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -1193,6 +1195,7 @@ export default function MyBookingsScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={filteredPackageBookings.length > 0 ? <CompleteYourTrip exclude="package" /> : null}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -1214,6 +1217,7 @@ export default function MyBookingsScreen() {
           ]}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={filteredBookings.length > 0 ? <CompleteYourTrip exclude="activity" /> : null}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
