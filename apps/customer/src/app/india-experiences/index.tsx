@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChevronLeft, MapPin } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, Stack } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import {
   useTheme,
   colors,
@@ -38,7 +38,12 @@ const CATEGORIES = ['All', 'Tours', 'Heritage', 'Adventure', 'Food', 'Water', 'W
 
 export default function IndiaExperiencesScreen() {
   const { themeColors } = useTheme();
-  const [region, setRegion] = useState('all');
+  // Seed the region tab from a ?region= deep link (home "Explore North India").
+  const { region: regionParam } = useLocalSearchParams<{ region?: string }>();
+  const initialRegion = ['north', 'south', 'east', 'west'].includes(String(regionParam || '').toLowerCase())
+    ? String(regionParam).toLowerCase()
+    : 'all';
+  const [region, setRegion] = useState(initialRegion);
   const [category, setCategory] = useState('All');
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

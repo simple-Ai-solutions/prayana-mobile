@@ -1422,13 +1422,11 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          {/* View All Button */}
+          {/* View All Button — open the India Experiences marketplace pre-filtered
+              to this region (a region name is not a searchable destination). */}
           <TouchableOpacity
             style={styles.viewAllRegionBtn}
-            onPress={() => {
-              const regionLabel = REGION_TABS.find(t => t.toLowerCase() === activeRegion) || activeRegion;
-              handleDestinationPress(regionLabel + ' India');
-            }}
+            onPress={() => router.push(`/india-experiences?region=${activeRegion}` as any)}
             activeOpacity={0.85}
           >
             <LinearGradient colors={['#F97316', '#EA580C']} style={styles.viewAllRegionGradient}>
