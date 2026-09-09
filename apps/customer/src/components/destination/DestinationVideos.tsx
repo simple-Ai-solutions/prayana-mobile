@@ -798,6 +798,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
+    // A full-screen (9:16) WebView underneath renders as a native layer that
+    // otherwise swallows every touch in its rectangle — so the Done/back taps
+    // never fired. Lift the bar above the WebView's layer on both platforms.
+    zIndex: 100,
+    elevation: 30,
   },
   playerBackBtn: {
     width: 44,
@@ -805,7 +810,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    zIndex: 101,
+    elevation: 31,
   },
   playerDoneBtn: {
     flexDirection: 'row',
@@ -814,7 +821,9 @@ const styles = StyleSheet.create({
     height: 40,
     paddingHorizontal: spacing.md,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    zIndex: 101,
+    elevation: 31,
   },
   playerDoneText: {
     color: '#fff',
