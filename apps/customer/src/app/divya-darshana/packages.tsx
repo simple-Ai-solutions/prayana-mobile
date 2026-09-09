@@ -245,7 +245,10 @@ const styles = StyleSheet.create({
   // card to the next row, leaving one narrow card per row (the "shrunk" look).
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.lg },
 
-  card: { width: '47.5%', backgroundColor: '#fff', borderColor: `${GOLD}66`, borderWidth: 1, borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', shadowColor: MAROON, shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
+  // No borderWidth — a 1px border + overflow:hidden let the full-bleed image
+  // paint over the side border while the body respected it, so the image read
+  // as wider than the card body. Define the card with its shadow instead.
+  card: { width: '47.5%', backgroundColor: '#fff', borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', shadowColor: MAROON, shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
   cardImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#FCE7C8' },
   cardDuration: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   cardDurationText: { fontSize: 10, fontWeight: '800', color: DEEP },

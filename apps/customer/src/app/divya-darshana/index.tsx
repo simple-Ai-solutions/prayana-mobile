@@ -515,7 +515,11 @@ const styles = StyleSheet.create({
 
   // Land dome card
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 12, rowGap: 16 },
-  dome: { width: '47.5%', backgroundColor: '#fff', borderWidth: 1, borderColor: `${GOLD}66`, borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', ...CARD_SHADOW },
+  // No borderWidth: on iOS a 1px border + overflow:hidden lets the full-bleed
+  // image paint over the side border while the white body respects it, so the
+  // image read as slightly WIDER than the body. Define the card with its shadow
+  // instead; the image and body are then both exactly the card width.
+  dome: { width: '47.5%', backgroundColor: '#fff', borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', ...CARD_SHADOW },
   domeImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: CREAM },
   durBadge: { position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   durBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
