@@ -101,7 +101,7 @@ export default function PackagesScreen() {
       const initial = !search.trim() && activeCategory === 'all' && activeFilterCount === 0;
       const [searchRes, featuredRes, dealsRes, facetsRes] = await Promise.all([
         holidayPackagesAPI.search({
-          query: search.trim() || undefined,
+          q: search.trim() || undefined,
           category: activeCategory !== 'all' ? activeCategory : undefined,
           sort,
           maxBudget: filters.maxBudget,

@@ -52,7 +52,7 @@ type HolidayPackage = {
     mrp?: number;
     perPerson?: boolean;
   };
-  category?: string;
+  category?: string | string[];
   rating?: { average?: number; count?: number };
   images?: { url: string; alt?: string }[];
   inclusions?: string[];
@@ -111,6 +111,9 @@ export default function PackageDetailScreen() {
     );
   }
 
+  // category can be a String[] (server model) or a plain string — never call
+  // .toUpperCase() on it directly or the whole screen crashes to a blank page.
+  const categoryLabel = Array.isArray(pkg.category) ? pkg.category[0] : pkg.category;
   const images = pkg.images?.length ? pkg.images : [{ url: '' }];
   const dest = [pkg.destination?.city, pkg.destination?.state, pkg.destination?.country]
     .filter(Boolean)
@@ -174,8 +177,8 @@ export default function PackageDetailScreen() {
 
         {/* Header info */}
         <View style={[styles.headerSection, { backgroundColor: themeColors.surface }]}>
-          {pkg.category ? (
-            <Badge label={pkg.category.toUpperCase()} variant="primary" size="sm" />
+          {categoryLabel ? (
+            <Badge label={categoryLabel.toUpperCase()} variant="primary" size="sm" />
           ) : null}
           <Text style={[styles.title, { color: themeColors.text }]}>{pkg.title}</Text>
           {dest ? (
