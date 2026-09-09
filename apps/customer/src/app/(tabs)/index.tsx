@@ -725,7 +725,7 @@ export default function HomeScreen() {
                 style={StyleSheet.absoluteFill}
               />
             </Animated.View>
-            <Ionicons name={seasonal.icon} size={24} color={seasonal.iconColor} style={styles.heroBadgeEmoji} />
+            <Ionicons name={seasonal.icon} size={17} color={seasonal.iconColor} style={styles.heroBadgeEmoji} />
             <View style={styles.heroBadgeText}>
               <Text style={styles.heroBadgeTitle}>{seasonal.title}</Text>
               <Text style={styles.heroBadgeSub}>{seasonal.sub}</Text>
@@ -1763,15 +1763,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    gap: 10,
-    maxWidth: '94%',
+    gap: 7,
+    maxWidth: '90%',
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.28)',
     borderRadius: 999,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginBottom: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 18,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -1783,20 +1783,20 @@ const styles = StyleSheet.create({
     width: 90,
   },
   heroBadgeEmoji: {
-    fontSize: 24,
-    lineHeight: 30,
+    fontSize: 17,
+    lineHeight: 22,
   },
   heroBadgeText: {
     flexShrink: 1,
   },
   heroBadgeTitle: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: '700',
   },
   heroBadgeSub: {
     color: 'rgba(255,255,255,0.80)',
-    fontSize: 11,
+    fontSize: 10,
     marginTop: 1,
   },
   // Headline — script + serif, mirroring the web hero
