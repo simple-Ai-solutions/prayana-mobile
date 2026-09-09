@@ -543,6 +543,7 @@ export default function HomeScreen() {
   const [showAllTop, setShowAllTop] = useState(false);
   const [showAllPilgrimage, setShowAllPilgrimage] = useState(false);
   const [showAllVisaFree, setShowAllVisaFree] = useState(false);
+  const [showAllRegion, setShowAllRegion] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
   const [showQuickItinerary, setShowQuickItinerary] = useState(false);
   // "Plan a Trip" choice sheet — web parity (HeroSection's showPlanChoice modal).
@@ -906,10 +907,6 @@ export default function HomeScreen() {
                 >
                   <Image source={{ uri: visibleVisaFree[0].image }} style={styles.masonryImage} />
                   <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.masonryOverlay}>
-                    <View style={styles.visaFreeBadge}>
-                      <Text style={styles.visaFreeBadgeText}>Visa-Free</Text>
-                    </View>
-                    <Text style={styles.visaFlag}>{visibleVisaFree[0].flag}</Text>
                     <Text style={styles.masonryTitle}>{visibleVisaFree[0].name}</Text>
                     <Text style={styles.masonryDesc}>{visibleVisaFree[0].desc}</Text>
                   </LinearGradient>
@@ -924,10 +921,6 @@ export default function HomeScreen() {
                     >
                       <Image source={{ uri: country.image }} style={styles.masonryImage} />
                       <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.masonryOverlay}>
-                        <View style={styles.visaFreeBadge}>
-                          <Text style={styles.visaFreeBadgeText}>Visa-Free</Text>
-                        </View>
-                        <Text style={styles.visaFlag}>{country.flag}</Text>
                         <Text style={styles.masonryNameSm}>{country.name}</Text>
                       </LinearGradient>
                     </TouchableOpacity>
@@ -948,10 +941,6 @@ export default function HomeScreen() {
                   >
                     <Image source={{ uri: country.image }} style={styles.masonryImage} />
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.masonryOverlay}>
-                      <View style={styles.visaFreeBadge}>
-                        <Text style={styles.visaFreeBadgeText}>Visa-Free</Text>
-                      </View>
-                      <Text style={styles.visaFlag}>{country.flag}</Text>
                       <Text style={styles.masonryNameSm}>{country.name}</Text>
                     </LinearGradient>
                   </TouchableOpacity>
@@ -971,10 +960,6 @@ export default function HomeScreen() {
                   >
                     <Image source={{ uri: country.image }} style={styles.masonryImage} />
                     <LinearGradient colors={['transparent', 'rgba(0,0,0,0.75)']} style={styles.masonryOverlay}>
-                      <View style={styles.visaFreeBadge}>
-                        <Text style={styles.visaFreeBadgeText}>Visa-Free</Text>
-                      </View>
-                      <Text style={styles.visaFlag}>{country.flag}</Text>
                       <Text style={styles.masonryTitle}>{country.name}</Text>
                       <Text style={styles.masonryDesc}>{country.desc}</Text>
                     </LinearGradient>
@@ -1389,7 +1374,7 @@ export default function HomeScreen() {
                     styles.regionTab,
                     isActive && styles.regionTabActive,
                   ]}
-                  onPress={() => setActiveRegion(key)}
+                  onPress={() => { setActiveRegion(key); setShowAllRegion(false); }}
                   activeOpacity={0.7}
                 >
                   <Text style={[
@@ -1403,9 +1388,11 @@ export default function HomeScreen() {
             })}
           </View>
 
-          {/* Region Destination Grid */}
+          {/* Region Destination Grid — each card opens the place/destination
+              screen (places, not activities). "View All" expands the grid to
+              show every place in the region, matching the PWA. */}
           <View style={styles.regionGrid}>
-            {regionDests.slice(0, 4).map((dest) => (
+            {(showAllRegion ? regionDests : regionDests.slice(0, 4)).map((dest) => (
               <TouchableOpacity
                 key={dest.name}
                 style={[styles.regionCard, shadow.md, { width: CARD_W }]}
@@ -1423,18 +1410,21 @@ export default function HomeScreen() {
             ))}
           </View>
 
-          {/* View All Button — open the India Experiences marketplace pre-filtered
-              to this region (a region name is not a searchable destination). */}
-          <TouchableOpacity
-            style={styles.viewAllRegionBtn}
-            onPress={() => router.push(`/india-experiences?region=${activeRegion}` as any)}
-            activeOpacity={0.85}
-          >
-            <LinearGradient colors={['#F97316', '#EA580C']} style={styles.viewAllRegionGradient}>
-              <Text style={styles.viewAllRegionText}>View All {REGION_TABS.find(t => t.toLowerCase() === activeRegion)} India</Text>
-              <Ionicons name="arrow-forward" size={16} color="#ffffff" />
-            </LinearGradient>
-          </TouchableOpacity>
+          {/* View All — reveal every place in this region (in place), like the PWA. */}
+          {regionDests.length > 4 ? (
+            <TouchableOpacity
+              style={styles.viewAllRegionBtn}
+              onPress={() => setShowAllRegion((v) => !v)}
+              activeOpacity={0.85}
+            >
+              <LinearGradient colors={['#F97316', '#EA580C']} style={styles.viewAllRegionGradient}>
+                <Text style={styles.viewAllRegionText}>
+                  {showAllRegion ? 'Show less' : `View all ${REGION_TABS.find(t => t.toLowerCase() === activeRegion)} India`}
+                </Text>
+                <Ionicons name={showAllRegion ? 'chevron-up' : 'arrow-forward'} size={16} color="#ffffff" />
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : null}
         </LinearGradient>
 
         {/* Promo trio — eSIM / Divya Darshana / Holiday Packages (web parity:
