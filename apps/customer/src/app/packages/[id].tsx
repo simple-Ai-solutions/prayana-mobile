@@ -27,6 +27,7 @@ import {
 } from '@prayana/shared-ui';
 import { holidayPackagesAPI } from '@prayana/shared-services';
 import { useRequireAuth } from '../../lib/useRequireAuth';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -38,9 +39,29 @@ type ItineraryDay = {
   // Server shapes vary: activities are objects ({title,...}); meals is an object
   // ({ breakfast:{included}, lunch:{included}, dinner:{included} }) OR a string[].
   meals?: any;
-  activities?: (string | { name?: string; activity?: string; title?: string; description?: string })[];
+  activities?: (
+    | string
+    | {
+        name?: string;
+        activity?: string;
+        title?: string;
+        description?: string;
+        // Per-activity notes the PWA shows under each activity (ActivityCard).
+        whyIncluded?: string;
+        goodToKnow?: string;
+      }
+  )[];
   accommodation?: { hotelName?: string; hotelCategory?: string; roomType?: string; imageUrl?: string };
 };
+
+// A normalised activity for the itinerary list: a title plus the two optional
+// notes the web renders ("Why we include it" / "Good to know").
+type DayActivity = { title: string; whyIncluded?: string; goodToKnow?: string };
+const toActivity = (x: any): DayActivity => ({
+  title: itemLabel(x),
+  whyIncluded: typeof x === 'object' ? x?.whyIncluded : undefined,
+  goodToKnow: typeof x === 'object' ? x?.goodToKnow : undefined,
+});
 
 type PkgHotel = { name: string; city?: string; imageUrl?: string; rating?: number; reviewCount?: number };
 
@@ -95,7 +116,7 @@ type HolidayPackage = {
   category?: string | string[];
   variants?: PkgVariant[];
   rating?: { average?: number; count?: number };
-  images?: { url: string; alt?: string }[];
+  images?: { url: string; alt?: string; isPrimary?: boolean; caption?: string }[];
   inclusions?: string[];
   exclusions?: string[];
   itinerary?: ItineraryDay[];
@@ -184,7 +205,17 @@ export default function PackageDetailScreen() {
   // category can be a String[] (server model) or a plain string — never call
   // .toUpperCase() on it directly or the whole screen crashes to a blank page.
   const categoryLabel = Array.isArray(pkg.category) ? pkg.category[0] : pkg.category;
-  const images = pkg.images?.length ? pkg.images : [{ url: '' }];
+  // Keep only images that actually carry a url, primary first — an entry with
+  // no url renders as a blank gradient slide otherwise. If none qualify, show a
+  // single gradient placeholder slide.
+  const withUrl = (pkg.images || [])
+    .filter((i) => i?.url)
+    .map((i) => ({ ...i, url: normalizeImageUrl(i.url) }));
+  const orderedImages = [
+    ...withUrl.filter((i) => i.isPrimary),
+    ...withUrl.filter((i) => !i.isPrimary),
+  ];
+  const images = orderedImages.length ? orderedImages : [{ url: '' }];
   const dest = [pkg.destination?.city, pkg.destination?.state, pkg.destination?.country]
     .filter(Boolean)
     .join(', ');
@@ -228,6 +259,8 @@ export default function PackageDetailScreen() {
                   source={{ uri: img.url }}
                   style={styles.carouselImage}
                   contentFit="cover"
+                  transition={200}
+                  cachePolicy="memory-disk"
                 />
               ) : (
                 <LinearGradient
@@ -382,7 +415,7 @@ export default function PackageDetailScreen() {
             <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Day-by-day itinerary</Text>
             {pkg.itinerary.map((d, di) => {
               const dayNo = d.dayNumber ?? d.day ?? di + 1;
-              const acts = (d.activities || []).map(itemLabel).filter(Boolean);
+              const acts = (d.activities || []).map(toActivity).filter((a) => a.title);
               const meals = mealLabels(d.meals);
               return (
                 <View key={di} style={[styles.dayBlock, { borderTopColor: themeColors.border }]}>
@@ -406,9 +439,31 @@ export default function PackageDetailScreen() {
                       </View>
                     ) : null}
                     {acts.length > 0 ? (
-                      <View style={styles.dayLine}>
-                        <Ionicons name="sparkles-outline" size={13} color={themeColors.textTertiary} />
-                        <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]}>{acts.join(' · ')}</Text>
+                      <View style={{ marginTop: 8, gap: 10 }}>
+                        {acts.map((a, ai) => (
+                          <View key={ai} style={styles.actRow}>
+                            <Ionicons name="sparkles-outline" size={13} color={themeColors.textTertiary} style={{ marginTop: 3 }} />
+                            <View style={{ flex: 1 }}>
+                              <Text style={[styles.actTitle, { color: themeColors.text }]}>{a.title}</Text>
+                              {/* "Why we include it" — matches the PWA ActivityCard: a
+                                  left blue rule + bold blue label. */}
+                              {a.whyIncluded ? (
+                                <View style={styles.whyBlock}>
+                                  <Text style={[styles.whyText, { color: themeColors.textSecondary }]}>
+                                    <Text style={styles.whyLabel}>Why we include it · </Text>
+                                    {a.whyIncluded}
+                                  </Text>
+                                </View>
+                              ) : null}
+                              {a.goodToKnow ? (
+                                <Text style={[styles.gtkText, { color: themeColors.textTertiary }]}>
+                                  <Text style={styles.gtkLabel}>Good to know · </Text>
+                                  {a.goodToKnow}
+                                </Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        ))}
                       </View>
                     ) : null}
                     {meals.length > 0 ? (
@@ -431,7 +486,7 @@ export default function PackageDetailScreen() {
             {pkg.hotels.map((h, i) => (
               <View key={`${h.name}-${i}`} style={[styles.hotelRow, i > 0 && { borderTopColor: themeColors.border, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md }]}>
                 {h.imageUrl ? (
-                  <Image source={{ uri: h.imageUrl }} style={styles.hotelImg} contentFit="cover" />
+                  <Image source={{ uri: normalizeImageUrl(h.imageUrl) }} style={styles.hotelImg} contentFit="cover" transition={200} cachePolicy="memory-disk" />
                 ) : (
                   <View style={[styles.hotelImg, { backgroundColor: colors.primary[100], alignItems: 'center', justifyContent: 'center' }]}>
                     <Ionicons name="bed" size={18} color={colors.primary[400]} />
@@ -642,6 +697,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6 },
+  actRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  actTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  whyBlock: { borderLeftWidth: 2, borderLeftColor: '#60a5fa', paddingLeft: 8, marginTop: 4 },
+  whyText: { fontSize: 13, lineHeight: 18 },
+  whyLabel: { fontWeight: fontWeight.bold, color: '#2563eb' },
+  gtkText: { fontSize: 12, lineHeight: 17, marginTop: 4 },
+  gtkLabel: { fontWeight: fontWeight.bold },
   hotelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
   hotelImg: { width: 52, height: 52, borderRadius: 10 },
   hotelName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },

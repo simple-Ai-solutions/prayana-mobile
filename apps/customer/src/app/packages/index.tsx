@@ -30,6 +30,7 @@ import {
 } from '@prayana/shared-ui';
 import { holidayPackagesAPI } from '@prayana/shared-services';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 
 type PackageCategory =
   | 'all'
@@ -71,10 +72,22 @@ type HolidayPackage = {
   pricing?: { startingFrom: number; currency?: string; mrp?: number };
   category?: PackageCategory | string;
   rating?: { average?: number; count?: number };
-  images?: { url: string; alt?: string }[];
+  images?: { url: string; alt?: string; isPrimary?: boolean }[];
   inclusions?: string[];
   isFeatured?: boolean;
 };
+
+// The API marks one image `isPrimary`, but it isn't always index 0 (the primary
+// can sit later in the array). Blindly taking images[0] sometimes yields an
+// entry with no `url`, so the card fell back to the gradient and looked "blank".
+// Pick the primary, else the first entry that actually has a url.
+function pkgImage(pkg: HolidayPackage): string | undefined {
+  const imgs = pkg.images || [];
+  const primary = imgs.find((i) => i?.isPrimary && i.url);
+  const url = (primary || imgs.find((i) => i?.url))?.url;
+  // Resolve relative/legacy-S3/corrupted urls exactly like the PWA grids do.
+  return url ? normalizeImageUrl(url) : undefined;
+}
 
 export default function PackagesScreen() {
   const router = useRouter();
@@ -330,7 +343,7 @@ export default function PackagesScreen() {
 
 function PackageCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => void }) {
   const { themeColors } = useTheme();
-  const img = pkg.images?.[0]?.url;
+  const img = pkgImage(pkg);
   const days = pkg.duration?.days || 0;
   const nights = pkg.duration?.nights || Math.max(0, days - 1);
   const price = pkg.pricing?.startingFrom || 0;
@@ -343,7 +356,7 @@ function PackageCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => voi
       <Card style={styles.card}>
         <View style={styles.cardImageWrap}>
           {img ? (
-            <Image source={{ uri: img }} style={styles.cardImage} contentFit="cover" />
+            <Image source={{ uri: img }} style={styles.cardImage} contentFit="cover" transition={200} cachePolicy="memory-disk" />
           ) : (
             <LinearGradient
               colors={[colors.primary[300], colors.primary[600]]}
@@ -413,12 +426,12 @@ function PackageCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => voi
 }
 
 function FeaturedCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => void }) {
-  const img = pkg.images?.[0]?.url;
+  const img = pkgImage(pkg);
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.featCardWrap}>
       <View style={styles.featCard}>
         {img ? (
-          <Image source={{ uri: img }} style={styles.featImage} contentFit="cover" />
+          <Image source={{ uri: img }} style={styles.featImage} contentFit="cover" transition={200} cachePolicy="memory-disk" />
         ) : (
           <LinearGradient
             colors={[colors.primary[400], colors.primary[700]]}
