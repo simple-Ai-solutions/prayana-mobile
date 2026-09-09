@@ -29,6 +29,7 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { holidayPackagesAPI } from '@prayana/shared-services';
+import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 
 type PackageCategory =
   | 'all'
@@ -88,30 +89,44 @@ export default function PackagesScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Facet filters (Duration / Budget / City) — mirrors the web filter accordions.
+  const [facets, setFacets] = useState<any>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filters, setFilters] = useState<PackageFilters>({});
+  const activeFilterCount =
+    (filters.maxBudget ? 1 : 0) + (filters.minNights != null || filters.maxNights != null ? 1 : 0) + (filters.city ? 1 : 0);
+
   const load = useCallback(async () => {
     try {
-      const initial = !search.trim() && activeCategory === 'all';
-      const [searchRes, featuredRes, dealsRes] = await Promise.all([
+      const initial = !search.trim() && activeCategory === 'all' && activeFilterCount === 0;
+      const [searchRes, featuredRes, dealsRes, facetsRes] = await Promise.all([
         holidayPackagesAPI.search({
           query: search.trim() || undefined,
           category: activeCategory !== 'all' ? activeCategory : undefined,
           sort,
+          maxBudget: filters.maxBudget,
+          minNights: filters.minNights,
+          maxNights: filters.maxNights,
+          cities: filters.city || undefined,
           limit: 30,
         }),
-        // Only fetch featured + deals on initial load (no filters)
+        // Only fetch featured + deals on the unfiltered initial view.
         initial ? holidayPackagesAPI.getFeatured() : Promise.resolve(null),
         initial ? holidayPackagesAPI.getValueDeals({ limit: 10 }).catch(() => null) : Promise.resolve(null),
+        // Facets once (for the filter sheet bounds/cities).
+        !facets ? holidayPackagesAPI.getFacets().catch(() => null) : Promise.resolve(null),
       ]);
       setPackages(searchRes?.data || searchRes?.packages || []);
       if (featuredRes) setFeatured(featuredRes?.data || featuredRes?.packages || []);
       if (dealsRes) setDeals(dealsRes?.data || dealsRes?.packages || []);
+      if (facetsRes?.data) setFacets(facetsRes.data);
     } catch (err: any) {
       console.warn('[Packages] load failed:', err?.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [search, activeCategory, sort]);
+  }, [search, activeCategory, sort, filters, activeFilterCount, facets]);
 
   useEffect(() => {
     setLoading(true);
@@ -186,8 +201,17 @@ export default function PackagesScreen() {
         })}
       </ScrollView>
 
-      {/* Sort pills */}
+      {/* Sort pills + Filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+        <TouchableOpacity
+          onPress={() => setFilterOpen(true)}
+          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? colors.primary[500] : themeColors.border, backgroundColor: activeFilterCount ? colors.primary[500] + '18' : 'transparent' }]}
+        >
+          <Ionicons name="options-outline" size={14} color={activeFilterCount ? colors.primary[600] : themeColors.textSecondary} />
+          <Text style={[styles.sortChipText, { color: activeFilterCount ? colors.primary[600] : themeColors.textSecondary }]}>
+            Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}
+          </Text>
+        </TouchableOpacity>
         {SORTS.map((s) => {
           const active = sort === s.key;
           return (
@@ -285,6 +309,14 @@ export default function PackagesScreen() {
           }
         />
       )}
+
+      <PackageFilterSheet
+        open={filterOpen}
+        facets={facets}
+        value={filters}
+        onClose={() => setFilterOpen(false)}
+        onApply={(f) => { setFilters(f); setFilterOpen(false); }}
+      />
     </SafeAreaView>
   );
 }
@@ -450,6 +482,7 @@ const styles = StyleSheet.create({
   },
   sortRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm },
   sortChip: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6 },
+  filterChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sortChipText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
   dealsHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.xl, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
   catChip: {
