@@ -17,6 +17,10 @@ import { CATEGORY_MENU_GROUPS, categorySlug } from '../../lib/categoryMenuData';
 const TEAL = '#4AC0CC';
 const { width: SCREEN_W } = Dimensions.get('window');
 const PANEL_W = Math.min(SCREEN_W, 560);
+// 4 tiles per row. Panel padding (body md=12 each side) + group padding (lg=16
+// each side) leave the inner grid this wide; divide by 4 for an even tile.
+const GRID_INNER_W = PANEL_W - 12 * 2 - 16 * 2;
+const TILE_W = Math.floor(GRID_INNER_W / 4);
 
 type Props = { open: boolean; onClose: () => void };
 
@@ -220,9 +224,9 @@ const styles = StyleSheet.create({
   groupTitle: { flex: 1, fontSize: fontSize.md, fontWeight: fontWeight.bold },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
-  tile: { width: '25%', alignItems: 'center', paddingVertical: spacing.sm, gap: 6 },
+  tile: { width: TILE_W, alignItems: 'center', paddingVertical: spacing.sm, gap: 6 },
   tileIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  tileLabel: { fontSize: 11, textAlign: 'center', fontWeight: fontWeight.medium, lineHeight: 14 },
+  tileLabel: { width: '100%', fontSize: 11, textAlign: 'center', fontWeight: fontWeight.medium, lineHeight: 14 },
   soon: { fontSize: 8, fontWeight: '800', color: '#9CA3AF', letterSpacing: 0.5 },
 
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: spacing.sm + 2 },
