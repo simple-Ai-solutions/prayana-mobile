@@ -25,7 +25,7 @@ import {
   borderRadius,
   useTheme,
 } from '@prayana/shared-ui';
-import { holidayPackagesAPI } from '@prayana/shared-services';
+import { holidayPackagesAPI, destinationAPI } from '@prayana/shared-services';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 
@@ -134,6 +134,10 @@ export default function PackageDetailScreen() {
   const [pkg, setPkg] = useState<HolidayPackage | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  // Backfilled gallery for packages with an empty images[] — fetched from the
+  // itinerary's place names via /destinations/place-images, exactly like the
+  // web PackageImageGrid. Only used when the package ships no images.
+  const [backfillImages, setBackfillImages] = useState<string[]>([]);
   const [variantName, setVariantName] = useState<string | null>(null);
   const [live, setLive] = useState<any>(null); // calculate-price result
   const [pricing, setPricing] = useState(false);
@@ -180,6 +184,52 @@ export default function PackageDetailScreen() {
     return () => { alive = false; };
   }, [pkg, variantName]);
 
+  // Backfill the gallery when the package has no stored images — mirror the web
+  // PackageImageGrid: derive place names from the itinerary (activity title +
+  // destination, day destination, hotel name), fetch the first ~8 via
+  // /destinations/place-images (S3 → Google Places), dedupe.
+  useEffect(() => {
+    if (!pkg) return;
+    const hasStored = (pkg.images || []).some((i) => i?.url);
+    if (hasStored) return;
+
+    const destName =
+      pkg.destination?.city || pkg.destination?.state || pkg.destination?.country || '';
+    const names: string[] = [];
+    for (const d of pkg.itinerary || []) {
+      for (const a of d.activities || []) {
+        const t = typeof a === 'string' ? a : a?.title || a?.name;
+        if (t) names.push(destName ? `${t} ${destName}` : String(t));
+      }
+      if ((d as any).destination) names.push(`${(d as any).destination} scenic view`);
+      const hotel = d.accommodation?.hotelName;
+      if (hotel && hotel !== 'Overnight Bus') names.push(hotel);
+    }
+    const wanted = Array.from(new Set(names)).slice(0, 8);
+    if (!wanted.length || !destName) return;
+
+    let alive = true;
+    (async () => {
+      const urls: string[] = [];
+      // Batches of 4 with a short gap, like the web enrichment.
+      for (let i = 0; i < wanted.length && alive; i += 4) {
+        const batch = wanted.slice(i, i + 4);
+        await Promise.allSettled(
+          batch.map((placeName) =>
+            destinationAPI.getPlaceImages(placeName, destName, 1).then((res: any) => {
+              const first = (res?.data || res?.images || [])[0];
+              const url = first?.url || first?.imageUrl || (typeof first === 'string' ? first : null);
+              if (url) urls.push(normalizeImageUrl(url));
+            }).catch(() => {}),
+          ),
+        );
+        if (alive && urls.length) setBackfillImages(Array.from(new Set(urls)));
+        if (i + 4 < wanted.length) await new Promise((r) => setTimeout(r, 200));
+      }
+    })();
+    return () => { alive = false; };
+  }, [pkg]);
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -215,7 +265,13 @@ export default function PackageDetailScreen() {
     ...withUrl.filter((i) => i.isPrimary),
     ...withUrl.filter((i) => !i.isPrimary),
   ];
-  const images = orderedImages.length ? orderedImages : [{ url: '' }];
+  // Prefer stored images; else the itinerary-derived backfill; else a single
+  // gradient placeholder slide.
+  const images = orderedImages.length
+    ? orderedImages
+    : backfillImages.length
+      ? backfillImages.map((url) => ({ url }))
+      : [{ url: '' }];
   const dest = [pkg.destination?.city, pkg.destination?.state, pkg.destination?.country]
     .filter(Boolean)
     .join(', ');
