@@ -50,6 +50,30 @@ interface Place {
   city?: string;
 }
 
+// Bookable Prayana inventory the agent returns in `inventory[]`. `kind` picks
+// the mobile deep-link; `url` is the web path (we map it to a native route).
+interface InventoryCard {
+  kind: 'activity' | 'package' | 'transport' | 'cab' | 'captain_tour' | 'global_activity' | string;
+  id?: string;
+  title: string;
+  image?: string | null;
+  price?: number | null;
+  currency?: string;
+  priceSuffix?: string;
+  location?: string;
+  rating?: number;
+  reviewCount?: number;
+  url?: string;
+}
+
+// One-tap booking prompts the agent returns in `actionCards[]`.
+interface ActionCard {
+  type: 'confirm_booking' | 'book_cab' | 'buy_esim' | 'save_favorite' | 'view_itinerary' | string;
+  label: string;
+  requiresAuth?: boolean;
+  data?: any;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -60,6 +84,8 @@ interface ChatMessage {
   images?: string[];
   actions?: Array<{ text: string; action: string }>;
   relatedPlaces?: Array<{ id?: string; name: string }>;
+  inventory?: InventoryCard[];
+  actionCards?: ActionCard[];
   itineraryData?: { markdown?: string; structured?: any };
   requestData?: {
     destination: string; duration: number;
@@ -599,12 +625,97 @@ function ItineraryPreviewCard({ message, isDark, onViewFull }: {
 // ============================================================
 // MESSAGE BUBBLE  — full rich rendering
 // ============================================================
-function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePress, isGenerating }: {
+// Map an agent inventory card to the native deep-link route. Activity/package
+// have per-item detail; cabs/monuments/eSIM land on their search/browse screen.
+function inventoryRoute(card: InventoryCard): string {
+  const idOrSlug = card.url?.split('/').filter(Boolean).pop() || card.id || '';
+  switch (card.kind) {
+    case 'activity':
+    case 'global_activity':
+      return idOrSlug ? `/activity/${encodeURIComponent(idOrSlug)}` : '/activities';
+    case 'package':
+    case 'captain_tour':
+      return idOrSlug ? `/packages/${encodeURIComponent(idOrSlug)}` : '/packages';
+    case 'cab':
+      return '/outstation-cabs';
+    case 'transport':
+      return idOrSlug ? `/transport/${encodeURIComponent(idOrSlug)}` : '/transport';
+    default:
+      return card.url && card.url.startsWith('/') ? card.url.replace('/activities/', '/activity/') : '/activities';
+  }
+}
+
+const KIND_LABEL: Record<string, string> = {
+  activity: 'Activity', global_activity: 'Experience', package: 'Package',
+  captain_tour: 'Group tour', cab: 'Cab', transport: 'Ride',
+};
+
+function ChatInventoryCard({ card, isDark, onPress }: { card: InventoryCard; isDark: boolean; onPress: () => void }) {
+  const bg = isDark ? '#1e293b' : '#ffffff';
+  const border = isDark ? '#334155' : '#e2e8f0';
+  const text = isDark ? '#f1f5f9' : '#0f172a';
+  const sub = isDark ? '#94a3b8' : '#64748b';
+  const sym = card.currency === 'USD' ? '$' : '₹';
+  return (
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={[invStyles.card, { backgroundColor: bg, borderColor: border }]}>
+      <View style={invStyles.imgWrap}>
+        {card.image ? (
+          <Image source={{ uri: card.image }} style={invStyles.img} contentFit="cover" />
+        ) : (
+          <View style={[invStyles.img, { backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }]}>
+            <Ionicons name="pricetag" size={20} color="#F59E0B" />
+          </View>
+        )}
+        <View style={invStyles.kindPill}>
+          <Text style={invStyles.kindPillText}>{KIND_LABEL[card.kind] || 'Book'}</Text>
+        </View>
+      </View>
+      <View style={invStyles.body}>
+        <Text style={[invStyles.title, { color: text }]} numberOfLines={2}>{card.title}</Text>
+        {!!card.location && <Text style={[invStyles.loc, { color: sub }]} numberOfLines={1}>{card.location}</Text>}
+        <View style={invStyles.footer}>
+          {card.price != null && card.price > 0 ? (
+            <Text style={[invStyles.price, { color: text }]}>
+              {sym}{Number(card.price).toLocaleString('en-IN')}
+              {!!card.priceSuffix && <Text style={[invStyles.priceSuffix, { color: sub }]}> {card.priceSuffix}</Text>}
+            </Text>
+          ) : <Text style={[invStyles.priceSuffix, { color: sub }]}>View</Text>}
+          {!!card.rating && (
+            <View style={invStyles.rating}>
+              <Ionicons name="star" size={11} color="#F59E0B" />
+              <Text style={[invStyles.ratingText, { color: sub }]}>{Number(card.rating).toFixed(1)}</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+const invStyles = StyleSheet.create({
+  card: { width: 190, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  imgWrap: { width: '100%', aspectRatio: 16 / 10, backgroundColor: '#FEF3C7' },
+  img: { width: '100%', height: '100%' },
+  kindPill: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  kindPillText: { color: '#fff', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  body: { padding: 10, gap: 3 },
+  title: { fontSize: 13, fontWeight: '700', lineHeight: 17 },
+  loc: { fontSize: 11 },
+  footer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 },
+  price: { fontSize: 14, fontWeight: '800' },
+  priceSuffix: { fontSize: 11, fontWeight: '400' },
+  rating: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  ratingText: { fontSize: 11, fontWeight: '600' },
+});
+
+function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePress, onInventoryPress, onActionCard, isGenerating }: {
   message: ChatMessage;
   isDark: boolean;
   onPlanTrip: (d: TripFormData) => void;
   onViewItinerary: (m: ChatMessage) => void;
   onPlacePress: (name: string) => void;
+  onInventoryPress: (card: InventoryCard) => void;
+  onActionCard: (card: ActionCard) => void;
   isGenerating: boolean;
 }) {
   const isUser = message.role === 'user';
@@ -697,6 +808,44 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
               .map((place, i) => (
                 <PlaceCard key={i} place={place} index={i} isDark={isDark} onPress={(p) => onPlacePress(p.name)} />
               ))}
+          </View>
+        )}
+
+        {/* Bookable Prayana inventory — real listings with prices, tappable to book */}
+        {message.inventory && message.inventory.length > 0 && (
+          <View>
+            <View style={styles.sectionHeader}>
+              <LinearGradient colors={['#F59E0B', '#EA580C']} style={styles.sectionIconBg}>
+                <Text style={{ fontSize: 16 }}>🎟️</Text>
+              </LinearGradient>
+              <View>
+                <Text style={[styles.sectionTitle, { color: textPrimary }]}>Book on Prayana</Text>
+                <Text style={[styles.sectionSub, { color: textSecondary }]}>Handpicked, bookable in-app</Text>
+              </View>
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
+              {message.inventory.slice(0, 10).map((card, i) => (
+                <ChatInventoryCard key={`${card.kind}-${card.id || i}`} card={card} isDark={isDark} onPress={() => onInventoryPress(card)} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {/* One-tap booking prompts (confirm booking / book cab / buy eSIM / view itinerary) */}
+        {message.actionCards && message.actionCards.length > 0 && (
+          <View style={styles.actionsWrap}>
+            {message.actionCards.map((card, i) => (
+              <TouchableOpacity
+                key={i}
+                onPress={() => onActionCard(card)}
+                activeOpacity={0.9}
+                style={[styles.bookCta, { backgroundColor: isDark ? 'rgba(245,158,11,0.16)' : '#FFF7ED', borderColor: isDark ? 'rgba(245,158,11,0.35)' : '#FED7AA' }]}
+              >
+                <Ionicons name="flash" size={15} color="#EA580C" />
+                <Text style={[styles.bookCtaText, { color: isDark ? '#FBBF24' : '#C2410C' }]}>{card.label}</Text>
+                <Ionicons name="chevron-forward" size={15} color="#EA580C" />
+              </TouchableOpacity>
+            ))}
           </View>
         )}
 
@@ -958,6 +1107,9 @@ export default function ChatScreen() {
         images: aiMsgData?.images || response?.data?.images || [],
         actions: aiMsgData?.actions || [],
         relatedPlaces: aiMsgData?.relatedPlaces || [],
+        // Bookable Prayana inventory + one-tap booking prompts the agent returns.
+        inventory: aiMsgData?.inventory || response?.data?.inventory || [],
+        actionCards: aiMsgData?.actionCards || response?.data?.actionCards || [],
       };
       setMessages((prev) => [aiMsg, ...prev]);
     } catch {
@@ -1051,6 +1203,35 @@ export default function ChatScreen() {
     sendMessage(`Tell me more about ${name}`);
   }, [sendMessage]);
 
+  // Tap a bookable inventory card → deep-link into the right booking flow.
+  const handleInventoryPress = useCallback((card: InventoryCard) => {
+    router.push(inventoryRoute(card) as any);
+  }, [router]);
+
+  // One-tap action cards (confirm booking / book cab / buy eSIM / view itinerary).
+  const handleActionCard = useCallback((card: ActionCard) => {
+    const d = card.data || {};
+    switch (card.type) {
+      case 'confirm_booking':
+        router.push((d.activityId || d.listingId ? `/activity/book/${d.activityId || d.listingId}` : '/activities') as any);
+        break;
+      case 'book_cab':
+        router.push('/outstation-cabs' as any);
+        break;
+      case 'buy_esim':
+        router.push((d.country ? `/esim?country=${encodeURIComponent(d.country)}` : '/esim') as any);
+        break;
+      case 'save_favorite':
+        Toast.show({ type: 'success', text1: 'Saved' });
+        break;
+      case 'view_itinerary':
+        router.push('/quick-itinerary' as any);
+        break;
+      default:
+        if (d.url) router.push(String(d.url) as any);
+    }
+  }, [router]);
+
   const handleViewItinerary = useCallback((message: ChatMessage) => {
     const { requestData, itineraryData } = message;
     router.push({
@@ -1081,9 +1262,11 @@ export default function ChatScreen() {
       onPlanTrip={generateTripItinerary}
       onViewItinerary={handleViewItinerary}
       onPlacePress={handlePlacePress}
+      onInventoryPress={handleInventoryPress}
+      onActionCard={handleActionCard}
       isGenerating={isGeneratingTrip}
     />
-  ), [isDarkMode, generateTripItinerary, isGeneratingTrip, handlePlacePress, handleViewItinerary]);
+  ), [isDarkMode, generateTripItinerary, isGeneratingTrip, handlePlacePress, handleViewItinerary, handleInventoryPress, handleActionCard]);
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
   const charNearLimit = inputText.length > MAX_CHAR * 0.8;
@@ -1324,6 +1507,8 @@ const styles = StyleSheet.create({
   actionsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.xs },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: borderRadius.full, borderWidth: 1 },
   actionBtnText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  bookCta: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.md, paddingVertical: spacing.sm + 2, borderRadius: borderRadius.full, borderWidth: 1 },
+  bookCtaText: { flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 
   // Trip planner form
   plannerCard: { borderRadius: 16, borderWidth: 1, ...shadow.md, overflow: 'hidden' },
