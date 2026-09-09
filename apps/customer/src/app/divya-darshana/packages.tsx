@@ -13,8 +13,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 import { holidayPackagesAPI } from '@prayana/shared-services';
 
-const SAFFRON = '#E38B29';
-const DEEP = '#7C2D12';
+// Devotional palette (matches the DD landing).
+const MAROON = '#7A1F0A';
+const DEEP = '#B8410E';
+const SAFFRON = '#FF6F00';
+const GOLD = '#D4AF37';
+const CREAM = '#FFF8E7';
 
 type Pkg = {
   _id: string;
@@ -101,14 +105,14 @@ export default function DivyaDarshanaPackagesScreen() {
   const openPkg = (p: Pkg) => router.push(`/packages/${encodeURIComponent(p.slug || p._id)}` as any);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: CREAM }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.topBar}>
         <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <Text style={[styles.topBarTitle, { color: themeColors.text }]}>All Yatras</Text>
+        <Text style={[styles.topBarTitle, { color: MAROON }]}>All Yatras</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -170,7 +174,7 @@ export default function DivyaDarshanaPackagesScreen() {
                 return (
                   <TouchableOpacity
                     key={p._id}
-                    style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                    style={styles.card}
                     activeOpacity={0.9}
                     onPress={() => openPkg(p)}
                   >
@@ -194,16 +198,13 @@ export default function DivyaDarshanaPackagesScreen() {
                       )}
                     </View>
                     <View style={styles.cardBody}>
-                      <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={2}>{p.title}</Text>
+                      <Text style={[styles.cardTitle, { color: MAROON }]} numberOfLines={2}>{p.title}</Text>
                       {!!place && (
-                        <View style={styles.cardMeta}>
-                          <Ionicons name="location" size={11} color={SAFFRON} />
-                          <Text style={[styles.cardPlace, { color: themeColors.textSecondary }]} numberOfLines={1}>{place}</Text>
-                        </View>
+                        <Text style={[styles.cardPlace, { color: '#71717a' }]} numberOfLines={1}>{place}</Text>
                       )}
                       {price > 0 && (
-                        <Text style={[styles.cardPrice, { color: themeColors.text }]}>
-                          <Text style={[styles.cardPriceFrom, { color: themeColors.textSecondary }]}>from </Text>
+                        <Text style={[styles.cardPrice, { color: DEEP }]}>
+                          <Text style={[styles.cardPriceFrom, { color: '#71717a' }]}>from </Text>
                           ₹{price.toLocaleString('en-IN')}
                         </Text>
                       )}
@@ -238,13 +239,13 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
   gridCell: { width: '47.5%' },
 
-  card: { width: '47.5%', flexGrow: 1, borderRadius: borderRadius.xl, borderWidth: 1, overflow: 'hidden' },
-  cardImgWrap: { width: '100%', aspectRatio: 16 / 10, backgroundColor: '#FCE7C8' },
+  card: { width: '47.5%', backgroundColor: '#fff', borderColor: `${GOLD}66`, borderWidth: 1, borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', shadowColor: MAROON, shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
+  cardImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#FCE7C8' },
   cardDuration: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   cardDurationText: { fontSize: 10, fontWeight: '800', color: DEEP },
   heliBadge: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: SAFFRON, alignItems: 'center', justifyContent: 'center' },
-  cardBody: { padding: spacing.md, gap: 4 },
-  cardTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, lineHeight: 18 },
+  cardBody: { padding: spacing.md, gap: 4, alignItems: 'center' },
+  cardTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, lineHeight: 18, textAlign: 'center' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   cardPlace: { fontSize: fontSize.xs, flexShrink: 1 },
   cardPrice: { fontSize: fontSize.md, fontWeight: fontWeight.bold, marginTop: 2 },
