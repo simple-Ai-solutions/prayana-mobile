@@ -107,7 +107,15 @@ export default function ActivitiesScreen() {
           limit: PAGE,
           skip: opts.skip,
         });
-        const data: Experience[] = res?.data ?? res?.activities ?? [];
+        // Same envelope the featured/trending/collection calls use — the API
+        // may return either `{data:[…]}` or `{data:{activities:[…]}}`. Reading
+        // `res.data` blindly would hand the list an object (not an array) and
+        // silently blank the grid, so normalise through readList.
+        const data: Experience[] = readList(res).length
+          ? readList(res)
+          : Array.isArray(res?.activities)
+            ? res.activities
+            : [];
         setItems((prev) => (opts.append ? [...prev, ...data] : data));
         setHasMore(data.length >= PAGE);
         setSkip(opts.skip + data.length);
