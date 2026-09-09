@@ -183,7 +183,7 @@ const DISCOVER_COLLECTIONS = [
     category: 'ROMANTIC',
     gradient: ['#EC4899', '#DB2777'] as const,
     destinations: ['Kashmir', 'Udaipur', 'Coorg', 'Alleppey'],
-    image: 'https://images.unsplash.com/photo-1597074866923-dc0589150a32?w=600&q=80',
+    image: 'https://images.pexels.com/photos/2884867/pexels-photo-2884867.jpeg?auto=compress&w=600',
   },
   {
     id: 'honeymoon',
@@ -230,7 +230,7 @@ const TOP_INDIA = [
   { name: 'Goa', desc: 'Beach paradise with vibrant nightlife', image: 'https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=600&q=80' },
   { name: 'Kerala', desc: "God's Own Country", image: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=600&q=80' },
   { name: 'Rajasthan', desc: 'Land of Kings and forts', image: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=600&q=80' },
-  { name: 'Kashmir', desc: 'Paradise on Earth', image: 'https://images.unsplash.com/photo-1597074866923-dc0589150a32?w=600&q=80' },
+  { name: 'Kashmir', desc: 'Paradise on Earth', image: 'https://images.pexels.com/photos/2884867/pexels-photo-2884867.jpeg?auto=compress&w=600' },
   { name: 'Ladakh', desc: 'Land of high passes', image: 'https://images.unsplash.com/photo-1617859047452-8510bcf207fd?w=600&q=80' },
   { name: 'Agra', desc: 'Home of the Taj Mahal', image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=600&q=80' },
   { name: 'Varanasi', desc: 'Spiritual capital of India', image: 'https://images.unsplash.com/photo-1561361058-c24cecae35ca?w=600&q=80' },
@@ -240,8 +240,8 @@ const TOP_INDIA = [
   { name: 'Jaipur', desc: 'The Pink City of palaces', image: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=600&q=80' },
   { name: 'Rishikesh', desc: 'Yoga capital of the world', image: 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=600&q=80' },
   { name: 'Udaipur', desc: 'City of Lakes', image: 'https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=600&q=80' },
-  { name: 'Darjeeling', desc: 'Queen of the Hills', image: 'https://images.unsplash.com/photo-1622308644420-4e6651de210b?w=600&q=80' },
-  { name: 'Mysore', desc: 'Palace City of India', image: 'https://images.unsplash.com/photo-1600100397608-4294b20048d6?w=600&q=80' },
+  { name: 'Darjeeling', desc: 'Queen of the Hills', image: 'https://images.pexels.com/photos/2166559/pexels-photo-2166559.jpeg?auto=compress&w=600' },
+  { name: 'Mysore', desc: 'Palace City of India', image: 'https://images.pexels.com/photos/12419160/pexels-photo-12419160.jpeg?auto=compress&w=600' },
   { name: 'Coorg', desc: "Scotland of India", image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=600&q=80' },
   { name: 'Manali', desc: 'Snow & adventure hub', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=600&q=80' },
   { name: 'Ooty', desc: 'Queen of Hill Stations', image: 'https://images.unsplash.com/photo-1574484284002-952d92456975?w=600&q=80' },
@@ -256,10 +256,10 @@ const VISA_FREE = [
   { name: 'Maldives', flag: '🇲🇻', desc: 'Island paradise', image: 'https://images.unsplash.com/photo-1514282401047-d79a71a590e8?w=400&q=80' },
   { name: 'Mauritius', flag: '🇲🇺', desc: 'Tropical getaway', image: 'https://images.unsplash.com/photo-1589979481223-deb893043163?w=400&q=80' },
   { name: 'Nepal', flag: '🇳🇵', desc: 'Himalayan kingdom', image: 'https://images.unsplash.com/photo-1544735716-392fe2489ffa?w=400&q=80' },
-  { name: 'Bhutan', flag: '🇧🇹', desc: 'Land of happiness', image: 'https://images.unsplash.com/photo-1553856622-d1b352e24a21?w=400&q=80' },
+  { name: 'Bhutan', flag: '🇧🇹', desc: 'Land of happiness', image: 'https://images.pexels.com/photos/2439779/pexels-photo-2439779.jpeg?auto=compress&w=400' },
   { name: 'Thailand', flag: '🇹🇭', desc: 'Land of smiles', image: 'https://images.unsplash.com/photo-1528181304800-259b08848526?w=400&q=80' },
   { name: 'Indonesia', flag: '🇮🇩', desc: 'Islands of wonder', image: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400&q=80' },
-  { name: 'Sri Lanka', flag: '🇱🇰', desc: 'Pearl of Indian Ocean', image: 'https://images.unsplash.com/photo-1588598198321-9735fd52033c?w=400&q=80' },
+  { name: 'Sri Lanka', flag: '🇱🇰', desc: 'Pearl of Indian Ocean', image: 'https://images.unsplash.com/photo-1566296314736-6eaac1ca0cb9?w=400&q=80' },
   { name: 'Seychelles', flag: '🇸🇨', desc: 'Pristine beaches', image: 'https://images.unsplash.com/photo-1589979481223-deb893043163?w=400&q=80' },
 ];
 
@@ -286,7 +286,7 @@ const TREKKING_DESTINATIONS = [
   { name: 'Roopkund', difficulty: 'Hard', duration: '8 days', altitude: '5,029m', image: 'https://images.unsplash.com/photo-1545389336-cf090694435e?w=400&q=80' },
   { name: 'Chadar Trek', difficulty: 'Hard', duration: '9 days', altitude: '3,390m', image: 'https://images.unsplash.com/photo-1617859047452-8510bcf207fd?w=400&q=80' },
   { name: 'Kedarkantha', difficulty: 'Easy', duration: '4 days', altitude: '3,810m', image: 'https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=400&q=80' },
-  { name: 'Brahmatal', difficulty: 'Moderate', duration: '6 days', altitude: '3,475m', image: 'https://images.unsplash.com/photo-1597074866923-dc0589150a32?w=400&q=80' },
+  { name: 'Brahmatal', difficulty: 'Moderate', duration: '6 days', altitude: '3,475m', image: 'https://images.pexels.com/photos/2884867/pexels-photo-2884867.jpeg?auto=compress&w=400' },
 ];
 
 // ============================================================
@@ -307,7 +307,7 @@ const ACTIVITY_CATEGORIES = [
 const REGIONS: Record<string, { name: string; image: string }[]> = {
   north: [
     { name: 'Delhi', image: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&q=80' },
-    { name: 'Shimla', image: 'https://images.unsplash.com/photo-1597074866923-dc0589150a32?w=400&q=80' },
+    { name: 'Shimla', image: 'https://images.pexels.com/photos/2884867/pexels-photo-2884867.jpeg?auto=compress&w=400' },
     { name: 'Leh-Ladakh', image: 'https://images.unsplash.com/photo-1617859047452-8510bcf207fd?w=400&q=80' },
     { name: 'Varanasi', image: 'https://images.unsplash.com/photo-1561361058-c24cecae35ca?w=400&q=80' },
     { name: 'Amritsar', image: 'https://images.unsplash.com/photo-1514222134-b57cbb8ce073?w=400&q=80' },
@@ -318,14 +318,14 @@ const REGIONS: Record<string, { name: string; image: string }[]> = {
     { name: 'Kerala', image: 'https://images.unsplash.com/photo-1602216056096-3b40cc0c9944?w=400&q=80' },
     { name: 'Hampi', image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=400&q=80' },
     { name: 'Pondicherry', image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=400&q=80' },
-    { name: 'Mysore', image: 'https://images.unsplash.com/photo-1600100397608-4294b20048d6?w=400&q=80' },
+    { name: 'Mysore', image: 'https://images.pexels.com/photos/12419160/pexels-photo-12419160.jpeg?auto=compress&w=400' },
     { name: 'Kanyakumari', image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=400&q=80' },
     { name: 'Ooty', image: 'https://images.unsplash.com/photo-1574484284002-952d92456975?w=400&q=80' },
     { name: 'Coorg', image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=400&q=80' },
   ],
   east: [
     { name: 'Kolkata', image: 'https://images.unsplash.com/photo-1558431382-27e303142255?w=400&q=80' },
-    { name: 'Darjeeling', image: 'https://images.unsplash.com/photo-1622308644420-4e6651de210b?w=400&q=80' },
+    { name: 'Darjeeling', image: 'https://images.pexels.com/photos/2166559/pexels-photo-2166559.jpeg?auto=compress&w=400' },
     { name: 'Puri', image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=400&q=80' },
     { name: 'Shillong', image: 'https://images.unsplash.com/photo-1593693397690-362cb9666fc2?w=400&q=80' },
     { name: 'Bhubaneswar', image: 'https://images.unsplash.com/photo-1590050752117-238cb0fb12b1?w=400&q=80' },
