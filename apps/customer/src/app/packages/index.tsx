@@ -32,26 +32,38 @@ import { holidayPackagesAPI } from '@prayana/shared-services';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 
-type PackageCategory =
-  | 'all'
-  | 'honeymoon'
-  | 'family'
-  | 'adventure'
-  | 'pilgrimage'
-  | 'beach'
-  | 'wildlife'
-  | 'luxury';
+// The `category` param is CASE-SENSITIVE server-side: category=honeymoon returns
+// 0, category=Honeymoon returns 9. The chips previously sent lowercase keys, so
+// every category chip filtered to nothing. `key` is now the exact server value
+// (matches /packages/facets category keys), 'all' meaning no filter.
+type PackageCategory = string;
 
 const CATEGORIES: { key: PackageCategory; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'all', label: 'All', icon: 'sparkles-outline' },
-  { key: 'honeymoon', label: 'Honeymoon', icon: 'heart-outline' },
-  { key: 'family', label: 'Family', icon: 'people-outline' },
-  { key: 'adventure', label: 'Adventure', icon: 'trail-sign-outline' },
-  { key: 'beach', label: 'Beach', icon: 'sunny-outline' },
-  { key: 'wildlife', label: 'Wildlife', icon: 'paw-outline' },
-  { key: 'pilgrimage', label: 'Pilgrimage', icon: 'flower-outline' },
-  { key: 'luxury', label: 'Luxury', icon: 'diamond-outline' },
+  { key: 'Holiday Package', label: 'Holiday', icon: 'airplane-outline' },
+  { key: 'Honeymoon', label: 'Honeymoon', icon: 'heart-outline' },
+  { key: 'Family', label: 'Family', icon: 'people-outline' },
+  { key: 'Cultural Heritage', label: 'Heritage', icon: 'business-outline' },
+  { key: 'Beach', label: 'Beach', icon: 'sunny-outline' },
+  { key: 'Hill Station', label: 'Hill Station', icon: 'triangle-outline' },
+  { key: 'Adventure Trek', label: 'Adventure', icon: 'trail-sign-outline' },
+  { key: 'Pilgrimage', label: 'Pilgrimage', icon: 'flower-outline' },
+  { key: 'Group Tour', label: 'Group Tour', icon: 'bus-outline' },
+  { key: 'Weekend Getaway', label: 'Weekend', icon: 'calendar-outline' },
 ];
+
+// India / International scope — the /packages/search `scope` param filters
+// server-side (domestic=129, international=37). Mirrors the PWA's 3-pill toggle.
+type Scope = 'all' | 'domestic' | 'international';
+const SCOPES: { key: Scope; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'domestic', label: 'In India' },
+  { key: 'international', label: 'International' },
+];
+
+// Full-bleed hero photo — the same Himalayan landscape the PWA uses.
+const HERO_IMAGE = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80';
+const BLUE = '#008cff';
 
 // Sort options (server keys — see /packages/search sort mapping).
 const SORTS: { key: string; label: string }[] = [
@@ -95,6 +107,7 @@ export default function PackagesScreen() {
 
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<PackageCategory>('all');
+  const [scope, setScope] = useState<Scope>('all');
   const [sort, setSort] = useState<string>('rating');
   const [packages, setPackages] = useState<HolidayPackage[]>([]);
   const [featured, setFeatured] = useState<HolidayPackage[]>([]);
@@ -114,12 +127,14 @@ export default function PackagesScreen() {
 
   const load = useCallback(async () => {
     try {
-      const initial = !search.trim() && activeCategory === 'all' && activeFilterCount === 0;
+      const initial = !search.trim() && activeCategory === 'all' && scope === 'all' && activeFilterCount === 0;
       const [searchRes, featuredRes, dealsRes, facetsRes] = await Promise.all([
         holidayPackagesAPI.search({
           q: search.trim() || undefined,
           // The filter sheet's Theme (category) wins over the chip row when set.
           category: filters.category || (activeCategory !== 'all' ? activeCategory : undefined),
+          // India / International — server-side scope filter (domestic|international).
+          scope: scope !== 'all' ? scope : undefined,
           sort,
           minBudget: filters.minBudget,
           maxBudget: filters.maxBudget,
@@ -144,7 +159,7 @@ export default function PackagesScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [search, activeCategory, sort, filters, activeFilterCount, facets]);
+  }, [search, activeCategory, scope, sort, filters, activeFilterCount, facets]);
 
   useEffect(() => {
     setLoading(true);
@@ -160,31 +175,50 @@ export default function PackagesScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* Top bar */}
-      <View style={[styles.topBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="chevron-back" size={26} color={themeColors.text} />
+      {/* Hero — full-bleed photo, gradient, title + search (PWA parity) */}
+      <View style={styles.hero}>
+        <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+        <LinearGradient colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.6)']} style={StyleSheet.absoluteFill} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.heroBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
-        <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Holiday Packages</Text>
-        <View style={{ width: 26 }} />
+        <View style={styles.heroBody}>
+          <Text style={styles.heroTitle}>Holiday Packages<Text style={{ color: '#FBBF24' }}>.</Text></Text>
+          <Text style={styles.heroSub}>Discover handpicked escapes across India & beyond</Text>
+          <View style={styles.heroSearch}>
+            <Ionicons name="search-outline" size={18} color="#6B7280" />
+            <RNTextInput
+              style={styles.heroSearchInput}
+              placeholder="Search destination, package, category..."
+              placeholderTextColor="#9CA3AF"
+              value={search}
+              onChangeText={setSearch}
+              returnKeyType="search"
+            />
+            {search ? (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            ) : null}
+          </View>
+        </View>
       </View>
 
-      {/* Search bar */}
-      <View style={[styles.searchWrap, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
-        <Ionicons name="search-outline" size={18} color={themeColors.textTertiary} />
-        <RNTextInput
-          style={[styles.searchInput, { color: themeColors.text }]}
-          placeholder="Goa, Bali, Manali..."
-          placeholderTextColor={themeColors.textTertiary}
-          value={search}
-          onChangeText={setSearch}
-          returnKeyType="search"
-        />
-        {search ? (
-          <TouchableOpacity onPress={() => setSearch('')}>
-            <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
-          </TouchableOpacity>
-        ) : null}
+      {/* India / International scope */}
+      <View style={styles.scopeRow}>
+        {SCOPES.map((s) => {
+          const active = scope === s.key;
+          return (
+            <TouchableOpacity
+              key={s.key}
+              onPress={() => setScope(s.key)}
+              style={[styles.scopePill, active && { backgroundColor: '#fff', ...shadow.sm }]}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.scopePillText, { color: active ? BLUE : themeColors.textSecondary }]}>{s.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Category chips */}
@@ -262,6 +296,8 @@ export default function PackagesScreen() {
           onAction={() => {
             setSearch('');
             setActiveCategory('all');
+            setScope('all');
+            setFilters({});
           }}
         />
       ) : (
@@ -277,7 +313,7 @@ export default function PackagesScreen() {
             />
           )}
           ListHeaderComponent={
-            heroFeatured.length > 0 && !search.trim() && activeCategory === 'all' ? (
+            heroFeatured.length > 0 && !search.trim() && activeCategory === 'all' && scope === 'all' && activeFilterCount === 0 ? (
               <View style={styles.featuredSection}>
                 <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Featured for you</Text>
                 <ScrollView
@@ -494,6 +530,32 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: colors.text,
   },
+
+  // Hero
+  hero: { height: 210, justifyContent: 'flex-end', backgroundColor: '#1f2937' },
+  heroBack: {
+    position: 'absolute', top: spacing.sm, left: spacing.lg,
+    width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  heroBody: { padding: spacing.lg, paddingBottom: spacing.lg, alignItems: 'center' },
+  heroTitle: { color: '#fff', fontSize: 26, fontWeight: fontWeight.bold, letterSpacing: -0.4 },
+  heroSub: { color: 'rgba(255,255,255,0.9)', fontSize: fontSize.sm, marginTop: 4, textAlign: 'center' },
+  heroSearch: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: spacing.md,
+    height: 48, marginTop: spacing.md, width: '100%',
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
+  },
+  heroSearchInput: { flex: 1, fontSize: fontSize.md, color: '#111827' },
+
+  // India / International scope
+  scopeRow: {
+    flexDirection: 'row', alignSelf: 'center', marginTop: spacing.md,
+    backgroundColor: '#F3F4F6', borderRadius: 999, padding: 4, gap: 4,
+  },
+  scopePill: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 999 },
+  scopePillText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 
   categoryRow: {
     paddingHorizontal: spacing.lg,

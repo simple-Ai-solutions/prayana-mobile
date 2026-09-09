@@ -21,12 +21,11 @@ export interface PackageFilters {
   category?: string; // single-select theme
 }
 
-// Web CATEGORIES list (Themes).
-const CATEGORIES = [
-  'All', 'Holiday Package', 'Honeymoon', 'Family', 'Adventure Trek', 'Weekend Getaway',
-  'Beach', 'Hill Station', 'Wildlife Safari', 'Cultural Heritage', 'Pilgrimage',
-  'Luxury Escape', 'Budget Travel',
-];
+// Fallback theme order if facets haven't loaded yet. The REAL list is derived
+// from facets.category at render time — a hardcoded list showed themes with
+// zero packages (Wildlife Safari / Luxury Escape / Budget Travel) that filtered
+// to nothing, and hid real ones like "Group Tour". Only show themes that exist.
+const FALLBACK_CATEGORIES = ['Holiday Package', 'Cultural Heritage', 'Group Tour', 'Honeymoon', 'Family', 'Beach', 'Pilgrimage', 'Hill Station'];
 
 interface Props {
   open: boolean;
@@ -116,6 +115,15 @@ export function PackageFilterSheet({ open, facets, value, onClose, onApply, resu
     return Object.entries(c).sort((a: any, b: any) => (b[1] as number) - (a[1] as number)).slice(0, 15) as [string, number][];
   }, [facets]);
   const catCounts = facets?.category && typeof facets.category === 'object' ? facets.category : {};
+  // Themes come from the facets (only categories that actually have packages,
+  // ordered by count) — never a stale hardcoded list. Always lead with "All".
+  const themeList = useMemo(() => {
+    const keys = Object.keys(catCounts);
+    const ordered = keys.length
+      ? keys.sort((a, b) => (catCounts[b] as number) - (catCounts[a] as number))
+      : FALLBACK_CATEGORIES;
+    return ['All', ...ordered];
+  }, [catCounts]);
 
   // Apply a patch live (matches the web's debounced auto-apply, minus the delay).
   const patch = (p: Partial<PackageFilters>) => {
@@ -198,7 +206,7 @@ export function PackageFilterSheet({ open, facets, value, onClose, onApply, resu
           <Accordion title="THEMES">
             <View style={{ maxHeight: 260 }}>
               <ScrollView showsVerticalScrollIndicator={false}>
-                {CATEGORIES.map((c) => {
+                {themeList.map((c) => {
                   const active = (draft.category || 'All') === c;
                   const count = c === 'All' ? (resultCount ?? undefined) : (catCounts[c] || 0);
                   return (
