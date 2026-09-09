@@ -139,7 +139,8 @@ export default function DivyaDarshanaScreen() {
   }, []);
   useEffect(() => { load(); }, [load]);
 
-  const openPkg = (p: Pkg) => router.push(`/packages/${encodeURIComponent(p.slug || p._id)}` as any);
+  // Open by _id, not slug — some slugs resolve to empty duplicate documents.
+  const openPkg = (p: Pkg) => router.push(`/packages/${encodeURIComponent(p._id)}` as any);
   const s = HERO_SLIDES[slide];
 
   // Two copies of offers for a seamless marquee loop.
@@ -152,7 +153,7 @@ export default function DivyaDarshanaScreen() {
 
       {/* Devotional theme banner */}
       <LinearGradient colors={[MAROON, DEEP, SAFFRON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.banner}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={22} color="#fff" />
         </TouchableOpacity>
         <View style={{ flex: 1, alignItems: 'center' }}>

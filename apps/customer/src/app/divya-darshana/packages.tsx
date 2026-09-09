@@ -106,14 +106,15 @@ export default function DivyaDarshanaPackagesScreen() {
     [all]
   );
 
-  const openPkg = (p: Pkg) => router.push(`/packages/${encodeURIComponent(p.slug || p._id)}` as any);
+  // Open by _id, not slug — some slugs resolve to empty duplicate documents.
+  const openPkg = (p: Pkg) => router.push(`/packages/${encodeURIComponent(p._id)}` as any);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: CREAM }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/divya-darshana'))} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: MAROON }]}>All Yatras</Text>
