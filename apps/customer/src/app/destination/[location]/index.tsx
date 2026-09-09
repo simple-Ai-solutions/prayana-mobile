@@ -40,6 +40,7 @@ import { EmbeddedChatWidget } from '../../../components/destination/EmbeddedChat
 import { SearchResultsTabs, type SearchTabId } from '../../../components/destination/SearchResultsTabs';
 import { DestinationActivities } from '../../../components/destination/DestinationActivities';
 import { DestinationVideos } from '../../../components/destination/DestinationVideos';
+import { DestinationPackages } from '../../../components/destination/DestinationPackages';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = (SCREEN_WIDTH - spacing.xl * 2 - spacing.md) / 2;
@@ -575,6 +576,13 @@ export default function LocationSearchResults() {
             {activeTab === 'activities' && (
               <View style={{ paddingTop: spacing.lg }}>
                 <DestinationActivities locationName={locationName} />
+              </View>
+            )}
+
+            {/* ===== HOLIDAY PACKAGES TAB ===== */}
+            {activeTab === 'packages' && (
+              <View style={{ paddingTop: spacing.lg }}>
+                <DestinationPackages locationName={locationName} />
               </View>
             )}
 

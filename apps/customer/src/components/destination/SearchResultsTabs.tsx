@@ -8,11 +8,11 @@ import { View, Text, StyleSheet } from 'react-native';
 // swallows it, so the tabs looked dead (Videos/Activities/Hidden Gems wouldn't
 // switch).
 import { TouchableOpacity } from 'react-native-gesture-handler';
-import { MapPin, Sparkles, Gem } from 'lucide-react-native';
+import { MapPin, Sparkles, Gem, Briefcase } from 'lucide-react-native';
 import { useTheme, colors, spacing, fontSize, fontWeight } from '@prayana/shared-ui';
 import { YouTubeIcon } from './YouTubeIcon';
 
-export type SearchTabId = 'places' | 'videos' | 'activities' | 'gems';
+export type SearchTabId = 'places' | 'videos' | 'activities' | 'packages' | 'gems';
 
 export const SEARCH_TABS: {
   id: SearchTabId;
@@ -23,6 +23,8 @@ export const SEARCH_TABS: {
   { id: 'places', label: 'Places', Icon: MapPin },
   { id: 'videos', label: 'Videos', Icon: YouTubeIcon, brand: true },
   { id: 'activities', label: 'Activities', Icon: Sparkles },
+  // Beside Activities — both are things to buy, not read (web parity).
+  { id: 'packages', label: 'Packages', Icon: Briefcase },
   { id: 'gems', label: 'Hidden Gems', Icon: Gem },
 ];
 
