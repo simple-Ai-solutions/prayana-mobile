@@ -89,6 +89,8 @@ interface AISuggestion {
   image?: string;
   images?: any[];
   imageUrls?: string[];
+  // Bookable Prayana inventory the server matched to this suggestion.
+  bookable?: { kind: string; id?: string; title: string; price?: number | null; url?: string };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -101,8 +103,29 @@ function renderStars(rating: number): string {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+// Deep-link a bookable inventory card into its native booking flow.
+function bookableRoute(card: { kind: string; id?: string; url?: string }): string {
+  const idOrSlug = card.url?.split('/').filter(Boolean).pop() || card.id || '';
+  switch (card.kind) {
+    case 'activity':
+    case 'global_activity':
+      return idOrSlug ? `/activity/${encodeURIComponent(idOrSlug)}` : '/activities';
+    case 'package':
+    case 'captain_tour':
+      return idOrSlug ? `/packages/${encodeURIComponent(idOrSlug)}` : '/packages';
+    case 'cab':
+      return '/outstation-cabs';
+    default:
+      return card.url && card.url.startsWith('/') ? card.url : '/activities';
+  }
+}
+
 export default function DayPlannerScreen() {
   const router = useRouter();
+  const openBookable = useCallback(
+    (card: { kind: string; id?: string; url?: string }) => router.push(bookableRoute(card) as any),
+    [router]
+  );
   const { themeColors, isDarkMode } = useTheme();
 
   // Store state
@@ -843,6 +866,15 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                           ) : null}
                         </View>
                       </View>
+                      {suggestion.bookable && (
+                        <TouchableOpacity
+                          style={styles.aiBookBtn}
+                          onPress={() => openBookable(suggestion.bookable!)}
+                          activeOpacity={0.85}
+                        >
+                          <Ionicons name="pricetag" size={13} color="#EA580C" />
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity
                         style={styles.aiAddBtn}
                         onPress={() => {
@@ -2324,6 +2356,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#06B6D4',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  aiBookBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 6,
   },
   aiShowMoreBtn: {
     flexDirection: 'row',

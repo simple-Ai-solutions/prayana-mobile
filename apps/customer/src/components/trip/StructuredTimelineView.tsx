@@ -89,6 +89,19 @@ async function fetchPlaceImageOnce(placeName: string, destination: string): Prom
   return promise;
 }
 
+// Bookable Prayana inventory the server attaches to matching itinerary places
+// (services/inventoryMatcherService). `url` is a native deep-link route.
+interface BookableCard {
+  kind: string;
+  id?: string;
+  title: string;
+  image?: string | null;
+  price?: number | null;
+  currency?: string;
+  location?: string;
+  url?: string;
+}
+
 interface Place {
   name: string;
   description?: string;
@@ -102,6 +115,7 @@ interface Place {
   tips?: string[];
   type?: string;
   openingHours?: string;
+  bookable?: BookableCard;
 }
 
 interface FoodRecommendation {
@@ -118,6 +132,7 @@ interface StructuredDay {
   theme?: string;
   mainPlaces: Place[];
   foodRecommendations?: FoodRecommendation[];
+  bookablePackages?: BookableCard[];
 }
 
 interface StructuredTimelineViewProps {
@@ -313,6 +328,25 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
     });
   }, [router, destination, getPlaceImageForPreview]);
 
+  // Deep-link a bookable inventory card into its native booking flow.
+  const openBookable = useCallback((card: BookableCard) => {
+    const idOrSlug = card.url?.split('/').filter(Boolean).pop() || card.id || '';
+    let route: string;
+    switch (card.kind) {
+      case 'activity':
+      case 'global_activity':
+        route = idOrSlug ? `/activity/${encodeURIComponent(idOrSlug)}` : '/activities'; break;
+      case 'package':
+      case 'captain_tour':
+        route = idOrSlug ? `/packages/${encodeURIComponent(idOrSlug)}` : '/packages'; break;
+      case 'cab':
+        route = '/outstation-cabs'; break;
+      default:
+        route = card.url && card.url.startsWith('/') ? card.url : '/activities';
+    }
+    router.push(route as any);
+  }, [router]);
+
   const handlePrevDay = useCallback(() => {
     if (selectedDay > 0) setSelectedDay(selectedDay - 1);
   }, [selectedDay]);
@@ -477,6 +511,22 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
                               )}
                             </View>
 
+                            {/* Bookable on Prayana — server matched this stop to a real listing */}
+                            {place.bookable && (
+                              <TouchableOpacity
+                                style={styles.bookRow}
+                                activeOpacity={0.85}
+                                onPress={() => openBookable(place.bookable!)}
+                              >
+                                <Ionicons name="pricetag" size={12} color="#EA580C" />
+                                <Text style={styles.bookRowText} numberOfLines={1}>
+                                  Book {place.bookable.title}
+                                  {place.bookable.price ? ` · ₹${Number(place.bookable.price).toLocaleString('en-IN')}` : ''}
+                                </Text>
+                                <Ionicons name="chevron-forward" size={13} color="#EA580C" />
+                              </TouchableOpacity>
+                            )}
+
                             {/* Expanded extras — inline within card content */}
                             {isExpanded && (
                               <>
@@ -521,6 +571,39 @@ export const StructuredTimelineView: React.FC<StructuredTimelineViewProps> = ({
             );
           })}
         </View>
+
+        {/* Book on Prayana — city packages the server matched to this trip */}
+        {currentDay?.bookablePackages && currentDay.bookablePackages.length > 0 && (
+          <View style={styles.foodCard}>
+            <View style={styles.foodHeader}>
+              <LinearGradient colors={['#F59E0B', '#EA580C']} style={styles.foodIcon}>
+                <Text style={styles.foodEmoji}>{'🎟️'}</Text>
+              </LinearGradient>
+              <Text style={styles.foodTitle}>Book this trip on Prayana</Text>
+            </View>
+            {currentDay.bookablePackages.map((pkg, pIdx) => (
+              <TouchableOpacity
+                key={`pkg-${pIdx}`}
+                style={styles.pkgRow}
+                activeOpacity={0.85}
+                onPress={() => openBookable(pkg)}
+              >
+                {pkg.image ? (
+                  <Image source={{ uri: pkg.image }} style={styles.pkgImg} resizeMode="cover" />
+                ) : (
+                  <View style={[styles.pkgImg, { backgroundColor: '#FEF3C7', alignItems: 'center', justifyContent: 'center' }]}>
+                    <Ionicons name="airplane" size={16} color="#F59E0B" />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pkgTitle} numberOfLines={2}>{pkg.title}</Text>
+                  {pkg.price ? <Text style={styles.pkgPrice}>from ₹{Number(pkg.price).toLocaleString('en-IN')}</Text> : null}
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#EA580C" />
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
 
         {/* Local Food to Try — matches the PWA "🍽️ Local Food to Try" card */}
         {currentDay?.foodRecommendations && currentDay.foodRecommendations.length > 0 && (
@@ -743,6 +826,12 @@ const styles = StyleSheet.create({
   badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 2 },
   infoBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   infoBadgeText: { fontSize: 9, fontWeight: fontWeight.semibold },
+  bookRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 8, backgroundColor: '#FFF7ED', borderWidth: 1, borderColor: '#FED7AA' },
+  bookRowText: { flex: 1, fontSize: 11, fontWeight: fontWeight.bold, color: '#C2410C' },
+  pkgRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  pkgImg: { width: 48, height: 48, borderRadius: 10, backgroundColor: '#FEF3C7' },
+  pkgTitle: { fontSize: 13, fontWeight: fontWeight.semibold, color: colors.text, lineHeight: 17 },
+  pkgPrice: { fontSize: 12, fontWeight: fontWeight.bold, color: '#EA580C', marginTop: 2 },
 
   // Tags
   tagRow: { flexDirection: 'row', gap: 4, marginTop: 2 },
