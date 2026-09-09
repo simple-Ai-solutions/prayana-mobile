@@ -94,7 +94,10 @@ export default function PackagesScreen() {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filters, setFilters] = useState<PackageFilters>({});
   const activeFilterCount =
-    (filters.maxBudget ? 1 : 0) + (filters.minNights != null || filters.maxNights != null ? 1 : 0) + (filters.city ? 1 : 0);
+    (filters.minBudget != null || filters.maxBudget != null ? 1 : 0) +
+    (filters.minNights != null || filters.maxNights != null ? 1 : 0) +
+    (filters.cities ? 1 : 0) +
+    (filters.category ? 1 : 0);
 
   const load = useCallback(async () => {
     try {
@@ -102,12 +105,14 @@ export default function PackagesScreen() {
       const [searchRes, featuredRes, dealsRes, facetsRes] = await Promise.all([
         holidayPackagesAPI.search({
           q: search.trim() || undefined,
-          category: activeCategory !== 'all' ? activeCategory : undefined,
+          // The filter sheet's Theme (category) wins over the chip row when set.
+          category: filters.category || (activeCategory !== 'all' ? activeCategory : undefined),
           sort,
+          minBudget: filters.minBudget,
           maxBudget: filters.maxBudget,
           minNights: filters.minNights,
           maxNights: filters.maxNights,
-          cities: filters.city || undefined,
+          cities: filters.cities || undefined,
           limit: 30,
         }),
         // Only fetch featured + deals on the unfiltered initial view.
@@ -314,8 +319,9 @@ export default function PackagesScreen() {
         open={filterOpen}
         facets={facets}
         value={filters}
+        resultCount={packages.length}
         onClose={() => setFilterOpen(false)}
-        onApply={(f) => { setFilters(f); setFilterOpen(false); }}
+        onApply={(f) => setFilters(f)}
       />
     </SafeAreaView>
   );
