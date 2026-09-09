@@ -277,11 +277,15 @@ export default function PackageCheckoutScreen() {
         return;
       }
       const { orderId, amount, currency, keyId } = orderRes.data;
+      // The package create-order returns `amount` in RUPEES (installment.amount),
+      // not paise like other flows — convert, or Razorpay gets the wrong amount
+      // and rejects the payment.
+      const amountInPaise = amount ? toPaise(amount) : toPaise(estimatedTotal);
 
       const result = await openCheckout({
         keyId: keyId || ENV.razorpayKeyId,
         orderId,
-        amountInPaise: amount || toPaise(estimatedTotal),
+        amountInPaise,
         currency: currency || 'INR',
         description: pkg.title,
         prefill: { email, contact: phone, name },
