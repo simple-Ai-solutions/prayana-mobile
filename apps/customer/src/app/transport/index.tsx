@@ -11,6 +11,7 @@ import {
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { goBack } from '../../lib/goBack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
@@ -88,7 +89,7 @@ export default function TransportScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <View style={[styles.topBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+        <TouchableOpacity onPress={() => goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={26} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Transport</Text>

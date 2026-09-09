@@ -30,6 +30,7 @@ import {
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
+import { goBack } from '../../lib/goBack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -263,7 +264,7 @@ export default function ActivitiesScreen() {
           {/* Back button */}
           <View style={styles.heroTop}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => goBack()}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={styles.backBtn}
               accessibilityRole="button"

@@ -15,6 +15,7 @@ import { View, Text, StyleSheet, ActivityIndicator, Alert, Image } from 'react-n
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
+import { goBack } from '../../lib/goBack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius, TextInput } from '@prayana/shared-ui';
 import { cabAPI, openCheckout } from '@prayana/shared-services';
@@ -263,7 +264,7 @@ export default function OutstationCabsScreen() {
 
       <View style={[styles.topBar, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
         <TouchableOpacity
-          onPress={() => (phase === 'search' ? router.back() : setPhase(phase === 'review' ? 'fares' : 'search'))}
+          onPress={() => (phase === 'search' ? goBack() : setPhase(phase === 'review' ? 'fares' : 'search'))}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Ionicons name="chevron-back" size={24} color={themeColors.text} />

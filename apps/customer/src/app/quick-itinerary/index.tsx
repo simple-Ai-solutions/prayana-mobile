@@ -36,6 +36,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, Stack } from 'expo-router';
+import { goBack } from '../../lib/goBack';
 import {
   useTheme, colors, spacing, fontSize, fontWeight, borderRadius, shadow,
 } from '@prayana/shared-ui';
@@ -361,7 +362,7 @@ export default function QuickItineraryScreen() {
           </View>
         </View>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => goBack()}
           disabled={isGenerating}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
@@ -681,7 +682,7 @@ export default function QuickItineraryScreen() {
                 collapsed to their labels ("Cancel" became a vertical sliver). */}
             <View style={styles.cancelSlot}>
               <TouchableOpacity
-                onPress={() => router.back()}
+                onPress={() => goBack()}
                 disabled={isGenerating}
                 activeOpacity={0.8}
                 accessibilityRole="button"

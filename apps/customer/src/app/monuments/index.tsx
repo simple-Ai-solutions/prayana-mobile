@@ -8,6 +8,7 @@ import { View, Text, StyleSheet, TextInput, ActivityIndicator, Alert, Image } fr
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
+import { goBack } from '../../lib/goBack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 import { ondcAPI } from '@prayana/shared-services';
@@ -115,7 +116,7 @@ export default function MonumentsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
 
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity onPress={() => goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
         <Text style={[styles.topBarTitle, { color: themeColors.text }]}>Monument Tickets</Text>

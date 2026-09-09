@@ -30,6 +30,7 @@ import {
 import { ScrollView, TouchableOpacity, Pressable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { goBack } from '../../lib/goBack';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import Toast from 'react-native-toast-message';
@@ -318,7 +319,7 @@ export default function GlobalExperiencesScreen() {
         >
           <View style={styles.heroTop}>
             <TouchableOpacity
-              onPress={() => (isFiltered ? clearFilter() : router.back())}
+              onPress={() => (isFiltered ? clearFilter() : goBack())}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               style={[styles.backBtn, { backgroundColor: themeColors.surface }]}
               accessibilityRole="button"
