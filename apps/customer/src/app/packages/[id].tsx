@@ -49,18 +49,21 @@ type ItineraryDay = {
         // Per-activity notes the PWA shows under each activity (ActivityCard).
         whyIncluded?: string;
         goodToKnow?: string;
+        imageUrl?: string;
       }
   )[];
+  imageUrl?: string;
   accommodation?: { hotelName?: string; hotelCategory?: string; roomType?: string; imageUrl?: string };
 };
 
 // A normalised activity for the itinerary list: a title plus the two optional
-// notes the web renders ("Why we include it" / "Good to know").
-type DayActivity = { title: string; whyIncluded?: string; goodToKnow?: string };
+// notes the web renders ("Why we include it" / "Good to know") and its photo.
+type DayActivity = { title: string; whyIncluded?: string; goodToKnow?: string; imageUrl?: string };
 const toActivity = (x: any): DayActivity => ({
   title: itemLabel(x),
   whyIncluded: typeof x === 'object' ? x?.whyIncluded : undefined,
   goodToKnow: typeof x === 'object' ? x?.goodToKnow : undefined,
+  imageUrl: typeof x === 'object' ? x?.imageUrl : undefined,
 });
 
 type PkgHotel = { name: string; city?: string; imageUrl?: string; rating?: number; reviewCount?: number };
@@ -138,6 +141,9 @@ export default function PackageDetailScreen() {
   // itinerary's place names via /destinations/place-images, exactly like the
   // web PackageImageGrid. Only used when the package ships no images.
   const [backfillImages, setBackfillImages] = useState<string[]>([]);
+  // Collapsible itinerary days — first day open, rest collapsed. Keyed by index.
+  const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 0: true });
+  const toggleDay = (i: number) => setOpenDays((s) => ({ ...s, [i]: !s[i] }));
   const [variantName, setVariantName] = useState<string | null>(null);
   const [live, setLive] = useState<any>(null); // calculate-price result
   const [pricing, setPricing] = useState(false);
@@ -474,62 +480,86 @@ export default function PackageDetailScreen() {
               const dayNo = d.dayNumber ?? d.day ?? di + 1;
               const acts = (d.activities || []).map(toActivity).filter((a) => a.title);
               const meals = mealLabels(d.meals);
+              const open = !!openDays[di];
               return (
                 <View key={di} style={[styles.dayBlock, { borderTopColor: themeColors.border }]}>
-                  <View style={styles.dayBadge}>
-                    <Text style={styles.dayBadgeText}>D{dayNo}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.dayTitle, { color: themeColors.text }]}>
-                      {d.title || `Day ${dayNo}`}
-                    </Text>
-                    {d.description ? (
-                      <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{d.description}</Text>
-                    ) : null}
-                    {/* Stay + meals + activities as tidy mini-rows (web DaySection) */}
-                    {d.accommodation?.hotelName ? (
-                      <View style={styles.dayLine}>
-                        <Ionicons name="bed-outline" size={13} color={themeColors.textTertiary} />
-                        <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
-                          {d.accommodation.hotelName}{d.accommodation.roomType ? ` · ${d.accommodation.roomType}` : ''}
+                  {/* Collapsible day header — tap to expand/collapse. */}
+                  <TouchableOpacity style={styles.dayHead} activeOpacity={0.7} onPress={() => toggleDay(di)}>
+                    <View style={styles.dayBadge}>
+                      <Text style={styles.dayBadgeText}>D{dayNo}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.dayTitle, { color: themeColors.text }]} numberOfLines={open ? undefined : 1}>
+                        {d.title || `Day ${dayNo}`}
+                      </Text>
+                      {!open && acts.length > 0 ? (
+                        <Text style={[styles.dayMeta, { color: themeColors.textTertiary }]} numberOfLines={1}>
+                          {acts.length} stop{acts.length === 1 ? '' : 's'}{d.accommodation?.hotelName ? ` · ${d.accommodation.hotelName}` : ''}
                         </Text>
-                      </View>
-                    ) : null}
-                    {acts.length > 0 ? (
-                      <View style={{ marginTop: 8, gap: 10 }}>
-                        {acts.map((a, ai) => (
-                          <View key={ai} style={styles.actRow}>
-                            <Ionicons name="sparkles-outline" size={13} color={themeColors.textTertiary} style={{ marginTop: 3 }} />
-                            <View style={{ flex: 1 }}>
-                              <Text style={[styles.actTitle, { color: themeColors.text }]}>{a.title}</Text>
-                              {/* "Why we include it" — matches the PWA ActivityCard: a
-                                  left blue rule + bold blue label. */}
-                              {a.whyIncluded ? (
-                                <View style={styles.whyBlock}>
-                                  <Text style={[styles.whyText, { color: themeColors.textSecondary }]}>
-                                    <Text style={styles.whyLabel}>Why we include it · </Text>
-                                    {a.whyIncluded}
-                                  </Text>
+                      ) : null}
+                    </View>
+                    <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={18} color={themeColors.textTertiary} />
+                  </TouchableOpacity>
+
+                  {open ? (
+                    <View style={styles.dayBody}>
+                      {d.description ? (
+                        <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{d.description}</Text>
+                      ) : null}
+                      {d.accommodation?.hotelName ? (
+                        <View style={styles.dayLine}>
+                          <Ionicons name="bed-outline" size={13} color={themeColors.textTertiary} />
+                          <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                            {d.accommodation.hotelName}{d.accommodation.roomType ? ` · ${d.accommodation.roomType}` : ''}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {acts.length > 0 ? (
+                        <View style={{ marginTop: 8, gap: 12 }}>
+                          {acts.map((a, ai) => (
+                            <View key={ai} style={styles.actRow}>
+                              {a.imageUrl ? (
+                                <Image
+                                  source={{ uri: normalizeImageUrl(a.imageUrl) }}
+                                  style={styles.actThumb}
+                                  contentFit="cover"
+                                  transition={200}
+                                  cachePolicy="memory-disk"
+                                />
+                              ) : (
+                                <View style={[styles.actThumb, styles.actThumbPh]}>
+                                  <Ionicons name="image-outline" size={16} color={themeColors.textTertiary} />
                                 </View>
-                              ) : null}
-                              {a.goodToKnow ? (
-                                <Text style={[styles.gtkText, { color: themeColors.textTertiary }]}>
-                                  <Text style={styles.gtkLabel}>Good to know · </Text>
-                                  {a.goodToKnow}
-                                </Text>
-                              ) : null}
+                              )}
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.actTitle, { color: themeColors.text }]}>{a.title}</Text>
+                                {a.whyIncluded ? (
+                                  <View style={styles.whyBlock}>
+                                    <Text style={[styles.whyText, { color: themeColors.textSecondary }]}>
+                                      <Text style={styles.whyLabel}>Why we include it · </Text>
+                                      {a.whyIncluded}
+                                    </Text>
+                                  </View>
+                                ) : null}
+                                {a.goodToKnow ? (
+                                  <Text style={[styles.gtkText, { color: themeColors.textTertiary }]}>
+                                    <Text style={styles.gtkLabel}>Good to know · </Text>
+                                    {a.goodToKnow}
+                                  </Text>
+                                ) : null}
+                              </View>
                             </View>
-                          </View>
-                        ))}
-                      </View>
-                    ) : null}
-                    {meals.length > 0 ? (
-                      <View style={styles.dayLine}>
-                        <Ionicons name="restaurant-outline" size={13} color={themeColors.textTertiary} />
-                        <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]}>{meals.join(', ')}</Text>
-                      </View>
-                    ) : null}
-                  </View>
+                          ))}
+                        </View>
+                      ) : null}
+                      {meals.length > 0 ? (
+                        <View style={styles.dayLine}>
+                          <Ionicons name="restaurant-outline" size={13} color={themeColors.textTertiary} />
+                          <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]}>{meals.join(', ')}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
                 </View>
               );
             })}
@@ -723,12 +753,12 @@ const styles = StyleSheet.create({
   bulletText: { flex: 1, fontSize: fontSize.sm, color: colors.text, lineHeight: 22 },
 
   dayBlock: {
-    flexDirection: 'row',
-    gap: spacing.md,
     paddingVertical: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
+  dayHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 4 },
+  dayBody: { paddingLeft: 40, paddingTop: 6 },
   dayBadge: {
     width: 38,
     height: 38,
@@ -754,7 +784,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayLine: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 6 },
-  actRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  actRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  actThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: colors.gray[100] },
+  actThumbPh: { alignItems: 'center', justifyContent: 'center' },
   actTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
   whyBlock: { borderLeftWidth: 2, borderLeftColor: '#60a5fa', paddingLeft: 8, marginTop: 4 },
   whyText: { fontSize: 13, lineHeight: 18 },
