@@ -56,15 +56,30 @@ type ItineraryDay = {
   accommodation?: { hotelName?: string; hotelCategory?: string; roomType?: string; imageUrl?: string };
 };
 
-// A normalised activity for the itinerary list: a title plus the two optional
-// notes the web renders ("Why we include it" / "Good to know") and its photo.
-type DayActivity = { title: string; whyIncluded?: string; goodToKnow?: string; imageUrl?: string };
-const toActivity = (x: any): DayActivity => ({
-  title: itemLabel(x),
-  whyIncluded: typeof x === 'object' ? x?.whyIncluded : undefined,
-  goodToKnow: typeof x === 'object' ? x?.goodToKnow : undefined,
-  imageUrl: typeof x === 'object' ? x?.imageUrl : undefined,
-});
+// A normalised activity for the itinerary list: a title, the two optional notes
+// the web renders ("Why we include it" / "Good to know"), its photo, and the
+// placeDetails needed to open the place-detail screen on tap.
+type DayActivity = {
+  title: string;
+  whyIncluded?: string;
+  goodToKnow?: string;
+  imageUrl?: string;
+  placeName?: string;
+  city?: string;
+  destinationSlug?: string;
+};
+const toActivity = (x: any): DayActivity => {
+  const pd = (typeof x === 'object' ? x?.placeDetails : undefined) || {};
+  return {
+    title: itemLabel(x),
+    whyIncluded: typeof x === 'object' ? x?.whyIncluded : undefined,
+    goodToKnow: typeof x === 'object' ? x?.goodToKnow : undefined,
+    imageUrl: typeof x === 'object' ? x?.imageUrl : undefined,
+    placeName: pd.placeName || itemLabel(x) || undefined,
+    city: pd.city || undefined,
+    destinationSlug: pd.destinationSlug || undefined,
+  };
+};
 
 type PkgHotel = { name: string; city?: string; imageUrl?: string; rating?: number; reviewCount?: number };
 
@@ -144,6 +159,17 @@ export default function PackageDetailScreen() {
   // Collapsible itinerary days — first day open, rest collapsed. Keyed by index.
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 0: true });
   const toggleDay = (i: number) => setOpenDays((s) => ({ ...s, [i]: !s[i] }));
+
+  // Open the place-detail screen for a tapped itinerary place. Mirrors the web
+  // ActivityCard link — but the mobile screen resolves by NAME + location, so
+  // pass the human place name and its city.
+  const openPlace = (a: DayActivity) => {
+    if (!a.placeName) return;
+    router.push({
+      pathname: '/destination/[location]/[place]',
+      params: { location: a.city || a.placeName, place: a.placeName },
+    } as any);
+  };
   const [variantName, setVariantName] = useState<string | null>(null);
   const [live, setLive] = useState<any>(null); // calculate-price result
   const [pricing, setPricing] = useState(false);
@@ -532,7 +558,16 @@ export default function PackageDetailScreen() {
                                 </View>
                               )}
                               <View style={{ flex: 1 }}>
-                                <Text style={[styles.actTitle, { color: themeColors.text }]}>{a.title}</Text>
+                                {/* Tappable place name → place-detail screen (like the
+                                    PWA ActivityCard link). Plain text when unresolved. */}
+                                {a.placeName ? (
+                                  <TouchableOpacity onPress={() => openPlace(a)} activeOpacity={0.6} style={styles.actTitleRow}>
+                                    <Text style={[styles.actTitle, styles.actTitleLink]}>{a.title}</Text>
+                                    <Ionicons name="arrow-forward" size={13} color="#2563eb" />
+                                  </TouchableOpacity>
+                                ) : (
+                                  <Text style={[styles.actTitle, { color: themeColors.text }]}>{a.title}</Text>
+                                )}
                                 {a.whyIncluded ? (
                                   <View style={styles.whyBlock}>
                                     <Text style={[styles.whyText, { color: themeColors.textSecondary }]}>
@@ -788,6 +823,8 @@ const styles = StyleSheet.create({
   actThumb: { width: 56, height: 56, borderRadius: 10, backgroundColor: colors.gray[100] },
   actThumbPh: { alignItems: 'center', justifyContent: 'center' },
   actTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  actTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
+  actTitleLink: { color: '#2563eb' },
   whyBlock: { borderLeftWidth: 2, borderLeftColor: '#60a5fa', paddingLeft: 8, marginTop: 4 },
   whyText: { fontSize: 13, lineHeight: 18 },
   whyLabel: { fontWeight: fontWeight.bold, color: '#2563eb' },
