@@ -344,7 +344,14 @@ function PlaceDetailContent() {
   // external maps app only when we have no coordinates to plot.
   const openInMaps = useCallback(() => {
     try {
-      const coords = placeData?.coordinates || placeData?.location?.coordinates || placeData?.detailedInfo?.coordinates;
+      const p: any = placeData || {};
+      // Coordinates come back under several shapes across endpoints — normalise.
+      const raw =
+        p.coordinates || p.location?.coordinates || p.detailedInfo?.coordinates ||
+        p.geometry?.location || p;
+      const lat = raw?.lat ?? raw?.latitude ?? raw?.lat_deg;
+      const lng = raw?.lng ?? raw?.lon ?? raw?.longitude ?? raw?.lng_deg;
+      const coords = lat != null && lng != null ? { lat, lng } : null;
       const name = placeData?.name || placeName || 'Location';
       const address =
         (typeof placeData?.location === 'string' ? placeData.location : placeData?.address) || location || '';
