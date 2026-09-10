@@ -340,18 +340,26 @@ function PlaceDetailContent() {
     [placeData?.images, placeData?.imageUrls, placeData?.image]
   );
 
+  // Open the IN-APP map (keeps the user inside the app). Falls back to the
+  // external maps app only when we have no coordinates to plot.
   const openInMaps = useCallback(() => {
     try {
       const coords = placeData?.coordinates || placeData?.location?.coordinates || placeData?.detailedInfo?.coordinates;
+      const name = placeData?.name || placeName || 'Location';
+      const address =
+        (typeof placeData?.location === 'string' ? placeData.location : placeData?.address) || location || '';
       if (coords?.lat && coords?.lng) {
-        Linking.openURL(`https://maps.google.com/?q=${coords.lat},${coords.lng}`);
-      } else if (placeData?.name) {
-        Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(placeData.name + ' ' + (location || ''))}`);
+        router.push({
+          pathname: '/place-map',
+          params: { lat: String(coords.lat), lng: String(coords.lng), name, address },
+        } as any);
+      } else {
+        Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(name + ' ' + (location || ''))}`);
       }
     } catch (e) {
       console.warn('[PlaceDetail] openInMaps error:', e);
     }
-  }, [placeData, location]);
+  }, [placeData, placeName, location, router]);
 
   const handleTabPress = (key: string, index: number) => {
     setActiveTab(key);
@@ -657,7 +665,7 @@ function PlaceDetailContent() {
         <View style={styles.actions}>
           <TouchableOpacity style={styles.actionButton} onPress={openInMaps} activeOpacity={0.8}>
             <Ionicons name="map-outline" size={20} color="#ffffff" />
-            <Text style={styles.actionButtonText}>Open in Maps</Text>
+            <Text style={styles.actionButtonText}>View on map</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.actionButtonOutline, { borderColor: colors.primary[500] }]}
