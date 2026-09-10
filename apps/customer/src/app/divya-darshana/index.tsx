@@ -421,6 +421,10 @@ function DomeCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
 }
 
 const CARD_SHADOW = { shadowColor: MAROON, shadowOpacity: 0.28, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 };
+// Land grid: two cards per row at a fixed pixel width. The section pads 16 each
+// side and we want a 12px gutter, so each card = (screen - 32 - 12) / 2. A
+// percentage width under space-between measured narrow and left a huge gap.
+const DOME_W = Math.floor((SCREEN_W - 32 - 12) / 2);
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -515,13 +519,13 @@ const styles = StyleSheet.create({
   bookText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
 
   // Land dome card
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 12, rowGap: 16 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, marginTop: 12, rowGap: 16 },
   // No borderWidth: on iOS a 1px border + overflow:hidden lets the full-bleed
   // image paint over the side border while the white body respects it, so the
   // image read as slightly WIDER than the body. Define the card with its shadow
   // instead; the image and body are then both exactly the card width.
-  dome: { width: '47.5%', backgroundColor: '#fff', borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', ...CARD_SHADOW },
-  domeImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: CREAM },
+  dome: { width: DOME_W, backgroundColor: '#fff', borderTopLeftRadius: 40, borderTopRightRadius: 40, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', ...CARD_SHADOW },
+  domeImgWrap: { width: '100%', aspectRatio: 1.2, backgroundColor: CREAM },
   durBadge: { position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   durBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   domeHeli: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: SAFFRON, alignItems: 'center', justifyContent: 'center' },

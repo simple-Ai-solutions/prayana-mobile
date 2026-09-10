@@ -5,7 +5,7 @@
 // (nights), sorted by starting price — exactly like the web. Cards route to the
 // existing /packages/[id]. Zero new backend.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -20,6 +20,12 @@ const DEEP = '#B8410E';
 const SAFFRON = '#FF6F00';
 const GOLD = '#D4AF37';
 const CREAM = '#FFF8E7';
+// Two cards per row at a guaranteed pixel width: the ScrollView body pads 16 on
+// each side and we want a 12px gutter, so each card = (screen - 32 - 12) / 2.
+// A percentage width under justify-content:space-between was measuring narrow
+// and leaving a huge centre gap; a fixed width fills each half cleanly.
+const { width: SCREEN_W } = Dimensions.get('window');
+const CARD_W = Math.floor((SCREEN_W - 32 - 12) / 2);
 
 type Pkg = {
   _id: string;
@@ -244,13 +250,13 @@ const styles = StyleSheet.create({
   // Two-up: 47.5% + 47.5% + space-between leaves the gutter between columns.
   // A `gap` here on top of two 47.5% cards overflows 100% and drops the second
   // card to the next row, leaving one narrow card per row (the "shrunk" look).
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: spacing.lg },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 12, rowGap: spacing.lg },
 
   // No borderWidth — a 1px border + overflow:hidden let the full-bleed image
   // paint over the side border while the body respected it, so the image read
   // as wider than the card body. Define the card with its shadow instead.
-  card: { width: '47.5%', backgroundColor: '#fff', borderTopLeftRadius: 60, borderTopRightRadius: 60, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', shadowColor: MAROON, shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
-  cardImgWrap: { width: '100%', aspectRatio: 1, backgroundColor: '#FCE7C8' },
+  card: { width: CARD_W, backgroundColor: '#fff', borderTopLeftRadius: 40, borderTopRightRadius: 40, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, overflow: 'hidden', shadowColor: MAROON, shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 5 },
+  cardImgWrap: { width: '100%', aspectRatio: 1.2, backgroundColor: '#FCE7C8' },
   cardDuration: { position: 'absolute', top: 8, left: 8, backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
   cardDurationText: { fontSize: 10, fontWeight: '800', color: DEEP },
   heliBadge: { position: 'absolute', top: 8, right: 8, width: 24, height: 24, borderRadius: 12, backgroundColor: SAFFRON, alignItems: 'center', justifyContent: 'center' },
