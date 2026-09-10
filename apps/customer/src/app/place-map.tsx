@@ -52,56 +52,62 @@ export default function PlaceMapScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {hasCoords ? (
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_GOOGLE}
-          style={StyleSheet.absoluteFill}
-          initialRegion={region}
-          mapType={mapType}
-          showsUserLocation
-          showsMyLocationButton={false}
-          showsCompass
-          toolbarEnabled={false}
-        >
-          <Marker coordinate={{ latitude: lat, longitude: lng }} title={name} description={address} />
-        </MapView>
-      ) : (
-        <View style={[StyleSheet.absoluteFill, styles.noCoords]}>
-          <Ionicons name="map-outline" size={44} color="#9CA3AF" />
-          <Text style={styles.noCoordsText}>Map location isn't available for this place.</Text>
-        </View>
-      )}
-
-      {/* Top bar — back + map/satellite toggle, over the map */}
-      <View style={styles.topBar} pointerEvents="box-none">
-        <TouchableOpacity style={styles.circleBtn} onPress={() => goBack()} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="chevron-back" size={22} color="#111827" />
+      {/* Header in NORMAL layout flow, NOT overlaid. A Google MapView is a
+          native view that hit-tests before RN siblings, so anything floating on
+          top of it (even with zIndex) swallows its own taps — that is why the
+          back button did nothing. Keeping the header out of the map's rectangle
+          is the only reliable fix. */}
+      <View style={[styles.header, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <TouchableOpacity style={styles.headerBtn} onPress={() => goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+          <Ionicons name="chevron-back" size={24} color={themeColors.text} />
         </TouchableOpacity>
-        <View style={styles.topTitleWrap} pointerEvents="none">
-          <Text style={styles.topTitle} numberOfLines={1}>{name}</Text>
-        </View>
+        <Text style={[styles.headerTitle, { color: themeColors.text }]} numberOfLines={1}>{name}</Text>
         <TouchableOpacity
-          style={styles.circleBtn}
+          style={styles.headerBtn}
           onPress={() => setMapType((t) => (t === 'standard' ? 'hybrid' : 'standard'))}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
-          <Ionicons name={mapType === 'standard' ? 'earth' : 'map'} size={20} color="#111827" />
+          <Ionicons name={mapType === 'standard' ? 'earth' : 'map'} size={21} color={themeColors.text} />
         </TouchableOpacity>
       </View>
 
-      {/* Recenter — floats above the info card */}
-      {hasCoords ? (
-        <TouchableOpacity style={styles.recenter} onPress={recenter} activeOpacity={0.85}>
-          <Ionicons name="locate" size={20} color="#111827" />
-        </TouchableOpacity>
-      ) : null}
+      {/* The map owns the rest of the screen. */}
+      <View style={styles.mapWrap}>
+        {hasCoords ? (
+          <MapView
+            ref={mapRef}
+            provider={PROVIDER_GOOGLE}
+            style={StyleSheet.absoluteFill}
+            initialRegion={region}
+            mapType={mapType}
+            showsUserLocation
+            showsMyLocationButton={false}
+            showsCompass
+            toolbarEnabled={false}
+          >
+            <Marker coordinate={{ latitude: lat, longitude: lng }} title={name} description={address} />
+          </MapView>
+        ) : (
+          <View style={[StyleSheet.absoluteFill, styles.noCoords]}>
+            <Ionicons name="map-outline" size={44} color="#9CA3AF" />
+            <Text style={styles.noCoordsText}>Map location isn&apos;t available for this place.</Text>
+          </View>
+        )}
 
-      {/* Bottom info card — name, address, Directions */}
-      <View style={[styles.card, { backgroundColor: themeColors.surface }]}>
+        {/* Recentre still floats, but it is a deliberate map control — the map
+            swallowing a stray tap here is harmless, unlike navigation. */}
+        {hasCoords ? (
+          <TouchableOpacity style={styles.recenter} onPress={recenter} activeOpacity={0.85}>
+            <Ionicons name="locate" size={20} color="#111827" />
+          </TouchableOpacity>
+        ) : null}
+      </View>
+
+      {/* Bottom info card — also in normal flow, below the map. */}
+      <View style={[styles.card, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.cardName, { color: themeColors.text }]} numberOfLines={1}>{name}</Text>
           {!!address && (
@@ -122,28 +128,18 @@ const styles = StyleSheet.create({
   noCoords: { alignItems: 'center', justifyContent: 'center', gap: spacing.md, backgroundColor: '#f3f4f6' },
   noCoordsText: { fontSize: fontSize.sm, color: '#6B7280', textAlign: 'center', paddingHorizontal: spacing.xl },
 
-  topBar: {
-    position: 'absolute', top: spacing.sm, left: spacing.lg, right: spacing.lg,
-    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    // The Google MapView is a native layer that hit-tests before RN siblings and
-    // otherwise swallows taps on the controls over it. Lift the bar above it.
-    zIndex: 100, elevation: 30,
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
+    paddingHorizontal: spacing.md, paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  circleBtn: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.95)',
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
-    zIndex: 101, elevation: 31,
-  },
-  topTitleWrap: {
-    flex: 1, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 20, paddingVertical: 9, paddingHorizontal: spacing.md,
-    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4,
-  },
-  topTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#111827' },
+  headerBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { flex: 1, textAlign: 'center', fontSize: fontSize.md, fontWeight: fontWeight.bold },
+
+  mapWrap: { flex: 1 },
 
   recenter: {
-    position: 'absolute', right: spacing.lg, bottom: 130,
+    position: 'absolute', right: spacing.lg, bottom: spacing.lg,
     width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.98)',
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
@@ -151,11 +147,8 @@ const styles = StyleSheet.create({
   },
 
   card: {
-    position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.xl,
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
-    borderRadius: 18, padding: spacing.lg,
-    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 8 },
-    zIndex: 100, elevation: 30,
+    padding: spacing.lg, borderTopWidth: StyleSheet.hairlineWidth,
   },
   cardName: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
   cardAddress: { fontSize: fontSize.xs, marginTop: 3, lineHeight: 17 },
