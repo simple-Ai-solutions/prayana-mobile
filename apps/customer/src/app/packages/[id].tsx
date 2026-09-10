@@ -81,7 +81,7 @@ const toActivity = (x: any): DayActivity => {
   };
 };
 
-type PkgHotel = { name: string; city?: string; imageUrl?: string; rating?: number; reviewCount?: number };
+type PkgHotel = { name: string; city?: string; imageUrl?: string; rating?: number; reviewCount?: number; address?: string };
 
 // Coerce an activity entry (string or object) to a display string.
 const itemLabel = (x: any): string =>
@@ -107,6 +107,8 @@ type PkgVariant = {
   mealPlan?: string;
   isDefault?: boolean;
   pricing?: { basePrice?: number; isOnRequest?: boolean; display?: { amount?: number } };
+  // The real source of "Where you'll stay" — one entry per property per night.
+  hotels?: PkgHotel[];
 };
 
 const HOTEL_LABEL: Record<string, string> = {
@@ -311,6 +313,29 @@ export default function PackageDetailScreen() {
   const nights = pkg.duration?.nights || Math.max(0, days - 1);
   const price = pkg.pricing?.startingFrom || 0;
   const selectedVariant = (pkg.variants || []).find((v) => v.name === variantName) || null;
+  // Hotels live on the VARIANT (variants[].hotels), not at the package root —
+  // reading pkg.hotels meant "Where you'll stay" never rendered. Prefer the
+  // chosen variant's list, fall back to the first variant that has one, then
+  // the (rare) package-level array. Dedupe by name+city: the same property
+  // repeats across nights.
+  // NOTE: a plain computation, not useMemo — this runs below the loading/error
+  // early returns, so a hook here would change the hook count between renders
+  // ("Rendered more hooks than during the previous render"). It is cheap.
+  const stayHotels: PkgHotel[] = (() => {
+    const fromVariant =
+      (selectedVariant as any)?.hotels ||
+      (pkg.variants || []).find((v: any) => (v?.hotels || []).length)?.hotels ||
+      pkg.hotels ||
+      [];
+    const seen = new Set<string>();
+    return (fromVariant as PkgHotel[]).filter((h) => {
+      if (!h?.name) return false;
+      const key = `${h.name}|${h.city || ''}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  })();
   // Show the chosen variant's per-person price (else the "from" price).
   const ctaPrice = selectedVariant && !selectedVariant.pricing?.isOnRequest
     ? (variantPrice(selectedVariant) || price)
@@ -533,11 +558,31 @@ export default function PackageDetailScreen() {
                         <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{d.description}</Text>
                       ) : null}
                       {d.accommodation?.hotelName ? (
-                        <View style={styles.dayLine}>
-                          <Ionicons name="bed-outline" size={13} color={themeColors.textTertiary} />
-                          <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
-                            {d.accommodation.hotelName}{d.accommodation.roomType ? ` · ${d.accommodation.roomType}` : ''}
-                          </Text>
+                        <View style={styles.stayRow}>
+                          {d.accommodation.imageUrl ? (
+                            <Image
+                              source={{ uri: normalizeImageUrl(d.accommodation.imageUrl) }}
+                              style={styles.stayImg}
+                              contentFit="cover"
+                              transition={200}
+                              cachePolicy="memory-disk"
+                            />
+                          ) : (
+                            <View style={[styles.stayImg, styles.stayImgPh]}>
+                              <Ionicons name="bed" size={16} color={colors.primary[400]} />
+                            </View>
+                          )}
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.stayLabel, { color: themeColors.textTertiary }]}>TONIGHT&apos;S STAY</Text>
+                            <Text style={[styles.stayName, { color: themeColors.text }]} numberOfLines={2}>
+                              {d.accommodation.hotelName}
+                            </Text>
+                            {d.accommodation.roomType || d.accommodation.hotelCategory ? (
+                              <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                                {[d.accommodation.hotelCategory, d.accommodation.roomType].filter(Boolean).join(' · ')}
+                              </Text>
+                            ) : null}
+                          </View>
                         </View>
                       ) : null}
                       {acts.length > 0 ? (
@@ -602,10 +647,15 @@ export default function PackageDetailScreen() {
         ) : null}
 
         {/* Where you'll stay — hotels */}
-        {pkg.hotels && pkg.hotels.length > 0 ? (
+        {stayHotels.length > 0 ? (
           <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Where you'll stay</Text>
-            {pkg.hotels.map((h, i) => (
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Where you&apos;ll stay</Text>
+            {selectedVariant?.name ? (
+              <Text style={[styles.hotelCity, { color: themeColors.textSecondary, marginBottom: spacing.sm }]}>
+                Hotels for the {selectedVariant.name} option
+              </Text>
+            ) : null}
+            {stayHotels.map((h, i) => (
               <View key={`${h.name}-${i}`} style={[styles.hotelRow, i > 0 && { borderTopColor: themeColors.border, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md }]}>
                 {h.imageUrl ? (
                   <Image source={{ uri: normalizeImageUrl(h.imageUrl) }} style={styles.hotelImg} contentFit="cover" transition={200} cachePolicy="memory-disk" />
@@ -616,7 +666,11 @@ export default function PackageDetailScreen() {
                 )}
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.hotelName, { color: themeColors.text }]} numberOfLines={1}>{h.name}</Text>
-                  {!!h.city && <Text style={[styles.hotelCity, { color: themeColors.textSecondary }]} numberOfLines={1}>{h.city}</Text>}
+                  {!!(h.city || h.address) && (
+                    <Text style={[styles.hotelCity, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                      {h.city || h.address}
+                    </Text>
+                  )}
                   {h.rating ? (
                     <View style={styles.hotelRating}>
                       <Ionicons name="star" size={12} color="#fbbf24" />
@@ -832,6 +886,11 @@ const styles = StyleSheet.create({
   gtkLabel: { fontWeight: fontWeight.bold },
   hotelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },
   hotelImg: { width: 52, height: 52, borderRadius: 10 },
+  stayRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
+  stayImg: { width: 52, height: 52, borderRadius: 10, backgroundColor: colors.gray[100] },
+  stayImgPh: { alignItems: 'center', justifyContent: 'center' },
+  stayLabel: { fontSize: 10, fontWeight: fontWeight.bold, letterSpacing: 0.6 },
+  stayName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, marginTop: 1 },
   hotelName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
   hotelCity: { fontSize: fontSize.xs },
   hotelRating: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
