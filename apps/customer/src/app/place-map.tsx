@@ -125,11 +125,15 @@ const styles = StyleSheet.create({
   topBar: {
     position: 'absolute', top: spacing.sm, left: spacing.lg, right: spacing.lg,
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
+    // The Google MapView is a native layer that hit-tests before RN siblings and
+    // otherwise swallows taps on the controls over it. Lift the bar above it.
+    zIndex: 100, elevation: 30,
   },
   circleBtn: {
     width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.95)',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 4,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    zIndex: 101, elevation: 31,
   },
   topTitleWrap: {
     flex: 1, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.95)',
@@ -142,14 +146,16 @@ const styles = StyleSheet.create({
     position: 'absolute', right: spacing.lg, bottom: 130,
     width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.98)',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 5,
+    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    zIndex: 100, elevation: 30,
   },
 
   card: {
     position: 'absolute', left: spacing.lg, right: spacing.lg, bottom: spacing.xl,
     flexDirection: 'row', alignItems: 'center', gap: spacing.md,
     borderRadius: 18, padding: spacing.lg,
-    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 8,
+    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 8 },
+    zIndex: 100, elevation: 30,
   },
   cardName: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
   cardAddress: { fontSize: fontSize.xs, marginTop: 3, lineHeight: 17 },
