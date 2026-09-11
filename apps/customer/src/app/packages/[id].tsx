@@ -327,6 +327,7 @@ export default function PackageDetailScreen() {
   const [similar, setSimilar] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [shorts, setShorts] = useState<any[]>([]);
+  const [destImages, setDestImages] = useState<Record<string, string>>({});
   const [playingShort, setPlayingShort] = useState<any | null>(null);
   // Collapsible itinerary days — first day open, rest collapsed. Keyed by index.
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 0: true });
@@ -407,6 +408,33 @@ export default function PackageDetailScreen() {
         if (alive) setQuestions(res?.data || []);
       })
       .catch(() => {});
+    return () => { alive = false; };
+  }, [pkg]);
+
+  // Destination highlight photos. The package's destinations[] carry no image
+  // field, so resolve one per city through the same place-images service the
+  // gallery backfill uses.
+  useEffect(() => {
+    if (!pkg) return;
+    const ds = (pkg.destinations || []).filter((d) => d.name || d.city);
+    if (!ds.length) return;
+    let alive = true;
+    (async () => {
+      for (const d of ds) {
+        if (!alive) return;
+        const key = d.name || d.city!;
+        try {
+          const res: any = await destinationAPI.getPlaceImages(key, d.country || '', 1);
+          const first = (res?.data || res?.images || [])[0];
+          const url = first?.url || first?.imageUrl || (typeof first === 'string' ? first : null);
+          if (url && alive) {
+            setDestImages((m) => ({ ...m, [key]: normalizeImageUrl(url) }));
+          }
+        } catch {
+          // A city without a photo just renders its gradient placeholder.
+        }
+      }
+    })();
     return () => { alive = false; };
   }, [pkg]);
 
@@ -1308,23 +1336,49 @@ export default function PackageDetailScreen() {
               <Ionicons name="location" size={16} color="#059669" />
               <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Destination highlights</Text>
             </View>
-            <View style={styles.destGrid}>
-              {(pkg.destinations || []).map((d, i) => (
-                <View key={`${d.name}-${i}`} style={[styles.destChip, { borderColor: themeColors.border }]}>
-                  <View style={styles.destDot} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.destName, { color: themeColors.text }]} numberOfLines={1}>
-                      {d.name || d.city}
-                    </Text>
-                    {(d as any).nightsHere ? (
-                      <Text style={[styles.destNights, { color: themeColors.textSecondary }]}>
-                        {(d as any).nightsHere} night{(d as any).nightsHere === 1 ? '' : 's'}
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              ))}
-            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.destRail}>
+              {(pkg.destinations || []).map((d, i) => {
+                const key = d.name || d.city || '';
+                const img = destImages[key];
+                return (
+                  <TouchableOpacity
+                    key={`${key}-${i}`}
+                    style={styles.destCard}
+                    activeOpacity={0.9}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/destination/[location]/[place]',
+                        params: { location: d.country || key, place: key },
+                      } as any)
+                    }
+                  >
+                    {img ? (
+                      <Image
+                        source={{ uri: img }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                        transition={200}
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <LinearGradient colors={['#93c5fd', '#2563eb']} style={StyleSheet.absoluteFill} />
+                    )}
+                    <LinearGradient
+                      colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <View style={styles.destMeta}>
+                      <Text style={styles.destCardName} numberOfLines={1}>{key}</Text>
+                      {d.nightsHere ? (
+                        <Text style={styles.destCardNights}>
+                          {d.nightsHere} night{d.nightsHere === 1 ? '' : 's'}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </Card>
         ) : null}
 
@@ -1808,11 +1862,11 @@ const styles = StyleSheet.create({
   cityName: { fontSize: 13, fontWeight: fontWeight.medium },
   mapExpand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
   mapExpandText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#2563eb' },
-  destGrid: { marginTop: spacing.md, gap: 8 },
-  destChip: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: spacing.md },
-  destDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#059669' },
-  destName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
-  destNights: { fontSize: 11, marginTop: 1 },
+  destRail: { gap: spacing.md, paddingTop: spacing.md },
+  destCard: { width: 150, height: 112, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.gray[200] },
+  destMeta: { position: 'absolute', left: 10, right: 10, bottom: 9 },
+  destCardName: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  destCardNights: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 1 },
   assuredCard: { borderRadius: 16, padding: spacing.lg },
   assuredHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   assuredIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
