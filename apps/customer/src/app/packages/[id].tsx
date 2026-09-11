@@ -109,7 +109,27 @@ type PkgVariant = {
   pricing?: { basePrice?: number; isOnRequest?: boolean; display?: { amount?: number } };
   // The real source of "Where you'll stay" — one entry per property per night.
   hotels?: PkgHotel[];
+  description?: string;
+  highlights?: string[];
+  inclusions?: string[];
+  exclusions?: string[];
+  transportType?: string;
+  minGroupSize?: number;
+  maxGroupSize?: number;
 };
+
+// Group a variant's hotels by city, keeping the first hotel's image for the row
+// and joining every hotel name in that city — exactly what the web's
+// VariantComparisonTable renders (one 28px thumb per city, max 3 cities).
+function hotelsByCity(hotels?: PkgHotel[]) {
+  const groups = new Map<string, PkgHotel[]>();
+  for (const h of hotels || []) {
+    const city = h.city || 'Stay';
+    if (!groups.has(city)) groups.set(city, []);
+    groups.get(city)!.push(h);
+  }
+  return Array.from(groups.entries()).slice(0, 3);
+}
 
 const HOTEL_LABEL: Record<string, string> = {
   budget: '3-Star', standard: '3-Star Deluxe', premium: '4-Star', luxury: '4/5-Star',
@@ -318,6 +338,16 @@ export default function PackageDetailScreen() {
   // chosen variant's list, fall back to the first variant that has one, then
   // the (rare) package-level array. Dedupe by name+city: the same property
   // repeats across nights.
+  // Cheapest / dearest across bookable variants — drives the "Best value" badge,
+  // the "+₹N" delta and the price-spread bar, like the web comparison table.
+  const bookablePrices = (pkg.variants || [])
+    .filter((v) => !v.pricing?.isOnRequest)
+    .map((v) => variantPrice(v))
+    .filter((n) => n > 0);
+  const cheapestPrice = bookablePrices.length ? Math.min(...bookablePrices) : 0;
+  const dearestPrice = bookablePrices.length ? Math.max(...bookablePrices) : 0;
+  const spread = dearestPrice - cheapestPrice;
+
   // NOTE: a plain computation, not useMemo — this runs below the loading/error
   // early returns, so a hook here would change the hook count between renders
   // ("Rendered more hooks than during the previous render"). It is cheap.
@@ -437,11 +467,18 @@ export default function PackageDetailScreen() {
             <Text style={[styles.variantHint, { color: themeColors.textSecondary }]}>
               Hotels, meals & rooms differ by option.
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.sm }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              snapToAlignment="start"
+              decelerationRate="fast"
+              contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.md }}
+            >
               {pkg.variants.map((v) => {
                 const active = variantName === v.name;
                 const onReq = v.pricing?.isOnRequest;
                 const vp = variantPrice(v);
+                const isCheapest = !onReq && vp === cheapestPrice && pkg.variants!.length > 1;
                 return (
                   <TouchableOpacity
                     key={v._id || v.name}
@@ -452,12 +489,18 @@ export default function PackageDetailScreen() {
                     activeOpacity={0.85}
                     onPress={() => setVariantName(v.name)}
                   >
-                    {v.isDefault ? (
-                      <View style={styles.popularBadge}><Ionicons name="star" size={9} color="#fff" /><Text style={styles.popularText}>POPULAR</Text></View>
+                    {/* One badge only: Best value (cheapest) wins over Most Popular. */}
+                    {isCheapest || v.isDefault ? (
+                      <View style={[styles.popularBadge, { backgroundColor: isCheapest ? '#059669' : '#2563eb' }]}>
+                        <Ionicons name={isCheapest ? 'trending-up' : 'ribbon'} size={9} color="#fff" />
+                        <Text style={styles.popularText}>{isCheapest ? 'BEST VALUE' : 'MOST POPULAR'}</Text>
+                      </View>
                     ) : null}
+
                     <Text style={[styles.variantName, { color: themeColors.textSecondary }]} numberOfLines={1}>
                       {(v.displayName || v.name).toUpperCase()}
                     </Text>
+
                     {onReq ? (
                       <Text style={styles.variantOnReq}>On request</Text>
                     ) : (
@@ -465,14 +508,116 @@ export default function PackageDetailScreen() {
                         ₹{Number(vp).toLocaleString('en-IN')}<Text style={styles.variantPer}> /person</Text>
                       </Text>
                     )}
-                    {v.hotelCategory ? (
-                      <Text style={[styles.variantFeat, { color: themeColors.textSecondary }]} numberOfLines={1}>
-                        {HOTEL_LABEL[v.hotelCategory] || v.hotelCategory}{v.mealPlan ? ` · ${MEAL_LABEL[v.mealPlan] || v.mealPlan}` : ''}
+
+                    {/* Price delta vs the cheapest option. */}
+                    {!onReq ? (
+                      <Text style={[styles.variantDelta, { color: isCheapest ? '#059669' : themeColors.textTertiary }]}>
+                        {isCheapest ? 'Lowest price' : `+₹${Number(vp - cheapestPrice).toLocaleString('en-IN')}`}
                       </Text>
                     ) : null}
+
+                    {/* Price-spread bar — how this option sits between cheapest and dearest. */}
+                    {spread > 0 && !onReq ? (
+                      <View style={styles.spreadTrack}>
+                        <View
+                          style={[
+                            styles.spreadFill,
+                            {
+                              width: `${Math.max(4, ((vp - cheapestPrice) / spread) * 100)}%`,
+                              backgroundColor: active ? '#3b82f6' : '#d1d5db',
+                            },
+                          ]}
+                        />
+                      </View>
+                    ) : null}
+
+                    {/* Hotels — one thumbnail per city, names joined (web parity). */}
+                    {hotelsByCity(v.hotels).length > 0 ? (
+                      <View style={[styles.vHotels, { borderTopColor: themeColors.border }]}>
+                        {hotelsByCity(v.hotels).map(([city, hs]) => (
+                          <View key={city} style={styles.vHotelRow}>
+                            {hs[0].imageUrl ? (
+                              <Image
+                                source={{ uri: normalizeImageUrl(hs[0].imageUrl) }}
+                                style={styles.vHotelImg}
+                                contentFit="cover"
+                                transition={200}
+                                cachePolicy="memory-disk"
+                              />
+                            ) : (
+                              <View style={[styles.vHotelImg, styles.vHotelPh]}>
+                                <Ionicons name="bed" size={11} color="#9ca3af" />
+                              </View>
+                            )}
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.vHotelText} numberOfLines={2}>
+                                <Text style={{ color: themeColors.textTertiary }}>{city}: </Text>
+                                <Text style={[styles.vHotelName, { color: themeColors.text }]}>
+                                  {hs.map((h) => h.name).join(' / ')}
+                                </Text>
+                              </Text>
+                              {hs[0].rating ? (
+                                <View style={styles.vHotelRating}>
+                                  <Ionicons name="star" size={9} color="#d97706" />
+                                  <Text style={styles.vHotelRatingText}>
+                                    {hs[0].rating}
+                                    {hs[0].reviewCount ? ` (${Number(hs[0].reviewCount).toLocaleString('en-IN')})` : ''}
+                                  </Text>
+                                </View>
+                              ) : null}
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+
+                    {/* Differing features */}
+                    <View style={[styles.vFeatures, { borderTopColor: themeColors.border }]}>
+                      {v.hotelCategory ? (
+                        <View style={styles.vFeatRow}>
+                          <Ionicons name="business-outline" size={11} color="#9ca3af" />
+                          <Text style={[styles.vFeatText, { color: themeColors.text }]} numberOfLines={1}>
+                            {HOTEL_LABEL[v.hotelCategory] || v.hotelCategory}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {v.mealPlan ? (
+                        <View style={styles.vFeatRow}>
+                          <Ionicons name="restaurant-outline" size={11} color="#9ca3af" />
+                          <Text style={[styles.vFeatText, { color: themeColors.text }]} numberOfLines={1}>
+                            {MEAL_LABEL[v.mealPlan] || v.mealPlan}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {v.roomType ? (
+                        <View style={styles.vFeatRow}>
+                          <Ionicons name="bed-outline" size={11} color="#9ca3af" />
+                          <Text style={[styles.vFeatText, { color: themeColors.text }]} numberOfLines={1}>{v.roomType}</Text>
+                        </View>
+                      ) : null}
+                      {v.transportType ? (
+                        <View style={styles.vFeatRow}>
+                          <Ionicons name="car-outline" size={11} color="#9ca3af" />
+                          <Text style={[styles.vFeatText, { color: themeColors.text }]} numberOfLines={1}>{v.transportType}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+
+                    {/* Highlights — up to 4, emerald checks */}
+                    {v.highlights && v.highlights.length > 0 ? (
+                      <View style={styles.vHighlights}>
+                        {v.highlights.slice(0, 4).map((h, hi) => (
+                          <View key={hi} style={styles.vHiRow}>
+                            <Ionicons name="checkmark" size={10} color="#10b981" />
+                            <Text style={[styles.vHiText, { color: themeColors.textSecondary }]} numberOfLines={1}>{h}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+
                     <View style={[styles.variantSelect, active && { backgroundColor: '#2563eb' }]}>
                       <Text style={[styles.variantSelectText, { color: active ? '#fff' : themeColors.textSecondary }]}>
-                        {active ? 'Selected' : 'Select'}
+                        {onReq ? (active ? 'Selected — ask for a quote' : 'Get a quote') : active ? 'Selected' : 'Select'}
                       </Text>
                     </View>
                   </TouchableOpacity>
@@ -722,6 +867,12 @@ export default function PackageDetailScreen() {
       {/* Sticky CTA — reflects the chosen variant + discount (green) */}
       <View style={[styles.cta, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
         <View style={{ flex: 1 }}>
+          {/* Variant label above the price, like the web sticky bar. */}
+          {selectedVariant ? (
+            <Text style={[styles.ctaVariant, { color: themeColors.textTertiary }]} numberOfLines={1}>
+              {selectedVariant.displayName || selectedVariant.name}
+            </Text>
+          ) : null}
           {off > 0 && mrp ? (
             <Text style={[styles.mrpStrike, { color: themeColors.textTertiary }]}>
               ₹{mrp.toLocaleString('en-IN')}
@@ -734,18 +885,23 @@ export default function PackageDetailScreen() {
             </Text>
           </Text>
         </View>
-        <Button
-          title="Book Now"
+        {/* blue-600 to match the web CTA — the shared Button's primary is the
+            orange brand colour, which this page never uses. */}
+        <TouchableOpacity
+          style={styles.bookBtn}
+          activeOpacity={0.9}
           onPress={() => {
             const q = variantName ? `?variant=${encodeURIComponent(variantName)}` : '';
-            const path = `/packages/checkout/${encodeURIComponent(pkg.slug || pkg._id)}${q}`;
+            // _id, not slug: some slugs resolve to empty duplicate documents.
+            const path = `/packages/checkout/${encodeURIComponent(pkg._id)}${q}`;
             if (!requireAuth({ reason: 'Sign in to book this package. Travelers, dates, and payment will be saved to your account.', redirectAfter: path })) return;
             router.push(path);
           }}
-          variant="primary"
-          size="lg"
-          icon={<Ionicons name="calendar" size={18} color="#fff" />}
-        />
+        >
+          <Text style={styles.bookBtnText}>
+            {selectedVariant?.pricing?.isOnRequest ? 'Get a quote' : 'Book Now'}
+          </Text>
+        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -814,7 +970,33 @@ const styles = StyleSheet.create({
   sectionAccentRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.sm },
   sectionAccent: { width: 4, height: 20, borderRadius: 2, backgroundColor: '#3b82f6' },
   variantHint: { fontSize: fontSize.xs, marginBottom: 2 },
-  variantCard: { width: 168, borderWidth: 2, borderRadius: 12, padding: spacing.md, gap: 4 },
+  // 78% of the viewport, matching the web carousel — the card carries hotel
+  // rows, feature rows and highlights, so a 168px chip could never hold it.
+  variantCard: { width: Math.round(SCREEN_W * 0.78), borderWidth: 2, borderRadius: 12, padding: spacing.md, gap: 4 },
+  variantDelta: { fontSize: 11, fontWeight: fontWeight.semibold },
+  ctaVariant: { fontSize: 11, fontWeight: fontWeight.medium, marginBottom: 1 },
+  bookBtn: {
+    backgroundColor: '#2563eb', borderRadius: 12,
+    paddingHorizontal: 28, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#2563eb', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+  },
+  bookBtnText: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  spreadTrack: { height: 4, borderRadius: 2, backgroundColor: '#f3f4f6', marginTop: 6, overflow: 'hidden' },
+  spreadFill: { height: 4, borderRadius: 2 },
+  vHotels: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, marginTop: 8, gap: 6 },
+  vHotelRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  vHotelImg: { width: 28, height: 28, borderRadius: 4, backgroundColor: '#f3f4f6', marginTop: 1 },
+  vHotelPh: { alignItems: 'center', justifyContent: 'center' },
+  vHotelText: { fontSize: 11, lineHeight: 15 },
+  vHotelName: { fontWeight: fontWeight.semibold },
+  vHotelRating: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 1 },
+  vHotelRatingText: { fontSize: 10, color: '#d97706', fontWeight: fontWeight.semibold },
+  vFeatures: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, marginTop: 8, gap: 5 },
+  vFeatRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  vFeatText: { flex: 1, fontSize: 11, fontWeight: fontWeight.medium },
+  vHighlights: { marginTop: 8, gap: 4 },
+  vHiRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  vHiText: { flex: 1, fontSize: 11 },
   popularBadge: { position: 'absolute', top: -9, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#2563eb', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   popularText: { color: '#fff', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
   variantName: { fontSize: 11, fontWeight: fontWeight.semibold, letterSpacing: 0.5, marginTop: 4 },
