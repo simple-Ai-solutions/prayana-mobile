@@ -25,7 +25,7 @@ import {
   borderRadius,
   useTheme,
 } from '@prayana/shared-ui';
-import { holidayPackagesAPI, destinationAPI } from '@prayana/shared-services';
+import { holidayPackagesAPI, destinationAPI, makeAPICall } from '@prayana/shared-services';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { normalizeImageUrl } from '../../lib/imageUrl';
@@ -136,6 +136,9 @@ function QuickFact({
   );
 }
 
+// Numbered route-pill colours, cycling like the web's city strip.
+const CITY_COLORS = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7e22ce'];
+
 // Prayana Assured promises — the web's 2x2 white-on-gradient feature grid.
 const ASSURED = [
   { label: 'Verified stays & vetted partners', icon: 'checkmark-circle' },
@@ -205,6 +208,7 @@ type HolidayPackage = {
   stats?: { viewCount?: number; totalBookings?: number };
   difficulty?: string;
   packageType?: string;
+  primaryDestination?: string;
   destinations?: {
     name?: string; city?: string; country?: string;
     nightsHere?: number; coordinates?: { lat?: number; lng?: number };
@@ -235,6 +239,7 @@ export default function PackageDetailScreen() {
   // web PackageImageGrid. Only used when the package ships no images.
   const [backfillImages, setBackfillImages] = useState<string[]>([]);
   const [similar, setSimilar] = useState<any[]>([]);
+  const [questions, setQuestions] = useState<any[]>([]);
   // Collapsible itinerary days — first day open, rest collapsed. Keyed by index.
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 0: true });
   const toggleDay = (i: number) => setOpenDays((s) => ({ ...s, [i]: !s[i] }));
@@ -294,6 +299,22 @@ export default function PackageDetailScreen() {
     })();
     return () => { alive = false; };
   }, [pkg, variantName]);
+
+  // Community Q&A for the trip's primary destination. NOTE the route:
+  // /questions/by-destination — the plain /questions?destination= route ignores
+  // the filter and returns unrelated questions.
+  useEffect(() => {
+    if (!pkg) return;
+    const dest = pkg.primaryDestination || pkg.destinations?.[0]?.city || pkg.destination?.city;
+    if (!dest) return;
+    let alive = true;
+    makeAPICall(`/questions/by-destination?destination=${encodeURIComponent(dest)}&limit=4`)
+      .then((res: any) => {
+        if (alive) setQuestions(res?.data || []);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [pkg]);
 
   // "You may also like" — packages sharing this one's primary destination.
   useEffect(() => {
@@ -413,6 +434,8 @@ export default function PackageDetailScreen() {
   // the (rare) package-level array. Dedupe by name+city: the same property
   // repeats across nights.
   const reach = pkg.reachability;
+  const qaDestination =
+    pkg.primaryDestination || pkg.destinations?.[0]?.city || pkg.destination?.city || '';
 
 
   // Every itinerary stop that carries coordinates, in trip order — drives the
@@ -1011,6 +1034,29 @@ export default function PackageDetailScreen() {
                 />
               ))}
             </MapView>
+            {/* Numbered city pills under the map, like the web route strip. */}
+            {(pkg.destinations || []).length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.cityStrip}
+              >
+                {(pkg.destinations || []).map((d, i) => (
+                  <View key={`${d.name}-${i}`} style={styles.cityPillRow}>
+                    <View style={[styles.cityNum, { backgroundColor: CITY_COLORS[i % CITY_COLORS.length] }]}>
+                      <Text style={styles.cityNumText}>{i + 1}</Text>
+                    </View>
+                    <Text style={[styles.cityName, { color: themeColors.text }]} numberOfLines={1}>
+                      {d.name || d.city}
+                    </Text>
+                    {i < (pkg.destinations || []).length - 1 ? (
+                      <Ionicons name="arrow-forward" size={12} color={themeColors.textTertiary} style={{ marginHorizontal: 6 }} />
+                    ) : null}
+                  </View>
+                ))}
+              </ScrollView>
+            ) : null}
+
             <TouchableOpacity
               style={styles.mapExpand}
               activeOpacity={0.85}
@@ -1028,6 +1074,48 @@ export default function PackageDetailScreen() {
             >
               <Ionicons name="expand-outline" size={14} color="#2563eb" />
               <Text style={styles.mapExpandText}>Open map</Text>
+            </TouchableOpacity>
+          </Card>
+        ) : null}
+
+        {/* Travellers asked about {destination} — community Q&A */}
+        {questions.length > 0 ? (
+          <Card style={styles.section}>
+            <View style={styles.qaHead}>
+              <View style={styles.qaHeadIcon}>
+                <Ionicons name="chatbubble-ellipses" size={15} color="#ea580c" />
+              </View>
+              <Text style={[styles.qaTitle, { color: themeColors.text }]} numberOfLines={1}>
+                Travelers asked about <Text style={{ color: '#ea580c' }}>{qaDestination}</Text>
+              </Text>
+            </View>
+            <View style={[styles.qaList, { borderTopColor: themeColors.border }]}>
+              {questions.map((q) => (
+                <TouchableOpacity
+                  key={q._id}
+                  style={styles.qaItem}
+                  activeOpacity={0.7}
+                  onPress={() => router.push(`/community/${q._id}` as any)}
+                >
+                  <Text style={[styles.qaQ, { color: themeColors.text }]} numberOfLines={2}>{q.title}</Text>
+                  <View style={styles.qaMeta}>
+                    <Ionicons name="chatbubble-outline" size={12} color={themeColors.textTertiary} />
+                    <Text style={[styles.qaMetaText, { color: themeColors.textTertiary }]}>{q.answerCount || 0}</Text>
+                    <Ionicons name="thumbs-up-outline" size={12} color={themeColors.textTertiary} style={{ marginLeft: 8 }} />
+                    <Text style={[styles.qaMetaText, { color: themeColors.textTertiary }]}>{q.upvotes || 0}</Text>
+                    {q.isResolved ? (
+                      <View style={styles.qaResolved}>
+                        <Ionicons name="checkmark-circle" size={12} color="#059669" />
+                        <Text style={styles.qaResolvedText}>Resolved</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <TouchableOpacity style={styles.qaAsk} activeOpacity={0.85} onPress={() => router.push('/community' as any)}>
+              <Text style={styles.qaAskText}>Ask your own question</Text>
+              <Ionicons name="arrow-forward" size={14} color="#ea580c" />
             </TouchableOpacity>
           </Card>
         ) : null}
@@ -1454,8 +1542,25 @@ const styles = StyleSheet.create({
   aboutTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
   aboutSub: { fontSize: 12, marginTop: 1 },
   aboutBody: { fontSize: fontSize.sm, lineHeight: 22 },
+  qaHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  qaHeadIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center' },
+  qaTitle: { flex: 1, fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  qaList: { marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
+  qaItem: { paddingVertical: 12 },
+  qaQ: { fontSize: fontSize.sm, lineHeight: 20 },
+  qaMeta: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 6 },
+  qaMetaText: { fontSize: 12 },
+  qaResolved: { flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 10 },
+  qaResolvedText: { fontSize: 12, color: '#059669', fontWeight: fontWeight.medium },
+  qaAsk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#fff7ed', borderRadius: 10, paddingVertical: 12, marginTop: spacing.sm },
+  qaAskText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#ea580c' },
   mapHead: { padding: spacing.lg, paddingBottom: spacing.sm },
   routeMap: { width: '100%', height: 220 },
+  cityStrip: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  cityPillRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  cityNum: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  cityNumText: { color: '#fff', fontSize: 11, fontWeight: fontWeight.bold },
+  cityName: { fontSize: 13, fontWeight: fontWeight.medium },
   mapExpand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
   mapExpandText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#2563eb' },
   destGrid: { marginTop: spacing.md, gap: 8 },
