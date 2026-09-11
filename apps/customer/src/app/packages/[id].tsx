@@ -225,6 +225,26 @@ function youtubeEmbedHtml(videoId: string): string {
 // Numbered route-pill colours, cycling like the web's city strip.
 const CITY_COLORS = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7e22ce'];
 
+// Rough per-person DIY costs for travel in India, mirroring the web's
+// DIY_COSTS table. Rupee amounts per night / per day / per leg.
+const DIY_COSTS: {
+  hotel: Record<string, number>;
+  meals: Record<string, number>;
+  transportDefault: number;
+  sightseeing: number;
+  guide: number;
+  activityDefault: number;
+  bookingHassle: number;
+} = {
+  hotel: { budget: 1500, standard: 3000, premium: 5000, luxury: 8000 },
+  meals: { EP: 0, CP: 300, MAP: 700, AP: 1200 },
+  transportDefault: 2000,
+  sightseeing: 800,
+  guide: 500,
+  activityDefault: 1000,
+  bookingHassle: 1500, // the value of not having to arrange any of it
+};
+
 // Prayana Assured promises — the web's 2x2 white-on-gradient feature grid.
 const ASSURED = [
   { label: 'Verified stays & vetted partners', icon: 'checkmark-circle' },
@@ -664,16 +684,55 @@ export default function PackageDetailScreen() {
   const mrp = pkg.pricing?.mrp;
   const off = mrp && mrp > ctaPrice ? Math.round(((mrp - ctaPrice) / mrp) * 100) : 0;
 
-  // Indicative cost of arranging the same trip yourself, derived from the
-  // package price so it always reads sensibly. Labelled as indicative in the UI.
-  const diy = ctaPrice > 0 && nights > 0
-    ? (() => {
-        const hotels = Math.round((ctaPrice * 0.5) / 100) * 100;
-        const transport = Math.round((ctaPrice * 0.3) / 100) * 100;
-        const extras = Math.round((ctaPrice * 0.35) / 100) * 100;
-        return { hotels, transport, extras, total: hotels + transport + extras };
-      })()
-    : null;
+  // What the same trip costs booked yourself. These are real per-night / per-day
+  // rupee estimates (the web's DIY_COSTS table), NOT a multiplier on the package
+  // price — deriving them from the price would make the saving circular.
+  const diy = (() => {
+    if (!selectedVariant || ctaPrice <= 0) return null;
+    const d = nights + 1;
+    const cat = selectedVariant.hotelCategory || 'standard';
+    const plan = selectedVariant.mealPlan || 'MAP';
+
+    const hotelTotal = (DIY_COSTS.hotel[cat] ?? DIY_COSTS.hotel.standard) * nights;
+    // Note: EP is 0, so `||` promotes it to MAP — replicating the web's
+    // behaviour rather than silently diverging from it.
+    const mealsTotal = (DIY_COSTS.meals[plan] || DIY_COSTS.meals.MAP) * d;
+    const legs = (pkg.itinerary || []).filter((x: any) => x?.transport?.mode).length;
+    const transportTotal = legs * DIY_COSTS.transportDefault;
+    const sightseeingTotal = DIY_COSTS.sightseeing * d;
+    const guideTotal = DIY_COSTS.guide * d;
+    const activitiesTotal = (pkg.itinerary || []).reduce((sum: number, day: any) => {
+      return sum + (day.activities || [])
+        .filter((a: any) => a?.isIncluded)
+        .reduce((s: number, a: any) => s + (a.estimatedCost || DIY_COSTS.activityDefault), 0);
+    }, 0);
+    const bookingHassle = DIY_COSTS.bookingHassle;
+
+    const total = hotelTotal + mealsTotal + transportTotal + sightseeingTotal +
+      guideTotal + activitiesTotal + bookingHassle;
+    const savings = total - ctaPrice;
+    const savingsPercent = Math.round((savings / total) * 100);
+
+    // Hide entirely when the comparison would mislead — a non-INR variant or an
+    // implausible >=90% saving (the web added this after a USD variant claimed
+    // a 99% saving against a rupee DIY total).
+    if (savings <= 0 || savingsPercent >= 90) return null;
+
+    return {
+      rows: [
+        { icon: 'bed-outline', label: `${cat} hotel (${nights} night${nights === 1 ? '' : 's'})`, value: hotelTotal },
+        { icon: 'restaurant-outline', label: `Meals — ${plan} (${d} days)`, value: mealsTotal },
+        { icon: 'car-outline', label: `Transport (${legs} leg${legs === 1 ? '' : 's'})`, value: transportTotal },
+        { icon: 'camera-outline', label: `Sightseeing (${d} days)`, value: sightseeingTotal },
+        { icon: 'person-outline', label: 'Local guide', value: guideTotal },
+        { icon: 'compass-outline', label: 'Activities & experiences', value: activitiesTotal },
+        { icon: 'time-outline', label: 'Booking & planning time', value: bookingHassle, handled: true },
+      ],
+      total,
+      savings,
+      savingsPercent,
+    };
+  })();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -980,16 +1039,16 @@ export default function PackageDetailScreen() {
           </View>
           <View style={styles.qfGrid}>
             {days > 0 ? (
-              <QuickFact icon="calendar-outline" tint="#eff6ff" fg="#2563eb" label="Duration" value={`${days}D / ${nights}N`} c={themeColors} />
+              <QuickFact icon="calendar-outline" tint="#eff6ff" fg="#3b82f6" label="Duration" value={`${days}D / ${nights}N`} c={themeColors} />
             ) : null}
             {(pkg.destinations || []).length > 0 ? (
-              <QuickFact icon="location-outline" tint="#ecfdf5" fg="#059669" label="Destinations" value={`${pkg.destinations!.length} Place${pkg.destinations!.length === 1 ? '' : 's'}`} c={themeColors} />
+              <QuickFact icon="location-outline" tint="#ecfdf5" fg="#10b981" label="Destinations" value={`${pkg.destinations!.length} Place${pkg.destinations!.length === 1 ? '' : 's'}`} c={themeColors} />
             ) : null}
             {pkg.difficulty ? (
-              <QuickFact icon="navigate-outline" tint="#faf5ff" fg="#7e22ce" label="Difficulty" value={pkg.difficulty.charAt(0).toUpperCase() + pkg.difficulty.slice(1)} c={themeColors} />
+              <QuickFact icon="navigate-outline" tint="#faf5ff" fg="#a855f7" label="Difficulty" value={pkg.difficulty.charAt(0).toUpperCase() + pkg.difficulty.slice(1)} c={themeColors} />
             ) : null}
             {pkg.packageType ? (
-              <QuickFact icon="triangle-outline" tint="#fffbeb" fg="#d97706" label="Type" value={pkg.packageType.charAt(0).toUpperCase() + pkg.packageType.slice(1)} c={themeColors} />
+              <QuickFact icon="triangle-outline" tint="#fffbeb" fg="#f59e0b" label="Type" value={pkg.packageType.charAt(0).toUpperCase() + pkg.packageType.slice(1)} c={themeColors} />
             ) : null}
           </View>
         </Card>
@@ -1457,7 +1516,13 @@ export default function PackageDetailScreen() {
         {pkg.cancellationPolicy?.description || (pkg.cancellationPolicy?.rules || []).length > 0 ? (
           <Card style={styles.section}>
             <View style={styles.sectionAccentRow}>
-              <Ionicons name="shield-checkmark" size={16} color="#2563eb" />
+              {/* Emerald normally, amber when the policy is strict — the icon
+                  colour carries the signal, as on the web. */}
+              <Ionicons
+                name="shield-checkmark"
+                size={16}
+                color={pkg.cancellationPolicy?.type === 'strict' ? '#d97706' : '#059669'}
+              />
               <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Cancellation policy</Text>
             </View>
             {(pkg.cancellationPolicy?.rules || []).length > 0 ? (
@@ -1516,48 +1581,76 @@ export default function PackageDetailScreen() {
           </View>
         </LinearGradient>
 
-        {/* DIY vs package — what booking it yourself would cost */}
+        {/* DIY vs Package — 3-column comparison, web parity */}
         {diy ? (
-          <Card style={styles.section}>
-            <View style={styles.sectionAccentRow}>
-              <Ionicons name="calculator-outline" size={16} color="#7e22ce" />
-              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Book it yourself vs this package</Text>
+          <Card style={[styles.section, { padding: 0, overflow: 'hidden' }]}>
+            <LinearGradient
+              colors={['#2563eb', '#4f46e5']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.diyHeader}
+            >
+              <View style={styles.diyHeaderIcon}>
+                <Ionicons name="calculator" size={16} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.diyHeaderTitle}>DIY vs Package</Text>
+                <Text style={styles.diyHeaderSub}>If you booked everything yourself</Text>
+              </View>
+            </LinearGradient>
+
+            <View style={[styles.diyColHead, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.diyColH, { flex: 1, color: themeColors.textSecondary }]}>COMPONENT</Text>
+              <Text style={[styles.diyColH, { width: 80, textAlign: 'right', color: themeColors.textSecondary }]}>DIY</Text>
+              <Text style={[styles.diyColH, { width: 76, textAlign: 'right', color: themeColors.textSecondary }]}>PACKAGE</Text>
             </View>
-            <View style={[styles.diyRows, { borderTopColor: themeColors.border }]}>
-              <View style={styles.diyRow}>
-                <Text style={[styles.diyK, { color: themeColors.textSecondary }]}>Hotels ({nights} nights)</Text>
-                <Text style={[styles.diyV, { color: themeColors.text }]}>₹{diy.hotels.toLocaleString('en-IN')}</Text>
-              </View>
-              <View style={styles.diyRow}>
-                <Text style={[styles.diyK, { color: themeColors.textSecondary }]}>Transport &amp; transfers</Text>
-                <Text style={[styles.diyV, { color: themeColors.text }]}>₹{diy.transport.toLocaleString('en-IN')}</Text>
-              </View>
-              <View style={styles.diyRow}>
-                <Text style={[styles.diyK, { color: themeColors.textSecondary }]}>Meals &amp; entry fees</Text>
-                <Text style={[styles.diyV, { color: themeColors.text }]}>₹{diy.extras.toLocaleString('en-IN')}</Text>
-              </View>
-              <View style={[styles.diyRow, styles.diyTotalRow, { borderTopColor: themeColors.border }]}>
-                <Text style={[styles.diyK, { color: themeColors.text, fontWeight: fontWeight.bold }]}>Doing it yourself</Text>
-                <Text style={[styles.diyV, { color: themeColors.text, fontWeight: fontWeight.bold }]}>
-                  ₹{diy.total.toLocaleString('en-IN')}
+
+            {diy.rows.map((r, i) => (
+              <View key={i} style={[styles.diyItemRow, { borderBottomColor: themeColors.border }]}>
+                <View style={styles.diyIcon}>
+                  <Ionicons name={r.icon as any} size={12} color="#2563eb" />
+                </View>
+                <Text style={[styles.diyLabel, { color: themeColors.text }]} numberOfLines={1}>{r.label}</Text>
+                <Text style={[styles.diyAmount, { width: 80, color: themeColors.text }]}>
+                  ₹{r.value.toLocaleString('en-IN')}
                 </Text>
+                <View style={{ width: 76, alignItems: 'flex-end' }}>
+                  {r.handled ? (
+                    <Text style={styles.diyHandled}>We handle it</Text>
+                  ) : (
+                    <View style={styles.diyCheck}>
+                      <Ionicons name="checkmark" size={11} color="#059669" />
+                    </View>
+                  )}
+                </View>
               </View>
-              <View style={styles.diyRow}>
-                <Text style={[styles.diyK, { color: '#059669', fontWeight: fontWeight.bold }]}>This package</Text>
-                <Text style={styles.diySave}>₹{ctaPrice.toLocaleString('en-IN')}</Text>
-              </View>
+            ))}
+
+            <View style={[styles.diyTotals, { borderTopColor: themeColors.border }]}>
+              <Text style={[styles.diyTotalLabel, { color: themeColors.text }]}>Total / person</Text>
+              <Text style={[styles.diyStrike, { width: 80 }]}>₹{diy.total.toLocaleString('en-IN')}</Text>
+              <Text style={[styles.diyPkgTotal, { width: 76 }]}>₹{ctaPrice.toLocaleString('en-IN')}</Text>
             </View>
-            {diy.total > ctaPrice ? (
-              <View style={styles.diyBanner}>
-                <Ionicons name="sparkles" size={13} color="#059669" />
-                <Text style={styles.diyBannerText}>
-                  You save about ₹{(diy.total - ctaPrice).toLocaleString('en-IN')} per person
-                </Text>
+
+            <LinearGradient
+              colors={['#10b981', '#22c55e']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.diySavings}
+            >
+              <View style={styles.diyHeaderIcon}>
+                <Ionicons name="trending-down" size={16} color="#fff" />
               </View>
-            ) : null}
-            <Text style={[styles.reachNote, { color: themeColors.textTertiary }]}>
-              Indicative market rates for the same standard of stay and transport.
-            </Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.diySavingsTitle}>
+                  You save ₹{diy.savings.toLocaleString('en-IN')}
+                </Text>
+                <Text style={styles.diySavingsSub}>Book with Prayana &amp; pocket the difference</Text>
+              </View>
+              <View style={styles.diyPct}>
+                <Text style={styles.diyPctText}>-{diy.savingsPercent}%</Text>
+              </View>
+            </LinearGradient>
           </Card>
         ) : null}
 
@@ -1945,14 +2038,28 @@ const styles = StyleSheet.create({
   assuredGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.md, rowGap: 10 },
   assuredCell: { width: '50%', flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingRight: 8 },
   assuredText: { flex: 1, color: '#fff', fontSize: 11, lineHeight: 15 },
-  diyRows: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
-  diyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  diyTotalRow: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, marginTop: 2 },
-  diyK: { fontSize: 13 },
-  diyV: { fontSize: 13, fontWeight: fontWeight.semibold },
-  diySave: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#059669' },
-  diyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#ecfdf5', borderRadius: 10, paddingVertical: 9, marginTop: spacing.md },
-  diyBannerText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#059669' },
+  diyHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.lg },
+  diyHeaderIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
+  diyHeaderTitle: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  diyHeaderSub: { color: '#dbeafe', fontSize: 11, marginTop: 1 },
+  diyColHead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth },
+  diyColH: { fontSize: 10, fontWeight: fontWeight.bold, letterSpacing: 0.7 },
+  diyItemRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  diyIcon: { width: 24, height: 24, borderRadius: 8, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  diyLabel: { flex: 1, fontSize: 12 },
+  diyAmount: { fontSize: 12, fontWeight: fontWeight.semibold, textAlign: 'right' },
+  diyCheck: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#d1fae5', alignItems: 'center', justifyContent: 'center' },
+  diyHandled: { fontSize: 11, color: '#059669', fontWeight: fontWeight.medium },
+  diyTotals: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 12, borderTopWidth: 1.5, backgroundColor: '#f9fafb' },
+  diyTotalLabel: { flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  // rose-500, not red — matches the web's struck-through DIY total.
+  diyStrike: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#f43f5e', textAlign: 'right', textDecorationLine: 'line-through' },
+  diyPkgTotal: { fontSize: 15, fontWeight: fontWeight.bold, color: '#059669', textAlign: 'right' },
+  diySavings: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.lg },
+  diySavingsTitle: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  diySavingsSub: { color: 'rgba(255,255,255,0.9)', fontSize: 11, marginTop: 1 },
+  diyPct: { backgroundColor: '#fff', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 },
+  diyPctText: { fontSize: 12, fontWeight: fontWeight.bold, color: '#059669' },
   schedHeadWrap: { padding: spacing.lg, paddingBottom: spacing.md },
   schedHeadRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   schedH: { fontSize: 10, fontWeight: fontWeight.bold, letterSpacing: 0.7 },
