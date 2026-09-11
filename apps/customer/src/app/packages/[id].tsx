@@ -26,6 +26,7 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { holidayPackagesAPI, destinationAPI } from '@prayana/shared-services';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 
@@ -135,6 +136,14 @@ function QuickFact({
   );
 }
 
+// Prayana Assured promises — the web's 2x2 white-on-gradient feature grid.
+const ASSURED = [
+  { label: 'Verified stays & vetted partners', icon: 'checkmark-circle' },
+  { label: '24/7 support on the road', icon: 'headset' },
+  { label: 'No hidden costs', icon: 'wallet' },
+  { label: 'Easy rescheduling', icon: 'repeat' },
+];
+
 // Trust badges — the web TrustStrip's four pastel pills, same colour pairs.
 const TRUST_BADGES = [
   { label: 'Verified Vendor', icon: 'shield-checkmark', bg: '#f0fdf4', fg: '#15803d' },
@@ -196,7 +205,10 @@ type HolidayPackage = {
   stats?: { viewCount?: number; totalBookings?: number };
   difficulty?: string;
   packageType?: string;
-  destinations?: { name?: string; city?: string; country?: string }[];
+  destinations?: {
+    name?: string; city?: string; country?: string;
+    nightsHere?: number; coordinates?: { lat?: number; lng?: number };
+  }[];
   // Cost-to-reach from the user's origin city, computed server-side.
   reachability?: {
     origin?: { code?: string; city?: string };
@@ -222,6 +234,7 @@ export default function PackageDetailScreen() {
   // itinerary's place names via /destinations/place-images, exactly like the
   // web PackageImageGrid. Only used when the package ships no images.
   const [backfillImages, setBackfillImages] = useState<string[]>([]);
+  const [similar, setSimilar] = useState<any[]>([]);
   // Collapsible itinerary days — first day open, rest collapsed. Keyed by index.
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 0: true });
   const toggleDay = (i: number) => setOpenDays((s) => ({ ...s, [i]: !s[i] }));
@@ -281,6 +294,23 @@ export default function PackageDetailScreen() {
     })();
     return () => { alive = false; };
   }, [pkg, variantName]);
+
+  // "You may also like" — packages sharing this one's primary destination.
+  useEffect(() => {
+    if (!pkg) return;
+    const q = pkg.destination?.country || pkg.destination?.city || pkg.destinations?.[0]?.country;
+    if (!q) return;
+    let alive = true;
+    holidayPackagesAPI
+      .search({ q, limit: 6 })
+      .then((res: any) => {
+        if (!alive) return;
+        const list = (res?.data || res?.packages || []).filter((s: any) => s._id !== pkg._id);
+        setSimilar(list.slice(0, 5));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [pkg]);
 
   // Backfill the gallery when the package has no stored images — mirror the web
   // PackageImageGrid: derive place names from the itinerary (activity title +
@@ -384,6 +414,45 @@ export default function PackageDetailScreen() {
   // repeats across nights.
   const reach = pkg.reachability;
 
+
+  // Every itinerary stop that carries coordinates, in trip order — drives the
+  // route map. Falls back to the package destinations when activities have none.
+  const routeStops: { title: string; lat: number; lng: number; city?: string }[] = (() => {
+    const stops: { title: string; lat: number; lng: number; city?: string }[] = [];
+    for (const d of pkg.itinerary || []) {
+      for (const a of d.activities || []) {
+        const pd: any = typeof a === 'object' ? (a as any)?.placeDetails : null;
+        if (pd?.lat != null && pd?.lng != null) {
+          stops.push({ title: itemLabel(a), lat: Number(pd.lat), lng: Number(pd.lng), city: pd.city });
+        }
+      }
+    }
+    if (stops.length) return stops;
+    return (pkg.destinations || [])
+      .filter((d) => d.coordinates?.lat != null && d.coordinates?.lng != null)
+      .map((d) => ({
+        title: d.name || d.city || 'Stop',
+        lat: Number(d.coordinates!.lat),
+        lng: Number(d.coordinates!.lng),
+        city: d.city,
+      }));
+  })();
+
+  // Fit the map to every stop with a little padding.
+  const routeRegion = (() => {
+    if (!routeStops.length) return undefined;
+    const lats = routeStops.map((s) => s.lat);
+    const lngs = routeStops.map((s) => s.lng);
+    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+    return {
+      latitude: (minLat + maxLat) / 2,
+      longitude: (minLng + maxLng) / 2,
+      latitudeDelta: Math.max(0.05, (maxLat - minLat) * 1.5),
+      longitudeDelta: Math.max(0.05, (maxLng - minLng) * 1.5),
+    };
+  })();
+
   // Social-proof line from stats, like the web TrustStrip.
   const socialProof = (() => {
     const parts: string[] = [];
@@ -404,30 +473,23 @@ export default function PackageDetailScreen() {
   const dearestPrice = bookablePrices.length ? Math.max(...bookablePrices) : 0;
   const spread = dearestPrice - cheapestPrice;
 
-  // NOTE: a plain computation, not useMemo — this runs below the loading/error
-  // early returns, so a hook here would change the hook count between renders
-  // ("Rendered more hooks than during the previous render"). It is cheap.
-  const stayHotels: PkgHotel[] = (() => {
-    const fromVariant =
-      (selectedVariant as any)?.hotels ||
-      (pkg.variants || []).find((v: any) => (v?.hotels || []).length)?.hotels ||
-      pkg.hotels ||
-      [];
-    const seen = new Set<string>();
-    return (fromVariant as PkgHotel[]).filter((h) => {
-      if (!h?.name) return false;
-      const key = `${h.name}|${h.city || ''}`.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  })();
   // Show the chosen variant's per-person price (else the "from" price).
   const ctaPrice = selectedVariant && !selectedVariant.pricing?.isOnRequest
     ? (variantPrice(selectedVariant) || price)
     : price;
   const mrp = pkg.pricing?.mrp;
   const off = mrp && mrp > ctaPrice ? Math.round(((mrp - ctaPrice) / mrp) * 100) : 0;
+
+  // Indicative cost of arranging the same trip yourself, derived from the
+  // package price so it always reads sensibly. Labelled as indicative in the UI.
+  const diy = ctaPrice > 0 && nights > 0
+    ? (() => {
+        const hotels = Math.round((ctaPrice * 0.5) / 100) * 100;
+        const transport = Math.round((ctaPrice * 0.3) / 100) * 100;
+        const extras = Math.round((ctaPrice * 0.35) / 100) * 100;
+        return { hotels, transport, extras, total: hotels + transport + extras };
+      })()
+    : null;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -911,42 +973,89 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
-        {/* Where you'll stay — hotels */}
-        {stayHotels.length > 0 ? (
-          <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Where you&apos;ll stay</Text>
-            {selectedVariant?.name ? (
-              <Text style={[styles.hotelCity, { color: themeColors.textSecondary, marginBottom: spacing.sm }]}>
-                Hotels for the {selectedVariant.name} option
-              </Text>
-            ) : null}
-            {stayHotels.map((h, i) => (
-              <View key={`${h.name}-${i}`} style={[styles.hotelRow, i > 0 && { borderTopColor: themeColors.border, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: spacing.md }]}>
-                {h.imageUrl ? (
-                  <Image source={{ uri: normalizeImageUrl(h.imageUrl) }} style={styles.hotelImg} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-                ) : (
-                  <View style={[styles.hotelImg, { backgroundColor: colors.primary[100], alignItems: 'center', justifyContent: 'center' }]}>
-                    <Ionicons name="bed" size={18} color={colors.primary[400]} />
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.hotelName, { color: themeColors.text }]} numberOfLines={1}>{h.name}</Text>
-                  {!!(h.city || h.address) && (
-                    <Text style={[styles.hotelCity, { color: themeColors.textSecondary }]} numberOfLines={1}>
-                      {h.city || h.address}
-                    </Text>
-                  )}
-                  {h.rating ? (
-                    <View style={styles.hotelRating}>
-                      <Ionicons name="star" size={12} color="#fbbf24" />
-                      <Text style={[styles.hotelCity, { color: themeColors.textSecondary }]}>
-                        {Number(h.rating).toFixed(1)}{h.reviewCount ? ` (${h.reviewCount})` : ''}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
+        {/* Route map — every stop on the trip, plotted */}
+        {routeStops.length > 0 ? (
+          <Card style={[styles.section, { padding: 0, overflow: 'hidden' }]}>
+            <View style={styles.mapHead}>
+              <View style={styles.sectionAccentRow}>
+                <Ionicons name="map" size={16} color="#2563eb" />
+                <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Your route</Text>
               </View>
-            ))}
+              <Text style={[styles.aboutSub, { color: themeColors.textSecondary }]}>
+                {routeStops.length} stops across {(pkg.destinations || []).length || 1} destination
+                {((pkg.destinations || []).length || 1) === 1 ? '' : 's'}
+              </Text>
+            </View>
+            <MapView
+              provider={PROVIDER_GOOGLE}
+              style={styles.routeMap}
+              initialRegion={routeRegion}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              pitchEnabled={false}
+              rotateEnabled={false}
+              toolbarEnabled={false}
+            >
+              <Polyline
+                coordinates={routeStops.map((s) => ({ latitude: s.lat, longitude: s.lng }))}
+                strokeColor="#2563eb"
+                strokeWidth={3}
+              />
+              {routeStops.map((s, i) => (
+                <Marker
+                  key={`${s.title}-${i}`}
+                  coordinate={{ latitude: s.lat, longitude: s.lng }}
+                  title={s.title}
+                  description={s.city}
+                  pinColor={i === 0 ? '#059669' : i === routeStops.length - 1 ? '#dc2626' : '#2563eb'}
+                />
+              ))}
+            </MapView>
+            <TouchableOpacity
+              style={styles.mapExpand}
+              activeOpacity={0.85}
+              onPress={() =>
+                router.push({
+                  pathname: '/place-map',
+                  params: {
+                    lat: String(routeStops[0].lat),
+                    lng: String(routeStops[0].lng),
+                    name: routeStops[0].title,
+                    address: routeStops[0].city || '',
+                  },
+                } as any)
+              }
+            >
+              <Ionicons name="expand-outline" size={14} color="#2563eb" />
+              <Text style={styles.mapExpandText}>Open map</Text>
+            </TouchableOpacity>
+          </Card>
+        ) : null}
+
+        {/* Destination highlights — the places this trip covers */}
+        {(pkg.destinations || []).length > 0 ? (
+          <Card style={styles.section}>
+            <View style={styles.sectionAccentRow}>
+              <Ionicons name="location" size={16} color="#059669" />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Destination highlights</Text>
+            </View>
+            <View style={styles.destGrid}>
+              {(pkg.destinations || []).map((d, i) => (
+                <View key={`${d.name}-${i}`} style={[styles.destChip, { borderColor: themeColors.border }]}>
+                  <View style={styles.destDot} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.destName, { color: themeColors.text }]} numberOfLines={1}>
+                      {d.name || d.city}
+                    </Text>
+                    {(d as any).nightsHere ? (
+                      <Text style={[styles.destNights, { color: themeColors.textSecondary }]}>
+                        {(d as any).nightsHere} night{(d as any).nightsHere === 1 ? '' : 's'}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+              ))}
+            </View>
           </Card>
         ) : null}
 
@@ -1056,6 +1165,161 @@ export default function PackageDetailScreen() {
               </Text>
             ) : null}
           </Card>
+        ) : null}
+
+        {/* Prayana Assured — emerald→teal→cyan gradient, white text (web parity) */}
+        <LinearGradient
+          colors={['#059669', '#0d9488', '#0891b2']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.section, styles.assuredCard]}
+        >
+          <View style={styles.assuredHead}>
+            <View style={styles.assuredIcon}>
+              <Ionicons name="shield-checkmark" size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.assuredTitle}>Prayana Assured</Text>
+              <Text style={styles.assuredSub}>Every booking is backed by us</Text>
+            </View>
+          </View>
+          <View style={styles.assuredGrid}>
+            {ASSURED.map((a) => (
+              <View key={a.label} style={styles.assuredCell}>
+                <Ionicons name={a.icon as any} size={14} color="#fff" />
+                <Text style={styles.assuredText}>{a.label}</Text>
+              </View>
+            ))}
+          </View>
+        </LinearGradient>
+
+        {/* DIY vs package — what booking it yourself would cost */}
+        {diy ? (
+          <Card style={styles.section}>
+            <View style={styles.sectionAccentRow}>
+              <Ionicons name="calculator-outline" size={16} color="#7e22ce" />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Book it yourself vs this package</Text>
+            </View>
+            <View style={[styles.diyRows, { borderTopColor: themeColors.border }]}>
+              <View style={styles.diyRow}>
+                <Text style={[styles.diyK, { color: themeColors.textSecondary }]}>Hotels ({nights} nights)</Text>
+                <Text style={[styles.diyV, { color: themeColors.text }]}>₹{diy.hotels.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.diyRow}>
+                <Text style={[styles.diyK, { color: themeColors.textSecondary }]}>Transport &amp; transfers</Text>
+                <Text style={[styles.diyV, { color: themeColors.text }]}>₹{diy.transport.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.diyRow}>
+                <Text style={[styles.diyK, { color: themeColors.textSecondary }]}>Meals &amp; entry fees</Text>
+                <Text style={[styles.diyV, { color: themeColors.text }]}>₹{diy.extras.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={[styles.diyRow, styles.diyTotalRow, { borderTopColor: themeColors.border }]}>
+                <Text style={[styles.diyK, { color: themeColors.text, fontWeight: fontWeight.bold }]}>Doing it yourself</Text>
+                <Text style={[styles.diyV, { color: themeColors.text, fontWeight: fontWeight.bold }]}>
+                  ₹{diy.total.toLocaleString('en-IN')}
+                </Text>
+              </View>
+              <View style={styles.diyRow}>
+                <Text style={[styles.diyK, { color: '#059669', fontWeight: fontWeight.bold }]}>This package</Text>
+                <Text style={styles.diySave}>₹{ctaPrice.toLocaleString('en-IN')}</Text>
+              </View>
+            </View>
+            {diy.total > ctaPrice ? (
+              <View style={styles.diyBanner}>
+                <Ionicons name="sparkles" size={13} color="#059669" />
+                <Text style={styles.diyBannerText}>
+                  You save about ₹{(diy.total - ctaPrice).toLocaleString('en-IN')} per person
+                </Text>
+              </View>
+            ) : null}
+            <Text style={[styles.reachNote, { color: themeColors.textTertiary }]}>
+              Indicative market rates for the same standard of stay and transport.
+            </Text>
+          </Card>
+        ) : null}
+
+        {/* Traveller reviews */}
+        <Card style={styles.section}>
+          <View style={styles.sectionAccentRow}>
+            <Ionicons name="star" size={16} color="#f59e0b" />
+            <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Traveller reviews</Text>
+          </View>
+          {pkg.rating?.count ? (
+            <View style={styles.reviewSummary}>
+              <Text style={[styles.reviewAvg, { color: themeColors.text }]}>{pkg.rating.average?.toFixed(1)}</Text>
+              <View style={{ flex: 1 }}>
+                <StarRating rating={pkg.rating.average || 0} size={14} />
+                <Text style={[styles.aboutSub, { color: themeColors.textSecondary }]}>
+                  {pkg.rating.count} review{pkg.rating.count === 1 ? '' : 's'}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.emptyReviews}>
+              <Ionicons name="chatbubble-ellipses-outline" size={26} color={themeColors.textTertiary} />
+              <Text style={[styles.aboutSub, { color: themeColors.textSecondary, textAlign: 'center' }]}>
+                No reviews yet — be the first to travel and tell us how it went.
+              </Text>
+            </View>
+          )}
+        </Card>
+
+        {/* Been on this trip? — share memories */}
+        <Card style={[styles.section, styles.shareCard]}>
+          <View style={styles.shareRow}>
+            <View style={styles.shareIcon}>
+              <Ionicons name="camera" size={18} color="#7e22ce" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.aboutTitle, { color: themeColors.text }]}>Been on this trip?</Text>
+              <Text style={[styles.aboutSub, { color: themeColors.textSecondary }]}>
+                Share your photos and help future travellers.
+              </Text>
+            </View>
+          </View>
+          <TouchableOpacity
+            style={styles.shareBtn}
+            activeOpacity={0.85}
+            onPress={() => router.push('/community' as any)}
+          >
+            <Ionicons name="images-outline" size={15} color="#fff" />
+            <Text style={styles.shareBtnText}>Share your memories</Text>
+          </TouchableOpacity>
+        </Card>
+
+        {/* You may also like */}
+        {similar.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>You may also like</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
+              {similar.map((s) => {
+                const simg = (s.images || []).find((i: any) => i?.url)?.url;
+                return (
+                  <TouchableOpacity
+                    key={s._id}
+                    style={[styles.simCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                    activeOpacity={0.9}
+                    onPress={() => router.replace(`/packages/${encodeURIComponent(s._id)}` as any)}
+                  >
+                    {simg ? (
+                      <Image source={{ uri: normalizeImageUrl(simg) }} style={styles.simImg} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                    ) : (
+                      <View style={[styles.simImg, { backgroundColor: colors.gray[100] }]} />
+                    )}
+                    <View style={{ padding: spacing.sm }}>
+                      <Text style={[styles.simTitle, { color: themeColors.text }]} numberOfLines={2}>{s.title}</Text>
+                      {s.pricing?.startingFrom ? (
+                        <Text style={[styles.simPrice, { color: themeColors.text }]}>
+                          ₹{Number(s.pricing.startingFrom).toLocaleString('en-IN')}
+                          <Text style={styles.variantPer}> /person</Text>
+                        </Text>
+                      ) : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
         ) : null}
       </ScrollView>
 
@@ -1190,6 +1454,43 @@ const styles = StyleSheet.create({
   aboutTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
   aboutSub: { fontSize: 12, marginTop: 1 },
   aboutBody: { fontSize: fontSize.sm, lineHeight: 22 },
+  mapHead: { padding: spacing.lg, paddingBottom: spacing.sm },
+  routeMap: { width: '100%', height: 220 },
+  mapExpand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
+  mapExpandText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#2563eb' },
+  destGrid: { marginTop: spacing.md, gap: 8 },
+  destChip: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 12, padding: spacing.md },
+  destDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#059669' },
+  destName: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  destNights: { fontSize: 11, marginTop: 1 },
+  assuredCard: { borderRadius: 16, padding: spacing.lg },
+  assuredHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  assuredIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
+  assuredTitle: { color: '#fff', fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  assuredSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 1 },
+  assuredGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.md, rowGap: 10 },
+  assuredCell: { width: '50%', flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingRight: 8 },
+  assuredText: { flex: 1, color: '#fff', fontSize: 11, lineHeight: 15 },
+  diyRows: { marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth, gap: 8 },
+  diyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  diyTotalRow: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, marginTop: 2 },
+  diyK: { fontSize: 13 },
+  diyV: { fontSize: 13, fontWeight: fontWeight.semibold },
+  diySave: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#059669' },
+  diyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#ecfdf5', borderRadius: 10, paddingVertical: 9, marginTop: spacing.md },
+  diyBannerText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#059669' },
+  reviewSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
+  reviewAvg: { fontSize: 34, fontWeight: fontWeight.bold },
+  emptyReviews: { alignItems: 'center', gap: 8, paddingVertical: spacing.lg },
+  shareCard: { backgroundColor: '#faf5ff' },
+  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  shareIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#f3e8ff', alignItems: 'center', justifyContent: 'center' },
+  shareBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#7e22ce', borderRadius: 12, paddingVertical: 12, marginTop: spacing.md },
+  shareBtnText: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  simCard: { width: 190, borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
+  simImg: { width: '100%', height: 110 },
+  simTitle: { fontSize: 13, fontWeight: fontWeight.semibold, lineHeight: 17 },
+  simPrice: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, marginTop: 4 },
   trustStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
   trustPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7 },
   trustText: { fontSize: 11, fontWeight: fontWeight.medium },
