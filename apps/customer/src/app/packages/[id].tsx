@@ -163,6 +163,42 @@ function routeCities(pkg: HolidayPackage): string[] {
   return cities.length ? cities : route;
 }
 
+// Rank Shorts by how well each matches the destination. Ported from the web
+// rail: place-name tokens score +2, the city only +1 — searching by city alone
+// used to return unrelated street-food clips, so the specific place must lead.
+// Ranking never drops everything: if fewer than three videos score, keep them
+// all in ranked order rather than showing an empty rail.
+const SHORTS_STOPWORDS = new Set([
+  'the', 'and', 'for', 'with', 'from', 'near', 'this', 'that', 'tour', 'tours',
+  'trip', 'trips', 'travel', 'india', 'best', 'top', 'day', 'days', 'nights',
+]);
+
+function rankShorts(placeName: string, city: string, items: any[]): any[] {
+  const norm = (s: string) => String(s || '').toLowerCase();
+  const tokens = norm(placeName)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length > 3 && !SHORTS_STOPWORDS.has(t));
+  const cityToken = norm(city);
+
+  // Allow a prefix-stem match on longer tokens so "Netravathi" matches
+  // "Netravati" — spellings vary across channels.
+  const looseIncludes = (hay: string, token: string) => {
+    if (hay.includes(token)) return true;
+    return token.length >= 6 && hay.includes(token.slice(0, token.length - 2));
+  };
+
+  const scored = items.map((v) => {
+    const hay = norm(`${v.title} ${v.channel}`);
+    let score = 0;
+    for (const t of tokens) if (looseIncludes(hay, t)) score += 2;
+    if (cityToken && hay.includes(cityToken)) score += 1;
+    return { v, score };
+  });
+  scored.sort((a, b) => b.score - a.score);
+  const strong = scored.filter((s) => s.score >= 2);
+  return (strong.length >= 3 ? strong : scored).map((s) => s.v);
+}
+
 // Serve the YouTube iframe as HTML with a real baseUrl rather than navigating
 // straight to youtube.com/embed — a bare WebView navigation sends no origin and
 // YouTube refuses to embed, returning "Error 153".
@@ -374,21 +410,41 @@ export default function PackageDetailScreen() {
     return () => { alive = false; };
   }, [pkg]);
 
-  // "In-depth experience" — traveller Shorts for the destination. Same call the
-  // destination Videos tab uses: /youtube/search with shorts=1, keyed on the
-  // city NAME (this is a search endpoint, unrelated to /destinations/videos,
-  // which wants a destination id).
+  // "In-depth experience" — traveller Shorts. Mirrors the web rail: TWO queries
+  // ("<place> travel" and "<place> <city> tourist places"), merged, deduped by
+  // video id, then ranked by how well the title/channel match the destination.
+  // /youtube/search is a free-text search — unrelated to /destinations/videos,
+  // which wants a destination id.
   useEffect(() => {
     if (!pkg) return;
-    const cities = routeCities(pkg);
-    if (!cities.length) return;
+    const placeName = pkg.primaryDestination || routeCities(pkg)[0] || '';
+    const city = pkg.destinations?.[0]?.city || placeName;
+    if (!placeName) return;
+
+    // The web trims the place name to its first clause, max four words, before
+    // searching — long titles otherwise return nothing.
+    const head = placeName.split(/[–—\-|:&,(]/)[0].trim().split(/\s+/).slice(0, 4).join(' ');
+    const name = head || placeName;
+    const queries = [`${name} travel`, [name, city].filter(Boolean).join(' ') + ' tourist places']
+      .filter((q, i, arr) => q && arr.indexOf(q) === i);
+
     let alive = true;
-    videosAPI
-      .search({ q: `${cities[0]} ${pkg.destinations?.[0]?.country || ''} travel`.trim(), max: 10, shorts: 1 })
-      .then((res: any) => {
+    Promise.all(
+      queries.map((q) => videosAPI.search({ q, max: 18, shorts: 1 }).catch(() => null)),
+    )
+      .then((resList: any[]) => {
         if (!alive) return;
-        const list = res?.results || res?.data || [];
-        setShorts(Array.isArray(list) ? list.filter((v: any) => v?.id) : []);
+        const seen = new Set<string>();
+        const all: any[] = [];
+        for (const res of resList) {
+          for (const v of res?.results || res?.data || []) {
+            const id = v?.id || v?.videoId;
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+            all.push({ ...v, id });
+          }
+        }
+        setShorts(rankShorts(placeName, city, all).slice(0, 12));
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -1714,7 +1770,8 @@ const styles = StyleSheet.create({
   aboutSub: { fontSize: 12, marginTop: 1 },
   aboutBody: { fontSize: fontSize.sm, lineHeight: 22 },
   // Shorts rail — portrait 9:16 cards, like the web
-  shortCard: { width: 150, height: 267, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.gray[200] },
+  // 160 x 284 — the web's w-[160px] with a 9:16 aspect, 16px radius.
+  shortCard: { width: 160, height: 284, borderRadius: 16, overflow: 'hidden', backgroundColor: '#000' },
   shortPlay: {
     position: 'absolute', top: 10, right: 10,
     width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.92)',
