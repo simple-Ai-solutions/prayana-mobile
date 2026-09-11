@@ -437,7 +437,20 @@ export default function PackageDetailScreen() {
       `&destinations=${encodeURIComponent(cities.join(','))}&limit=4`;
     makeAPICall(`/questions/by-destination?${qs}`)
       .then((res: any) => {
-        if (alive) setQuestions(res?.data || []);
+        if (!alive) return;
+        // The endpoint tops its pool up with a fuzzy text search when exact
+        // tripContext matches under-fill, so it can surface questions about
+        // other places entirely. Keep only those that actually name a city on
+        // this route. The web does the same, but its filter lives in a sibling
+        // component, so porting the panel alone inherits the loose results.
+        const list = (res?.data || []).filter((q: any) => {
+          const hay = [q?.title, q?.description, ...(Array.isArray(q?.tags) ? q.tags : [])]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase();
+          return cities.some((c) => hay.includes(c.split(',')[0].trim().toLowerCase()));
+        });
+        setQuestions(list);
       })
       .catch(() => {});
     return () => { alive = false; };
