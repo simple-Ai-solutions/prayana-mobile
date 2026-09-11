@@ -136,6 +136,31 @@ function QuickFact({
   );
 }
 
+// The trip's city route, deduped and with the origin removed — the web derives
+// the Q&A destination this way rather than trusting primaryDestination, which
+// on some imports holds the departure city. The server matches these names
+// exactly (case-insensitively) against tripContext.destination, so pass plain
+// city names — "Thimphu", never "Thimphu, Bhutan" or a slug.
+function routeCities(pkg: HolidayPackage): string[] {
+  const seen = new Set<string>();
+  const route = (pkg.destinations || [])
+    .map((d) => d.city || d.name)
+    .filter((c): c is string => !!c)
+    .filter((c) => {
+      const k = c.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  const firstLeg = String(pkg.itinerary?.[0]?.title || '');
+  const arrow = firstLeg.split(/→|->|\sto\s/i);
+  const origin = arrow.length > 1 ? arrow[0].trim() : null;
+  const cities = route.filter(
+    (c) => route.length < 2 || !origin || c.toLowerCase() !== origin.toLowerCase(),
+  );
+  return cities.length ? cities : route;
+}
+
 // Numbered route-pill colours, cycling like the web's city strip.
 const CITY_COLORS = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7e22ce'];
 
@@ -300,15 +325,21 @@ export default function PackageDetailScreen() {
     return () => { alive = false; };
   }, [pkg, variantName]);
 
-  // Community Q&A for the trip's primary destination. NOTE the route:
-  // /questions/by-destination — the plain /questions?destination= route ignores
-  // the filter and returns unrelated questions.
+  // Community Q&A. Two things matter here:
+  //  * the route is /questions/by-destination — the plain /questions route
+  //    silently drops a `destination` param and returns an unfiltered list.
+  //  * do NOT use primaryDestination: on some imports it holds the DEPARTURE
+  //    city (Delhi for a Manali package). Derive the route from destinations[],
+  //    strip the origin, and send the whole route as `destinations` so the
+  //    server can widen its match beyond the first city.
   useEffect(() => {
     if (!pkg) return;
-    const dest = pkg.primaryDestination || pkg.destinations?.[0]?.city || pkg.destination?.city;
-    if (!dest) return;
+    const cities = routeCities(pkg);
+    if (!cities.length) return;
     let alive = true;
-    makeAPICall(`/questions/by-destination?destination=${encodeURIComponent(dest)}&limit=4`)
+    const qs = `destination=${encodeURIComponent(cities[0])}` +
+      `&destinations=${encodeURIComponent(cities.join(','))}&limit=4`;
+    makeAPICall(`/questions/by-destination?${qs}`)
       .then((res: any) => {
         if (alive) setQuestions(res?.data || []);
       })
@@ -434,8 +465,7 @@ export default function PackageDetailScreen() {
   // the (rare) package-level array. Dedupe by name+city: the same property
   // repeats across nights.
   const reach = pkg.reachability;
-  const qaDestination =
-    pkg.primaryDestination || pkg.destinations?.[0]?.city || pkg.destination?.city || '';
+  const qaDestination = routeCities(pkg)[0] || '';
 
 
   // Every itinerary stop that carries coordinates, in trip order — drives the
@@ -1113,7 +1143,11 @@ export default function PackageDetailScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={styles.qaAsk} activeOpacity={0.85} onPress={() => router.push('/community' as any)}>
+            <TouchableOpacity
+              style={styles.qaAsk}
+              activeOpacity={0.85}
+              onPress={() => router.push(`/community/ask?destination=${encodeURIComponent(qaDestination)}` as any)}
+            >
               <Text style={styles.qaAskText}>Ask your own question</Text>
               <Ionicons name="arrow-forward" size={14} color="#ea580c" />
             </TouchableOpacity>
