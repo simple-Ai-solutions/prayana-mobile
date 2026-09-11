@@ -118,6 +118,23 @@ type PkgVariant = {
   maxGroupSize?: number;
 };
 
+// One cell of the Quick Facts grid: pastel icon tile + label above value.
+function QuickFact({
+  icon, tint, fg, label, value, c,
+}: { icon: any; tint: string; fg: string; label: string; value: string; c: any }) {
+  return (
+    <View style={styles.qfCell}>
+      <View style={[styles.qfIcon, { backgroundColor: tint }]}>
+        <Ionicons name={icon} size={15} color={fg} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.qfLabel, { color: c.textSecondary }]} numberOfLines={1}>{label}</Text>
+        <Text style={[styles.qfValue, { color: c.text }]} numberOfLines={1}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+
 // Trust badges — the web TrustStrip's four pastel pills, same colour pairs.
 const TRUST_BADGES = [
   { label: 'Verified Vendor', icon: 'shield-checkmark', bg: '#f0fdf4', fg: '#15803d' },
@@ -178,6 +195,8 @@ type HolidayPackage = {
   };
   stats?: { viewCount?: number; totalBookings?: number };
   difficulty?: string;
+  packageType?: string;
+  destinations?: { name?: string; city?: string; country?: string }[];
   // Cost-to-reach from the user's origin city, computed server-side.
   reachability?: {
     origin?: { code?: string; city?: string };
@@ -705,6 +724,30 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
+        {/* Quick facts — 2×2 pastel icon grid, web parity */}
+        <Card style={styles.section}>
+          <View style={styles.qfHead}>
+            <View style={[styles.qfHeadIcon, { backgroundColor: '#fffbeb' }]}>
+              <Ionicons name="sparkles" size={14} color="#d97706" />
+            </View>
+            <Text style={[styles.qfHeadText, { color: themeColors.textSecondary }]}>QUICK FACTS</Text>
+          </View>
+          <View style={styles.qfGrid}>
+            {days > 0 ? (
+              <QuickFact icon="calendar-outline" tint="#eff6ff" fg="#2563eb" label="Duration" value={`${days}D / ${nights}N`} c={themeColors} />
+            ) : null}
+            {(pkg.destinations || []).length > 0 ? (
+              <QuickFact icon="location-outline" tint="#ecfdf5" fg="#059669" label="Destinations" value={`${pkg.destinations!.length} Place${pkg.destinations!.length === 1 ? '' : 's'}`} c={themeColors} />
+            ) : null}
+            {pkg.difficulty ? (
+              <QuickFact icon="navigate-outline" tint="#faf5ff" fg="#7e22ce" label="Difficulty" value={pkg.difficulty.charAt(0).toUpperCase() + pkg.difficulty.slice(1)} c={themeColors} />
+            ) : null}
+            {pkg.packageType ? (
+              <QuickFact icon="triangle-outline" tint="#fffbeb" fg="#d97706" label="Type" value={pkg.packageType.charAt(0).toUpperCase() + pkg.packageType.slice(1)} c={themeColors} />
+            ) : null}
+          </View>
+        </Card>
+
         {/* Highlights */}
         {pkg.highlights && pkg.highlights.length > 0 ? (
           <Card style={styles.section}>
@@ -718,11 +761,26 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
-        {/* Description */}
+        {/* About — gradient icon tile + subtitle, matching the web card */}
         {pkg.description || pkg.shortDescription ? (
-          <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>About this package</Text>
-            <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>
+          <Card style={[styles.section, styles.aboutCard]}>
+            <View style={styles.aboutHead}>
+              <LinearGradient
+                colors={['#3b82f6', '#4f46e5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.aboutIcon}
+              >
+                <Ionicons name="sparkles" size={17} color="#fff" />
+              </LinearGradient>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.aboutTitle, { color: themeColors.text }]}>About this package</Text>
+                <Text style={[styles.aboutSub, { color: themeColors.textSecondary }]}>
+                  A quick overview of what&apos;s in store
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.aboutBody, { color: themeColors.textSecondary }]}>
               {pkg.description || pkg.shortDescription}
             </Text>
           </Card>
@@ -741,8 +799,10 @@ export default function PackageDetailScreen() {
                 <View key={di} style={[styles.dayBlock, { borderTopColor: themeColors.border }]}>
                   {/* Collapsible day header — tap to expand/collapse. */}
                   <TouchableOpacity style={styles.dayHead} activeOpacity={0.7} onPress={() => toggleDay(di)}>
-                    <View style={styles.dayBadge}>
-                      <Text style={styles.dayBadgeText}>D{dayNo}</Text>
+                    {/* "DAY 1" pill — the web uses a full label, not a "D1" chip.
+                        Filled blue when open, outlined when collapsed. */}
+                    <View style={[styles.dayBadge, open ? styles.dayBadgeOpen : styles.dayBadgeClosed]}>
+                      <Text style={[styles.dayBadgeText, { color: open ? '#fff' : '#2563eb' }]}>DAY {dayNo}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.dayTitle, { color: themeColors.text }]} numberOfLines={open ? undefined : 1}>
@@ -1116,6 +1176,20 @@ const styles = StyleSheet.create({
   },
   photoCountText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#374151' },
   socialProof: { fontSize: 12, marginTop: 6 },
+  qfHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.md },
+  qfHeadIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  qfHeadText: { fontSize: 12, fontWeight: fontWeight.bold, letterSpacing: 0.8 },
+  qfGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: spacing.md },
+  qfCell: { width: '50%', flexDirection: 'row', alignItems: 'center', gap: 8, paddingRight: 8 },
+  qfIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  qfLabel: { fontSize: 11 },
+  qfValue: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, marginTop: 1 },
+  aboutCard: { backgroundColor: '#f8fbff' },
+  aboutHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.md },
+  aboutIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  aboutTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
+  aboutSub: { fontSize: 12, marginTop: 1 },
+  aboutBody: { fontSize: fontSize.sm, lineHeight: 22 },
   trustStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
   trustPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7 },
   trustText: { fontSize: 11, fontWeight: fontWeight.medium },
@@ -1188,18 +1262,21 @@ const styles = StyleSheet.create({
   },
   dayHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingVertical: 4 },
   dayBody: { paddingLeft: 40, paddingTop: 6 },
+  // "DAY n" pill, blue — the page's accent is Tailwind blue, not the orange
+  // brand colour the shared palette defaults to.
   dayBadge: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: colors.primary[100],
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  dayBadgeOpen: { backgroundColor: '#2563eb' },
+  dayBadgeClosed: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' },
   dayBadgeText: {
-    color: colors.primary[700],
     fontWeight: fontWeight.bold,
-    fontSize: fontSize.xs,
+    fontSize: 11,
+    letterSpacing: 0.4,
   },
   dayTitle: {
     fontSize: fontSize.md,
