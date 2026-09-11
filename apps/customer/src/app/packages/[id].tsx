@@ -1561,6 +1561,76 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
+        {/* Trip schedule — day / route / stay at a glance */}
+        {(pkg.itinerary || []).length > 0 ? (
+          <Card style={[styles.section, { padding: 0, overflow: 'hidden' }]}>
+            <View style={styles.schedHeadWrap}>
+              <View style={styles.sectionAccentRow}>
+                <Ionicons name="calendar" size={16} color="#2563eb" />
+                <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Trip schedule</Text>
+              </View>
+            </View>
+            {/* Column headers */}
+            <View style={[styles.schedHeadRow, { borderBottomColor: themeColors.border }]}>
+              <Text style={[styles.schedH, { width: 44, color: themeColors.textSecondary }]}>DAY</Text>
+              <Text style={[styles.schedH, { flex: 1, color: themeColors.textSecondary }]}>ROUTE</Text>
+              <Text style={[styles.schedH, { width: 96, color: themeColors.textSecondary }]}>STAY</Text>
+            </View>
+            {(pkg.itinerary || []).map((d, i) => {
+              const dayNo = d.dayNumber ?? d.day ?? i + 1;
+              const arrival = (d as any).arrival?.airport;
+              const departure = (d as any).departure?.airport;
+              const stay = d.accommodation?.hotelName;
+              return (
+                <View
+                  key={`sched-${i}`}
+                  style={[
+                    styles.schedRow,
+                    { borderTopColor: themeColors.border },
+                    i % 2 === 1 && { backgroundColor: themeColors.surface },
+                  ]}
+                >
+                  <View style={{ width: 44 }}>
+                    <View style={styles.schedDay}>
+                      <Text style={styles.schedDayText}>{dayNo}</Text>
+                    </View>
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={[styles.schedRoute, { color: themeColors.text }]} numberOfLines={2}>
+                      {d.title || (d as any).destination || `Day ${dayNo}`}
+                    </Text>
+                    {arrival ? (
+                      <View style={styles.schedFlight}>
+                        <Ionicons name="airplane" size={10} color="#059669" />
+                        <Text style={[styles.schedFlightText, { color: '#059669' }]} numberOfLines={1}>
+                          Arrive {arrival}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {departure ? (
+                      <View style={styles.schedFlight}>
+                        <Ionicons name="airplane" size={10} color="#dc2626" style={{ transform: [{ rotate: '90deg' }] }} />
+                        <Text style={[styles.schedFlightText, { color: '#dc2626' }]} numberOfLines={1}>
+                          Depart {departure}
+                        </Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={{ width: 96 }}>
+                    {stay ? (
+                      <Text style={[styles.schedStay, { color: themeColors.textSecondary }]} numberOfLines={2}>
+                        {stay}
+                      </Text>
+                    ) : (
+                      <Text style={[styles.schedStay, { color: themeColors.textTertiary }]}>—</Text>
+                    )}
+                  </View>
+                </View>
+              );
+            })}
+          </Card>
+        ) : null}
+
         {/* Traveller reviews */}
         <Card style={styles.section}>
           <View style={styles.sectionAccentRow}>
@@ -1883,6 +1953,16 @@ const styles = StyleSheet.create({
   diySave: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#059669' },
   diyBanner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#ecfdf5', borderRadius: 10, paddingVertical: 9, marginTop: spacing.md },
   diyBannerText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#059669' },
+  schedHeadWrap: { padding: spacing.lg, paddingBottom: spacing.md },
+  schedHeadRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  schedH: { fontSize: 10, fontWeight: fontWeight.bold, letterSpacing: 0.7 },
+  schedRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: spacing.lg, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  schedDay: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  schedDayText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#2563eb' },
+  schedRoute: { fontSize: 13, fontWeight: fontWeight.semibold, lineHeight: 18 },
+  schedFlight: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  schedFlightText: { flex: 1, fontSize: 11, fontWeight: fontWeight.medium },
+  schedStay: { fontSize: 11, lineHeight: 15 },
   reviewSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
   reviewAvg: { fontSize: 34, fontWeight: fontWeight.bold },
   emptyReviews: { alignItems: 'center', gap: 8, paddingVertical: spacing.lg },
