@@ -222,6 +222,16 @@ function youtubeEmbedHtml(videoId: string): string {
 </html>`;
 }
 
+// Festival date chips — "FEB" over "13".
+const fmtFestMonth = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString('en-IN', { month: 'short' }).toUpperCase() : '';
+const fmtFestDay = (iso?: string) => (iso ? String(new Date(iso).getDate()) : '');
+
+// Trip-schedule column widths. Fixed rather than flexed so the table can scroll
+// horizontally — at phone widths three flexed columns clipped STAY off-screen.
+const SCHED_ROUTE_W = 200;
+const SCHED_STAY_W = 130;
+
 // Numbered route-pill colours, cycling like the web's city strip.
 const CITY_COLORS = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7e22ce'];
 
@@ -312,6 +322,8 @@ type HolidayPackage = {
     rules?: { daysBeforeTravel: number; refundPercent: number }[];
   };
   stats?: { viewCount?: number; totalBookings?: number };
+  availability?: { advanceBookingDays?: number; availableFrom?: string; blockedDates?: string[] };
+  festivalDates?: { name?: string; place?: string; startDate?: string; endDate?: string; note?: string | null }[];
   difficulty?: string;
   packageType?: string;
   primaryDestination?: string;
@@ -736,16 +748,6 @@ export default function PackageDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* Floating back button — fall back to the listing when there's no history
-          (e.g. deep-linked straight into detail), so it never dead-ends. */}
-      <TouchableOpacity
-        onPress={() => (router.canGoBack() ? router.back() : router.replace('/packages'))}
-        style={styles.fab}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Ionicons name="chevron-back" size={22} color="#fff" />
-      </TouchableOpacity>
-
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
         {/* Image carousel */}
         <View style={styles.carousel}>
@@ -1441,29 +1443,50 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
-        {/* Inclusions / Exclusions */}
+        {/* Inclusions — emerald tinted card with a filled icon tile (web parity) */}
         {pkg.inclusions && pkg.inclusions.length > 0 ? (
-          <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Inclusions</Text>
+          <View style={[styles.section, styles.inclCard]}>
+            <View style={styles.inclHead}>
+              <View style={[styles.inclIcon, { backgroundColor: '#10b981' }]}>
+                <Ionicons name="checkmark" size={17} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.aboutTitle, { color: themeColors.text }]}>What&apos;s included</Text>
+                <Text style={[styles.inclSub, { color: '#047857' }]}>Covered in your package price</Text>
+              </View>
+            </View>
             {pkg.inclusions.map((inc, i) => (
-              <View key={i} style={styles.checkRow}>
-                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+              <View key={i} style={styles.inclRow}>
+                <View style={[styles.inclBullet, { backgroundColor: '#d1fae5' }]}>
+                  <Ionicons name="checkmark" size={10} color="#059669" />
+                </View>
                 <Text style={[styles.checkText, { color: themeColors.text }]}>{inc}</Text>
               </View>
             ))}
-          </Card>
+          </View>
         ) : null}
 
+        {/* Exclusions — rose counterpart */}
         {pkg.exclusions && pkg.exclusions.length > 0 ? (
-          <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Not included</Text>
+          <View style={[styles.section, styles.exclCard]}>
+            <View style={styles.inclHead}>
+              <View style={[styles.inclIcon, { backgroundColor: '#f43f5e' }]}>
+                <Ionicons name="close" size={17} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.aboutTitle, { color: themeColors.text }]}>Not included</Text>
+                <Text style={[styles.inclSub, { color: '#be123c' }]}>Plan for these separately</Text>
+              </View>
+            </View>
             {pkg.exclusions.map((ex, i) => (
-              <View key={i} style={styles.checkRow}>
-                <Ionicons name="close-circle" size={18} color={colors.error} />
+              <View key={i} style={styles.inclRow}>
+                <View style={[styles.inclBullet, { backgroundColor: '#ffe4e6' }]}>
+                  <Ionicons name="close" size={10} color="#e11d48" />
+                </View>
                 <Text style={[styles.checkText, { color: themeColors.text }]}>{ex}</Text>
               </View>
             ))}
-          </Card>
+          </View>
         ) : null}
 
         {/* Getting there — cost-to-reach from the traveller's origin city.
@@ -1654,6 +1677,58 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
+        {/* When to go — booking window plus the festivals that fall on this
+            route. The web keeps a PricingCalendar in a desktop-only sidebar;
+            there is no calendar endpoint, but this data is on the package. */}
+        {pkg.availability?.advanceBookingDays || (pkg.festivalDates || []).length > 0 ? (
+          <Card style={styles.section}>
+            <View style={styles.sectionAccentRow}>
+              <Ionicons name="calendar-outline" size={16} color="#7e22ce" />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>When to go</Text>
+            </View>
+
+            {pkg.availability?.advanceBookingDays ? (
+              <View style={styles.whenNotice}>
+                <Ionicons name="time-outline" size={14} color="#7e22ce" />
+                <Text style={[styles.whenNoticeText, { color: themeColors.textSecondary }]}>
+                  Book at least{' '}
+                  <Text style={{ fontWeight: fontWeight.bold, color: themeColors.text }}>
+                    {pkg.availability.advanceBookingDays} days
+                  </Text>{' '}
+                  ahead — permits and hotels are arranged in advance.
+                </Text>
+              </View>
+            ) : null}
+
+            {(pkg.festivalDates || []).length > 0 ? (
+              <>
+                <Text style={[styles.whenSub, { color: themeColors.textSecondary }]}>
+                  Festivals on this route
+                </Text>
+                {(pkg.festivalDates || []).slice(0, 5).map((f, i) => (
+                  <View key={i} style={[styles.festRow, { borderTopColor: themeColors.border }]}>
+                    <View style={styles.festDate}>
+                      <Text style={styles.festMonth}>{fmtFestMonth(f.startDate)}</Text>
+                      <Text style={styles.festDay}>{fmtFestDay(f.startDate)}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.festName, { color: themeColors.text }]} numberOfLines={1}>{f.name}</Text>
+                      {f.place ? (
+                        <Text style={[styles.festPlace, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                          {f.place}
+                        </Text>
+                      ) : null}
+                      {f.note ? (
+                        <Text style={[styles.festNote, { color: '#b45309' }]} numberOfLines={2}>{f.note}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                ))}
+              </>
+            ) : null}
+          </Card>
+        ) : null}
+
         {/* Trip schedule — day / route / stay at a glance */}
         {(pkg.itinerary || []).length > 0 ? (
           <Card style={[styles.section, { padding: 0, overflow: 'hidden' }]}>
@@ -1663,11 +1738,14 @@ export default function PackageDetailScreen() {
                 <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Trip schedule</Text>
               </View>
             </View>
-            {/* Column headers */}
+            {/* Horizontally scrollable: at phone widths the three columns do not
+                fit, and fixed flex widths clipped STAY off the right edge. */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View>
             <View style={[styles.schedHeadRow, { borderBottomColor: themeColors.border }]}>
               <Text style={[styles.schedH, { width: 44, color: themeColors.textSecondary }]}>DAY</Text>
-              <Text style={[styles.schedH, { flex: 1, color: themeColors.textSecondary }]}>ROUTE</Text>
-              <Text style={[styles.schedH, { width: 96, color: themeColors.textSecondary }]}>STAY</Text>
+              <Text style={[styles.schedH, { width: SCHED_ROUTE_W, color: themeColors.textSecondary }]}>ROUTE</Text>
+              <Text style={[styles.schedH, { width: SCHED_STAY_W, color: themeColors.textSecondary }]}>STAY</Text>
             </View>
             {(pkg.itinerary || []).map((d, i) => {
               const dayNo = d.dayNumber ?? d.day ?? i + 1;
@@ -1688,7 +1766,7 @@ export default function PackageDetailScreen() {
                       <Text style={styles.schedDayText}>{dayNo}</Text>
                     </View>
                   </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={{ width: SCHED_ROUTE_W, paddingRight: 8 }}>
                     <Text style={[styles.schedRoute, { color: themeColors.text }]} numberOfLines={2}>
                       {d.title || (d as any).destination || `Day ${dayNo}`}
                     </Text>
@@ -1709,7 +1787,7 @@ export default function PackageDetailScreen() {
                       </View>
                     ) : null}
                   </View>
-                  <View style={{ width: 96 }}>
+                  <View style={{ width: SCHED_STAY_W }}>
                     {stay ? (
                       <Text style={[styles.schedStay, { color: themeColors.textSecondary }]} numberOfLines={2}>
                         {stay}
@@ -1721,6 +1799,8 @@ export default function PackageDetailScreen() {
                 </View>
               );
             })}
+              </View>
+            </ScrollView>
           </Card>
         ) : null}
 
@@ -1754,7 +1834,7 @@ export default function PackageDetailScreen() {
         <Card style={[styles.section, styles.shareCard]}>
           <View style={styles.shareRow}>
             <View style={styles.shareIcon}>
-              <Ionicons name="camera" size={18} color="#7e22ce" />
+              <Ionicons name="camera" size={18} color="#059669" />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.aboutTitle, { color: themeColors.text }]}>Been on this trip?</Text>
@@ -1808,6 +1888,18 @@ export default function PackageDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* Floating back button. Rendered AFTER the ScrollView: as a sibling
+          declared first it was painted under the scroll content, and the image
+          carousel (a nested ScrollView) swallowed the tap. Falls back to the
+          listing when there is no history to pop. */}
+      <TouchableOpacity
+        onPress={() => (router.canGoBack() ? router.back() : router.replace('/packages'))}
+        style={styles.fab}
+        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+      >
+        <Ionicons name="chevron-back" size={22} color="#fff" />
+      </TouchableOpacity>
 
       {/* Sticky CTA — reflects the chosen variant + discount (green) */}
       <View style={[styles.cta, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
@@ -1907,13 +1999,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: spacing.md,
     left: spacing.md,
-    zIndex: 50,
+    zIndex: 100,
+    elevation: 30,
     width: 38,
     height: 38,
     borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.55)',
   },
 
   carousel: { width: SCREEN_W, height: 280, backgroundColor: colors.gray[200] },
@@ -2030,14 +2123,14 @@ const styles = StyleSheet.create({
   destMeta: { position: 'absolute', left: 10, right: 10, bottom: 9 },
   destCardName: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
   destCardNights: { color: 'rgba(255,255,255,0.85)', fontSize: 11, marginTop: 1 },
-  assuredCard: { borderRadius: 16, padding: spacing.lg },
+  assuredCard: { borderRadius: 16, padding: spacing.xl, paddingVertical: spacing.xl },
   assuredHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   assuredIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)', alignItems: 'center', justifyContent: 'center' },
   assuredTitle: { color: '#fff', fontSize: fontSize.md, fontWeight: fontWeight.bold },
   assuredSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 1 },
-  assuredGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.md, rowGap: 10 },
-  assuredCell: { width: '50%', flexDirection: 'row', alignItems: 'flex-start', gap: 6, paddingRight: 8 },
-  assuredText: { flex: 1, color: '#fff', fontSize: 11, lineHeight: 15 },
+  assuredGrid: { flexDirection: 'row', flexWrap: 'wrap', marginTop: spacing.lg, rowGap: 14 },
+  assuredCell: { width: '50%', flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingRight: 10 },
+  assuredText: { flex: 1, color: '#fff', fontSize: 12, lineHeight: 17 },
   diyHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.lg },
   diyHeaderIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   diyHeaderTitle: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
@@ -2073,10 +2166,27 @@ const styles = StyleSheet.create({
   reviewSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
   reviewAvg: { fontSize: 34, fontWeight: fontWeight.bold },
   emptyReviews: { alignItems: 'center', gap: 8, paddingVertical: spacing.lg },
-  shareCard: { backgroundColor: '#faf5ff' },
+  shareCard: { backgroundColor: '#ffffff' },
+  whenNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#faf5ff', borderRadius: 10, padding: spacing.md, marginTop: spacing.md },
+  whenNoticeText: { flex: 1, fontSize: 12, lineHeight: 17 },
+  whenSub: { fontSize: 11, fontWeight: fontWeight.bold, letterSpacing: 0.6, marginTop: spacing.lg, marginBottom: 2, textTransform: 'uppercase' },
+  festRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth },
+  festDate: { width: 42, alignItems: 'center', backgroundColor: '#faf5ff', borderRadius: 8, paddingVertical: 5 },
+  festMonth: { fontSize: 9, fontWeight: fontWeight.bold, color: '#7e22ce', letterSpacing: 0.5 },
+  festDay: { fontSize: 15, fontWeight: fontWeight.bold, color: '#7e22ce' },
+  festName: { fontSize: 13, fontWeight: fontWeight.semibold },
+  festPlace: { fontSize: 11, marginTop: 1 },
+  festNote: { fontSize: 11, marginTop: 2, lineHeight: 15 },
+  inclCard: { backgroundColor: '#f0fdf9', borderRadius: 16, padding: spacing.lg },
+  exclCard: { backgroundColor: '#fff5f6', borderRadius: 16, padding: spacing.lg },
+  inclHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: spacing.md },
+  inclIcon: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  inclSub: { fontSize: 12, marginTop: 1, fontWeight: fontWeight.medium },
+  inclRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, paddingVertical: 5 },
+  inclBullet: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   shareRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  shareIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#f3e8ff', alignItems: 'center', justifyContent: 'center' },
-  shareBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#7e22ce', borderRadius: 12, paddingVertical: 12, marginTop: spacing.md },
+  shareIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center' },
+  shareBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#059669', borderRadius: 12, paddingVertical: 13, marginTop: spacing.md },
   shareBtnText: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
   simCard: { width: 190, borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
   simImg: { width: '100%', height: 110 },
