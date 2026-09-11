@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Modal,
+  Pressable,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
@@ -1906,13 +1907,15 @@ export default function PackageDetailScreen() {
           declared first it was painted under the scroll content, and the image
           carousel (a nested ScrollView) swallowed the tap. Falls back to the
           listing when there is no history to pop. */}
-      <TouchableOpacity
+      <Pressable
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/packages'))}
-        style={styles.fab}
-        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        style={({ pressed }) => [styles.fab, pressed && { opacity: 0.7 }]}
+        hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+        accessibilityRole="button"
+        accessibilityLabel="Go back"
       >
         <Ionicons name="chevron-back" size={22} color="#fff" />
-      </TouchableOpacity>
+      </Pressable>
 
       {/* Sticky CTA — reflects the chosen variant + discount (green) */}
       <View style={[styles.cta, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
@@ -2010,8 +2013,9 @@ const styles = StyleSheet.create({
 
   fab: {
     position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
+    // Sits over the hero image, clear of the status bar / Dynamic Island.
+    top: spacing.sm,
+    left: spacing.lg,
     zIndex: 100,
     elevation: 30,
     width: 38,
