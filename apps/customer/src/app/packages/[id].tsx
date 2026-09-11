@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Modal,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,7 +27,7 @@ import {
   borderRadius,
   useTheme,
 } from '@prayana/shared-ui';
-import { holidayPackagesAPI, destinationAPI, makeAPICall } from '@prayana/shared-services';
+import { holidayPackagesAPI, destinationAPI, makeAPICall, videosAPI } from '@prayana/shared-services';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { normalizeImageUrl } from '../../lib/imageUrl';
@@ -161,6 +163,29 @@ function routeCities(pkg: HolidayPackage): string[] {
   return cities.length ? cities : route;
 }
 
+// Serve the YouTube iframe as HTML with a real baseUrl rather than navigating
+// straight to youtube.com/embed — a bare WebView navigation sends no origin and
+// YouTube refuses to embed, returning "Error 153".
+function youtubeEmbedHtml(videoId: string): string {
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <style>
+      html, body { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+      iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    </style>
+  </head>
+  <body>
+    <iframe
+      src="https://www.youtube.com/embed/${videoId}?autoplay=1&playsinline=1&rel=0&modestbranding=1"
+      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+      allowfullscreen
+    ></iframe>
+  </body>
+</html>`;
+}
+
 // Numbered route-pill colours, cycling like the web's city strip.
 const CITY_COLORS = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7e22ce'];
 
@@ -265,6 +290,8 @@ export default function PackageDetailScreen() {
   const [backfillImages, setBackfillImages] = useState<string[]>([]);
   const [similar, setSimilar] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
+  const [shorts, setShorts] = useState<any[]>([]);
+  const [playingShort, setPlayingShort] = useState<any | null>(null);
   // Collapsible itinerary days — first day open, rest collapsed. Keyed by index.
   const [openDays, setOpenDays] = useState<Record<number, boolean>>({ 0: true });
   const toggleDay = (i: number) => setOpenDays((s) => ({ ...s, [i]: !s[i] }));
@@ -342,6 +369,26 @@ export default function PackageDetailScreen() {
     makeAPICall(`/questions/by-destination?${qs}`)
       .then((res: any) => {
         if (alive) setQuestions(res?.data || []);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [pkg]);
+
+  // "In-depth experience" — traveller Shorts for the destination. Same call the
+  // destination Videos tab uses: /youtube/search with shorts=1, keyed on the
+  // city NAME (this is a search endpoint, unrelated to /destinations/videos,
+  // which wants a destination id).
+  useEffect(() => {
+    if (!pkg) return;
+    const cities = routeCities(pkg);
+    if (!cities.length) return;
+    let alive = true;
+    videosAPI
+      .search({ q: `${cities[0]} ${pkg.destinations?.[0]?.country || ''} travel`.trim(), max: 10, shorts: 1 })
+      .then((res: any) => {
+        if (!alive) return;
+        const list = res?.results || res?.data || [];
+        setShorts(Array.isArray(list) ? list.filter((v: any) => v?.id) : []);
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -1108,6 +1155,50 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
+        {/* In-depth experience — traveller Shorts */}
+        {shorts.length > 0 ? (
+          <View style={styles.section}>
+            <View style={styles.sectionAccentRow}>
+              <Ionicons name="sparkles" size={16} color="#0ea5e9" />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>In-depth experience</Text>
+            </View>
+            <Text style={[styles.aboutSub, { color: themeColors.textSecondary, marginBottom: spacing.md }]}>
+              Quick Shorts from fellow travellers — a glimpse of what to expect.
+            </Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.md }}>
+              {shorts.map((v) => (
+                <TouchableOpacity
+                  key={v.id}
+                  style={styles.shortCard}
+                  activeOpacity={0.9}
+                  onPress={() => setPlayingShort(v)}
+                >
+                  <Image
+                    source={{ uri: v.thumbnail }}
+                    style={StyleSheet.absoluteFill}
+                    contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
+                  />
+                  <LinearGradient
+                    colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.85)']}
+                    style={StyleSheet.absoluteFill}
+                  />
+                  <View style={styles.shortPlay}>
+                    <Ionicons name="play" size={16} color="#111827" />
+                  </View>
+                  <View style={styles.shortMeta}>
+                    <Text style={styles.shortTitle} numberOfLines={2}>{v.title}</Text>
+                    <Text style={styles.shortChannel} numberOfLines={1}>
+                      {v.channel}{v.views ? ` · ${v.views}` : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
         {/* Travellers asked about {destination} — community Q&A */}
         {questions.length > 0 ? (
           <Card style={styles.section}>
@@ -1484,6 +1575,52 @@ export default function PackageDetailScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Shorts player — plays inside the app rather than kicking out to
+          YouTube. The close bar sits OUTSIDE the WebView's rectangle, because a
+          native web layer hit-tests before RN siblings and would swallow the
+          tap if the button were laid over it. */}
+      <Modal
+        visible={!!playingShort}
+        animationType="slide"
+        transparent={false}
+        onRequestClose={() => setPlayingShort(null)}
+        supportedOrientations={['portrait', 'landscape']}
+      >
+        <SafeAreaView style={styles.playerSafe} edges={['top', 'bottom']}>
+          <View style={styles.playerBar}>
+            <TouchableOpacity
+              onPress={() => setPlayingShort(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.playerClose}
+            >
+              <Ionicons name="chevron-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.playerTitle} numberOfLines={1}>{playingShort?.channel || 'Short'}</Text>
+            <TouchableOpacity
+              onPress={() => setPlayingShort(null)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.playerDone}
+            >
+              <Text style={styles.playerDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+          {playingShort ? (
+            <WebView
+              source={{ html: youtubeEmbedHtml(playingShort.id), baseUrl: 'https://prayanaai.com' }}
+              originWhitelist={['*']}
+              style={styles.playerWeb}
+              allowsInlineMediaPlayback
+              mediaPlaybackRequiresUserAction={false}
+              allowsFullscreenVideo
+              javaScriptEnabled
+              domStorageEnabled
+              scrollEnabled={false}
+              bounces={false}
+            />
+          ) : null}
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1576,6 +1713,23 @@ const styles = StyleSheet.create({
   aboutTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
   aboutSub: { fontSize: 12, marginTop: 1 },
   aboutBody: { fontSize: fontSize.sm, lineHeight: 22 },
+  // Shorts rail — portrait 9:16 cards, like the web
+  shortCard: { width: 150, height: 267, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.gray[200] },
+  shortPlay: {
+    position: 'absolute', top: 10, right: 10,
+    width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  shortMeta: { position: 'absolute', left: 10, right: 10, bottom: 10 },
+  shortTitle: { color: '#fff', fontSize: 12, fontWeight: fontWeight.bold, lineHeight: 16 },
+  shortChannel: { color: 'rgba(255,255,255,0.8)', fontSize: 11, marginTop: 3 },
+  playerSafe: { flex: 1, backgroundColor: '#000' },
+  playerBar: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  playerClose: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  playerTitle: { flex: 1, color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  playerDone: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.16)' },
+  playerDoneText: { color: '#fff', fontSize: 13, fontWeight: fontWeight.bold },
+  playerWeb: { flex: 1, backgroundColor: '#000' },
   qaHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   qaHeadIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center' },
   qaTitle: { flex: 1, fontSize: fontSize.md, fontWeight: fontWeight.bold },
