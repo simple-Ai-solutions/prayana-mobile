@@ -118,6 +118,14 @@ type PkgVariant = {
   maxGroupSize?: number;
 };
 
+// Trust badges — the web TrustStrip's four pastel pills, same colour pairs.
+const TRUST_BADGES = [
+  { label: 'Verified Vendor', icon: 'shield-checkmark', bg: '#f0fdf4', fg: '#15803d' },
+  { label: 'Free Cancellation', icon: 'calendar-outline', bg: '#eff6ff', fg: '#1d4ed8' },
+  { label: 'Pay in Parts', icon: 'card-outline', bg: '#faf5ff', fg: '#7e22ce' },
+  { label: 'Local Expert Guide', icon: 'person-outline', bg: '#fffbeb', fg: '#b45309' },
+];
+
 // Group a variant's hotels by city, keeping the first hotel's image for the row
 // and joining every hotel name in that city — exactly what the web's
 // VariantComparisonTable renders (one 28px thumb per city, max 3 cities).
@@ -163,7 +171,24 @@ type HolidayPackage = {
   highlights?: string[];
   isFeatured?: boolean;
   hotels?: PkgHotel[];
-  cancellationPolicy?: { description?: string };
+  cancellationPolicy?: {
+    description?: string;
+    type?: string;
+    rules?: { daysBeforeTravel: number; refundPercent: number }[];
+  };
+  stats?: { viewCount?: number; totalBookings?: number };
+  difficulty?: string;
+  // Cost-to-reach from the user's origin city, computed server-side.
+  reachability?: {
+    origin?: { code?: string; city?: string };
+    gateway?: string;
+    direct?: boolean;
+    via?: string | null;
+    flightEstimate?: number;
+    landPrice?: number;
+    allInFrom?: number;
+    estimated?: boolean;
+  };
 };
 
 export default function PackageDetailScreen() {
@@ -338,6 +363,18 @@ export default function PackageDetailScreen() {
   // chosen variant's list, fall back to the first variant that has one, then
   // the (rare) package-level array. Dedupe by name+city: the same property
   // repeats across nights.
+  const reach = pkg.reachability;
+
+  // Social-proof line from stats, like the web TrustStrip.
+  const socialProof = (() => {
+    const parts: string[] = [];
+    const views = pkg.stats?.viewCount || 0;
+    const booked = pkg.stats?.totalBookings || 0;
+    if (views > 0) parts.push(`${views.toLocaleString('en-IN')} people viewed this`);
+    if (booked > 0) parts.push(`${booked.toLocaleString('en-IN')} booked`);
+    return parts.join(' · ');
+  })();
+
   // Cheapest / dearest across bookable variants — drives the "Best value" badge,
   // the "+₹N" delta and the price-spread bar, like the web comparison table.
   const bookablePrices = (pkg.variants || [])
@@ -425,6 +462,14 @@ export default function PackageDetailScreen() {
               ))}
             </View>
           ) : null}
+          {/* Photo counter — the web's "View Photos" pill is hover-only, so it
+              never appears on touch. Show the count instead. */}
+          {images.length > 1 && images[0].url ? (
+            <View style={styles.photoCount}>
+              <Ionicons name="images-outline" size={12} color="#374151" />
+              <Text style={styles.photoCountText}>{activeImageIdx + 1}/{images.length}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Header info */}
@@ -455,6 +500,21 @@ export default function PackageDetailScreen() {
               </Text>
             </View>
           ) : null}
+
+          {/* Social proof — views / bookings, like the web TrustStrip header. */}
+          {socialProof ? (
+            <Text style={[styles.socialProof, { color: themeColors.textSecondary }]}>{socialProof}</Text>
+          ) : null}
+
+          {/* Trust badges — four pastel pills, web parity. */}
+          <View style={[styles.trustStrip, { borderTopColor: themeColors.border }]}>
+            {TRUST_BADGES.map((b) => (
+              <View key={b.label} style={[styles.trustPill, { backgroundColor: b.bg }]}>
+                <Ionicons name={b.icon as any} size={13} color={b.fg} />
+                <Text style={[styles.trustText, { color: b.fg }]}>{b.label}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* Choose your package — variant selector + live price (web parity) */}
@@ -855,11 +915,86 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
-        {/* Cancellation */}
-        {pkg.cancellationPolicy?.description ? (
+        {/* Getting there — cost-to-reach from the traveller's origin city.
+            The web keeps this in a desktop-only sidebar, so mobile never saw
+            it even though the server computes it. */}
+        {reach && (reach.allInFrom || reach.flightEstimate) ? (
+          <Card style={[styles.section, styles.reachCard]}>
+            <View style={styles.sectionAccentRow}>
+              <Ionicons name="airplane" size={16} color="#b45309" />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Getting there</Text>
+            </View>
+            {reach.origin?.city ? (
+              <Text style={[styles.reachRoute, { color: themeColors.text }]}>
+                {reach.origin.city}
+                {reach.origin.code ? ` (${reach.origin.code})` : ''} → {reach.gateway || 'gateway'}
+                <Text style={{ color: themeColors.textSecondary, fontWeight: fontWeight.normal }}>
+                  {reach.direct ? '  ·  Direct flight' : reach.via ? `  ·  via ${reach.via}` : ''}
+                </Text>
+              </Text>
+            ) : null}
+            <View style={[styles.reachRows, { borderTopColor: themeColors.border }]}>
+              {reach.landPrice ? (
+                <View style={styles.reachRow}>
+                  <Text style={[styles.reachK, { color: themeColors.textSecondary }]}>Package (land only)</Text>
+                  <Text style={[styles.reachV, { color: themeColors.text }]}>₹{Number(reach.landPrice).toLocaleString('en-IN')}</Text>
+                </View>
+              ) : null}
+              {reach.flightEstimate ? (
+                <View style={styles.reachRow}>
+                  <Text style={[styles.reachK, { color: themeColors.textSecondary }]}>
+                    Flights (est.){reach.estimated ? '' : ''}
+                  </Text>
+                  <Text style={[styles.reachV, { color: themeColors.text }]}>₹{Number(reach.flightEstimate).toLocaleString('en-IN')}</Text>
+                </View>
+              ) : null}
+              {reach.allInFrom ? (
+                <View style={[styles.reachRow, styles.reachTotalRow, { borderTopColor: themeColors.border }]}>
+                  <Text style={[styles.reachK, { color: themeColors.text, fontWeight: fontWeight.bold }]}>All-in from</Text>
+                  <Text style={styles.reachTotal}>₹{Number(reach.allInFrom).toLocaleString('en-IN')}</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={[styles.reachNote, { color: themeColors.textTertiary }]}>
+              Flights are booked separately — this is an estimate to help you compare.
+            </Text>
+          </Card>
+        ) : null}
+
+        {/* Cancellation — refund ladder, not just the blurb */}
+        {pkg.cancellationPolicy?.description || (pkg.cancellationPolicy?.rules || []).length > 0 ? (
           <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Cancellation policy</Text>
-            <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{pkg.cancellationPolicy.description}</Text>
+            <View style={styles.sectionAccentRow}>
+              <Ionicons name="shield-checkmark" size={16} color="#2563eb" />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Cancellation policy</Text>
+            </View>
+            {(pkg.cancellationPolicy?.rules || []).length > 0 ? (
+              <View style={styles.refundLadder}>
+                {(pkg.cancellationPolicy!.rules || []).map((r, i) => (
+                  <View key={i} style={styles.refundRow}>
+                    <View style={[styles.refundDot, { backgroundColor: r.refundPercent >= 100 ? '#10b981' : r.refundPercent > 0 ? '#f59e0b' : '#ef4444' }]} />
+                    <Text style={[styles.refundText, { color: themeColors.textSecondary }]}>
+                      {r.daysBeforeTravel > 0
+                        ? `Cancel ${r.daysBeforeTravel}+ days before travel`
+                        : 'Cancel within 24 hours of travel'}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.refundPct,
+                        { color: r.refundPercent >= 100 ? '#059669' : r.refundPercent > 0 ? '#d97706' : '#dc2626' },
+                      ]}
+                    >
+                      {r.refundPercent}% refund
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {pkg.cancellationPolicy?.description ? (
+              <Text style={[styles.bodyText, { color: themeColors.textSecondary, marginTop: spacing.sm }]}>
+                {pkg.cancellationPolicy.description}
+              </Text>
+            ) : null}
           </Card>
         ) : null}
       </ScrollView>
@@ -975,6 +1110,29 @@ const styles = StyleSheet.create({
   variantCard: { width: Math.round(SCREEN_W * 0.78), borderWidth: 2, borderRadius: 12, padding: spacing.md, gap: 4 },
   variantDelta: { fontSize: 11, fontWeight: fontWeight.semibold },
   ctaVariant: { fontSize: 11, fontWeight: fontWeight.medium, marginBottom: 1 },
+  photoCount: {
+    position: 'absolute', bottom: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  photoCountText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#374151' },
+  socialProof: { fontSize: 12, marginTop: 6 },
+  trustStrip: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: spacing.md, paddingTop: spacing.md, borderTopWidth: StyleSheet.hairlineWidth },
+  trustPill: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7 },
+  trustText: { fontSize: 11, fontWeight: fontWeight.medium },
+  reachCard: { backgroundColor: '#fffbeb' },
+  reachRoute: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, marginTop: 6 },
+  reachRows: { marginTop: spacing.sm, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth, gap: 6 },
+  reachRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reachTotalRow: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, marginTop: 2 },
+  reachK: { fontSize: 13 },
+  reachV: { fontSize: 13, fontWeight: fontWeight.semibold },
+  reachTotal: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#b45309' },
+  reachNote: { fontSize: 11, lineHeight: 15, marginTop: 8 },
+  refundLadder: { marginTop: spacing.sm, gap: 8 },
+  refundRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  refundDot: { width: 8, height: 8, borderRadius: 4 },
+  refundText: { flex: 1, fontSize: 13 },
+  refundPct: { fontSize: 13, fontWeight: fontWeight.bold },
   bookBtn: {
     backgroundColor: '#2563eb', borderRadius: 12,
     paddingHorizontal: 28, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
