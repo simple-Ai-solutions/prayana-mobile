@@ -77,7 +77,10 @@ const pkgImage = (p: Pkg) => {
   return url ? normalizeImageUrl(url) : null;
 };
 const pkgPlace = (p: Pkg) => p.primaryDestination || p.destination?.city || p.destinations?.[0]?.name || p.destinations?.[0]?.city || '';
-const isHeli = (p: Pkg) => (Array.isArray(p.tags) ? p.tags.join(',') : String(p.tags || '')).toLowerCase().includes('helicopter');
+const isGroupDeparture = (p: Pkg) => {
+  const t = (Array.isArray(p.tags) ? p.tags.join(',') : String(p.tags || '')).toLowerCase();
+  return t.includes('grouptour') || t.includes('fixeddeparture');
+};
 
 // ── Signature primitive: gold dot · line · dot divider ──
 function GoldDivider({ center = true }: { center?: boolean }) {
@@ -123,10 +126,17 @@ export default function DivyaDarshanaScreen() {
       const readList = (r: any): Pkg[] =>
         Array.isArray(r?.data) ? r.data : Array.isArray(r?.data?.packages) ? r.data.packages : Array.isArray(r?.packages) ? r.packages : [];
       const [heliRes, landRes] = await Promise.all([
-        holidayPackagesAPI.search({ category: 'Pilgrimage', tags: 'helicopter', limit: 8 }).catch(() => null),
+        holidayPackagesAPI.search({ category: 'Pilgrimage', tags: 'fixeddeparture', limit: 8 }).catch(() => null),
         holidayPackagesAPI.search({ category: 'Pilgrimage', tags: 'landonly,land-only', limit: 6 }).catch(() => null),
       ]);
-      setHeli(readList(heliRes));
+      let heliList = readList(heliRes);
+      if (heliList.length === 0) {
+        const fb = await holidayPackagesAPI
+          .search({ category: 'Pilgrimage', tags: 'grouptour', limit: 8 })
+          .catch(() => null);
+        heliList = readList(fb);
+      }
+      setHeli(heliList);
       let landList = readList(landRes);
       if (landList.length === 0) {
         const fb = await holidayPackagesAPI.search({ category: 'Pilgrimage', limit: 6 }).catch(() => null);
@@ -257,7 +267,7 @@ export default function DivyaDarshanaScreen() {
             {/* ── HELICOPTER RAIL ── */}
             {heli.length > 0 && (
               <View style={styles.section}>
-                <SectionHead icon="airplane" title="Helicopter yatras" sub="Skip the trek — guaranteed seats to the dhams" onSeeAll={() => router.push('/divya-darshana/packages?filter=helicopter' as any)} />
+                <SectionHead icon="calendar" title="Group departures" sub="Fixed dates with darshan assistance — join a guided group" onSeeAll={() => router.push('/divya-darshana/packages?filter=grouptour' as any)} />
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail} snapToInterval={SCREEN_W * 0.66 + 14} decelerationRate="fast">
                   {heli.map((p) => <ShrineCard key={p._id} pkg={p} onPress={() => openPkg(p)} />)}
                 </ScrollView>
@@ -406,7 +416,7 @@ function DomeCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
         {pkg.duration?.days ? (
           <View style={styles.durBadge}><Text style={styles.durBadgeText}>{pkg.duration.days}D / {nights}N</Text></View>
         ) : null}
-        {isHeli(pkg) && <View style={styles.domeHeli}><Ionicons name="airplane" size={11} color="#fff" /></View>}
+        {isGroupDeparture(pkg) && <View style={styles.domeHeli}><Ionicons name="calendar" size={11} color="#fff" /></View>}
       </View>
       <View style={styles.domeBody}>
         <Text style={styles.domeTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{pkg.title}</Text>

@@ -43,7 +43,7 @@ type Pkg = {
 // Circuit filters — regex over title + destination names (web parity).
 const CIRCUITS: { key: string; label: string; re?: RegExp }[] = [
   { key: 'all', label: 'All' },
-  { key: 'helicopter', label: 'Helicopter' }, // matched via tags, handled separately
+  { key: 'grouptour', label: 'Group departures' }, // matched via tags, handled separately
   { key: 'chardham', label: 'Char Dham', re: /char dham|do dham|kedarnath|badrinath|gangotri|yamunotri/i },
   { key: 'kashi', label: 'Kashi & Ayodhya', re: /varanasi|kashi|ayodhya|prayagraj|sarnath/i },
   { key: 'jyotirlinga', label: 'Jyotirlinga', re: /ujjain|omkareshwar|mahakal|baidyanath|deoghar|somnath/i },
@@ -73,7 +73,7 @@ export default function DivyaDarshanaPackagesScreen() {
 
   const [all, setAll] = useState<Pkg[]>([]);
   const [loading, setLoading] = useState(true);
-  const [circuit, setCircuit] = useState<string>(params.filter === 'helicopter' ? 'helicopter' : 'all');
+  const [circuit, setCircuit] = useState<string>(params.filter === 'grouptour' ? 'grouptour' : 'all');
   const [duration, setDuration] = useState<string>('any');
 
   const load = useCallback(async () => {
@@ -92,8 +92,9 @@ export default function DivyaDarshanaPackagesScreen() {
   const filtered = useMemo(() => {
     const durTest = DURATIONS.find((d) => d.key === duration)?.test || (() => true);
     let list = all.filter((p) => durTest(p.duration?.nights ?? 0));
-    if (circuit === 'helicopter') {
-      list = list.filter((p) => tagsOf(p).includes('helicopter'));
+    if (circuit === 'grouptour') {
+      const t = tagsOf;
+      list = list.filter((p) => t(p).includes('grouptour') || t(p).includes('fixeddeparture'));
     } else if (circuit !== 'all') {
       const re = CIRCUITS.find((c) => c.key === circuit)?.re;
       if (re) list = list.filter((p) => re.test(hay(p)));
@@ -106,7 +107,8 @@ export default function DivyaDarshanaPackagesScreen() {
     () =>
       CIRCUITS.filter((c) => {
         if (c.key === 'all') return true;
-        if (c.key === 'helicopter') return all.some((p) => tagsOf(p).includes('helicopter'));
+        if (c.key === 'grouptour')
+          return all.some((p) => tagsOf(p).includes('grouptour') || tagsOf(p).includes('fixeddeparture'));
         return c.re ? all.some((p) => c.re!.test(hay(p))) : true;
       }),
     [all]
@@ -138,7 +140,7 @@ export default function DivyaDarshanaPackagesScreen() {
                 onPress={() => setCircuit(c.key)}
                 style={[styles.chip, { borderColor: active ? SAFFRON : themeColors.border, backgroundColor: active ? SAFFRON + '22' : 'transparent' }]}
               >
-                {c.key === 'helicopter' && <Ionicons name="airplane" size={13} color={active ? SAFFRON : themeColors.textSecondary} />}
+                {c.key === 'grouptour' && <Ionicons name="calendar" size={13} color={active ? SAFFRON : themeColors.textSecondary} />}
                 <Text style={[styles.chipText, { color: active ? SAFFRON : themeColors.textSecondary }]}>{c.label}</Text>
               </TouchableOpacity>
             );
@@ -202,9 +204,9 @@ export default function DivyaDarshanaPackagesScreen() {
                           <Text style={styles.cardDurationText}>{p.duration.days}D / {nights}N</Text>
                         </View>
                       ) : null}
-                      {tagsOf(p).includes('helicopter') && (
+                      {(tagsOf(p).includes('grouptour') || tagsOf(p).includes('fixeddeparture')) && (
                         <View style={styles.heliBadge}>
-                          <Ionicons name="airplane" size={11} color="#fff" />
+                          <Ionicons name="calendar" size={11} color="#fff" />
                         </View>
                       )}
                     </View>
