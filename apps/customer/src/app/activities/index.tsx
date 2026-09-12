@@ -214,6 +214,9 @@ export default function ActivitiesScreen() {
   );
 
   const open = useCallback((a: Experience) => {
+    // Diagnostic: reports whether the tap reaches here and what id it carries.
+    console.log('[ThingsToDo] card tapped ->', a?._id, a?.title);
+    if (!a?._id) return;
     router.push(`/activity/${a._id}`);
   }, []);
 
