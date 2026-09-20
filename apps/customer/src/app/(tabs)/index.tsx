@@ -32,6 +32,7 @@ import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 import { PromoTrio } from '../../components/home/PromoTrio';
 import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSheet';
 import { CompleteYourTrip } from '../../components/bookings/CompleteYourTrip';
+import { TrekkingRail, ValueDealsRail } from '../../components/home/HomeRails';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // 4 "More ways" cards fit the viewport at once (web-mobile parity): row padding
@@ -840,6 +841,10 @@ export default function HomeScreen() {
           />
         ) : (
         <>
+        {/* Between "More ways" and "Discover by Interest", same as the web. */}
+        <TrekkingRail />
+        <ValueDealsRail />
+
         {/* ============================================================ */}
         {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
         {/* ============================================================ */}
