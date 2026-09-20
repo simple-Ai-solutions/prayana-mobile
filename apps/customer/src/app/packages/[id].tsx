@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -347,6 +347,7 @@ type HolidayPackage = {
 
 export default function PackageDetailScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const requireAuth = useRequireAuth();
   const { themeColors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -1909,7 +1910,14 @@ export default function PackageDetailScreen() {
           listing when there is no history to pop. */}
       <Pressable
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/packages'))}
-        style={({ pressed }) => [styles.fab, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.fab,
+          // Position against the REAL safe-area inset. styles.fab is absolute,
+          // so its `top` resolves against the padded container's edge and the
+          // button landed up in the status bar, where iOS eats the touch.
+          { top: insets.top + spacing.sm },
+          pressed && { opacity: 0.7 },
+        ]}
         hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
         accessibilityRole="button"
         accessibilityLabel="Go back"
@@ -2013,8 +2021,8 @@ const styles = StyleSheet.create({
 
   fab: {
     position: 'absolute',
-    // Sits over the hero image, clear of the status bar / Dynamic Island.
-    top: spacing.sm,
+    // `top` is supplied at the call site from useSafeAreaInsets — a static
+    // value here put the button under the status bar on notched devices.
     left: spacing.lg,
     zIndex: 100,
     elevation: 30,
