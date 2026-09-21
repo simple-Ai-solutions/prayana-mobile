@@ -239,6 +239,8 @@ export default function QuickItineraryScreen() {
               data: JSON.stringify(response.data),
               destination: requestData.destination,
               duration: String(days),
+              startingPoint: requestData.startingPoint || '',
+              transportMode: requestData.transportMode || '',
             },
           });
         } else {

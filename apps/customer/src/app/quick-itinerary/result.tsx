@@ -56,11 +56,15 @@ export default function QuickItineraryResultScreen() {
     id?: string;
     destination?: string;
     duration?: string;
+    startingPoint?: string;
+    transportMode?: string;
     error?: string;
   }>();
 
   const destination = params.destination || 'Your Trip';
   const duration = params.duration || '3';
+  const startingPoint = params.startingPoint || '';
+  const transportMode = params.transportMode || '';
 
   const [markdown, setMarkdown] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -148,14 +152,19 @@ export default function QuickItineraryResultScreen() {
   const handleGenerateStructured = useCallback(async () => {
     setStructuredLoading(true);
     try {
+      // This used to hardcode car_bus and omit the origin entirely, so a
+      // Bangalore->Manali flight came back as a road trip between two unrelated
+      // cities: the backend was told only "Manali, 5 days, by road" and filled
+      // in a plausible drive. Send the trip the user actually asked for.
       const VALID_MODES = ['car_bus', 'bike', 'flight'];
-      const safeMode = 'car_bus';
+      const safeMode = VALID_MODES.includes(transportMode) ? transportMode : 'car_bus';
       const response = await makeAPICall('/itinerary/generate', {
         method: 'POST',
         body: JSON.stringify({
           destination,
           duration: Number(duration),
           transportMode: safeMode,
+          ...(startingPoint ? { startingPoint } : {}),
           preferences: { budget: 'moderate', interests: [], travelStyle: 'relaxed', groupType: 'general' },
         }),
         timeout: 60000,
@@ -188,7 +197,7 @@ export default function QuickItineraryResultScreen() {
     } finally {
       setStructuredLoading(false);
     }
-  }, [destination, duration]);
+  }, [destination, duration, startingPoint, transportMode]);
 
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
