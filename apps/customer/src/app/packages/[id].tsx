@@ -13,7 +13,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter, useRootNavigationState } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -348,6 +348,22 @@ type HolidayPackage = {
 export default function PackageDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // canGoBack() can report true while GO_BACK goes unhandled ("The action
+  // 'GO_BACK' was not handled by any navigator"): it reflects the root
+  // navigator rather than the stack that would service the pop, so a
+  // deep-linked screen claims history it does not have. Ask the navigation
+  // state how many routes are actually stacked, and only pop when there is
+  // something beneath us; otherwise go to the listing.
+  const navState = useRootNavigationState();
+  const goBackToPackages = useCallback(() => {
+    const stacked = navState?.routes?.length ?? 0;
+    if (stacked > 1 && router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/packages');
+  }, [router, navState]);
   const requireAuth = useRequireAuth();
   const { themeColors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -1904,12 +1920,11 @@ export default function PackageDetailScreen() {
         ) : null}
       </ScrollView>
 
-      {/* Floating back button. Rendered AFTER the ScrollView: as a sibling
-          declared first it was painted under the scroll content, and the image
-          carousel (a nested ScrollView) swallowed the tap. Falls back to the
-          listing when there is no history to pop. */}
+      {/* Floating back button. Rendered AFTER the ScrollView so the image
+          carousel cannot paint over it, and positioned against the real
+          safe-area inset so it never lands in the status bar. */}
       <Pressable
-        onPress={() => (router.canGoBack() ? router.back() : router.replace('/packages'))}
+        onPress={goBackToPackages}
         style={({ pressed }) => [
           styles.fab,
           // Position against the REAL safe-area inset. styles.fab is absolute,
