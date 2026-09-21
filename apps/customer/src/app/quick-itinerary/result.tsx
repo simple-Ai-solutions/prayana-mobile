@@ -63,8 +63,17 @@ export default function QuickItineraryResultScreen() {
 
   const destination = params.destination || 'Your Trip';
   const duration = params.duration || '3';
-  const startingPoint = params.startingPoint || '';
-  const transportMode = params.transportMode || '';
+  // Prefer the params, but fall back to the guide's own header — an itinerary
+  // opened before those params existed (or restored from history) still has
+  // "**From:** Bangalore" and "**Transport:** flight" in its markdown, and
+  // without them the timeline silently regenerates a different trip.
+  const markdownForMeta = params.data ? (() => {
+    try { return JSON.parse(params.data)?.markdown || ''; } catch { return ''; }
+  })() : '';
+  const startingPoint =
+    params.startingPoint || markdownForMeta.match(/\*\*From:\*\*\s*([^\n*]+)/)?.[1]?.trim() || '';
+  const transportMode =
+    params.transportMode || markdownForMeta.match(/\*\*Transport:\*\*\s*([^\n*]+)/)?.[1]?.trim() || '';
 
   const [markdown, setMarkdown] = useState<string>('');
   const [loading, setLoading] = useState(false);
@@ -199,6 +208,14 @@ export default function QuickItineraryResultScreen() {
     }
   }, [destination, duration, startingPoint, transportMode]);
 
+  // Regenerate on demand. Without this the timeline generates exactly once and
+  // any wrong result — e.g. one produced before the origin/transport fix, or a
+  // stale cached trip — is stuck on screen with no way to retry.
+  const handleRegenerate = useCallback(() => {
+    setStructuredData(null);
+    handleGenerateStructured();
+  }, [handleGenerateStructured]);
+
   const handleTabChange = useCallback((tab: TabType) => {
     setActiveTab(tab);
     if (tab === 'timeline' && !structuredData && !structuredLoading) {
@@ -314,12 +331,25 @@ export default function QuickItineraryResultScreen() {
           ) : activeTab === 'essentials' ? (
             <TripEssentials destination={destination} />
           ) : (
-            <StructuredTimelineView
-              structuredData={structuredData}
-              destination={destination}
-              loading={structuredLoading}
-              onGenerateStructured={handleGenerateStructured}
-            />
+            <View style={{ flex: 1 }}>
+              {structuredData && !structuredLoading ? (
+                <TouchableOpacity
+                  style={styles.regenerateBtn}
+                  onPress={handleRegenerate}
+                  accessibilityRole="button"
+                  accessibilityLabel="Regenerate timeline"
+                >
+                  <Ionicons name="refresh" size={14} color="#06B6D4" />
+                  <Text style={styles.regenerateText}>Regenerate timeline</Text>
+                </TouchableOpacity>
+              ) : null}
+              <StructuredTimelineView
+                structuredData={structuredData}
+                destination={destination}
+                loading={structuredLoading}
+                onGenerateStructured={handleRegenerate}
+              />
+            </View>
           )}
         </>
       )}
@@ -328,6 +358,12 @@ export default function QuickItineraryResultScreen() {
 }
 
 const styles = StyleSheet.create({
+  regenerateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginHorizontal: spacing.lg, marginTop: spacing.md, paddingVertical: 10,
+    borderRadius: 999, borderWidth: 1, borderColor: '#06B6D4',
+  },
+  regenerateText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#06B6D4' },
   container: { flex: 1 },
   header: {
     flexDirection: 'row',
