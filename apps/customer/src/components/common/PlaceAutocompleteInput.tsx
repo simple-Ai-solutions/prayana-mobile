@@ -262,6 +262,12 @@ interface Props {
   fieldStyle?: StyleProp<ViewStyle>;
   /** Raised while the dropdown is open so it overlays the fields below it. */
   containerStyle?: StyleProp<ViewStyle>;
+  /**
+   * Fired when the suggestion list opens or closes. Siblings sharing a zIndex
+   * are stacked by declaration order, so the parent needs this to raise the
+   * active row above the ones declared after it.
+   */
+  onDropdownVisibilityChange?: (visible: boolean) => void;
   accessibilityLabel?: string;
 }
 
@@ -276,6 +282,7 @@ export const PlaceAutocompleteInput: React.FC<Props> = ({
   editable = true,
   fieldStyle,
   containerStyle,
+  onDropdownVisibilityChange,
   accessibilityLabel,
 }) => {
   const { themeColors, isDarkMode } = useTheme();
@@ -391,6 +398,14 @@ export const PlaceAutocompleteInput: React.FC<Props> = ({
     }),
     [isDarkMode, themeColors.surface, themeColors.border],
   );
+
+  // A child cannot escape its parent's stacking context: when two sibling rows
+  // share a zIndex, whichever is declared LAST paints over the other's dropdown
+  // no matter how high this container lifts itself. Tell the parent when the
+  // list opens so it can raise the whole row.
+  useEffect(() => {
+    onDropdownVisibilityChange?.(showDropdown);
+  }, [showDropdown, onDropdownVisibilityChange]);
 
   return (
     // While the dropdown is open this container is lifted above the following

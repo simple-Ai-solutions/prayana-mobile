@@ -123,6 +123,10 @@ export default function QuickItineraryScreen() {
   // ---- form state (mirrors the web modal's defaults) ----
   const [startingPoint, setStartingPoint] = useState('');
   const [destination, setDestination] = useState('');
+  // Which autocomplete currently owns an open dropdown. Both rows share a
+  // zIndex, so without this the row declared LAST paints over the other's
+  // suggestion list — the labels and the list collide on screen.
+  const [openField, setOpenField] = useState<'start' | 'destination' | null>(null);
   const [days, setDays] = useState(5);
   // 0-indexed month string, "" = flexible. Web defaults to the *next* month.
   const [travelMonth, setTravelMonth] = useState<string>(() =>
@@ -394,11 +398,12 @@ export default function QuickItineraryScreen() {
           {/* 1. Starting Point — city autocomplete (Google Places -> OSM fallback),
               matching the web modal's TripPlannerSearchInput. The field keeps its
               own state: a suggestion tap just fills it, free text still submits. */}
-          <View style={[styles.field, styles.autocompleteField]}>
+          <View style={[styles.field, styles.autocompleteField, openField === 'start' && styles.autocompleteFieldActive]}>
             <Text style={[styles.label, { color: themeColors.text }]}>
               Starting Point <Text style={styles.req}>*</Text>
             </Text>
             <PlaceAutocompleteInput
+              onDropdownVisibilityChange={(v) => setOpenField(v ? 'start' : (f) => (f === 'start' ? null : f))}
               value={startingPoint}
               onChangeText={(t) => { setStartingPoint(t); if (error) setError(''); }}
               placeholder="Mangalore"
@@ -415,11 +420,12 @@ export default function QuickItineraryScreen() {
           </View>
 
           {/* 2. Destination */}
-          <View style={[styles.field, styles.autocompleteField]}>
+          <View style={[styles.field, styles.autocompleteField, openField === 'destination' && styles.autocompleteFieldActive]}>
             <Text style={[styles.label, { color: themeColors.text }]}>
               Destination <Text style={styles.req}>*</Text>
             </Text>
             <PlaceAutocompleteInput
+              onDropdownVisibilityChange={(v) => setOpenField(v ? 'destination' : (f) => (f === 'destination' ? null : f))}
               value={destination}
               onChangeText={(t) => { setDestination(t); if (error) setError(''); }}
               placeholder="Bangalore"
@@ -898,6 +904,9 @@ const styles = StyleSheet.create({
   // rows underneath an explicit low rank (see row2/personaToggle) so the
   // Duration / Travel-month selects can never cover the suggestions.
   autocompleteField: { zIndex: 30, elevation: 30 },
+  // The row whose dropdown is open must out-rank every sibling, otherwise the
+  // later-declared row wins on equal zIndex and overlaps the list.
+  autocompleteFieldActive: { zIndex: 60, elevation: 60 },
   label: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, marginBottom: spacing.sm },
   labelRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: spacing.sm },
   labelInline: { marginBottom: 0 },
