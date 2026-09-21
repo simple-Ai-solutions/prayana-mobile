@@ -13,7 +13,8 @@ import {
 import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, useRootNavigationState } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -352,18 +353,19 @@ export default function PackageDetailScreen() {
   // canGoBack() can report true while GO_BACK goes unhandled ("The action
   // 'GO_BACK' was not handled by any navigator"): it reflects the root
   // navigator rather than the stack that would service the pop, so a
-  // deep-linked screen claims history it does not have. Ask the navigation
-  // state how many routes are actually stacked, and only pop when there is
-  // something beneath us; otherwise go to the listing.
-  const navState = useRootNavigationState();
+  // deep-linked screen claims history it does not have. useNavigation() returns
+  // the navigator that OWNS this screen, so its canGoBack() answers the only
+  // question that matters: will this stack service the pop? Root-level checks
+  // (router.canGoBack, useRootNavigationState) describe a different stack and
+  // still let an unhandled GO_BACK through.
+  const navigation = useNavigation();
   const goBackToPackages = useCallback(() => {
-    const stacked = navState?.routes?.length ?? 0;
-    if (stacked > 1 && router.canGoBack()) {
-      router.back();
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
       return;
     }
     router.replace('/packages');
-  }, [router, navState]);
+  }, [navigation, router]);
   const requireAuth = useRequireAuth();
   const { themeColors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();

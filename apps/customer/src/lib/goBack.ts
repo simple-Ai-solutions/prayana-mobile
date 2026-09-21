@@ -11,7 +11,8 @@
 //
 // So the guard alone is not enough: check the navigation state for a route
 // actually stacked beneath us, and treat the guard as a second opinion.
-import { router, useRootNavigationState } from 'expo-router';
+import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 
 /** Imperative version for callers without hook context. */
 export function goBack(fallback: string = '/(tabs)') {
@@ -27,15 +28,17 @@ export function goBack(fallback: string = '/(tabs)') {
 }
 
 /**
- * Hook version. Prefer this inside components: it can see the navigation state
- * and so avoids firing an unhandled GO_BACK.
+ * Hook version — prefer this inside components. useNavigation() returns the
+ * navigator that OWNS the calling screen, so its canGoBack() answers whether
+ * THAT stack will service the pop. Root-level checks (router.canGoBack,
+ * useRootNavigationState) describe a different stack and let an unhandled
+ * GO_BACK through.
  */
 export function useGoBack(fallback: string = '/(tabs)') {
-  const navState = useRootNavigationState();
+  const navigation = useNavigation();
   return () => {
-    const stacked = navState?.routes?.length ?? 0;
-    if (stacked > 1 && router.canGoBack()) {
-      router.back();
+    if (navigation?.canGoBack?.()) {
+      navigation.goBack();
       return;
     }
     router.replace(fallback as any);
