@@ -12,6 +12,10 @@ export interface RecentItinerary {
   destination: string;
   duration: string;
   markdown: string;
+  // Origin + transport must ride along with the saved trip: reopening it
+  // regenerates the structured timeline, and without them a flight from
+  // Bangalore silently comes back as a road trip from nowhere.
+  startingPoint?: string;
   transportMode?: string;
   markdownItineraryId?: string;
   createdAt: string; // ISO

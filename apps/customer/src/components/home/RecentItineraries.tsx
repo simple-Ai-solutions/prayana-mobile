@@ -103,7 +103,11 @@ export const RecentItineraries: React.FC = () => {
         title: it.title,
         destination: it.destination,
         duration: it.duration,
-        transportMode: it.transportMode || 'car_bus',
+        // Pass these through as stored. Defaulting transportMode to 'car_bus'
+        // turned every reopened flight itinerary into a road trip, and the
+        // timeline regenerated from that wrong mode.
+        transportMode: it.transportMode || '',
+        startingPoint: it.startingPoint || '',
         markdownItineraryId: it.markdownItineraryId || '',
       },
     });

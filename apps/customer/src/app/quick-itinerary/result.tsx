@@ -129,9 +129,11 @@ export default function QuickItineraryResultScreen() {
       destination,
       duration,
       markdown,
+      startingPoint,
+      transportMode,
       markdownItineraryId: params.id,
     });
-  }, [markdown, destination, duration, parsed.title, params.id]);
+  }, [markdown, destination, duration, parsed.title, params.id, startingPoint, transportMode]);
 
   const handleShare = useCallback(async () => {
     try {

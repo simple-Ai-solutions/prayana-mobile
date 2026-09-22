@@ -55,6 +55,19 @@ export default function ItineraryScreen() {
     [params.markdown]
   );
 
+  // Prefer the params, but fall back to the guide's own header. An itinerary
+  // reopened from Recent Itineraries carries no startingPoint (it was never
+  // stored) and its transportMode may have been defaulted, so without this the
+  // timeline silently regenerates a different trip than the guide describes.
+  const startingPoint =
+    params.startingPoint ||
+    (params.markdown || '').match(/\*\*From:\*\*\s*([^\n*]+)/)?.[1]?.trim() ||
+    '';
+  const transportMode =
+    params.transportMode ||
+    (params.markdown || '').match(/\*\*Transport:\*\*\s*([^\n*]+)/)?.[1]?.trim() ||
+    '';
+
   // Auto-save to local "Recent Itineraries" history so it surfaces on the home
   // screen without needing an explicit bookmark.
   useEffect(() => {
@@ -64,10 +77,11 @@ export default function ItineraryScreen() {
       destination: params.destination,
       duration: params.duration || '5',
       markdown: params.markdown,
-      transportMode: params.transportMode,
+      startingPoint,
+      transportMode,
       markdownItineraryId: params.markdownItineraryId,
     });
-  }, [params.markdown, params.destination, params.duration, params.transportMode, params.markdownItineraryId, parsed.title]);
+  }, [params.markdown, params.destination, params.duration, params.markdownItineraryId, parsed.title, startingPoint, transportMode]);
 
   const shareItinerary = useCallback(async () => {
     try {
@@ -185,14 +199,14 @@ export default function ItineraryScreen() {
     try {
       // API only accepts car_bus | bike | flight; sanitize anything else.
       const VALID_MODES = ['car_bus', 'bike', 'flight'];
-      const rawMode = params.transportMode === 'car' ? 'car_bus' : params.transportMode;
+      const rawMode = transportMode === 'car' ? 'car_bus' : transportMode;
       const safeMode = VALID_MODES.includes(rawMode || '') ? rawMode : 'car_bus';
       const response = await makeAPICall('/itinerary/generate', {
         method: 'POST',
         body: JSON.stringify({
           destination: params.destination,
           duration: Number(params.duration),
-          startingPoint: params.startingPoint || undefined,
+          startingPoint: startingPoint || undefined,
           transportMode: safeMode,
           preferences: {
             budget: 'moderate',
@@ -251,7 +265,15 @@ export default function ItineraryScreen() {
     } finally {
       setStructuredLoading(false);
     }
-  }, [params]);
+  }, [params.destination, params.duration, startingPoint, transportMode]);
+
+  // Regenerate on demand. Without this the timeline generates exactly once and
+  // any wrong result — one produced before the origin/transport fix, or a stale
+  // cached trip — is stuck on screen with no way to retry.
+  const handleRegenerate = useCallback(() => {
+    setStructuredData(null);
+    handleGenerateStructured();
+  }, [handleGenerateStructured]);
 
   // Auto-switch to timeline tab triggers generation
   const handleTabChange = useCallback((tab: TabType) => {
@@ -370,18 +392,38 @@ export default function ItineraryScreen() {
       ) : activeTab === 'essentials' ? (
         <TripEssentials destination={params.destination || ''} />
       ) : (
-        <StructuredTimelineView
-          structuredData={structuredData}
-          destination={params.destination || ''}
-          loading={structuredLoading}
-          onGenerateStructured={handleGenerateStructured}
-        />
+        <View style={{ flex: 1 }}>
+          {structuredData && !structuredLoading ? (
+            <TouchableOpacity
+              style={styles.regenerateBtn}
+              onPress={handleRegenerate}
+              accessibilityRole="button"
+              accessibilityLabel="Regenerate timeline"
+              activeOpacity={0.7}
+            >
+              <Ionicons name="refresh" size={14} color="#06B6D4" />
+              <Text style={styles.regenerateText}>Regenerate timeline</Text>
+            </TouchableOpacity>
+          ) : null}
+          <StructuredTimelineView
+            structuredData={structuredData}
+            destination={params.destination || ''}
+            loading={structuredLoading}
+            onGenerateStructured={handleRegenerate}
+          />
+        </View>
       )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  regenerateBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    marginHorizontal: spacing.lg, marginTop: spacing.md, paddingVertical: 10,
+    borderRadius: 999, borderWidth: 1, borderColor: '#06B6D4',
+  },
+  regenerateText: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, color: '#06B6D4' },
   container: {
     flex: 1,
     backgroundColor: colors.background,
