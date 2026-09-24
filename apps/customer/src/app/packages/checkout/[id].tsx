@@ -74,6 +74,11 @@ type Pkg = {
   }[];
 };
 
+// Local-time ISO date. toISOString() shifts the day for anyone east of UTC —
+// in IST a date at local midnight becomes the previous day.
+const toLocalISODate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // "2026-10-03T00:00:00.000Z" -> "Sat, 3 Oct 2026"
 const fmtDepDate = (iso: string) => {
   const d = new Date(iso);
@@ -162,7 +167,7 @@ export default function PackageCheckoutScreen() {
     if (next && Number.isFinite(nights) && nights > 0) {
       const end = new Date(next);
       end.setDate(end.getDate() + nights);
-      setEndDate(end.toISOString().slice(0, 10));
+      setEndDate(toLocalISODate(end));
     }
   };
 
@@ -297,7 +302,7 @@ export default function PackageCheckoutScreen() {
         Toast.show({
           type: 'error',
           text1: `This package needs ${notice} days' notice`,
-          text2: `Earliest start: ${minStartDate.toISOString().slice(0, 10)}`,
+          text2: `Earliest start: ${toLocalISODate(minStartDate)}`,
         });
         return false;
       }

@@ -50,6 +50,14 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const STEP_LABELS = ['Date', 'Options', 'Contact', 'Payment'];
 const TOMORROW = new Date(Date.now() + 86400000);
 
+// toISOString() converts to UTC. In IST (+5:30) a date picked at local midnight
+// becomes the PREVIOUS day in UTC, so the app asked the API for the wrong date:
+// selecting Fri 25 Sep fetched slots for Thu 24 Sep, got none back, and showed
+// "No specific time slots - open availability" for a trek that does have one.
+// Format from the local calendar fields instead.
+const toLocalISODate = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -426,7 +434,7 @@ export default function BookingFlowScreen() {
     if (!activityId || !selectedDate) return;
     setSlotsLoading(true);
     try {
-      const dateISO = selectedDate.toISOString().split('T')[0];
+      const dateISO = toLocalISODate(selectedDate);
       const res = await makeAPICall(`/activities/${activityId}/time-slots/${dateISO}`);
       if (res?.success) {
         setTimeSlots(res.data || []);
@@ -476,7 +484,7 @@ export default function BookingFlowScreen() {
         activityId,
         adults,
         children,
-        date: selectedDate.toISOString().split('T')[0],
+        date: toLocalISODate(selectedDate),
         variantId: selectedVariant?._id || null,
         couponCode: appliedCoupon || undefined,
       });
@@ -622,7 +630,9 @@ export default function BookingFlowScreen() {
     try {
       const payload = {
         activityId,
-        bookingDate: selectedDate.toISOString(),
+        bookingDate: new Date(
+          selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 12, 0, 0,
+        ).toISOString(),
         participants: { adults, children },
         timeSlot: selectedSlot
           ? {
