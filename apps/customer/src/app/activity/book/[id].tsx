@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -555,6 +555,15 @@ export default function BookingFlowScreen() {
       return false;
     }
 
+    if (!isDateAllowed(selectedDate)) {
+      Toast.show({
+        type: 'error',
+        text1: 'Not available on that day',
+        text2: `This activity runs on ${allowedDaysLabel}.`,
+      });
+      return false;
+    }
+
     return true;
   };
 
@@ -771,11 +780,59 @@ export default function BookingFlowScreen() {
   // Date picker handler
   // -------------------------------------------------------------------------
 
+  // Operators run these on fixed days — KODACHADRI TREK is Friday-only
+  // (availabilitySchedule[].dayOfWeek === 5). The picker previously offered
+  // every date, so a user could book a Tuesday the operator never runs and
+  // reach payment before anything complained. Derive the real days here.
+  const allowedDays = useMemo(() => {
+    const sched = activity?.availabilitySchedule;
+    if (!Array.isArray(sched) || sched.length === 0) return null; // no schedule = any day
+    const days = sched
+      .filter((sl: any) => !sl?.isBlocked && sl?.specificDate == null && typeof sl?.dayOfWeek === 'number')
+      .map((sl: any) => sl.dayOfWeek);
+    return days.length ? Array.from(new Set(days)) as number[] : null;
+  }, [activity]);
+
+  const isDateAllowed = useCallback(
+    (d: Date) => !allowedDays || allowedDays.includes(d.getDay()),
+    [allowedDays],
+  );
+
+  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const allowedDaysLabel = allowedDays
+    ? allowedDays.slice().sort().map((d) => DAY_NAMES[d]).join(', ')
+    : '';
+
+  // Snap the default to the first date the operator actually runs, honouring
+  // the activity's own advanceBookingDays notice.
+  useEffect(() => {
+    if (!allowedDays) return;
+    if (isDateAllowed(selectedDate)) return;
+    const notice = Number(activity?.advanceBookingDays) || 1;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + notice);
+    for (let i = 0; i < 60; i++) {
+      if (allowedDays.includes(d.getDay())) break;
+      d.setDate(d.getDate() + 1);
+    }
+    setSelectedDate(d);
+    setSelectedSlot(null);
+  }, [allowedDays, activity]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const onDateChange = (_event: any, date?: Date) => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
     if (date) {
+      if (!isDateAllowed(date)) {
+        Toast.show({
+          type: 'error',
+          text1: 'Not available on that day',
+          text2: `${activity?.title || 'This activity'} runs on ${allowedDaysLabel}.`,
+        });
+        return;
+      }
       setSelectedDate(date);
       // Reset time slot selection when date changes
       setSelectedSlot(null);

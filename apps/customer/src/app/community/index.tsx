@@ -160,7 +160,10 @@ export default function CommunityFeedScreen() {
               onPress={() => setCategory(c.value)}
               style={[styles.catChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, active && styles.catChipActive]}
             >
-              <Text style={[styles.catChipText, { color: themeColors.textSecondary }, active && styles.catChipTextActive]}>
+              <Text
+                numberOfLines={1}
+                style={[styles.catChipText, { color: themeColors.textSecondary }, active && styles.catChipTextActive]}
+              >
                 {c.label}
               </Text>
             </TouchableOpacity>
@@ -312,12 +315,19 @@ const styles = StyleSheet.create({
   // Horizontal FlatList needs a bounded height, or the row collapses and the
   // chips render vertically clipped (cut in half). flexGrow:0 stops it eating
   // vertical space; alignItems centers the chips in the row.
-  catList: { flexGrow: 0 },
-  catRow: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md, gap: 8, alignItems: 'center' },
+  // flexGrow:0 alone was not enough: a horizontal FlatList has no intrinsic
+  // height, so the row still collapsed and sheared the chips in half. Pin the
+  // height explicitly (chip 17px line + 2x8 padding + 2x1 border = 35, plus
+  // the row's own vertical padding) so the chips always have room to draw.
+  catList: { flexGrow: 0, height: 56 },
+  catRow: { paddingHorizontal: spacing.md, gap: 8, alignItems: 'center' },
   catChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
     backgroundColor: "white", borderWidth: 1, borderColor: colors.gray[200],
     marginRight: 6,
+    // Without this the chip shrinks to fit the row and the label truncates
+    // mid-word ("Destinations" -> "D...n").
+    flexShrink: 0,
   },
   catChipActive: { backgroundColor: colors.primary[100], borderColor: colors.primary[300] },
   catChipText: { fontSize: 11, color: colors.gray[700] },

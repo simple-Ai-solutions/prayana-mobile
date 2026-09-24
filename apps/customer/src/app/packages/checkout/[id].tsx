@@ -59,6 +59,28 @@ type Pkg = {
   pricing?: { startingFrom: number; currency?: string; mrp?: number };
   duration?: { days: number; nights: number };
   variants?: Variant[];
+  // Operator notice period — the server rejects any start date inside it.
+  availability?: { advanceBookingDays?: number };
+  // "fixed" packages run only on set departures; the server requires the start
+  // date to match one exactly (HolidayPackage.isAvailableForDate).
+  packageType?: string;
+  departures?: {
+    _id: string;
+    startDate: string;
+    endDate?: string;
+    status?: string;
+    availableSlots?: number;
+    bookedSlots?: number;
+  }[];
+};
+
+// "2026-10-03T00:00:00.000Z" -> "Sat, 3 Oct 2026"
+const fmtDepDate = (iso: string) => {
+  const d = new Date(iso);
+  if (Number.isNaN(+d)) return iso.slice(0, 10);
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  });
 };
 
 // Per-person price for a variant (converted display amount, else base, else legacy).
@@ -67,7 +89,22 @@ const variantPrice = (v?: Variant | null) =>
 
 export default function PackageCheckoutScreen() {
   const router = useRouter();
-  const { id, variant: variantParam } = useLocalSearchParams<{ id: string; variant?: string }>();
+  const { id, variant: variantParam, addOns: addOnsParam } = useLocalSearchParams<{
+    id: string;
+    variant?: string;
+    addOns?: string;
+  }>();
+  // Extras chosen on the detail screen, carried as ids only. The server
+  // re-reads each one off the package and prices it, so nothing the client
+  // holds can change what is charged.
+  const selectedAddOnIds = useMemo(
+    () => String(addOnsParam || '').split(',').map((x) => x.trim()).filter(Boolean),
+    [addOnsParam],
+  );
+  const selectedAddOnPayload = useMemo(
+    () => selectedAddOnIds.map((addOnId) => ({ addOnId })),
+    [selectedAddOnIds],
+  );
   const { user } = useAuth();
 
   const [pkg, setPkg] = useState<Pkg | null>(null);
@@ -84,6 +121,58 @@ export default function PackageCheckoutScreen() {
   // Step 2: dates
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  // The server enforces availability.advanceBookingDays and rejects the
+  // booking at the LAST step with "Package is not available for the selected
+  // date" — after the user has entered travellers, contact details and hit
+  // Pay. Mirror the rule in the picker so an unbookable date is never
+  // offered in the first place (the web calendar already greys these out).
+  // A 9N/10D package booked 23rd->26th priced as a 10-day trip while showing
+  // a 3-night stay. The end date is not a free choice for a fixed-length
+  // package — derive it from the package's own duration.
+  // For a fixed-departure package the start date is NOT a free choice: the
+  // server matches it against an open departure and 400s otherwise ("Package is
+  // not available for the selected date"). Bhutan Group Departure, for example,
+  // runs on exactly 3 dates. Offer those instead of a blank calendar.
+  const bookableDepartures = useMemo(() => {
+    if (pkg?.packageType !== 'fixed') return [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const notice = Number(pkg?.availability?.advanceBookingDays) || 0;
+    const earliest = new Date(today);
+    earliest.setDate(earliest.getDate() + notice);
+    return (pkg?.departures || [])
+      .filter((d) => {
+        if (d.status !== 'open') return false;
+        if ((d.bookedSlots ?? 0) >= (d.availableSlots ?? 0)) return false;
+        const sd = new Date(d.startDate);
+        return sd >= earliest;
+      })
+      .sort((a, b) => +new Date(a.startDate) - +new Date(b.startDate));
+  }, [pkg]);
+
+  const selectedDeparture = useMemo(
+    () => bookableDepartures.find((d) => d.startDate.slice(0, 10) === startDate) || null,
+    [bookableDepartures, startDate],
+  );
+
+  const handleStartDateChange = (next: string) => {
+    setStartDate(next);
+    const nights = Number(pkg?.duration?.nights);
+    if (next && Number.isFinite(nights) && nights > 0) {
+      const end = new Date(next);
+      end.setDate(end.getDate() + nights);
+      setEndDate(end.toISOString().slice(0, 10));
+    }
+  };
+
+  const minStartDate = useMemo(() => {
+    const notice = Number(pkg?.availability?.advanceBookingDays) || 0;
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() + notice);
+    return d;
+  }, [pkg]);
 
   // Step 3: contact
   const [name, setName] = useState('');
@@ -160,6 +249,7 @@ export default function PackageCheckoutScreen() {
           children,
           infants: 0,
           travelDate: startDate || undefined,
+          selectedAddOns: selectedAddOnPayload,
         });
         if (alive) setLivePrice(res?.data || null);
       } catch {
@@ -169,7 +259,7 @@ export default function PackageCheckoutScreen() {
       }
     })();
     return () => { alive = false; };
-  }, [step, pkg, variantName, adults, children, startDate]);
+  }, [step, pkg, variantName, adults, children, startDate, selectedAddOnPayload]);
 
   // What we display + charge: server finalPrice when available, else the estimate.
   const estimatedTotal = useMemo(() => {
@@ -198,6 +288,17 @@ export default function PackageCheckoutScreen() {
       }
       if (new Date(startDate) >= new Date(endDate)) {
         Toast.show({ type: 'error', text1: 'End date must be after start' });
+        return false;
+      }
+      // Catch a start date below the operator's notice period before the user
+      // walks through two more steps only to be rejected at payment.
+      if (new Date(startDate) < minStartDate) {
+        const notice = Number(pkg?.availability?.advanceBookingDays) || 0;
+        Toast.show({
+          type: 'error',
+          text1: `This package needs ${notice} days' notice`,
+          text2: `Earliest start: ${minStartDate.toISOString().slice(0, 10)}`,
+        });
         return false;
       }
       return true;
@@ -242,6 +343,9 @@ export default function PackageCheckoutScreen() {
           variantName,
           travelStartDate: startDate,
           travelEndDate: endDate,
+          // Required for fixed departures — the server decrements that
+          // departure's slot count and rejects a mismatched date.
+          ...(selectedDeparture ? { departureId: selectedDeparture._id } : {}),
           // The server prices off totalTravelers.{adults,children,infants} — it
           // must be an OBJECT, not a count, or every booking is priced for 1 adult.
           totalTravelers: { adults, children, infants: 0 },
@@ -249,6 +353,8 @@ export default function PackageCheckoutScreen() {
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
           specialRequests: specialRequests.trim() || undefined,
+          // Ids only — the server prices each extra off the package itself.
+          selectedAddOns: selectedAddOnPayload,
           // Required — server rejects the booking without these acceptances.
           acceptedLegalDocs: PACKAGE_ACCEPTANCE,
         });
@@ -465,24 +571,70 @@ export default function PackageCheckoutScreen() {
 
           {step === 'dates' && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Travel dates</Text>
-              <DateField
-                label="Start date"
-                value={startDate}
-                onChange={setStartDate}
-                placeholder="Select start date"
-                minimumDate={new Date()}
-              />
-              <DateField
-                label="End date"
-                value={endDate}
-                onChange={setEndDate}
-                placeholder="Select end date"
-                minimumDate={startDate ? new Date(startDate) : new Date()}
-              />
-              <Text style={styles.hint}>
-                Dates can be flexible — the operator will confirm based on availability.
+              <Text style={styles.sectionTitle}>
+                {pkg?.packageType === 'fixed' ? 'Choose a departure' : 'Travel dates'}
               </Text>
+
+              {pkg?.packageType === 'fixed' ? (
+                bookableDepartures.length > 0 ? (
+                  <>
+                    {bookableDepartures.map((d) => {
+                      const iso = d.startDate.slice(0, 10);
+                      const active = startDate === iso;
+                      const left = (d.availableSlots ?? 0) - (d.bookedSlots ?? 0);
+                      return (
+                        <TouchableOpacity
+                          key={d._id}
+                          onPress={() => {
+                            setStartDate(iso);
+                            setEndDate((d.endDate || '').slice(0, 10));
+                          }}
+                          activeOpacity={0.8}
+                          style={[styles.depRow, active && styles.depRowActive]}
+                        >
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.depDate, active && styles.depDateActive]}>
+                              {fmtDepDate(d.startDate)}
+                              {d.endDate ? ` → ${fmtDepDate(d.endDate)}` : ''}
+                            </Text>
+                            <Text style={styles.depSeats}>
+                              {left > 0 ? `${left} seats left` : 'Sold out'}
+                            </Text>
+                          </View>
+                          {active ? <Text style={styles.depTick}>✓</Text> : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                    <Text style={styles.hint}>
+                      This is a group departure — it runs only on these dates.
+                    </Text>
+                  </>
+                ) : (
+                  <Text style={styles.hint}>
+                    No departures are open for booking right now. Please check back soon.
+                  </Text>
+                )
+              ) : (
+                <>
+                  <DateField
+                    label="Start date"
+                    value={startDate}
+                    onChange={handleStartDateChange}
+                    placeholder="Select start date"
+                    minimumDate={minStartDate}
+                  />
+                  <DateField
+                    label="End date"
+                    value={endDate}
+                    onChange={setEndDate}
+                    placeholder="Select end date"
+                    minimumDate={startDate ? new Date(startDate) : minStartDate}
+                  />
+                  <Text style={styles.hint}>
+                    Dates can be flexible — the operator will confirm based on availability.
+                  </Text>
+                </>
+              )}
             </View>
           )}
 
@@ -548,6 +700,16 @@ export default function PackageCheckoutScreen() {
                     {livePrice.groupDiscount?.applied && (
                       <ReviewRow label={`Group −${livePrice.groupDiscount.discountPercent}%`} value={`−₹${Number(livePrice.groupDiscount.discountAmount).toLocaleString('en-IN')}`} />
                     )}
+                    {/* One line per extra, priced by the server (per_couple
+                        halves the count, per_booking is flat) so the figure
+                        here is the figure charged. */}
+                    {(livePrice.addOns || []).map((a: any, i: number) => (
+                      <ReviewRow
+                        key={a.addOnId || i}
+                        label={`${a.name}${a.units > 1 ? ` × ${a.units}` : ''}`}
+                        value={`₹${Number(a.total ?? a.price ?? 0).toLocaleString('en-IN')}`}
+                      />
+                    ))}
                     {!!livePrice.taxes?.total && (
                       <ReviewRow label={`Taxes (GST${livePrice.taxes?.tcs ? ' + TCS' : ''})`} value={`₹${Number(livePrice.taxes.total).toLocaleString('en-IN')}`} />
                     )}
@@ -738,6 +900,18 @@ const styles = StyleSheet.create({
   counterValue: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text, minWidth: 24, textAlign: 'center' },
 
   hint: { fontSize: fontSize.sm, color: colors.textTertiary, lineHeight: 20 },
+  // Fixed-departure picker
+  depRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 14, paddingHorizontal: 14,
+    borderRadius: 12, borderWidth: 1, borderColor: colors.gray[200],
+    backgroundColor: colors.surface, marginBottom: 10,
+  },
+  depRowActive: { borderColor: colors.primary[500], backgroundColor: colors.primary[50] },
+  depDate: { fontSize: fontSize.md, fontWeight: fontWeight.semibold as any, color: colors.text },
+  depDateActive: { color: colors.primary[700] },
+  depSeats: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 3 },
+  depTick: { fontSize: 18, color: colors.primary[600], fontWeight: fontWeight.bold as any },
   legalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxOn: { backgroundColor: colors.primary[600], borderColor: colors.primary[600] },
