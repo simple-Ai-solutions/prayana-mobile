@@ -33,6 +33,14 @@ import { holidayPackagesAPI, destinationAPI, makeAPICall, videosAPI } from '@pra
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { normalizeImageUrl } from '../../lib/imageUrl';
+import {
+  activeAddOns,
+  addOnCharge,
+  addOnUnitLabel,
+  addOnsTotal,
+  isSelectableAddOn,
+  type PackageAddOn,
+} from '../../lib/addOnPricing';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -314,6 +322,7 @@ type HolidayPackage = {
   images?: { url: string; alt?: string; isPrimary?: boolean; caption?: string }[];
   inclusions?: string[];
   exclusions?: string[];
+  addOns?: PackageAddOn[];
   itinerary?: ItineraryDay[];
   highlights?: string[];
   isFeatured?: boolean;
@@ -396,6 +405,15 @@ export default function PackageDetailScreen() {
     } as any);
   };
   const [variantName, setVariantName] = useState<string | null>(null);
+  // Optional extras the operator will arrange. Only ids are kept: the server
+  // re-reads each extra off the package and prices it there, so a stale price
+  // held on the client can never reach the booking.
+  const [selectedAddOnIds, setSelectedAddOnIds] = useState<string[]>([]);
+  const toggleAddOn = useCallback((id: string) => {
+    setSelectedAddOnIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }, []);
   const [live, setLive] = useState<any>(null); // calculate-price result
   const [pricing, setPricing] = useState(false);
 
@@ -1061,6 +1079,101 @@ export default function PackageDetailScreen() {
                 </View>
               </View>
             ) : null}
+          </Card>
+        ) : null}
+
+        {/* Optional add-ons — extras the operator will arrange. Sits directly
+            under the variant picker (web parity): ticking a honeymoon set-up
+            belongs to the same "what am I buying" decision as picking the
+            hotel standard, and the CTA total updates the moment it is ticked. */}
+        {activeAddOns(pkg.addOns).length > 0 ? (
+          <Card style={styles.section}>
+            <View style={styles.aoHead}>
+              <View style={[styles.aoHeadIcon, { backgroundColor: '#eff6ff' }]}>
+                <Ionicons name="add-circle" size={15} color="#2563eb" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.aoTitle, { color: themeColors.text }]}>Optional add-ons</Text>
+                <Text style={[styles.aoSub, { color: themeColors.textSecondary }]}>
+                  Tap one to add it to your booking — the price updates below.
+                </Text>
+              </View>
+            </View>
+
+            {activeAddOns(pkg.addOns).map((a, i) => {
+              const selectable = isSelectableAddOn(a);
+              const selected = selectable && selectedAddOnIds.includes(a._id!);
+              return (
+                <TouchableOpacity
+                  key={a._id || `${a.name}-${i}`}
+                  activeOpacity={selectable ? 0.75 : 1}
+                  disabled={!selectable}
+                  onPress={selectable ? () => toggleAddOn(a._id!) : undefined}
+                  accessibilityRole={selectable ? 'checkbox' : undefined}
+                  accessibilityState={selectable ? { checked: selected } : undefined}
+                  accessibilityLabel={`${a.name}, ₹${Number(a.price).toLocaleString('en-IN')}${addOnUnitLabel(a.priceUnit)}`}
+                  style={[
+                    styles.aoCard,
+                    {
+                      backgroundColor: selected ? '#eff6ff' : themeColors.surface,
+                      borderColor: selected ? '#2563eb' : themeColors.border,
+                    },
+                  ]}
+                >
+                  {a.imageUrl ? (
+                    <Image
+                      source={{ uri: normalizeImageUrl(a.imageUrl) || a.imageUrl }}
+                      style={styles.aoImg}
+                      resizeMode="cover"
+                    />
+                  ) : null}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <View style={styles.aoTopRow}>
+                      <View style={styles.aoNameWrap}>
+                        {selectable ? (
+                          <View
+                            style={[
+                              styles.aoCheck,
+                              selected
+                                ? { backgroundColor: '#2563eb', borderColor: '#2563eb' }
+                                : { borderColor: themeColors.border },
+                            ]}
+                          >
+                            {selected ? <Ionicons name="checkmark" size={10} color="#fff" /> : null}
+                          </View>
+                        ) : null}
+                        <Text style={[styles.aoName, { color: themeColors.text }]} numberOfLines={2}>
+                          {a.name}
+                        </Text>
+                      </View>
+                      <Text style={[styles.aoPrice, { color: themeColors.text }]}>
+                        +₹{Number(a.price).toLocaleString('en-IN')}
+                        <Text style={[styles.aoUnit, { color: themeColors.textSecondary }]}>
+                          {addOnUnitLabel(a.priceUnit)}
+                        </Text>
+                      </Text>
+                    </View>
+                    {a.description ? (
+                      <Text style={[styles.aoDesc, { color: themeColors.textSecondary }]} numberOfLines={3}>
+                        {a.description}
+                      </Text>
+                    ) : null}
+                    {a.includes && a.includes.length > 0 ? (
+                      <View style={styles.aoIncWrap}>
+                        {a.includes.slice(0, 4).map((inc, k) => (
+                          <View key={k} style={styles.aoIncRow}>
+                            <Ionicons name="checkmark-circle" size={11} color="#16a34a" />
+                            <Text style={[styles.aoIncText, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                              {inc}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </Card>
         ) : null}
 
@@ -1969,7 +2082,12 @@ export default function PackageDetailScreen() {
           style={styles.bookBtn}
           activeOpacity={0.9}
           onPress={() => {
-            const q = variantName ? `?variant=${encodeURIComponent(variantName)}` : '';
+            const params = new URLSearchParams();
+            if (variantName) params.set('variant', variantName);
+            // Ids only — checkout re-reads each extra off the package and the
+            // server prices it, so no client-held price travels with the link.
+            if (selectedAddOnIds.length) params.set('addOns', selectedAddOnIds.join(','));
+            const q = params.toString() ? `?${params.toString()}` : '';
             // _id, not slug: some slugs resolve to empty duplicate documents.
             const path = `/packages/checkout/${encodeURIComponent(pkg._id)}${q}`;
             if (!requireAuth({ reason: 'Sign in to book this package. Travelers, dates, and payment will be saved to your account.', redirectAfter: path })) return;
@@ -2107,6 +2225,39 @@ const styles = StyleSheet.create({
   },
   photoCountText: { fontSize: 11, fontWeight: fontWeight.bold, color: '#374151' },
   socialProof: { fontSize: 12, marginTop: 6 },
+  // Optional add-ons
+  aoHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
+  aoHeadIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  aoTitle: { fontSize: 15, fontWeight: '700' },
+  aoSub: { fontSize: 11, marginTop: 2, lineHeight: 15 },
+  aoCard: {
+    flexDirection: 'row',
+    gap: 10,
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  aoImg: { width: 64, height: 64, borderRadius: 8, backgroundColor: '#f3f4f6' },
+  aoTopRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  aoNameWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, minWidth: 0 },
+  aoCheck: {
+    width: 16, height: 16, borderRadius: 8, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  aoName: { fontSize: 12.5, fontWeight: '700', flexShrink: 1 },
+  aoPrice: { fontSize: 12.5, fontWeight: '700' },
+  aoUnit: { fontSize: 10, fontWeight: '500' },
+  aoDesc: { fontSize: 11, lineHeight: 15, marginTop: 4 },
+  aoIncWrap: { marginTop: 6, gap: 3 },
+  aoIncRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  aoIncText: { fontSize: 10.5, flexShrink: 1 },
+  aoTotalRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 4, paddingTop: 10, borderTopWidth: 1,
+  },
+  aoTotalK: { fontSize: 12, fontWeight: '600' },
+  aoTotalV: { fontSize: 13, fontWeight: '700' },
   qfHead: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.md },
   qfHeadIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   qfHeadText: { fontSize: 12, fontWeight: fontWeight.bold, letterSpacing: 0.8 },
