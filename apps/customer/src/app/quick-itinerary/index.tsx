@@ -31,7 +31,7 @@ import {
 } from 'react-native';
 // Nested inside a gesture-handler ScrollView, plain RN Touchables silently drop
 // taps — import both from gesture-handler.
-import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
+import { ScrollView, TouchableOpacity, Pressable } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -736,12 +736,14 @@ export default function QuickItineraryScreen() {
         statusBarTranslucent
         onRequestClose={() => setShowDaysPicker(false)}
       >
-        <TouchableOpacity
+        <Pressable
           style={styles.sheetBackdrop}
-          activeOpacity={1}
           onPress={() => setShowDaysPicker(false)}
         >
-          <View style={[styles.sheet, { backgroundColor: themeColors.surface }]}>
+          <Pressable
+            onPress={() => {}}
+            style={[styles.sheet, { backgroundColor: themeColors.surface }]}
+          >
             <Text style={[styles.sheetTitle, { color: themeColors.text }]}>Trip duration</Text>
             <ScrollView style={{ maxHeight: 320 }}>
               {Array.from({ length: MAX_DAYS }, (_, i) => i + 1).map((d) => {
@@ -766,8 +768,8 @@ export default function QuickItineraryScreen() {
                 );
               })}
             </ScrollView>
-          </View>
-        </TouchableOpacity>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Travel-month picker */}
@@ -778,12 +780,14 @@ export default function QuickItineraryScreen() {
         statusBarTranslucent
         onRequestClose={() => setShowMonthPicker(false)}
       >
-        <TouchableOpacity
+        <Pressable
           style={styles.sheetBackdrop}
-          activeOpacity={1}
           onPress={() => setShowMonthPicker(false)}
         >
-          <View style={[styles.sheet, { backgroundColor: themeColors.surface }]}>
+          <Pressable
+            onPress={() => {}}
+            style={[styles.sheet, { backgroundColor: themeColors.surface }]}
+          >
             <Text style={[styles.sheetTitle, { color: themeColors.text }]}>Travel month</Text>
 
             <TouchableOpacity
@@ -833,8 +837,8 @@ export default function QuickItineraryScreen() {
                 );
               })}
             </View>
-          </View>
-        </TouchableOpacity>
+          </Pressable>
+        </Pressable>
       </Modal>
 
       {/* Generating overlay — the branded compass loader.
@@ -905,7 +909,12 @@ const styles = StyleSheet.create({
   // them. iOS honours zIndex, Android honours elevation; set both, and give the
   // rows underneath an explicit low rank (see row2/personaToggle) so the
   // Duration / Travel-month selects can never cover the suggestions.
-  autocompleteField: { zIndex: 30, elevation: 30 },
+  // Rank only while a dropdown is actually open. A permanently-elevated field
+  // keeps outranking the Duration / Travel-month row even when closed, and on
+  // Android elevation also grows the touch target — so the closed Destination
+  // box swallowed taps aimed at the selects underneath it and neither picker
+  // would open.
+  autocompleteField: { zIndex: 1, elevation: 0 },
   // The row whose dropdown is open must out-rank every sibling, otherwise the
   // later-declared row wins on equal zIndex and overlaps the list.
   autocompleteFieldActive: { zIndex: 60, elevation: 60 },
@@ -1101,6 +1110,11 @@ const styles = StyleSheet.create({
   // Bottom sheets
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {
+    // Must be explicit: as a Pressable (not a plain View) this no longer
+    // stretches to the backdrop's cross-axis, and monthCell's '30.5%' width
+    // then resolves against an auto-width parent — the month chips collapsed
+    // to one letter per line.
+    width: '100%',
     borderTopLeftRadius: borderRadius['2xl'],
     borderTopRightRadius: borderRadius['2xl'],
     padding: spacing.lg,

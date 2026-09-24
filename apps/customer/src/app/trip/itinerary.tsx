@@ -194,13 +194,23 @@ export default function ItineraryScreen() {
     }
   }, [params, parsed.title]);
 
-  const handleGenerateStructured = useCallback(async () => {
+  const handleGenerateStructured = useCallback(async (forceRegenerate = false) => {
     setStructuredLoading(true);
     try {
-      // API only accepts car_bus | bike | flight; sanitize anything else.
+      // API only accepts car_bus | bike | flight, and the mode decides the whole
+      // trip: 'car_bus' for Bangalore->Manali returns a 2000km overland drive via
+      // Nagpur and Ambala, not the flight itinerary. Values reaching here can be
+      // free text recovered from the guide header ("Flight", "Car / Bus"), so
+      // normalise case and separators instead of silently falling back to road.
       const VALID_MODES = ['car_bus', 'bike', 'flight'];
-      const rawMode = transportMode === 'car' ? 'car_bus' : transportMode;
-      const safeMode = VALID_MODES.includes(rawMode || '') ? rawMode : 'car_bus';
+      const norm = String(transportMode || '').trim().toLowerCase();
+      const rawMode =
+        norm.includes('flight') || norm.includes('plane') || norm.includes('air') ? 'flight'
+        : norm.includes('bike') || norm.includes('motorcycle') ? 'bike'
+        : norm.includes('car') || norm.includes('bus') || norm.includes('road') ? 'car_bus'
+        : norm;
+      const safeMode = VALID_MODES.includes(rawMode) ? rawMode : 'car_bus';
+      console.log('[Timeline] mode:', JSON.stringify(transportMode), '->', safeMode, '| from:', startingPoint || '(none)');
       const response = await makeAPICall('/itinerary/generate', {
         method: 'POST',
         body: JSON.stringify({
@@ -208,6 +218,10 @@ export default function ItineraryScreen() {
           duration: Number(params.duration),
           startingPoint: startingPoint || undefined,
           transportMode: safeMode,
+          // Without this the server's reuse fast-path returns the SAME stored
+          // itinerary (one case was 11 weeks old), so Regenerate was a no-op
+          // that still cost the user credits.
+          ...(forceRegenerate ? { forceRegenerate: true } : {}),
           preferences: {
             budget: 'moderate',
             interests: [],
@@ -272,7 +286,7 @@ export default function ItineraryScreen() {
   // cached trip — is stuck on screen with no way to retry.
   const handleRegenerate = useCallback(() => {
     setStructuredData(null);
-    handleGenerateStructured();
+    handleGenerateStructured(true);
   }, [handleGenerateStructured]);
 
   // Auto-switch to timeline tab triggers generation
