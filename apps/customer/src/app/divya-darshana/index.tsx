@@ -8,8 +8,11 @@
 // category "Pilgrimage" (+ tags). Cards route to /packages/[id]. Zero new API.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  View, Text, StyleSheet, Image, ActivityIndicator, Animated, Linking, Dimensions, Platform, Easing,
+  View, Text, StyleSheet, ActivityIndicator, Animated, Linking, Dimensions, Platform, Easing,
 } from 'react-native';
+// expo-image for its disk cache: these rails show full-size package photos
+// (hundreds of KB each) and RN's Image re-decodes them on every mount.
+import { Image } from 'expo-image';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
@@ -77,6 +80,13 @@ const pkgImage = (p: Pkg) => {
   return url ? normalizeImageUrl(url) : null;
 };
 const pkgPlace = (p: Pkg) => p.primaryDestination || p.destination?.city || p.destinations?.[0]?.name || p.destinations?.[0]?.city || '';
+const isHelicopter = (p: Pkg) => {
+  const t = (Array.isArray(p.tags) ? p.tags.join(',') : String(p.tags || '')).toLowerCase();
+  if (t.includes('helicopter') || t.includes('heli')) return true;
+  // Some operators only say it in the title ("... by Helicopter, 2N/3D").
+  return /helicopter/i.test(p.title || '');
+};
+
 const isGroupDeparture = (p: Pkg) => {
   const t = (Array.isArray(p.tags) ? p.tags.join(',') : String(p.tags || '')).toLowerCase();
   return t.includes('grouptour') || t.includes('fixeddeparture');
@@ -381,12 +391,19 @@ function ShrineCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
       <View style={styles.omFinial}><Text style={styles.omFinialText}>ॐ</Text></View>
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.shrineInner}>
         <View style={styles.shrineImgWrap}>
-          {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={150} />
             : <View style={[StyleSheet.absoluteFill, styles.imgPh]}><Text style={styles.omBig}>ॐ</Text></View>}
-          <LinearGradient colors={[MAROON, DEEP, SAFFRON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.heliBadge}>
-            <Ionicons name="airplane" size={11} color="#fff" />
-            <Text style={styles.heliBadgeText}>BY HELICOPTER</Text>
-          </LinearGradient>
+          {/* Only badge packages that actually fly. This was unconditional, so
+              every card in the rail claimed "BY HELICOPTER" — including the
+              Varanasi group tours, which are road/rail and carry no helicopter
+              tag at all. Advertising a service the package does not include is
+              worse than showing no badge. */}
+          {isHelicopter(pkg) ? (
+            <LinearGradient colors={[MAROON, DEEP, SAFFRON]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.heliBadge}>
+              <Ionicons name="airplane" size={11} color="#fff" />
+              <Text style={styles.heliBadgeText}>BY HELICOPTER</Text>
+            </LinearGradient>
+          ) : null}
         </View>
         <Text style={styles.shrineTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.85}>{pkg.title}</Text>
         <GoldDivider />
@@ -411,7 +428,7 @@ function DomeCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.dome} activeOpacity={0.9} onPress={onPress}>
       <View style={styles.domeImgWrap}>
-        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={150} />
           : <View style={[StyleSheet.absoluteFill, styles.imgPh]}><Text style={styles.omBig}>ॐ</Text></View>}
         {pkg.duration?.days ? (
           <View style={styles.durBadge}><Text style={styles.durBadgeText}>{pkg.duration.days}D / {nights}N</Text></View>

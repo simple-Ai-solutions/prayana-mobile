@@ -5,7 +5,12 @@
 // (nights), sorted by starting price — exactly like the web. Cards route to the
 // existing /packages/[id]. Zero new backend.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Image, ActivityIndicator, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Dimensions } from 'react-native';
+// expo-image, not RN's: this grid renders 39 cards at once and the source
+// images are full-size (up to ~490KB each, ~7MB total). RN's Image has no disk
+// cache and decodes every one at full resolution, so on mobile data most cards
+// never painted and fell back to the beige placeholder.
+import { Image } from 'expo-image';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -193,7 +198,14 @@ export default function DivyaDarshanaPackagesScreen() {
                   >
                     <View style={styles.cardImgWrap}>
                       {img ? (
-                        <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                        <Image
+                          source={{ uri: img }}
+                          style={StyleSheet.absoluteFill}
+                          contentFit="cover"
+                          transition={150}
+                          cachePolicy="memory-disk"
+                          recyclingKey={p._id}
+                        />
                       ) : (
                         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#FCE7C8', alignItems: 'center', justifyContent: 'center' }]}>
                           <Ionicons name="flower" size={24} color={SAFFRON} />

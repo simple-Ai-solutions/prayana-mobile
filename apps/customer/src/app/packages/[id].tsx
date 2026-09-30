@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -50,6 +50,15 @@ import {
 const packageColors = { ...colors, primary: colors.accent };
 
 const { width: SCREEN_W } = Dimensions.get('window');
+
+// Same five tabs as the web (components/packages/detail/SectionTabs.jsx).
+const SECTION_TABS: { id: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'itinerary',  label: 'Itinerary',  icon: 'calendar-outline' },
+  { id: 'inclusions', label: 'Inclusions', icon: 'checkmark-circle-outline' },
+  { id: 'gallery',    label: 'Gallery',    icon: 'images-outline' },
+  { id: 'policies',   label: 'Policies',   icon: 'shield-checkmark-outline' },
+  { id: 'reviews',    label: 'Reviews',    icon: 'star-outline' },
+];
 
 type ItineraryDay = {
   day?: number;
@@ -804,9 +813,59 @@ export default function PackageDetailScreen() {
     };
   })();
 
+  // Sticky section tabs, mirroring the web's SectionTabs. Each section
+  // registers its y-offset via onLayout; tapping a tab scrolls the main list
+  // there, and scrolling lights up whichever section is currently under the
+  // bar. The web locks its scroll-spy during a programmatic scroll for the
+  // same reason we do here: otherwise every tab flashes on the way past.
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
+  const spyLocked = useRef(false);
+  const [activeSection, setActiveSection] = useState('itinerary');
+
+  const registerSection = useCallback(
+    (id: string) => (e: any) => {
+      sectionY.current[id] = e.nativeEvent.layout.y;
+    },
+    [],
+  );
+
+  const goToSection = useCallback((id: string) => {
+    const y = sectionY.current[id];
+    if (y == null) return;
+    setActiveSection(id);
+    spyLocked.current = true;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    setTimeout(() => { spyLocked.current = false; }, 700);
+  }, []);
+
+  const [showTabs, setShowTabs] = useState(false);
+
+  const onMainScroll = useCallback((e: any) => {
+    const raw = e.nativeEvent.contentOffset.y;
+    // Only reveal the bar once the hero has scrolled away, otherwise it would
+    // sit over the carousel from the moment the screen opens.
+    const firstY = sectionY.current[SECTION_TABS[0].id];
+    setShowTabs(firstY != null && raw > firstY - 120);
+    if (spyLocked.current) return;
+    const y = raw + 80;
+    let current = SECTION_TABS[0].id;
+    for (const t of SECTION_TABS) {
+      const sy = sectionY.current[t.id];
+      if (sy != null && sy <= y) current = t.id;
+    }
+    setActiveSection((prev) => (prev === current ? prev : current));
+  }, []);
+
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        showsVerticalScrollIndicator={false}
+        onScroll={onMainScroll}
+        scrollEventThrottle={32}
+      >
         {/* Image carousel */}
         <View style={styles.carousel}>
           <ScrollView
@@ -1249,7 +1308,8 @@ export default function PackageDetailScreen() {
         {/* Itinerary */}
         {pkg.itinerary && pkg.itinerary.length > 0 ? (
           <Card style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Day-by-day itinerary</Text>
+            <View onLayout={registerSection('itinerary')} />
+              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Day-by-day itinerary</Text>
             {pkg.itinerary.map((d, di) => {
               const dayNo = d.dayNumber ?? d.day ?? di + 1;
               const acts = (d.activities || []).map(toActivity).filter((a) => a.title);
@@ -1548,6 +1608,7 @@ export default function PackageDetailScreen() {
           <Card style={styles.section}>
             <View style={styles.sectionAccentRow}>
               <Ionicons name="location" size={16} color="#059669" />
+              <View onLayout={registerSection('gallery')} />
               <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Destination highlights</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.destRail}>
@@ -1598,7 +1659,7 @@ export default function PackageDetailScreen() {
 
         {/* Inclusions — emerald tinted card with a filled icon tile (web parity) */}
         {pkg.inclusions && pkg.inclusions.length > 0 ? (
-          <View style={[styles.section, styles.inclCard]}>
+          <View style={[styles.section, styles.inclCard]} onLayout={registerSection('inclusions')}>
             <View style={styles.inclHead}>
               <View style={[styles.inclIcon, { backgroundColor: '#10b981' }]}>
                 <Ionicons name="checkmark" size={17} color="#fff" />
@@ -1699,6 +1760,7 @@ export default function PackageDetailScreen() {
                 size={16}
                 color={pkg.cancellationPolicy?.type === 'strict' ? '#d97706' : '#059669'}
               />
+              <View onLayout={registerSection('policies')} />
               <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Cancellation policy</Text>
             </View>
             {(pkg.cancellationPolicy?.rules || []).length > 0 ? (
@@ -1961,7 +2023,8 @@ export default function PackageDetailScreen() {
         <Card style={styles.section}>
           <View style={styles.sectionAccentRow}>
             <Ionicons name="star" size={16} color="#f59e0b" />
-            <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Traveller reviews</Text>
+            <View onLayout={registerSection('reviews')} />
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Traveller reviews</Text>
           </View>
           {pkg.rating?.count ? (
             <View style={styles.reviewSummary}>
@@ -2041,6 +2104,42 @@ export default function PackageDetailScreen() {
           </View>
         ) : null}
       </ScrollView>
+
+      {/* Sticky section tabs — pinned below the header, outside the ScrollView
+          so they stay put while the content moves under them. */}
+      {showTabs ? (
+      <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarRow}>
+          {SECTION_TABS.map((t) => {
+            const active = activeSection === t.id;
+            return (
+              <TouchableOpacity
+                key={t.id}
+                onPress={() => goToSection(t.id)}
+                style={[styles.tabItem, active && { borderBottomColor: packageColors.primary[500] }]}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={t.icon}
+                  size={15}
+                  color={active ? packageColors.primary[600] : themeColors.textTertiary}
+                />
+                <Text
+                  style={[
+                    styles.tabItemText,
+                    { color: active ? packageColors.primary[600] : themeColors.textSecondary },
+                    active && { fontWeight: fontWeight.bold as any },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+      ) : null}
 
       {/* Floating back button. Rendered AFTER the ScrollView so the image
           carousel cannot paint over it, and positioned against the real
@@ -2157,6 +2256,29 @@ export default function PackageDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  // Sticky section tabs. Pinned under the header (outside the ScrollView) so
+  // they remain visible as the content scrolls beneath.
+  tabBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    borderBottomWidth: 1,
+    zIndex: 20,
+    elevation: 4,
+  },
+  tabBarRow: { paddingHorizontal: spacing.md },
+  tabItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 11,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabItemText: { fontSize: fontSize.sm, fontWeight: '600' },
+
   container: { flex: 1, backgroundColor: colors.backgroundSecondary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.lg },
   errorTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
