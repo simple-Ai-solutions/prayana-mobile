@@ -24,7 +24,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prayanaai.customer",
-      "buildNumber": "53",
+      "buildNumber": "54",
       "config": {
         "googleMapsApiKey": "AIzaSyBdyvoU_7G2MLzSvi9NxPheak6USvb39VA"
       },
@@ -61,7 +61,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.prayanaai.customer",
-      "versionCode": 53,
+      "versionCode": 54,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyBdyvoU_7G2MLzSvi9NxPheak6USvb39VA"
