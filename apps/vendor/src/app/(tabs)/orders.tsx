@@ -13,7 +13,12 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { Card, SearchBar, EmptyState } from '@prayana/shared-ui';
-import { StatusBadge, LoadingSpinner } from '../../components/ui';
+import {
+  StatusBadge,
+  LoadingSpinner,
+  PartnerPointBadge,
+  listWithoutResellerMargin,
+} from '../../components/ui';
 import {
   colors,
   fontSize,
@@ -35,6 +40,8 @@ interface Booking {
   activity?: { title?: string; name?: string; _id?: string };
   customerName?: string;
   customer?: { name?: string; firstName?: string; lastName?: string; email?: string };
+  /** Partner Point sale — the shop's commission is never typed or shown here. */
+  bookedVia?: { channel?: 'direct' | 'reseller' | null } | null;
   date?: string;
   bookingDate?: string;
   totalAmount?: number;
@@ -222,6 +229,8 @@ function OrderCard({
           <StatusBadge status={booking.status} />
         </View>
 
+        <PartnerPointBadge bookedVia={booking.bookedVia} style={styles.partnerBadge} />
+
         {/* Meta line: reference \u00B7 customer \u00B7 participants */}
         <View style={styles.orderMetaRow}>
           <Text style={styles.orderRef}>
@@ -348,7 +357,7 @@ export default function OrdersScreen() {
 
       const res = await businessAPI.getMyBookings(filters);
       const data = res?.data || res?.bookings || res || [];
-      setBookings(Array.isArray(data) ? data : []);
+      setBookings(listWithoutResellerMargin<Booking>(data));
     } catch (err) {
       console.warn('[Orders] fetch error:', err);
       Toast.show({ type: 'error', text1: 'Failed to load orders' });
@@ -718,6 +727,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  partnerBadge: {
     marginBottom: spacing.xs,
   },
   orderActivity: {

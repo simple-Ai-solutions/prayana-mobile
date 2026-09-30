@@ -10,6 +10,8 @@
 
 export type BookingStatus =
   | 'pending'
+  /** Headout: created uncaptured, awaiting our payment + capture. */
+  | 'pending_capture'
   | 'confirmed'
   | 'completed'
   | 'cancelled'
@@ -18,12 +20,27 @@ export type BookingStatus =
   | 'no_show'
   | 'payment_pending';
 
-export type PaymentMethod = 'razorpay' | 'stripe' | 'paypal' | 'upi' | 'cash' | 'pending';
+/**
+ * `partner_wallet` = a Partner Point (reseller) shop paid from its prepaid
+ * wallet. Such a booking is already paid — never offer it a "Pay now".
+ */
+export type PaymentMethod =
+  | 'razorpay'
+  | 'stripe'
+  | 'paypal'
+  | 'upi'
+  | 'cash'
+  | 'partner_wallet'
+  | 'pending';
 
 export type PaymentStatus =
   | 'unpaid'
   | 'pending'
   | 'paid'
+  /** Advance paid, balance (`pendingAmount`) still owed. */
+  | 'partially_paid'
+  /** Cabs: refund recorded but the gateway has not confirmed it yet. */
+  | 'refund_pending'
   | 'refunded'
   | 'partially_refunded'
   | 'failed';
@@ -38,7 +55,7 @@ export type ChildGender = 'male' | 'female' | 'other';
 // Payment gateway types
 // ---------------------------------------------------------------------------
 
-export type PaymentGateway = 'razorpay' | 'stripe' | 'paypal' | 'manual';
+export type PaymentGateway = 'razorpay' | 'stripe' | 'paypal' | 'manual' | 'partner_wallet';
 
 export type TransactionStatus = 'pending' | 'success' | 'failed' | 'refunded' | 'partially_refunded';
 
@@ -57,6 +74,56 @@ export type PayoutStatus =
 export type QualityTier = 'bronze' | 'silver' | 'gold' | 'platinum';
 
 export type CommissionSource = 'tier_based' | 'manual_override';
+
+// ---------------------------------------------------------------------------
+// Partner Point (reseller) — server/models/shared/resellerBookedVia.js
+// Present on Booking, PackageBooking, EsimOrder, TransportBooking, BusBooking.
+// ---------------------------------------------------------------------------
+
+export type BookingChannel = 'direct' | 'reseller';
+
+/** `commission` = shop keeps a cut of Prayana's price; `net_rate` = shop paid trade price. */
+export type ResellerPricingMode = 'commission' | 'net_rate';
+
+export type ResellerCommissionStatus = 'earned' | 'partially_reversed' | 'reversed';
+
+/**
+ * The shop's commission on a reseller booking. Amounts are rupees.
+ * NEVER render this in the vendor app — it is the shop's margin, not the
+ * operator's business (the server is being changed to stop sending it).
+ */
+export interface ResellerCommission {
+  percent?: number | null;
+  flatPerUnit?: number | null;
+  units?: number | null;
+  baseAmount?: number | null;
+  grossAmount?: number | null;
+  tdsPercent?: number | null;
+  tdsAmount?: number | null;
+  netAmount?: number | null;
+  walletDebit?: number | null;
+  walletCredited?: number | null;
+  status?: ResellerCommissionStatus | null;
+}
+
+/**
+ * "How was this sold". channel `reseller` = a Partner Point shop booked for a
+ * walk-in customer and paid from its wallet: customerName/customerPhone hold
+ * the WALK-IN customer (email may be empty) and customerFirebaseUid is the
+ * SHOP's uid.
+ */
+export interface BookedVia {
+  channel?: BookingChannel | null;
+  /** BusinessAccount id of the Partner Point shop. */
+  resellerBusiness?: string | null;
+  pricingMode?: ResellerPricingMode | null;
+  /** net_rate mode only — the shop's own selling price (rupees). */
+  shopSellingPrice?: number | null;
+  resellerCommission?: ResellerCommission | null;
+}
+
+/** What the vendor (operator) app may hold — the shop's margin stripped out. */
+export type VendorSafeBookedVia = Omit<BookedVia, 'resellerCommission' | 'shopSellingPrice'>;
 
 // ---------------------------------------------------------------------------
 // Booking nested interfaces
@@ -96,6 +163,11 @@ export interface BookingPricing {
   breakdown: Record<string, unknown>;
   commission: CommissionBreakdown;
   agentEarnings: AgentEarnings;
+  /**
+   * true = the vendor-listed amount is in paisa. Bookings without the flag
+   * predate the fix and store it in rupees.
+   */
+  vendorListedInPaisa?: boolean;
 }
 
 export interface StatusHistoryEntry {
@@ -108,6 +180,10 @@ export interface StatusHistoryEntry {
 export interface BookingPayment {
   method: PaymentMethod;
   status: PaymentStatus;
+  /** Partial-payment bookkeeping (status `partially_paid`). */
+  isPartialPayment?: boolean;
+  advanceAmount?: number;
+  balanceDueDate?: string | null;
   transactionId?: string | null;
   paidAmount: number;
   pendingAmount: number;
@@ -171,6 +247,12 @@ export interface CancellationInfo {
   requestedBy?: string | null;
   reason?: string | null;
   refundStatus?: string | null;
+  /** Rupees. */
+  refundAmount?: number | null;
+  refundedAt?: string | null;
+  refundReference?: string | null;
+  /** Set when the refund could not be sent — needs support follow-up. */
+  refundError?: string | null;
 }
 
 /** Snapshot of activity details at the time of booking (immutable record) */
@@ -192,7 +274,10 @@ export interface Booking {
   activity: string;
   business: string;
   businessFirebaseUid: string;
+  /** For a Partner Point booking this is the SHOP's uid, not the traveller's. */
   customerFirebaseUid: string;
+  /** Sold through a Partner Point shop? Absent on older bookings = direct. */
+  bookedVia?: BookedVia | null;
   customerName?: string | null;
   customerEmail?: string | null;
   customerPhone?: string | null;

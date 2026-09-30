@@ -60,7 +60,20 @@ export interface EsimOrder {
   };
 
   pricing?: { sellingPrice?: number };
-  payment?: { status?: string; paidAt?: string };
+  /**
+   * method: 'partner_wallet' when a Partner Point shop paid from its wallet;
+   * null/absent means Razorpay (every order before the reseller programme).
+   */
+  payment?: { status?: string; paidAt?: string; method?: string | null };
+
+  /**
+   * Partner Point (reseller) sale. When channel is 'reseller' the signed-in
+   * account is the SHOP and customerName/customerPhone are the walk-in customer.
+   */
+  bookedVia?: { channel?: 'direct' | 'reseller' | null } | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
 
   fulfillment?: EsimFulfillment;
   /** Legacy eSIM Go orders carry the same identifiers under a different key. */

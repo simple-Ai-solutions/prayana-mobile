@@ -17,6 +17,8 @@ import {
   EmptyState,
   LoadingSpinner,
   useTheme,
+  PartnerPointBadge,
+  listWithoutResellerMargin,
 } from '../../components/ui';
 import {
   colors,
@@ -44,8 +46,11 @@ type TransportBooking = {
   endDate?: string;
   dropoffDate?: string;
   pickupTime?: string;
+  /** On a Partner Point booking these are the WALK-IN customer's details. */
   customerName?: string;
   customerPhone?: string;
+  /** Partner Point sale — the shop's commission is never typed or shown here. */
+  bookedVia?: { channel?: 'direct' | 'reseller' | null } | null;
   pricing?: { totalAmount?: number };
   totalAmount?: number;
 };
@@ -109,7 +114,7 @@ export default function TransportBookingsScreen() {
         payload?.bookings ||
         payload?.transportBookings ||
         (Array.isArray(payload) ? payload : []);
-      setBookings(Array.isArray(list) ? list : []);
+      setBookings(listWithoutResellerMargin<TransportBooking>(list));
     } catch (err: any) {
       console.warn('[TransportBookings] fetch failed:', err?.message);
       // Under the dev auth bypass every authenticated call 401s; that's expected,
@@ -153,6 +158,8 @@ export default function TransportBookingsScreen() {
         </View>
         <StatusBadge status={item.status || 'pending'} />
       </View>
+
+      <PartnerPointBadge bookedVia={item.bookedVia} style={{ marginBottom: spacing.xs }} />
 
       <View style={styles.metaLine}>
         <Ionicons name="calendar-outline" size={13} color={themeColors.textTertiary} />

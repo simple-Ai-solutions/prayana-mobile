@@ -11,7 +11,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
-import { Card, useTheme } from '../../components/ui';
+import {
+  Card,
+  useTheme,
+  PartnerPointBadge,
+  isPartnerPointBooking,
+  listWithoutResellerMargin,
+} from '../../components/ui';
 import {
   colors,
   spacing,
@@ -33,18 +39,22 @@ const STATUS_COLORS: Record<string, string> = {
   pending_payment: '#f59e0b', // amber-500
   partially_paid: '#fbbf24', // amber-400
   confirmed: '#3b82f6', // blue-500
+  modifications_requested: '#a855f7', // purple-500
   in_progress: '#22c55e', // green-500
   completed: '#4ade80', // green-400
   cancelled: '#ef4444', // red-500
+  refunded: '#94a3b8', // slate-400
 };
 
 const STATUS_LABELS: Record<string, string> = {
   pending_payment: 'Pending payment',
   partially_paid: 'Partially paid',
   confirmed: 'Confirmed',
+  modifications_requested: 'Changes requested',
   in_progress: 'In progress',
   completed: 'Completed',
   cancelled: 'Cancelled',
+  refunded: 'Refunded',
 };
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -58,9 +68,12 @@ type PackageBooking = {
   bookingReference?: string;
   totalTravelers?: { adults?: number; children?: number };
   pricing?: { totalAmount?: number };
+  /** On a Partner Point booking these are the WALK-IN customer's details. */
   customerName?: string;
   customerPhone?: string;
   customerEmail?: string;
+  /** Partner Point sale — the shop's commission is never typed or shown here. */
+  bookedVia?: { channel?: 'direct' | 'reseller' | null } | null;
 };
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
@@ -106,7 +119,7 @@ export default function PackageBookingsScreen() {
     try {
       const res: any = await packageAPI.getBusinessBookings('all', 1);
       const list = res?.data || res?.bookings || res || [];
-      setBookings(Array.isArray(list) ? list : []);
+      setBookings(listWithoutResellerMargin<PackageBooking>(list));
     } catch (err: any) {
       console.warn('[PackageBookings] fetch failed:', err?.message);
       // Under the dev auth bypass every authenticated call 401s; that's expected,
@@ -359,6 +372,7 @@ export default function PackageBookingsScreen() {
                       {booking.bookingReference}
                     </Text>
                   )}
+                  <PartnerPointBadge bookedVia={booking.bookedVia} style={{ marginBottom: spacing.xs }} />
 
                   <View style={styles.metaLine}>
                     <Ionicons name="people-outline" size={14} color={themeColors.textSecondary} />
@@ -393,6 +407,7 @@ export default function PackageBookingsScreen() {
                   {!!booking.customerName && (
                     <View style={[styles.customerRow, { borderTopColor: themeColors.border }]}>
                       <Text style={[styles.customerName, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                        {isPartnerPointBooking(booking) ? 'Walk-in: ' : ''}
                         {booking.customerName}
                         {booking.customerPhone || booking.customerEmail
                           ? ` · ${booking.customerPhone || booking.customerEmail}`

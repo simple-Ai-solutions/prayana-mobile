@@ -87,6 +87,7 @@ export function StarRating(props: React.ComponentProps<typeof SharedStarRating>)
 export {
   Card,
   StatusBadge,
+  PartnerPointBadge,
   Badge,
   Avatar,
   TextInput,
@@ -95,6 +96,17 @@ export {
   EmptyState,
   useTheme,
   ThemeProvider,
+} from '@prayana/shared-ui';
+
+// Partner Point (reseller) helpers. Every vendor screen that loads bookings
+// runs them through withoutResellerMargin() so the shop's commission
+// (bookedVia.resellerCommission / shopSellingPrice) can never reach the UI,
+// even if the server still sends it.
+export {
+  isPartnerPointBooking,
+  bookingCustomer,
+  withoutResellerMargin,
+  listWithoutResellerMargin,
 } from '@prayana/shared-ui';
 
 // Vendor-exclusive brand mark (pin-"P" + teal comet, from assets/Final.svg) —

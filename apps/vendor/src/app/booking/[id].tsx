@@ -17,6 +17,10 @@ import {
   StatusBadge,
   Button,
   LoadingSpinner,
+  PartnerPointBadge,
+  isPartnerPointBooking,
+  bookingCustomer,
+  withoutResellerMargin,
 } from '@prayana/shared-ui';
 import {
   colors,
@@ -37,7 +41,16 @@ interface BookingDetail {
   status: string;
   activityName?: string;
   activity?: { title?: string; name?: string; _id?: string };
+  /** For a Partner Point booking these are the WALK-IN customer's details. */
   customerName?: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  /**
+   * Partner Point (reseller) block. Deliberately typed WITHOUT
+   * resellerCommission / shopSellingPrice: that is the shop's margin and must
+   * never be shown to the operator (stripped on fetch too).
+   */
+  bookedVia?: { channel?: 'direct' | 'reseller' | null; pricingMode?: string | null } | null;
   customer?: {
     name?: string;
     firstName?: string;
@@ -149,7 +162,7 @@ export default function BookingDetailScreen() {
     try {
       const res = await bookingAPI.getBookingById(id);
       const data = res?.data || res?.booking || res;
-      setBooking(data);
+      setBooking(withoutResellerMargin(data));
     } catch (err) {
       Toast.show({ type: 'error', text1: 'Failed to load booking details' });
     }
@@ -319,11 +332,10 @@ export default function BookingDetailScreen() {
 
   const activityName =
     booking.activityName || booking.activity?.title || booking.activity?.name || 'Activity';
-  const customerName =
-    booking.customerName ||
-    [booking.customer?.firstName, booking.customer?.lastName].filter(Boolean).join(' ') ||
-    booking.customer?.name ||
-    'Customer';
+  // customer* fields win: on a Partner Point booking they are the walk-in customer.
+  const contact = bookingCustomer(booking);
+  const customerName = contact.name || 'Customer';
+  const partnerPoint = isPartnerPointBooking(booking);
   const amount = booking.totalAmount || booking.payment?.total || 0;
   const dateStr = booking.date || booking.bookingDate || '';
   const formattedDate = dateStr
@@ -370,6 +382,7 @@ export default function BookingDetailScreen() {
           </Text>
           <View style={styles.statusRow}>
             <StatusBadge status={booking.status} />
+            <PartnerPointBadge bookedVia={booking.bookedVia} />
             {booking.isInstantBooking && (
               <View style={styles.instantBadge}>
                 <Ionicons name="flash" size={12} color={colors.primary[500]} />
@@ -382,9 +395,14 @@ export default function BookingDetailScreen() {
         {/* Customer Info */}
         <Card style={styles.sectionCard}>
           <Text style={styles.cardTitle}>Customer Information</Text>
+          {partnerPoint && (
+            <Text style={styles.partnerNote}>
+              Sold by a Prayana Partner Point for a walk-in customer.
+            </Text>
+          )}
           <InfoRow icon="person-outline" label="Name" value={customerName} />
-          <InfoRow icon="mail-outline" label="Email" value={booking.customer?.email || '-'} />
-          <InfoRow icon="call-outline" label="Phone" value={booking.customer?.phone || '-'} />
+          <InfoRow icon="mail-outline" label="Email" value={contact.email || '-'} />
+          <InfoRow icon="call-outline" label="Phone" value={contact.phone || '-'} />
           <InfoRow
             icon="people-outline"
             label="Participants"
@@ -623,6 +641,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
     color: colors.primary[600],
+  },
+
+  partnerNote: {
+    fontSize: fontSize.xs,
+    color: colors.textSecondary,
+    marginTop: -spacing.sm,
+    marginBottom: spacing.sm,
   },
 
   // Section Card

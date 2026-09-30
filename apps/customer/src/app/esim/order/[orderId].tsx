@@ -14,7 +14,17 @@ import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
+import {
+  useTheme,
+  spacing,
+  fontSize,
+  fontWeight,
+  borderRadius,
+  PartnerPointBadge,
+  isPartnerPointBooking,
+  bookingCustomer,
+  paymentMethodLabel,
+} from '@prayana/shared-ui';
 import { esimAPI } from '@prayana/shared-services';
 import { formatData } from '../../../lib/esim';
 import { EsimOrder, resolveEsim, statusStyle, usageOf } from '../../../lib/esimOrder';
@@ -129,6 +139,12 @@ export default function EsimOrderScreen() {
 
   const dataLabel = bundle.isUnlimited ? 'Unlimited' : formatData(totalMB);
 
+  // Partner Point sale: this account is the shop; show the walk-in customer.
+  const partnerPoint = isPartnerPointBooking(order);
+  const walkIn = partnerPoint ? bookingCustomer(order) : null;
+  // Old orders carry no method — they were all Razorpay, so say nothing.
+  const paidVia = paymentMethodLabel(order.payment?.method);
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['bottom']}>
       {header}
@@ -151,6 +167,7 @@ export default function EsimOrderScreen() {
                 {order.orderReference}
               </Text>
             )}
+            <PartnerPointBadge bookedVia={order.bookedVia} style={{ marginTop: 4 }} />
           </View>
           <View style={[styles.status, { backgroundColor: st.bg }]}>
             <View style={[styles.dot, { backgroundColor: st.dot }]} />
@@ -236,6 +253,8 @@ export default function EsimOrderScreen() {
         >
           <Text style={[styles.cardTitle, { color: themeColors.text }]}>Order details</Text>
           <Row label="Reference" value={order.orderReference} mono />
+          {partnerPoint && <Row label="Customer" value={walkIn?.name} />}
+          {partnerPoint && <Row label="Customer phone" value={walkIn?.phone} mono />}
           <Row label="ICCID" value={esim.iccid} mono />
           <Row label="Mobile number" value={esim.mobileNumber} mono />
           <Row
@@ -250,6 +269,7 @@ export default function EsimOrderScreen() {
                 : undefined
             }
           />
+          <Row label="Paid via" value={paidVia} />
           <Row
             label="Total paid"
             value={`₹${(order.pricing?.sellingPrice ?? 0).toLocaleString('en-IN')}`}

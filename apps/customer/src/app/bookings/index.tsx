@@ -34,6 +34,9 @@ import {
   TextInput,
   Button,
   useTheme,
+  PartnerPointBadge,
+  isPartnerPointBooking,
+  bookingCustomer,
 } from '@prayana/shared-ui';
 import { bookingAPI, esimAPI, holidayPackagesAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
@@ -52,10 +55,28 @@ interface BookingActivity {
   duration?: string;
 }
 
+/**
+ * Partner Point (reseller) block. When channel is 'reseller' a shop booked this
+ * for a walk-in customer and paid from its wallet — this account is the SHOP,
+ * and customerName/customerPhone are the traveller.
+ */
+interface BookedVia {
+  channel?: 'direct' | 'reseller' | null;
+}
+
 interface Booking {
   _id: string;
   bookingReference: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'refunded' | 'no_show';
+  status:
+    | 'pending'
+    | 'pending_capture'
+    | 'payment_pending'
+    | 'confirmed'
+    | 'completed'
+    | 'cancelled'
+    | 'refunded'
+    | 'auto_refunded'
+    | 'no_show';
   activity: BookingActivity;
   bookingDate: string;
   timeSlot?: {
@@ -84,6 +105,11 @@ interface Booking {
     email: string;
     phone: string;
   };
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  bookedVia?: BookedVia | null;
+  payment?: { method?: string | null; status?: string | null };
   createdAt: string;
 }
 
@@ -113,6 +139,11 @@ interface EsimOrder {
     durationDays?: number;
   };
   pricing?: { totalPrice?: number };
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  bookedVia?: BookedVia | null;
+  payment?: { method?: string | null; status?: string | null };
   createdAt: string;
 }
 
@@ -124,9 +155,17 @@ interface PackageBooking {
   package?: { title?: string; images?: string[]; destination?: string };
   packageSnapshot?: { title?: string; coverImage?: string; destination?: string };
   travelDate?: string;
+  /** Server field name (PackageBooking.travelStartDate). */
+  travelStartDate?: string;
   travellers?: { adults?: number; children?: number };
-  pricing?: { total?: number };
+  /** Server field name (PackageBooking.totalTravelers). */
+  totalTravelers?: { adults?: number; children?: number };
+  pricing?: { total?: number; totalAmount?: number };
   totalAmount?: number;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
+  bookedVia?: BookedVia | null;
   createdAt: string;
 }
 
@@ -212,7 +251,9 @@ function filterBookings(bookings: Booking[], tab: TabKey): Booking[] {
       const now = new Date();
       return bookings.filter(
         (b) =>
-          (b.status === 'pending' || b.status === 'confirmed') &&
+          (b.status === 'pending' ||
+            b.status === 'pending_capture' ||
+            b.status === 'confirmed') &&
           new Date(b.bookingDate) >= now
       );
     }
@@ -222,7 +263,10 @@ function filterBookings(bookings: Booking[], tab: TabKey): Booking[] {
       return bookings.filter((b) => b.status === 'completed');
     case 'cancelled':
       return bookings.filter(
-        (b) => b.status === 'cancelled' || b.status === 'refunded'
+        (b) =>
+          b.status === 'cancelled' ||
+          b.status === 'refunded' ||
+          b.status === 'auto_refunded'
       );
     default:
       return bookings;
@@ -234,16 +278,29 @@ function filterEsimOrders(orders: EsimOrder[], tab: TabKey): EsimOrder[] {
   return orders.filter((o) => ESIM_STATUS_BUCKET[o.status] === tab);
 }
 
+// PackageBooking statuses that are still "live" (server/models/PackageBooking.js;
+// 'pending' kept for older rows).
+const PACKAGE_UPCOMING_STATUSES = new Set([
+  'pending',
+  'pending_payment',
+  'partially_paid',
+  'confirmed',
+  'modifications_requested',
+  'in_progress',
+]);
+
 function filterPackageBookings(items: PackageBooking[], tab: TabKey): PackageBooking[] {
   switch (tab) {
     case 'all':
       return items;
     case 'upcoming':
-      return items.filter(
-        (b) =>
-          (b.status === 'pending' || b.status === 'confirmed') &&
-          (!b.travelDate || new Date(b.travelDate) >= new Date())
-      );
+      return items.filter((b) => {
+        const travel = b.travelDate || b.travelStartDate;
+        return (
+          PACKAGE_UPCOMING_STATUSES.has(b.status) &&
+          (!travel || new Date(travel) >= new Date())
+        );
+      });
     case 'confirmed':
       return items.filter((b) => b.status === 'confirmed');
     case 'completed':
@@ -703,6 +760,8 @@ export default function MyBookingsScreen() {
         : item.timeSlot?.label || '';
 
     const totalAmount = item.pricing?.total || item.totalAmount || 0;
+    const partnerPoint = isPartnerPointBooking(item);
+    const walkIn = partnerPoint ? bookingCustomer(item) : null;
 
     return (
       <TouchableOpacity
@@ -765,6 +824,18 @@ export default function MyBookingsScreen() {
                 />
                 <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>{participantText}</Text>
               </View>
+
+              {walkIn?.name ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="person-outline" size={13} color={themeColors.textTertiary} />
+                  <Text style={[styles.infoText, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                    For {walkIn.name}
+                    {walkIn.phone ? ` \u2022 ${walkIn.phone}` : ''}
+                  </Text>
+                </View>
+              ) : null}
+
+              <PartnerPointBadge bookedVia={item.bookedVia} style={styles.partnerBadge} />
 
               <Text style={[styles.priceText, { color: themeColors.text }]}>
                 {formatCurrency(totalAmount)}
@@ -834,6 +905,7 @@ export default function MyBookingsScreen() {
     const dataText = item.bundle?.isUnlimited
       ? 'Unlimited'
       : formatDataAmount(item.bundle?.dataAmountMB);
+    const walkIn = isPartnerPointBooking(item) ? bookingCustomer(item) : null;
     return (
       <TouchableOpacity
         activeOpacity={0.7}
@@ -867,6 +939,16 @@ export default function MyBookingsScreen() {
                   Ordered {formatDate(item.createdAt)}
                 </Text>
               </View>
+              {walkIn?.name ? (
+                <View style={styles.infoRow}>
+                  <Ionicons name="person-outline" size={13} color={themeColors.textTertiary} />
+                  <Text style={[styles.infoText, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                    For {walkIn.name}
+                    {walkIn.phone ? ` \u2022 ${walkIn.phone}` : ''}
+                  </Text>
+                </View>
+              ) : null}
+              <PartnerPointBadge bookedVia={item.bookedVia} style={styles.partnerBadge} />
               {item.pricing?.totalPrice != null && (
                 <Text style={[styles.priceText, { color: themeColors.text }]}>
                   {formatCurrency(item.pricing.totalPrice)}
@@ -885,10 +967,13 @@ export default function MyBookingsScreen() {
     const title = item.package?.title || item.packageSnapshot?.title || 'Holiday Package';
     const image = item.package?.images?.[0] || item.packageSnapshot?.coverImage;
     const destination = item.package?.destination || item.packageSnapshot?.destination;
+    const travellers = item.travellers ?? item.totalTravelers;
+    const travelDate = item.travelDate || item.travelStartDate;
     const travellerParts: string[] = [];
-    if (item.travellers?.adults) travellerParts.push(`${item.travellers.adults} Adult${item.travellers.adults > 1 ? 's' : ''}`);
-    if (item.travellers?.children) travellerParts.push(`${item.travellers.children} Child${item.travellers.children > 1 ? 'ren' : ''}`);
-    const total = item.pricing?.total ?? item.totalAmount ?? 0;
+    if (travellers?.adults) travellerParts.push(`${travellers.adults} Adult${travellers.adults > 1 ? 's' : ''}`);
+    if (travellers?.children) travellerParts.push(`${travellers.children} Child${travellers.children > 1 ? 'ren' : ''}`);
+    const total = item.pricing?.total ?? item.pricing?.totalAmount ?? item.totalAmount ?? 0;
+    const walkIn = isPartnerPointBooking(item) ? bookingCustomer(item) : null;
     return (
       <Card style={styles.bookingCard}>
         <View style={styles.statusBadgeContainer}>
@@ -922,11 +1007,11 @@ export default function MyBookingsScreen() {
                 <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>{destination}</Text>
               </View>
             )}
-            {!!item.travelDate && (
+            {!!travelDate && (
               <View style={styles.infoRow}>
                 <Ionicons name="calendar-outline" size={13} color={themeColors.textTertiary} />
                 <Text style={[styles.infoText, { color: themeColors.textSecondary }]}>
-                  {formatDate(item.travelDate)}
+                  {formatDate(travelDate)}
                 </Text>
               </View>
             )}
@@ -938,6 +1023,16 @@ export default function MyBookingsScreen() {
                 </Text>
               </View>
             )}
+            {walkIn?.name ? (
+              <View style={styles.infoRow}>
+                <Ionicons name="person-outline" size={13} color={themeColors.textTertiary} />
+                <Text style={[styles.infoText, { color: themeColors.textSecondary }]} numberOfLines={1}>
+                  For {walkIn.name}
+                  {walkIn.phone ? ` \u2022 ${walkIn.phone}` : ''}
+                </Text>
+              </View>
+            ) : null}
+            <PartnerPointBadge bookedVia={item.bookedVia} style={styles.partnerBadge} />
             {total > 0 && (
               <Text style={[styles.priceText, { color: themeColors.text }]}>
                 {formatCurrency(total)}
@@ -1428,6 +1523,9 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: fontWeight.bold,
     color: colors.text,
+    marginTop: spacing.xs,
+  },
+  partnerBadge: {
     marginTop: spacing.xs,
   },
 

@@ -28,6 +28,12 @@ import {
   Button,
   StatusBadge,
   useTheme,
+  PartnerPointBadge,
+  isPartnerPointBooking,
+  isPaidByPartnerPoint,
+  paymentMethodLabel,
+  paymentStatusDisplay,
+  bookingCustomer,
 } from '@prayana/shared-ui';
 import { bookingAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
@@ -50,7 +56,16 @@ interface BookingActivity {
 interface BookingDetail {
   _id: string;
   bookingReference: string;
-  status: 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'refunded' | 'no_show';
+  status:
+    | 'pending'
+    | 'pending_capture'
+    | 'payment_pending'
+    | 'confirmed'
+    | 'completed'
+    | 'cancelled'
+    | 'refunded'
+    | 'auto_refunded'
+    | 'no_show';
   activity: BookingActivity;
   bookingDate: string;
   timeSlot?: {
@@ -70,8 +85,16 @@ interface BookingDetail {
   };
   totalAmount: number;
   payment?: {
-    status?: 'pending' | 'paid' | 'refunded' | 'failed';
-    method?: string;
+    status?:
+      | 'unpaid'
+      | 'pending'
+      | 'paid'
+      | 'partially_paid'
+      | 'refunded'
+      | 'partially_refunded'
+      | 'failed';
+    /** 'partner_wallet' when a Partner Point shop paid from its wallet. */
+    method?: string | null;
     transactionId?: string;
     refund?: {
       amount?: number;
@@ -83,9 +106,19 @@ interface BookingDetail {
   cancellation?: {
     requestedAt?: string;
     reason?: string;
-    refundAmount?: number;
-    refundStatus?: 'pending' | 'processing' | 'completed' | 'failed';
+    /** Rupees. */
+    refundAmount?: number | null;
+    refundStatus?: string | null;
+    refundedAt?: string | null;
+    refundReference?: string | null;
+    /** Set when the refund could not be sent. */
+    refundError?: string | null;
   };
+  /** Partner Point (reseller) sale — customer* fields are the walk-in customer. */
+  bookedVia?: { channel?: 'direct' | 'reseller' | null } | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerEmail?: string | null;
   contactInfo?: {
     name: string;
     email: string;
@@ -126,6 +159,22 @@ const STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
     textColor: '#a16207',
     iconColor: colors.warning,
   },
+  pending_capture: {
+    label: 'Processing',
+    description: 'We are confirming this booking with the provider',
+    iconName: 'hourglass-outline',
+    bgColor: colors.infoLight,
+    textColor: '#1d4ed8',
+    iconColor: colors.info,
+  },
+  payment_pending: {
+    label: 'Payment Pending',
+    description: 'This booking is waiting for payment',
+    iconName: 'card-outline',
+    bgColor: colors.warningLight,
+    textColor: '#a16207',
+    iconColor: colors.warning,
+  },
   confirmed: {
     label: 'Confirmed',
     description: 'Your booking is confirmed. Get ready for your adventure!',
@@ -158,6 +207,14 @@ const STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
     textColor: colors.gray[700],
     iconColor: colors.gray[500],
   },
+  auto_refunded: {
+    label: 'Refunded',
+    description: 'The provider did not confirm in time, so this booking was refunded automatically',
+    iconName: 'arrow-undo-outline',
+    bgColor: colors.gray[100],
+    textColor: colors.gray[700],
+    iconColor: colors.gray[500],
+  },
   no_show: {
     label: 'No Show',
     description: 'You did not attend this activity',
@@ -168,11 +225,15 @@ const STATUS_DISPLAY: Record<string, StatusDisplayConfig> = {
   },
 };
 
-const PAYMENT_STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  paid: { bg: colors.successLight, text: '#15803d' },
-  pending: { bg: colors.warningLight, text: '#a16207' },
-  refunded: { bg: colors.gray[100], text: colors.gray[700] },
-  failed: { bg: colors.errorLight, text: '#b91c1c' },
+// Keyed by paymentStatusDisplay()'s variant so every payment status
+// (partially_paid, partially_refunded, refund_pending, ...) gets a colour.
+const PAYMENT_VARIANT_COLORS: Record<string, { bg: string; text: string }> = {
+  success: { bg: colors.successLight, text: '#15803d' },
+  warning: { bg: colors.warningLight, text: '#a16207' },
+  default: { bg: colors.gray[100], text: colors.gray[700] },
+  info: { bg: colors.infoLight, text: '#1d4ed8' },
+  primary: { bg: colors.infoLight, text: '#1d4ed8' },
+  error: { bg: colors.errorLight, text: '#b91c1c' },
 };
 
 // ===== Helper Functions =====
@@ -462,15 +523,30 @@ export default function BookingDetailScreen() {
 
   const activity = booking.activity;
   const hasImage = activity?.images && activity.images.length > 0;
-  const statusDisplay = STATUS_DISPLAY[booking.status] || STATUS_DISPLAY.pending;
+  const partnerPoint = isPartnerPointBooking(booking);
+  // Paid from a Partner Point wallet: refunds go back to that wallet, not to a card.
+  const walletPaid = isPaidByPartnerPoint(booking);
+  const baseStatusDisplay = STATUS_DISPLAY[booking.status] || STATUS_DISPLAY.pending;
+  const statusDisplay =
+    walletPaid && booking.status === 'refunded'
+      ? { ...baseStatusDisplay, description: 'This booking has been refunded to the Partner Point wallet' }
+      : baseStatusDisplay;
+  const customer = bookingCustomer(booking);
+  const customerRows: Array<{ icon: keyof typeof Ionicons.glyphMap; label: string; value: string }> = [];
+  if (customer.name) customerRows.push({ icon: 'person-outline', label: 'Name', value: customer.name });
+  if (customer.email) customerRows.push({ icon: 'mail-outline', label: 'Email', value: customer.email });
+  if (customer.phone) customerRows.push({ icon: 'call-outline', label: 'Phone', value: customer.phone });
   const canCancel = booking.status === 'pending' || booking.status === 'confirmed';
   const canReview = booking.status === 'completed' && !booking.review;
   const totalAmount = booking.pricing?.total || booking.totalAmount || 0;
   const subtotal = booking.pricing?.subtotal || totalAmount;
   const discount = booking.pricing?.discount || 0;
   const tax = booking.pricing?.tax || 0;
-  const paymentStatus = booking.payment?.status || 'pending';
-  const paymentColors = PAYMENT_STATUS_COLORS[paymentStatus] || PAYMENT_STATUS_COLORS.pending;
+  // A wallet-paid booking is paid even if an older payload left status unset.
+  const paymentStatus = booking.payment?.status || (walletPaid ? 'paid' : 'pending');
+  const paymentStatusInfo = paymentStatusDisplay(paymentStatus);
+  const paymentColors = PAYMENT_VARIANT_COLORS[paymentStatusInfo.variant] || PAYMENT_VARIANT_COLORS.warning;
+  const paymentMethodText = paymentMethodLabel(booking.payment?.method);
 
   const participantParts: string[] = [];
   if (booking.participants?.adults > 0) {
@@ -542,6 +618,7 @@ export default function BookingDetailScreen() {
               <Text style={styles.instantBadgeText}>Instant Booking</Text>
             </View>
           )}
+          <PartnerPointBadge bookedVia={booking.bookedVia} style={{ marginTop: spacing.sm }} />
         </View>
 
         {/* Activity Info Card */}
@@ -670,49 +747,47 @@ export default function BookingDetailScreen() {
             <Text style={[styles.pricingLabel, { color: themeColors.textSecondary }]}>Payment Status</Text>
             <View style={[styles.paymentBadge, { backgroundColor: paymentColors.bg }]}>
               <Text style={[styles.paymentBadgeText, { color: paymentColors.text }]}>
-                {paymentStatus.charAt(0).toUpperCase() + paymentStatus.slice(1)}
+                {paymentStatusInfo.label}
               </Text>
             </View>
           </View>
 
-          {booking.payment?.method && (
+          {paymentMethodText && (
             <View style={styles.pricingRow}>
               <Text style={[styles.pricingLabel, { color: themeColors.textSecondary }]}>Payment Method</Text>
-              <Text style={[styles.pricingValue, { color: themeColors.text }]}>{booking.payment.method}</Text>
+              <Text style={[styles.pricingValue, { color: themeColors.text }]}>{paymentMethodText}</Text>
             </View>
           )}
         </Card>
 
-        {/* Contact Info Card */}
-        {booking.contactInfo && (
+        {/* Contact / Customer Info Card. For a Partner Point booking the
+            customer* fields are the walk-in customer the shop booked for. */}
+        {customerRows.length > 0 && (
           <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Contact Information</Text>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+              {partnerPoint ? 'Customer' : 'Contact Information'}
+            </Text>
             <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
-            <InfoRow
-              icon="person-outline"
-              label="Name"
-              value={booking.contactInfo.name}
-            />
-            <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
+            {customerRows.map((row, i) => (
+              <React.Fragment key={row.label}>
+                {i > 0 && <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />}
+                <InfoRow icon={row.icon} label={row.label} value={row.value} />
+              </React.Fragment>
+            ))}
 
-            <InfoRow
-              icon="mail-outline"
-              label="Email"
-              value={booking.contactInfo.email}
-            />
-            <View style={[styles.infoSeparator, { backgroundColor: themeColors.border }]} />
-
-            <InfoRow
-              icon="call-outline"
-              label="Phone"
-              value={booking.contactInfo.phone}
-            />
+            {partnerPoint && (
+              <Text style={[styles.refundEta, { color: themeColors.textTertiary }]}>
+                Booked at a Prayana Partner Point and paid from the shop's wallet.
+              </Text>
+            )}
           </Card>
         )}
 
         {/* Cancellation & Refund Section */}
-        {(booking.status === 'cancelled' || booking.status === 'refunded') && (
+        {(booking.status === 'cancelled' ||
+          booking.status === 'refunded' ||
+          booking.status === 'auto_refunded') && (
           <Card style={[styles.sectionCard, { backgroundColor: themeColors.card }]}>
             <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Cancellation & Refund</Text>
             <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
@@ -756,12 +831,22 @@ export default function BookingDetailScreen() {
             {(() => {
               const refundStatus =
                 booking.payment?.refund?.status ||
+                (booking.cancellation?.refundError ? 'failed' : null) ||
                 booking.cancellation?.refundStatus ||
-                (booking.payment?.status === 'refunded' ? 'completed' : 'pending');
+                (booking.payment?.status === 'refunded' ||
+                booking.payment?.status === 'partially_refunded' ||
+                booking.cancellation?.refundedAt
+                  ? 'completed'
+                  : 'pending');
+              const processedAt =
+                booking.payment?.refund?.processedAt || booking.cancellation?.refundedAt || null;
               const refundLabels: Record<string, { label: string; color: string }> = {
                 pending: { label: 'Initiated', color: colors.warning },
                 processing: { label: 'Processing', color: colors.info },
-                completed: { label: 'Refunded to source', color: colors.success },
+                completed: {
+                  label: walletPaid ? 'Refunded to Partner Point wallet' : 'Refunded to source',
+                  color: colors.success,
+                },
                 failed: { label: 'Failed — contact support', color: colors.error },
               };
               const cfg = refundLabels[refundStatus] || refundLabels.pending;
@@ -776,14 +861,16 @@ export default function BookingDetailScreen() {
                       Refund status: {cfg.label}
                     </Text>
                   </View>
-                  {refundStatus !== 'completed' ? (
+                  {refundStatus === 'failed' ? null : refundStatus !== 'completed' ? (
                     <Text style={[styles.refundEta, { color: themeColors.textTertiary }]}>
-                      Refunds usually reach your account in 5–7 business days.
+                      {walletPaid
+                        ? 'Refunds for Partner Point bookings go back to the shop\'s wallet.'
+                        : 'Refunds usually reach your account in 5–7 business days.'}
                     </Text>
-                  ) : booking.payment?.refund?.processedAt ? (
+                  ) : processedAt ? (
                     <Text style={[styles.refundEta, { color: themeColors.textTertiary }]}>
                       Processed on{' '}
-                      {new Date(booking.payment.refund.processedAt).toLocaleDateString(
+                      {new Date(processedAt).toLocaleDateString(
                         'en-IN',
                         { day: 'numeric', month: 'short', year: 'numeric' },
                       )}

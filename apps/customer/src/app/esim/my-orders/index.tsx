@@ -20,7 +20,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
+import {
+  useTheme,
+  spacing,
+  fontSize,
+  fontWeight,
+  borderRadius,
+  PartnerPointBadge,
+  isPartnerPointBooking,
+  bookingCustomer,
+} from '@prayana/shared-ui';
 import { esimAPI } from '@prayana/shared-services';
 import { formatData } from '../../../lib/esim';
 import { EsimOrder, statusStyle } from '../../../lib/esimOrder';
@@ -118,6 +127,8 @@ export default function MyEsimOrdersScreen() {
             const st = statusStyle(o.status);
             const b = o.bundle ?? {};
             const dataLabel = b.isUnlimited ? 'Unlimited' : formatData(b.dataAmountMB);
+            // Partner Point sale: this account is the shop — name the walk-in customer.
+            const walkIn = isPartnerPointBooking(o) ? bookingCustomer(o) : null;
 
             return (
               <TouchableOpacity
@@ -144,6 +155,16 @@ export default function MyEsimOrdersScreen() {
                         {o.orderReference}
                       </Text>
                     )}
+                    {!!walkIn?.name && (
+                      <Text
+                        style={[styles.ref, { color: themeColors.textSecondary }]}
+                        numberOfLines={1}
+                      >
+                        For {walkIn.name}
+                        {walkIn.phone ? ` · ${walkIn.phone}` : ''}
+                      </Text>
+                    )}
+                    <PartnerPointBadge bookedVia={o.bookedVia} style={{ marginTop: 4 }} />
                   </View>
                   <View style={[styles.status, { backgroundColor: st.bg }]}>
                     <View style={[styles.dot, { backgroundColor: st.dot }]} />

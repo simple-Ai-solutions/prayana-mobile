@@ -21,6 +21,8 @@ import {
   LoadingSpinner,
   Button,
   PrayanaLogo,
+  isPartnerPointBooking,
+  listWithoutResellerMargin,
 } from '../../components/ui';
 import {
   colors,
@@ -61,7 +63,10 @@ interface DashboardData {
 interface RecentBooking {
   _id: string;
   status: string;
+  /** Walk-in customer's name on a Partner Point booking. */
   customerName?: string;
+  /** Partner Point sale — the shop's commission is never typed or shown here. */
+  bookedVia?: { channel?: 'direct' | 'reseller' | null } | null;
   bookingDate?: string;
   activity?: { title?: string; images?: { url?: string }[] };
   activitySnapshot?: { title?: string };
@@ -237,6 +242,7 @@ function BookingRow({ booking, onPress }: { booking: RecentBooking; onPress: () 
         </Text>
         <Text style={styles.bookingCustomer} numberOfLines={1}>
           {customerName}
+          {isPartnerPointBooking(booking) ? ' · Partner Point' : ''}
           {formattedDate ? ` · ${formattedDate}` : ''}
         </Text>
       </View>
@@ -457,7 +463,8 @@ export default function DashboardScreen() {
     verificationStatus === 'rejected' ||
     draftCount > 0;
 
-  const recentBookings = data?.recentBookings ?? [];
+  // Strip any Partner Point shop margin before it can reach the UI.
+  const recentBookings = listWithoutResellerMargin<RecentBooking>(data?.recentBookings);
   const topListings = data?.topListings ?? [];
 
   // ── Setup checklist ────────────────────────────────────────────────────────
