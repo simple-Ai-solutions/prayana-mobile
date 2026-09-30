@@ -31,6 +31,7 @@ import {
 import { holidayPackagesAPI } from '@prayana/shared-services';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 import { normalizeImageUrl } from '../../lib/imageUrl';
+import { GroupDeparturesTab } from '../../components/packages/GroupDeparturesTab';
 
 // Packages use the theme's blue accent rather than the app-wide orange, so the
 // holiday-package flow reads as its own product. Aliased once here: every
@@ -113,6 +114,11 @@ export default function PackagesScreen() {
   const { themeColors } = useTheme();
 
   const [search, setSearch] = useState('');
+  // The PWA splits this page into hero tabs (Packages | Group Tours |
+  // Last-minute deals), rendering ONE body at a time. Group Tours was missing
+  // from the app entirely — it is fed by ?hasDepartures=true, a server filter,
+  // which no other mobile screen was calling.
+  const [browseTab, setBrowseTab] = useState<'packages' | 'departures'>('packages');
   const [activeCategory, setActiveCategory] = useState<PackageCategory>('all');
   const [scope, setScope] = useState<Scope>('all');
   const [sort, setSort] = useState<string>('rating');
@@ -211,6 +217,42 @@ export default function PackagesScreen() {
         </View>
       </View>
 
+      {/* Hero tab strip — web parity */}
+      <View style={[styles.tabStrip, { borderBottomColor: themeColors.border }]}>
+        {([['packages', 'Packages'], ['departures', 'Group Tours']] as const).map(([key, label]) => {
+          const active = browseTab === key;
+          return (
+            <TouchableOpacity
+              key={key}
+              onPress={() => setBrowseTab(key)}
+              style={[styles.tabBtn, active && { borderBottomColor: packageColors.primary[500] }]}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: active ? packageColors.primary[600] : themeColors.textSecondary },
+                  active && { fontWeight: fontWeight.bold as any },
+                ]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {browseTab === 'departures' ? (
+        <GroupDeparturesTab
+          onOpenPackage={(pkg, dateISO) =>
+            router.push({
+              pathname: `/packages/${encodeURIComponent(pkg._id)}`,
+              params: dateISO ? { date: dateISO } : {},
+            } as any)
+          }
+        />
+      ) : (
+      <>
       {/* India / International scope */}
       <View style={styles.scopeRow}>
         {SCOPES.map((s) => {
@@ -373,6 +415,8 @@ export default function PackagesScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
         />
+      )}
+      </>
       )}
 
       <PackageFilterSheet
@@ -560,6 +604,9 @@ const styles = StyleSheet.create({
   heroSearchInput: { flex: 1, fontSize: fontSize.md, color: '#111827' },
 
   // India / International scope
+  tabStrip: { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: spacing.lg },
+  tabBtn: { paddingVertical: 12, marginRight: spacing.xl, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+  tabText: { fontSize: fontSize.sm, fontWeight: '600' },
   scopeRow: {
     flexDirection: 'row', alignSelf: 'center', marginTop: spacing.md,
     backgroundColor: '#F3F4F6', borderRadius: 999, padding: 4, gap: 4,
