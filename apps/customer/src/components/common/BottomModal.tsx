@@ -162,6 +162,13 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
+    // Must be explicit. The sheet had no width and relied on the parent
+    // stretching it — but behavior="height" (needed on Android under
+    // edgeToEdge) collapses that container, so the sheet sized to its content
+    // and drifted off-centre: badges and the "Accept All" button were clipped
+    // at the left edge while the + buttons ran off the right.
+    width: '100%',
+    alignSelf: 'stretch',
     backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -56,6 +57,19 @@ export default function TransportCheckoutScreen() {
   const [loading, setLoading] = useState(true);
   const [step, setStep] = useState<Step>('trip');
   const [submitting, setSubmitting] = useState(false);
+
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardUp(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardUp(false),
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const [bookingId, setBookingId] = useState<string | null>(null);
 
   // Trip
@@ -360,8 +374,12 @@ export default function TransportCheckoutScreen() {
             </View>
           )}
         </ScrollView>
+      </KeyboardAvoidingView>
 
-        <View style={styles.footer}>
+      {/* Outside the KeyboardAvoidingView: this footer is absolutely positioned
+          at bottom:0, so inside it rode up over the field being typed into. */}
+      {keyboardUp ? null : (
+      <View style={styles.footer}>
           <Button
             title={step === 'pay' ? `Pay ₹${estimatedTotal.toLocaleString('en-IN')}` : 'Continue'}
             onPress={step === 'pay' ? handlePay : handleNext}
@@ -372,8 +390,8 @@ export default function TransportCheckoutScreen() {
             disabled={submitting || (step === 'pay' && !agreedLegal)}
             icon={<Ionicons name={step === 'pay' ? 'lock-closed' : 'arrow-forward'} size={18} color="#fff" />}
           />
-        </View>
-      </KeyboardAvoidingView>
+      </View>
+      )}
     </SafeAreaView>
   );
 }

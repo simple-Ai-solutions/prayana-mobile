@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -124,6 +125,19 @@ export default function PackageCheckoutScreen() {
   const [pkg, setPkg] = useState<Pkg | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardUp(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardUp(false),
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, []);
   const [step, setStep] = useState<Step>('travelers');
   const [bookingId, setBookingId] = useState<string | null>(null);
 
@@ -186,6 +200,22 @@ export default function PackageCheckoutScreen() {
       setEndDate(toLocalISODate(end));
     }
   };
+
+  // Packages that declare duration.nights run for a set length, so the end
+  // date is derived rather than chosen (see handleStartDateChange).
+  const fixedLength = Number(pkg?.duration?.nights) > 0;
+
+  // Keep the end date in step whenever the start date or the package changes —
+  // handleStartDateChange only fires on a user edit, so a preselected or
+  // departure-chosen start date would otherwise leave this blank or stale.
+  useEffect(() => {
+    if (!fixedLength || !startDate) return;
+    const nights = Number(pkg?.duration?.nights);
+    const end = new Date(startDate);
+    end.setDate(end.getDate() + nights);
+    const derived = toLocalISODate(end);
+    if (derived !== endDate) setEndDate(derived);
+  }, [fixedLength, startDate, pkg?.duration?.nights]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const minStartDate = useMemo(() => {
     const notice = Number(pkg?.availability?.advanceBookingDays) || 0;
@@ -519,7 +549,11 @@ export default function PackageCheckoutScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets
+        >
           {/* Summary card */}
           <Card style={styles.summary}>
             <Text style={styles.summaryTitle} numberOfLines={2}>
@@ -661,9 +695,15 @@ export default function PackageCheckoutScreen() {
                     onChange={setEndDate}
                     placeholder="Select end date"
                     minimumDate={startDate ? new Date(startDate) : minStartDate}
+                    // A 5N/6D package's end date is not a free choice — it is
+                    // start + nights. Leaving it editable let the dates drift
+                    // out of step with the duration the price is based on.
+                    editable={!fixedLength}
                   />
                   <Text style={styles.hint}>
-                    Dates can be flexible — the operator will confirm based on availability.
+                    {fixedLength
+                      ? `This is a fixed ${pkg?.duration?.nights}-night package — the end date follows your start date.`
+                      : 'Dates can be flexible — the operator will confirm based on availability.'}
                   </Text>
                 </>
               )}
@@ -782,8 +822,14 @@ export default function PackageCheckoutScreen() {
             </View>
           )}
         </ScrollView>
+      </KeyboardAvoidingView>
 
-        <View style={styles.footer}>
+      {/* Footer sits OUTSIDE the KeyboardAvoidingView: it is absolutely
+          positioned at bottom:0, so while it was inside, behavior="height"
+          shrank the container and the bar rode up onto the phone field.
+          Hidden while typing so it cannot overlay the keyboard either. */}
+      {keyboardUp ? null : (
+      <View style={styles.footer}>
           <Button
             title={step === 'pay' ? `Pay ₹${estimatedTotal.toLocaleString('en-IN')}` : 'Continue'}
             onPress={step === 'pay' ? handlePay : handleNext}
@@ -800,8 +846,8 @@ export default function PackageCheckoutScreen() {
               />
             }
           />
-        </View>
-      </KeyboardAvoidingView>
+      </View>
+      )}
     </SafeAreaView>
   );
 }

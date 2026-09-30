@@ -6,6 +6,8 @@ import {
   StyleSheet,
   Platform,
   Modal,
+  KeyboardAvoidingView,
+  ScrollView as RNScrollView,
   ActivityIndicator,
   Dimensions,
   Alert,
@@ -14,7 +16,11 @@ import {
   // GestureHandlerRootView), which made the schedule/map modal close buttons dead.
   TouchableOpacity as RNTouchableOpacity,
 } from 'react-native';
-import { TouchableOpacity, ScrollView } from 'react-native-gesture-handler';
+import { ScrollView } from 'react-native-gesture-handler';
+// RN's own touchables, NOT gesture-handler's: this renders inside a React
+// Native <Modal>, which mounts in a separate native view hierarchy outside
+// the GestureHandlerRootView, so gesture-handler touchables get no taps.
+import { TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -802,7 +808,15 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             <Text style={[styles.aiEmptyText, { color: themeColors.textTertiary }]}>No suggestions generated yet</Text>
           </View>
         ) : (
-          <ScrollView style={styles.aiSuggestionsList} nestedScrollEnabled>
+          <ScrollView
+            style={styles.aiSuggestionsList}
+            nestedScrollEnabled
+            // Without this the inner scroll swallows the first tap: a press on
+            // a suggestion's + was treated as the start of a scroll gesture and
+            // never reached the button.
+            keyboardShouldPersistTaps="handled"
+            directionalLockEnabled
+          >
             {TIME_SLOTS.map((slot) => {
               const items = aiSuggestionsBySlot[slot.key];
               if (items.length === 0) return null;
@@ -877,6 +891,10 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                       )}
                       <TouchableOpacity
                         style={styles.aiAddBtn}
+                        // 28pt is far below the 44pt minimum, and this sits in
+                        // a nested gesture-handler ScrollView that competes for
+                        // the touch — taps were being claimed by the scroll.
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         onPress={() => {
                           addActivity(selectedDayIndex, {
                             name: suggestion.name,
@@ -1090,11 +1108,23 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
 
       {/* ── Main Content + Floating Buttons Container ── */}
       <View style={styles.contentContainer}>
+      {/* automaticallyAdjustKeyboardInsets is iOS-only, so Android needs this
+          wrapper to lift the list when the add-activity panel is focused. */}
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? undefined : 'height'}
+      >
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         scrollEnabled={scrollEnabled}
+        keyboardShouldPersistTaps="handled"
+        // The inline add-activity panel lives in this list. Without these the
+        // keyboard covered it completely: edgeToEdge stops Android resizing the
+        // window, so nothing pushed the focused field into view and there was
+        // no spare scroll room to reach it.
+        automaticallyAdjustKeyboardInsets
       >
         {/* AI Suggestions Panel */}
         {renderAISuggestions()}
@@ -1342,6 +1372,7 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         {/* Bottom spacer for floating buttons */}
         <View style={{ height: 120 }} />
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* ── Floating Map Button (sticky at bottom center) ── */}
       {currentActivities.length > 0 && (
@@ -1531,10 +1562,20 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
         onRequestClose={() => setEditingActivity(null)}
         statusBarTranslucent
       >
-        <View style={styles.editOverlay}>
+        {/* This sheet is pinned to the bottom with a Notes field and a Save
+            button at its foot, and it had no keyboard handling at all — the
+            keyboard covered both, so you could neither see what you typed nor
+            reach Save. */}
+        <KeyboardAvoidingView
+          style={styles.editOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={[styles.editSheet, { backgroundColor: themeColors.surface }]}>
             {editingActivity && (
-              <>
+              <RNScrollView
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
                 <View style={styles.editHeader}>
                   <Text style={[styles.editTitle, { color: themeColors.text }]} numberOfLines={1}>
                     {editingActivity.activity.name}
@@ -1606,10 +1647,10 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                     </Text>
                   </View>
                 ) : null}
-              </>
+              </RNScrollView>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -1978,6 +2019,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+    // Room to scroll the add panel clear of the keyboard and the floating
+    // action buttons that sit over the bottom of this list.
+    paddingBottom: 260,
   },
 
   // Add Activity Button
@@ -2582,6 +2626,12 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   backBtn: {
+    // Pinned to its content so the flex:1 Next button cannot squeeze it.
+    flexShrink: 0,
+    // Footer buttons across the trip flow share one height: the primary
+    // used paddingVertical lg (16) and the secondary md (12), so the two
+    // rendered at different heights and the row read as misaligned.
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -2597,6 +2647,10 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   nextButton: {
+    // Footer buttons across the trip flow share one height: the primary
+    // used paddingVertical lg (16) and the secondary md (12), so the two
+    // rendered at different heights and the row read as misaligned.
+    minHeight: 52,
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -2646,7 +2700,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     padding: spacing.lg,
     paddingBottom: Platform.OS === 'ios' ? spacing['3xl'] : spacing.lg,
-    maxHeight: '70%',
+    // 70% left too little room once the keyboard pushed the sheet up; the
+    // notes field and Save button need the extra height to stay reachable.
+    maxHeight: '85%',
     ...shadow.lg,
   },
   editHeader: {

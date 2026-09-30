@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -100,6 +101,22 @@ export default function ESimCheckoutScreen() {
   const [bundle, setBundle] = useState<Bundle | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // The footer is pinned to the screen bottom, so with the keyboard up it would
+  // sit over the keys. Hide it while typing — Continue is reachable again as
+  // soon as the keyboard is dismissed, and the field stays visible meanwhile.
+  const [keyboardUp, setKeyboardUp] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setKeyboardUp(true),
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardUp(false),
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, []);
 
   // Contact / personal details
   const [firstName, setFirstName] = useState('');
@@ -783,8 +800,14 @@ export default function ESimCheckoutScreen() {
             </View>
           )}
         </ScrollView>
+      </KeyboardAvoidingView>
 
-        <View style={[styles.footer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
+      {/* Footer lives OUTSIDE the KeyboardAvoidingView. It is absolutely
+          positioned at bottom:0, so while it sat inside, behavior="height"
+          shrank the container and the footer rode up with it — landing on top
+          of the phone field the user was typing into. */}
+      {keyboardUp ? null : (
+      <View style={[styles.footer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
           <Button
             title={
               step === 'pay'
@@ -805,8 +828,8 @@ export default function ESimCheckoutScreen() {
             disabled={submitting}
             icon={<Ionicons name={step === 'pay' ? 'lock-closed' : 'arrow-forward'} size={18} color="#fff" />}
           />
-        </View>
-      </KeyboardAvoidingView>
+      </View>
+      )}
     </SafeAreaView>
   );
 }
