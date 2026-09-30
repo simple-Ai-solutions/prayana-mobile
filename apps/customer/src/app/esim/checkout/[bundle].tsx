@@ -527,12 +527,16 @@ export default function ESimCheckoutScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
+          // edgeToEdgeEnabled stops Android resizing the window for the
+          // keyboard, so the focused field could sit underneath it. Let the
+          // ScrollView inset itself and keep the field on screen.
+          automaticallyAdjustKeyboardInsets
         >
           {/* Plan summary card — real provider fields only. */}
           <Card style={styles.summaryCard}>

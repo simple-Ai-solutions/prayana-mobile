@@ -251,7 +251,7 @@ export default function TransportCheckoutScreen() {
         <Stepper steps={['Trip', 'Contact', 'Pay']} currentStep={stepIndex} />
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <Card style={styles.summary}>
             <Text style={styles.summaryTitle}>{vehicle.name}</Text>

@@ -475,7 +475,7 @@ const BudgetTrackerSheet: React.FC<BudgetTrackerSheetProps> = ({ sheetRef }) => 
   );
 
   const renderAddForm = () => (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.addFormContainer}>
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.addFormContainer}>
       <Text style={styles.sectionTitle}>{editingId ? 'Edit Expense' : 'Add Expense'}</Text>
 
       {/* Category */}

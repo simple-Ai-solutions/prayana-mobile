@@ -199,7 +199,7 @@ export const QuickItineraryModal: React.FC<Props> = ({ visible, onClose }) => {
       <View style={styles.backdrop}>
         {/* Tap-outside-to-close layer behind the card (doesn't wrap the form) */}
         <Pressable style={StyleSheet.absoluteFill} onPress={close} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kav} pointerEvents="box-none">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kav} pointerEvents="box-none">
           <View style={[styles.card, { backgroundColor: cardBg }]}>
             {/* Header — teal gradient */}
             <LinearGradient colors={[TEAL, TEAL_DARK]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.header}>

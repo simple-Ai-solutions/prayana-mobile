@@ -374,7 +374,7 @@ export default function IdentityVaultScreen() {
               <Ionicons name="close" size={26} color={themeColors.text} />
             </TouchableOpacity>
           </View>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
             <ScrollView contentContainerStyle={styles.modalScroll} keyboardShouldPersistTaps="handled">
               {editing && editing !== 'aadhaar' ? (
                 <>

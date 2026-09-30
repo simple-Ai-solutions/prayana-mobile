@@ -246,7 +246,7 @@ export default function PaymentMethodsScreen() {
               <Ionicons name="close" size={26} color={themeColors.text} />
             </TouchableOpacity>
           </View>
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
             <ScrollView contentContainerStyle={styles.modalScroll}>
               <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>
                 One-tap UPI payments at checkout. We'll send a collect request to this VPA.

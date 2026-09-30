@@ -380,7 +380,7 @@ export default function DestinationsScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: themeColors.background }]} edges={['top']}>
       <KeyboardAvoidingView
         style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* ── Header ── */}
         <View style={[styles.header, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>

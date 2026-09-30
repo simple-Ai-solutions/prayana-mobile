@@ -99,7 +99,7 @@ const BottomModal = forwardRef<BottomModalRef, BottomModalProps>(
 
         {/* Sheet */}
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
           pointerEvents="box-none"
         >
