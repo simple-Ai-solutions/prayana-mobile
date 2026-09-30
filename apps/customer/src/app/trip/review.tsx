@@ -66,6 +66,43 @@ const TRIP_TYPE_LABELS: Record<string, string> = {
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
+
+// The server stores activity.category as a lowercase enum and rejects the whole
+// save with a 500 if anything else arrives — "Validation failed: days.0.
+// activities.0.category: `Nature` is not a valid enum value". Suggestions and
+// AI results carry display labels ("Nature", "Culture", "Food"), so map them
+// down. Anything unrecognised falls back to "other" rather than failing the
+// save: a wrong-but-valid category costs the user nothing, a 500 costs them the
+// whole trip.
+const CATEGORY_ENUM = new Set([
+  'adventure', 'shopping', 'transport', 'accommodation', 'other',
+  'restaurant', 'nightlife', 'wellness', 'museum', 'temple', 'beach',
+]);
+
+const CATEGORY_ALIASES: Record<string, string> = {
+  nature: 'other',
+  culture: 'museum',
+  cultural: 'museum',
+  heritage: 'museum',
+  food: 'restaurant',
+  dining: 'restaurant',
+  sightseeing: 'other',
+  attraction: 'other',
+  park: 'other',
+  relaxation: 'wellness',
+  spa: 'wellness',
+  spiritual: 'temple',
+  religious: 'temple',
+  general: 'other',
+};
+
+function toCategoryEnum(raw?: string): string {
+  const k = String(raw || '').trim().toLowerCase();
+  if (!k) return 'other';
+  if (CATEGORY_ENUM.has(k)) return k;
+  return CATEGORY_ALIASES[k] || 'other';
+}
+
 export default function ReviewScreen() {
   const router = useRouter();
   const { user } = useAuth();
@@ -160,7 +197,7 @@ export default function ReviewScreen() {
             timeSlot: act.timeSlot || 'morning',
             duration: act.duration || 2,
             rating: act.rating || 0,
-            category: act.category || '',
+            category: toCategoryEnum(act.category),
             coordinates: act.coordinates || { lat: 0, lng: 0 },
             image: act.image || '',
             notes: act.notes || '',
@@ -240,19 +277,37 @@ export default function ReviewScreen() {
     router,
   ]);
 
+  // Mirrors the web's generateShareMessage (utils/calendarExport.js): an emoji
+  // header, the date range, destinations joined with arrows, then a per-day
+  // breakdown of activities — and, crucially, a link. The old message was a
+  // four-line summary with no URL at all, so a recipient had no way to open
+  // the trip.
   const handleShare = useCallback(async () => {
     try {
-      const destNames = destinations.map((d) => d.name).join(', ');
-      const message = `Check out my trip "${name}"!\n\nDestinations: ${destNames}\nDates: ${formatDate(startDate)} - ${formatDate(endDate)}\n${totalDays} days, ${totalActivities} activities planned\n\nPlanned with Prayana AI`;
+      const destNames = destinations.map((d) => d.name).join(' \u2192 ');
+      const lines: string[] = [`\uD83C\uDF34 ${name} \uD83C\uDF34`, ''];
 
-      await Share.share({
-        message,
-        title: name,
+      if (description?.trim()) lines.push(description.trim(), '');
+      lines.push(`\uD83D\uDCC5 ${formatDate(startDate)} - ${formatDate(endDate)}`);
+      if (destNames) lines.push(`\uD83D\uDCCD ${destNames}`);
+      lines.push('');
+
+      days.forEach((day, index) => {
+        lines.push(`Day ${index + 1}: ${day.title || ''}`.trim());
+        (day.activities || []).forEach((a: any) => {
+          lines.push(`  \u2022 ${a.timeSlot || 'TBD'} - ${a.name}`);
+        });
+        lines.push('');
       });
+
+      if (tripId) lines.push(`\uD83D\uDD17 https://prayanaai.com/trip/${tripId}`, '');
+      lines.push('\u2728 Planned with Prayana AI');
+
+      await Share.share({ message: lines.join('\n'), title: name });
     } catch (err) {
       console.error('Share failed:', err);
     }
-  }, [name, destinations, startDate, endDate, totalDays, totalActivities]);
+  }, [name, description, destinations, startDate, endDate, days, tripId]);
 
   // ─── Render: Stats Row ───
 
@@ -506,7 +561,7 @@ export default function ReviewScreen() {
       <View style={[styles.bottomBar, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
         <TouchableOpacity style={styles.shareBtn} onPress={handleShare} activeOpacity={0.7}>
           <Ionicons name="share-social-outline" size={20} color={P[500]} />
-          <Text style={styles.shareBtnText}>Share</Text>
+          <Text style={styles.shareBtnText} numberOfLines={1}>Share</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
@@ -522,7 +577,7 @@ export default function ReviewScreen() {
           ) : (
             <>
               <Ionicons name="checkmark-circle" size={20} color="#ffffff" />
-              <Text style={styles.saveButtonText}>
+              <Text style={styles.saveButtonText} numberOfLines={1}>
                 {tripId ? 'Update Trip' : 'Save Trip'}
               </Text>
             </>
@@ -887,6 +942,13 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   shareBtn: {
+    // Footer buttons across the trip flow share one height: the primary
+    // used paddingVertical lg (16) and the secondary md (12), so the two
+    // rendered at different heights and the row read as misaligned.
+    minHeight: 52,
+    // No flex here vs flex:1 on saveButton: the two fought for the row and
+    // Update Trip was clipped at its right edge. Pin Share to its content.
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
@@ -903,7 +965,13 @@ const styles = StyleSheet.create({
     color: P[500],
   },
   saveButton: {
+    // Footer buttons across the trip flow share one height: the primary
+    // used paddingVertical lg (16) and the secondary md (12), so the two
+    // rendered at different heights and the row read as misaligned.
+    minHeight: 52,
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

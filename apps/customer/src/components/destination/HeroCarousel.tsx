@@ -128,12 +128,13 @@ export const HeroCarousel: React.FC<HeroCarouselProps> = ({
           </View>
         )}
 
-        {/* Add badge */}
-        {onPlacePress && currentPlace && (
-          <View style={styles.addBadge} pointerEvents="none">
-            <Ionicons name="add" size={20} color="#ffffff" />
-          </View>
-        )}
+        {/* The "+" badge that used to sit here was decorative: it carried
+            pointerEvents="none" but was styled as a 36pt orange FAB with a
+            shadow, so it read as a button and tapping it appeared to do
+            nothing. The whole hero image is already the tap target (see the
+            TouchableOpacity above), so the badge was removed rather than
+            wired up — it promised an action it never owned. */
+        }
       </TouchableOpacity>
 
       {/* Dot Indicators */}
@@ -271,22 +272,6 @@ const styles = StyleSheet.create({
   dotInactive: {
     width: 8,
     backgroundColor: 'rgba(255,255,255,0.4)',
-  },
-  addBadge: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.lg,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.primary[500],
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 4,
   },
 });
 

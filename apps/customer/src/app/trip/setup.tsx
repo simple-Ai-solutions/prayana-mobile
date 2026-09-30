@@ -789,7 +789,9 @@ const styles = StyleSheet.create({
 
   // Sections
   section: {
-    marginBottom: spacing['2xl'],
+    // Tightened from 2xl (24) so the whole step fits without scrolling
+    // on a standard phone; the form is short enough not to need the air.
+    marginBottom: spacing.lg,
   },
   sectionLabel: {
     fontSize: fontSize.md,
@@ -818,7 +820,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     fontSize: fontSize.md,
     color: colors.text,
-    minHeight: 80,
+    minHeight: 56,
   },
   inputError: {
     borderColor: colors.error,
@@ -846,12 +848,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     gap: spacing.md,
   },
   dateCellIcon: {
-    width: 36,
-    height: 36,
+    width: 32,
+    height: 32,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -873,7 +875,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   dateCellDay: {
-    fontSize: 32,
+    fontSize: 26,
     fontWeight: fontWeight.bold,
     color: colors.text,
     lineHeight: 36,

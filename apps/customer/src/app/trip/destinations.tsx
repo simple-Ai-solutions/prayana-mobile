@@ -11,7 +11,10 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+// RN's own touchables, NOT gesture-handler's: this renders inside a React
+// Native <Modal>, which mounts in a separate native view hierarchy outside
+// the GestureHandlerRootView, so gesture-handler touchables get no taps.
+import { TouchableOpacity } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -715,7 +718,7 @@ export default function DestinationsScreen() {
         <View style={[styles.bottomBar, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
           <TouchableOpacity style={[styles.backBtn, { borderColor: themeColors.border }]} onPress={handleBack} activeOpacity={0.7}>
             <Ionicons name="arrow-back" size={18} color={themeColors.textSecondary} />
-            <Text style={[styles.backBtnText, { color: themeColors.textSecondary }]}>Back</Text>
+            <Text style={[styles.backBtnText, { color: themeColors.textSecondary }]} numberOfLines={1}>Back</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -726,7 +729,7 @@ export default function DestinationsScreen() {
             activeOpacity={0.8}
             disabled={destinations.length === 0}
           >
-            <Text style={styles.nextButtonText}>Day Planner</Text>
+            <Text style={styles.nextButtonText} numberOfLines={1}>Day Planner</Text>
             <Ionicons name="arrow-forward" size={18} color="#ffffff" />
           </TouchableOpacity>
         </View>
@@ -1112,8 +1115,18 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   backBtn: {
+    // Footer buttons across the trip flow share one height: the primary
+    // used paddingVertical lg (16) and the secondary md (12), so the two
+    // rendered at different heights and the row read as misaligned.
+    minHeight: 52,
+    // Without flexShrink:0 this row competes with the flex:1 next button: Back
+    // was squeezed until its label clipped to "ck" while Day Planner rendered
+    // undersized on top of it. Pin Back to its content and let Next take the
+    // remaining width.
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: spacing.xs,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
@@ -1127,7 +1140,13 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   nextButton: {
+    // Footer buttons across the trip flow share one height: the primary
+    // used paddingVertical lg (16) and the secondary md (12), so the two
+    // rendered at different heights and the row read as misaligned.
+    minHeight: 52,
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

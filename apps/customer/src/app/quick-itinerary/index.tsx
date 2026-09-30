@@ -28,10 +28,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   Modal,
+  Dimensions,
 } from 'react-native';
 // Nested inside a gesture-handler ScrollView, plain RN Touchables silently drop
 // taps — import both from gesture-handler.
-import { ScrollView, TouchableOpacity, Pressable } from 'react-native-gesture-handler';
+import { ScrollView } from 'react-native-gesture-handler';
+// RN's own touchables, NOT gesture-handler's: this renders inside a React
+// Native <Modal>, which mounts in a separate native view hierarchy outside
+// the GestureHandlerRootView, so gesture-handler touchables get no taps.
+import { TouchableOpacity, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -55,6 +60,12 @@ const MONTHS = [
 ] as const;
 
 const MAX_DAYS = 14;
+
+// Month chips were sized with width:'30.5%'. A percentage resolves against the
+// parent, and monthGrid has no width of its own — so it sized to its content
+// and the chips collapsed to one letter per line ("J a n" stacked vertically).
+// Measure off the screen instead: sheet padding (2x lg) + two 8px gaps.
+const MONTH_CELL_W = Math.floor((Dimensions.get('window').width - 24 * 2 - 8 * 2) / 3);
 
 type TransportMode = 'car_bus' | 'bike' | 'flight';
 
@@ -182,6 +193,7 @@ export default function QuickItineraryScreen() {
 
   const canSubmit =
     !!startingPoint.trim() && !!destination.trim() && !!transportMode && !!days && !isGenerating;
+
 
   const monthLabel = travelMonth === '' ? 'Flexible' : MONTHS[Number(travelMonth)];
 
@@ -711,7 +723,14 @@ export default function QuickItineraryScreen() {
                 activeOpacity={0.9}
                 accessibilityRole="button"
                 accessibilityState={{ disabled: !canSubmit }}
-                style={[styles.submitBtn, !canSubmit && { opacity: 0.45 }]}
+                // An enabled button must not read as greyed out. Users reported
+                // tapping this and it working while it still looked disabled,
+                // so make the enabled state explicit (full opacity + lift)
+                // rather than relying on the absence of a dim style.
+                style={[
+                  styles.submitBtn,
+                  canSubmit ? styles.submitBtnEnabled : { opacity: 0.4 },
+                ]}
               >
                 <LinearGradient
                   colors={canSubmit ? [TEAL, TEAL_DARK] : [colors.gray[300], colors.gray[400]]}
@@ -740,11 +759,27 @@ export default function QuickItineraryScreen() {
           style={styles.sheetBackdrop}
           onPress={() => setShowDaysPicker(false)}
         >
-          <Pressable
-            onPress={() => {}}
+          {/* A Pressable here would become a responder over the whole sheet and
+              (on Android especially) claim taps before the rows underneath it,
+              so nothing could be selected. A plain View does not intercept, and
+              the backdrop's own onPress only fires for touches that reach IT —
+              a tap landing on this View is not a backdrop tap, so the sheet
+              still does not self-dismiss. */}
+          <View
             style={[styles.sheet, { backgroundColor: themeColors.surface }]}
+            onStartShouldSetResponder={() => true}
           >
-            <Text style={[styles.sheetTitle, { color: themeColors.text }]}>Trip duration</Text>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: themeColors.text }]}>Trip duration</Text>
+              <TouchableOpacity
+                onPress={() => setShowDaysPicker(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Ionicons name="close" size={22} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
             <ScrollView style={{ maxHeight: 320 }}>
               {Array.from({ length: MAX_DAYS }, (_, i) => i + 1).map((d) => {
                 const selected = d === days;
@@ -768,7 +803,7 @@ export default function QuickItineraryScreen() {
                 );
               })}
             </ScrollView>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
@@ -784,11 +819,27 @@ export default function QuickItineraryScreen() {
           style={styles.sheetBackdrop}
           onPress={() => setShowMonthPicker(false)}
         >
-          <Pressable
-            onPress={() => {}}
+          {/* A Pressable here would become a responder over the whole sheet and
+              (on Android especially) claim taps before the rows underneath it,
+              so nothing could be selected. A plain View does not intercept, and
+              the backdrop's own onPress only fires for touches that reach IT —
+              a tap landing on this View is not a backdrop tap, so the sheet
+              still does not self-dismiss. */}
+          <View
             style={[styles.sheet, { backgroundColor: themeColors.surface }]}
+            onStartShouldSetResponder={() => true}
           >
-            <Text style={[styles.sheetTitle, { color: themeColors.text }]}>Travel month</Text>
+            <View style={styles.sheetHeader}>
+              <Text style={[styles.sheetTitle, { color: themeColors.text }]}>Travel month</Text>
+              <TouchableOpacity
+                onPress={() => setShowMonthPicker(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Close"
+              >
+                <Ionicons name="close" size={22} color={themeColors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               onPress={() => { setTravelMonth(''); setShowMonthPicker(false); }}
@@ -837,7 +888,7 @@ export default function QuickItineraryScreen() {
                 );
               })}
             </View>
-          </Pressable>
+          </View>
         </Pressable>
       </Modal>
 
@@ -1031,6 +1082,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modeName: {
+    // The card centres its children, so without an explicit width this Text
+    // shrinks to fit and clips ("Car/Bus" rendered as "Car/") instead of
+    // wrapping onto its second allowed line.
+    alignSelf: 'stretch',
     fontSize: fontSize.xs,
     fontWeight: fontWeight.semibold,
     textAlign: 'center',
@@ -1098,6 +1153,14 @@ const styles = StyleSheet.create({
   },
   cancelText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
   submitBtn: { width: '100%', borderRadius: borderRadius.lg, overflow: 'hidden' },
+  submitBtnEnabled: {
+    opacity: 1,
+    shadowColor: TEAL_DARK,
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
   submitGradient: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1105,7 +1168,14 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: spacing.md + 2,
   },
-  submitText: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
+  submitText: {
+    color: '#fff',
+    fontSize: fontSize.md,
+    // Bumped from semibold: white on a mid-teal gradient was washing out at
+    // the smaller weight, which added to the button reading as disabled.
+    fontWeight: fontWeight.bold,
+    letterSpacing: 0.2,
+  },
 
   // Bottom sheets
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
@@ -1120,10 +1190,17 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     paddingBottom: spacing['3xl'],
   },
+  // Row so the sheet carries an explicit close control: the backdrop alone is
+  // not a discoverable way out, and on a tall sheet it is barely reachable.
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
   sheetTitle: {
     fontSize: fontSize.lg,
     fontWeight: fontWeight.bold,
-    marginBottom: spacing.md,
   },
   sheetRow: {
     flexDirection: 'row',
@@ -1134,9 +1211,9 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
   },
   sheetRowText: { fontSize: fontSize.md },
-  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', alignSelf: 'stretch', gap: spacing.sm },
   monthCell: {
-    width: '30.5%',
+    width: MONTH_CELL_W,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.md,
     borderWidth: 1,
