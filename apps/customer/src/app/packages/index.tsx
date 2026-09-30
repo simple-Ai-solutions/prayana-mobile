@@ -32,6 +32,13 @@ import { holidayPackagesAPI } from '@prayana/shared-services';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 
+// Packages use the theme's blue accent rather than the app-wide orange, so the
+// holiday-package flow reads as its own product. Aliased once here: every
+// `packageColors.primary[n]` below resolves to accent[n] via this object, which keeps
+// the shade ramp (50..900) and the rest of the palette untouched.
+const packageColors = { ...colors, primary: colors.accent };
+
+
 // The `category` param is CASE-SENSITIVE server-side: category=honeymoon returns
 // 0, category=Honeymoon returns 9. The chips previously sent lowercase keys, so
 // every category chip filtered to nothing. `key` is now the exact server value
@@ -258,10 +265,10 @@ export default function PackagesScreen() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.sortRow}>
         <TouchableOpacity
           onPress={() => setFilterOpen(true)}
-          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? colors.primary[500] : themeColors.border, backgroundColor: activeFilterCount ? colors.primary[500] + '18' : 'transparent' }]}
+          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? packageColors.primary[500] : themeColors.border, backgroundColor: activeFilterCount ? packageColors.primary[500] + '18' : 'transparent' }]}
         >
-          <Ionicons name="options-outline" size={14} color={activeFilterCount ? colors.primary[600] : themeColors.textSecondary} />
-          <Text style={[styles.sortChipText, { color: activeFilterCount ? colors.primary[600] : themeColors.textSecondary }]}>
+          <Ionicons name="options-outline" size={14} color={activeFilterCount ? packageColors.primary[600] : themeColors.textSecondary} />
+          <Text style={[styles.sortChipText, { color: activeFilterCount ? packageColors.primary[600] : themeColors.textSecondary }]}>
             Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}
           </Text>
         </TouchableOpacity>
@@ -271,9 +278,9 @@ export default function PackagesScreen() {
             <TouchableOpacity
               key={s.key}
               onPress={() => setSort(s.key)}
-              style={[styles.sortChip, { borderColor: active ? colors.primary[500] : themeColors.border, backgroundColor: active ? colors.primary[500] + '18' : 'transparent' }]}
+              style={[styles.sortChip, { borderColor: active ? packageColors.primary[500] : themeColors.border, backgroundColor: active ? packageColors.primary[500] + '18' : 'transparent' }]}
             >
-              <Text style={[styles.sortChipText, { color: active ? colors.primary[600] : themeColors.textSecondary }]}>{s.label}</Text>
+              <Text style={[styles.sortChipText, { color: active ? packageColors.primary[600] : themeColors.textSecondary }]}>{s.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -281,7 +288,7 @@ export default function PackagesScreen() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
+          <ActivityIndicator size="large" color={packageColors.primary[500]} />
         </View>
       ) : packages.length === 0 && heroFeatured.length === 0 ? (
         <EmptyState
@@ -337,7 +344,7 @@ export default function PackagesScreen() {
                 {deals.length > 0 && (
                   <>
                     <View style={styles.dealsHead}>
-                      <Ionicons name="flame" size={16} color="#F97316" />
+                      <Ionicons name="flame" size={16} color="#3b82f6" />
                       <Text style={[styles.sectionTitle, { color: themeColors.text, marginTop: 0 }]}>Last-minute deals</Text>
                     </View>
                     <ScrollView
@@ -398,7 +405,7 @@ function PackageCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => voi
             <Image source={{ uri: img }} style={styles.cardImage} contentFit="cover" transition={200} cachePolicy="memory-disk" />
           ) : (
             <LinearGradient
-              colors={[colors.primary[300], colors.primary[600]]}
+              colors={[packageColors.primary[300], packageColors.primary[600]]}
               style={styles.cardImage}
             />
           )}
@@ -473,7 +480,7 @@ function FeaturedCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => vo
           <Image source={{ uri: img }} style={styles.featImage} contentFit="cover" transition={200} cachePolicy="memory-disk" />
         ) : (
           <LinearGradient
-            colors={[colors.primary[400], colors.primary[700]]}
+            colors={[packageColors.primary[400], packageColors.primary[700]]}
             style={styles.featImage}
           />
         )}
@@ -587,8 +594,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   catChipActive: {
-    backgroundColor: colors.primary[500],
-    borderColor: colors.primary[500],
+    backgroundColor: packageColors.primary[500],
+    borderColor: packageColors.primary[500],
   },
   catChipText: {
     fontSize: fontSize.sm,
@@ -665,7 +672,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: colors.primary[500],
+    backgroundColor: packageColors.primary[500],
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.sm,
@@ -685,7 +692,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   priceLabel: { fontSize: fontSize.xs, color: colors.textTertiary },
-  priceValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.primary[600] },
+  priceValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: packageColors.primary[600] },
   mrpText: {
     fontSize: fontSize.sm,
     color: colors.textTertiary,
@@ -696,7 +703,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: colors.primary[500],
+    backgroundColor: packageColors.primary[500],
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
     borderRadius: borderRadius.lg,

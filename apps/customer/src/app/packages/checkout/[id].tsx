@@ -35,6 +35,13 @@ import { ENV } from '../../../config/env';
 import { requiredDocsFor } from '../../../lib/legalRegistry';
 import DateField from '../../../components/common/DateField';
 
+// Packages use the theme's blue accent rather than the app-wide orange, so the
+// holiday-package flow reads as its own product. Aliased once here: every
+// `packageColors.primary[n]` below resolves to accent[n] via this object, which keeps
+// the shade ramp (50..900) and the rest of the palette untouched.
+const packageColors = { ...colors, primary: colors.accent };
+
+
 // Docs the server requires the customer to accept before a package booking
 // (validated server-side; a missing/stale acceptance is a 400).
 const PACKAGE_LEGAL_DOCS = requiredDocsFor('booking:package');
@@ -43,6 +50,8 @@ const PACKAGE_ACCEPTANCE = PACKAGE_LEGAL_DOCS.map((d) => ({ slug: d.slug, versio
 type Step = 'travelers' | 'dates' | 'contact' | 'pay';
 
 type Variant = {
+  // The only unique handle: `name` repeats across variants on some packages.
+  _id?: string;
   name: string;
   displayName?: string;
   // The API prices variants via pricing.basePrice / pricing.display.amount —
@@ -120,6 +129,13 @@ export default function PackageCheckoutScreen() {
 
   // Step 1: variant + travelers
   const [variantName, setVariantName] = useState<string | null>(null);
+  // Variant NAMES are not unique — Andaman 3N/4D ships five variants called
+  // Standard, Standard, Premium, Premium, Luxury (the labels on screen come
+  // from displayName). Keying or matching on name collapsed the duplicates:
+  // React warned about duplicate keys, tapping one highlighted both, and
+  // find(v => v.name === ...) returned the FIRST match — so picking the
+  // 22,890 tier priced the 16,330 one. Track the unique _id.
+  const [variantId, setVariantId] = useState<string | null>(null);
   const [adults, setAdults] = useState(2);
   const [children, setChildren] = useState(0);
 
@@ -199,9 +215,14 @@ export default function PackageCheckoutScreen() {
         const p: Pkg = res?.data || res?.package || null;
         setPkg(p);
         // Preselect the variant chosen on the detail screen (?variant=), else first.
-        const preset = p?.variants?.find((v: any) => v.name === variantParam);
-        if (preset?.name) setVariantName(preset.name);
-        else if (p?.variants?.[0]?.name) setVariantName(p.variants[0].name);
+        const preset =
+          p?.variants?.find((v: any) => v._id === variantParam) ||
+          p?.variants?.find((v: any) => v.name === variantParam);
+        const chosen = preset || p?.variants?.[0];
+        if (chosen?.name) {
+          setVariantName(chosen.name);
+          setVariantId(chosen._id || null);
+        }
       } catch (err: any) {
         Toast.show({
           type: 'error',
@@ -228,8 +249,13 @@ export default function PackageCheckoutScreen() {
   const totalTravelers = adults + children;
 
   const selectedVariant = useMemo(() => {
-    return pkg?.variants?.find((v) => v.name === variantName) || null;
-  }, [pkg, variantName]);
+    if (!pkg?.variants) return null;
+    return (
+      pkg.variants.find((v) => v._id && v._id === variantId) ||
+      pkg.variants.find((v) => v.name === variantName) ||
+      null
+    );
+  }, [pkg, variantId, variantName]);
 
   const clientEstimate = useMemo(() => {
     const perPerson = variantPrice(selectedVariant) || pkg?.pricing?.startingFrom || 0;
@@ -457,7 +483,7 @@ export default function PackageCheckoutScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
+          <ActivityIndicator size="large" color={packageColors.primary[500]} />
         </View>
       </SafeAreaView>
     );
@@ -490,7 +516,7 @@ export default function PackageCheckoutScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
@@ -517,13 +543,14 @@ export default function PackageCheckoutScreen() {
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>Choose variant</Text>
                   {pkg.variants.map((v) => {
-                    const active = variantName === v.name;
+                    const active = v._id ? variantId === v._id : variantName === v.name;
                     return (
                       <TouchableOpacity
-                        key={v.name}
+                        key={v._id || v.name}
                         style={[styles.variantCard, active && styles.variantCardActive]}
                         onPress={() => {
                           setVariantName(v.name);
+                          setVariantId(v._id || null);
                           Haptics.selectionAsync();
                         }}
                         activeOpacity={0.85}
@@ -688,7 +715,7 @@ export default function PackageCheckoutScreen() {
               <Card style={styles.review}>
                 {pricing ? (
                   <View style={{ alignItems: 'center', paddingVertical: spacing.md }}>
-                    <ActivityIndicator color={colors.primary[600]} />
+                    <ActivityIndicator color={packageColors.primary[600]} />
                     <Text style={[styles.hint, { marginTop: spacing.sm }]}>Getting your best price…</Text>
                   </View>
                 ) : livePrice ? (
@@ -806,7 +833,7 @@ function CounterRow({
           disabled={value <= min}
           style={[styles.counterBtn, value <= min && { opacity: 0.4 }]}
         >
-          <Ionicons name="remove" size={20} color={colors.primary[500]} />
+          <Ionicons name="remove" size={20} color={packageColors.primary[500]} />
         </TouchableOpacity>
         <Text style={styles.counterValue}>{value}</Text>
         <TouchableOpacity
@@ -814,7 +841,7 @@ function CounterRow({
           disabled={value >= max}
           style={[styles.counterBtn, value >= max && { opacity: 0.4 }]}
         >
-          <Ionicons name="add" size={20} color={colors.primary[500]} />
+          <Ionicons name="add" size={20} color={packageColors.primary[500]} />
         </TouchableOpacity>
       </View>
     </View>
@@ -860,7 +887,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   summaryLabel: { fontSize: fontSize.sm, color: colors.textSecondary },
-  summaryPrice: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: colors.primary[600] },
+  summaryPrice: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, color: packageColors.primary[600] },
 
   section: { marginTop: spacing.xl, gap: spacing.md },
   sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
@@ -876,12 +903,12 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   variantCardActive: {
-    borderColor: colors.primary[500],
-    backgroundColor: colors.primary[50],
+    borderColor: packageColors.primary[500],
+    backgroundColor: packageColors.primary[50],
   },
   variantName: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text },
   variantHint: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 2 },
-  variantPrice: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.primary[600] },
+  variantPrice: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: packageColors.primary[600] },
 
   counterRow: {
     flexDirection: 'row',
@@ -900,7 +927,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: colors.primary[500],
+    borderColor: packageColors.primary[500],
   },
   counterValue: { fontSize: fontSize.md, fontWeight: fontWeight.semibold, color: colors.text, minWidth: 24, textAlign: 'center' },
 
@@ -912,16 +939,16 @@ const styles = StyleSheet.create({
     borderRadius: 12, borderWidth: 1, borderColor: colors.gray[200],
     backgroundColor: colors.surface, marginBottom: 10,
   },
-  depRowActive: { borderColor: colors.primary[500], backgroundColor: colors.primary[50] },
+  depRowActive: { borderColor: packageColors.primary[500], backgroundColor: packageColors.primary[50] },
   depDate: { fontSize: fontSize.md, fontWeight: fontWeight.semibold as any, color: colors.text },
-  depDateActive: { color: colors.primary[700] },
+  depDateActive: { color: packageColors.primary[700] },
   depSeats: { fontSize: fontSize.xs, color: colors.textTertiary, marginTop: 3 },
-  depTick: { fontSize: 18, color: colors.primary[600], fontWeight: fontWeight.bold as any },
+  depTick: { fontSize: 18, color: packageColors.primary[600], fontWeight: fontWeight.bold as any },
   legalRow: { flexDirection: 'row', alignItems: 'flex-start', gap: spacing.sm, marginTop: spacing.md },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: colors.border, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  checkboxOn: { backgroundColor: colors.primary[600], borderColor: colors.primary[600] },
+  checkboxOn: { backgroundColor: packageColors.primary[600], borderColor: packageColors.primary[600] },
   legalText: { flex: 1, fontSize: fontSize.xs, color: colors.textSecondary, lineHeight: 18 },
-  legalLink: { color: colors.primary[600], fontWeight: fontWeight.semibold },
+  legalLink: { color: packageColors.primary[600], fontWeight: fontWeight.semibold },
 
   review: { padding: spacing.lg, gap: spacing.sm },
   reviewRow: {

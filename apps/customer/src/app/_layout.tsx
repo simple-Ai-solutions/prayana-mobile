@@ -266,9 +266,9 @@ function RootNavigator() {
         <Stack.Screen name="esim/checkout/[bundle]" />
         <Stack.Screen name="esim/my-orders/index" />
         <Stack.Screen name="hotels/index" />
-        <Stack.Screen name="packages/index" />
-        <Stack.Screen name="packages/[id]" />
-        <Stack.Screen name="packages/checkout/[id]" />
+        {/* packages/_layout.tsx owns this group (it scopes the blue brand
+            ramp), so the root registers the group, not each screen. */}
+        <Stack.Screen name="packages" />
         <Stack.Screen name="transport/index" />
         <Stack.Screen name="outstation-cabs/index" />
         <Stack.Screen name="transport/[id]" />

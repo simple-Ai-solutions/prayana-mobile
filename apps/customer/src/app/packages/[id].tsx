@@ -34,6 +34,7 @@ import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 import {
+
   activeAddOns,
   addOnCharge,
   addOnUnitLabel,
@@ -41,6 +42,12 @@ import {
   isSelectableAddOn,
   type PackageAddOn,
 } from '../../lib/addOnPricing';
+
+// Packages use the theme's blue accent rather than the app-wide orange, so the
+// holiday-package flow reads as its own product. Aliased once here: every
+// `packageColors.primary[n]` below resolves to accent[n] via this object, which keeps
+// the shade ramp (50..900) and the rest of the palette untouched.
+const packageColors = { ...colors, primary: colors.accent };
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -628,7 +635,7 @@ export default function PackageDetailScreen() {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
+          <ActivityIndicator size="large" color={packageColors.primary[500]} />
         </View>
       </SafeAreaView>
     );
@@ -823,7 +830,7 @@ export default function PackageDetailScreen() {
               ) : (
                 <LinearGradient
                   key={idx}
-                  colors={[colors.primary[300], colors.primary[700]]}
+                  colors={[packageColors.primary[300], packageColors.primary[700]]}
                   style={styles.carouselImage}
                 />
               ),
@@ -1064,7 +1071,7 @@ export default function PackageDetailScreen() {
 
             {/* Live price breakdown for the chosen variant */}
             {pricing ? (
-              <View style={styles.livePriceRow}><ActivityIndicator size="small" color={colors.primary[500]} /><Text style={[styles.variantHint, { color: themeColors.textSecondary, marginLeft: 8 }]}>Getting your best price…</Text></View>
+              <View style={styles.livePriceRow}><ActivityIndicator size="small" color={packageColors.primary[500]} /><Text style={[styles.variantHint, { color: themeColors.textSecondary, marginLeft: 8 }]}>Getting your best price…</Text></View>
             ) : live ? (
               <View style={[styles.breakdown, { borderTopColor: themeColors.border }]}>
                 {live.earlyBirdDiscount?.applied ? (
@@ -1287,7 +1294,7 @@ export default function PackageDetailScreen() {
                             />
                           ) : (
                             <View style={[styles.stayImg, styles.stayImgPh]}>
-                              <Ionicons name="bed" size={16} color={colors.primary[400]} />
+                              <Ionicons name="bed" size={16} color={packageColors.primary[400]} />
                             </View>
                           )}
                           <View style={{ flex: 1 }}>
@@ -1495,10 +1502,10 @@ export default function PackageDetailScreen() {
           <Card style={styles.section}>
             <View style={styles.qaHead}>
               <View style={styles.qaHeadIcon}>
-                <Ionicons name="chatbubble-ellipses" size={15} color="#ea580c" />
+                <Ionicons name="chatbubble-ellipses" size={15} color="#2563eb" />
               </View>
               <Text style={[styles.qaTitle, { color: themeColors.text }]} numberOfLines={1}>
-                Travelers asked about <Text style={{ color: '#ea580c' }}>{qaDestination}</Text>
+                Travelers asked about <Text style={{ color: '#2563eb' }}>{qaDestination}</Text>
               </Text>
             </View>
             <View style={[styles.qaList, { borderTopColor: themeColors.border }]}>
@@ -1531,7 +1538,7 @@ export default function PackageDetailScreen() {
               onPress={() => router.push(`/community/ask?destination=${encodeURIComponent(qaDestination)}` as any)}
             >
               <Text style={styles.qaAskText}>Ask your own question</Text>
-              <Ionicons name="arrow-forward" size={14} color="#ea580c" />
+              <Ionicons name="arrow-forward" size={14} color="#2563eb" />
             </TouchableOpacity>
           </Card>
         ) : null}
@@ -2291,7 +2298,7 @@ const styles = StyleSheet.create({
   playerDoneText: { color: '#fff', fontSize: 13, fontWeight: fontWeight.bold },
   playerWeb: { flex: 1, backgroundColor: '#000' },
   qaHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  qaHeadIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center' },
+  qaHeadIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
   qaTitle: { flex: 1, fontSize: fontSize.md, fontWeight: fontWeight.bold },
   qaList: { marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
   qaItem: { paddingVertical: 12 },
@@ -2300,8 +2307,8 @@ const styles = StyleSheet.create({
   qaMetaText: { fontSize: 12 },
   qaResolved: { flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 10 },
   qaResolvedText: { fontSize: 12, color: '#059669', fontWeight: fontWeight.medium },
-  qaAsk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#fff7ed', borderRadius: 10, paddingVertical: 12, marginTop: spacing.sm },
-  qaAskText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#ea580c' },
+  qaAsk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 12, marginTop: spacing.sm },
+  qaAskText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#2563eb' },
   mapHead: { padding: spacing.lg, paddingBottom: spacing.sm },
   routeMap: { width: '100%', height: 220 },
   cityStrip: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md },
@@ -2445,7 +2452,7 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: colors.primary[500],
+    backgroundColor: packageColors.primary[500],
     marginTop: 8,
   },
   bulletText: { flex: 1, fontSize: fontSize.sm, color: colors.text, lineHeight: 22 },
@@ -2528,7 +2535,7 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     textDecorationLine: 'line-through',
   },
-  priceValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: colors.primary[600] },
+  priceValue: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, color: packageColors.primary[600] },
   priceMeta: {
     fontSize: fontSize.xs,
     fontWeight: fontWeight.normal,
