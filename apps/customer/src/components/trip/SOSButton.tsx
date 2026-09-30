@@ -7,7 +7,10 @@ import {
   Alert,
   Share,
 } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+// RN's own TouchableOpacity, NOT gesture-handler's: this sheet renders
+// inside a React Native <Modal> (via BottomModal), which mounts outside
+// the GestureHandlerRootView, so gesture-handler touchables get no taps.
+import { TouchableOpacity } from 'react-native';
 import BottomModal, { BottomModalRef, BottomModalScrollView } from '../common/BottomModal';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';

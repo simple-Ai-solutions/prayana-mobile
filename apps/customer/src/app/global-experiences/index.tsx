@@ -27,7 +27,11 @@ import {
   Linking,
   Modal,
 } from 'react-native';
-import { ScrollView, TouchableOpacity, Pressable } from 'react-native-gesture-handler';
+import { ScrollView } from 'react-native-gesture-handler';
+// RN's own touchables, NOT gesture-handler's: this renders inside a React
+// Native <Modal>, which mounts in a separate native view hierarchy outside
+// the GestureHandlerRootView, so gesture-handler touchables get no taps.
+import { TouchableOpacity, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { goBack } from '../../lib/goBack';

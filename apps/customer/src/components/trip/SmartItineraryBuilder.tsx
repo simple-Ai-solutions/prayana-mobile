@@ -4,8 +4,13 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
+  // RN's own TouchableOpacity, NOT gesture-handler's. BottomModal renders
+  // inside a React Native <Modal>, which mounts in a separate native view
+  // hierarchy outside the GestureHandlerRootView in app/_layout.tsx — so
+  // gesture-handler touchables there never receive taps. Every button in this
+  // sheet (Accept All, Regenerate, and the per-suggestion +) was dead.
+  TouchableOpacity,
 } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
 import BottomModal, { BottomModalRef, BottomModalScrollView } from '../common/BottomModal';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow } from '@prayana/shared-ui';
@@ -839,6 +844,8 @@ const styles = StyleSheet.create({
   },
   acceptAllBtn: {
     flex: 1,
+    flexBasis: 0,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -854,6 +861,9 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   regenerateBtn: {
+    // Sits beside the flex:1 Accept All button; without this the two compete
+    // and "Accept All (7)" gets clipped at the left edge.
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,

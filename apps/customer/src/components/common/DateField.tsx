@@ -9,7 +9,10 @@
 // Date object never escapes this component.
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Platform, Modal } from 'react-native';
-import { TouchableOpacity } from 'react-native-gesture-handler';
+// RN's own touchables, NOT gesture-handler's: this renders inside a React
+// Native <Modal>, which mounts in a separate native view hierarchy outside
+// the GestureHandlerRootView, so gesture-handler touchables get no taps.
+import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';

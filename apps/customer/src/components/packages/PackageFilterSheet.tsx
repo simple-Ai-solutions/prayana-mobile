@@ -6,7 +6,11 @@
 // button just dismisses. No Apply button, matching the PWA.
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Modal, Pressable, PanResponder, LayoutChangeEvent } from 'react-native';
-import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
+import { ScrollView } from 'react-native-gesture-handler';
+// RN's own touchables, NOT gesture-handler's: this renders inside a React
+// Native <Modal>, which mounts in a separate native view hierarchy outside
+// the GestureHandlerRootView, so gesture-handler touchables get no taps.
+import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 
