@@ -77,7 +77,11 @@ export type PaymentResult =
   | { status: 'failed'; reason: string; code?: number | string };
 
 const BRAND_NAME = 'Prayana AI';
-const BRAND_LOGO_URL = 'https://prayanaai.com/logo.png';
+// No `image` is passed to Razorpay deliberately: the sheet shows the merchant
+// name on its own, which reads cleaner than the logo did at that size. Note
+// that setting `image` to an unreachable URL is NOT the same as omitting it —
+// Razorpay then falls back to the first letter of `name` and draws a bare "P",
+// which is what the old (non-existent) /logo.png produced.
 
 /**
  * Opens the Razorpay checkout sheet. Returns a normalized PaymentResult.
@@ -120,7 +124,6 @@ export async function openCheckout(opts: {
     currency,
     name,
     description,
-    image: BRAND_LOGO_URL,
     prefill,
     theme: { color: themeColor },
     notes,

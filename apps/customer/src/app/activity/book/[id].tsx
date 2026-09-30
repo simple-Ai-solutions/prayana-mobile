@@ -1121,11 +1121,20 @@ export default function BookingFlowScreen() {
           <View style={styles.couponRow}>
             <TextInput
               value={couponInput}
+              accessibilityLabel="Promo code"
+              returnKeyType="done"
               onChangeText={(t) => { setCouponInput(t.toUpperCase()); setCouponError(''); }}
               placeholder="Promo code"
               placeholderTextColor={themeColors.textTertiary}
               autoCapitalize="characters"
-              style={[styles.couponInput, { color: themeColors.text, borderColor: themeColors.border }]}
+              // This TextInput is the shared-ui wrapper, not RN's: it renders an
+              // outer container View around the real input, so `style` lands on
+              // the INNER element. Putting flex:1 there sized the input while
+              // its unsized wrapper stayed content-width — which is why the
+              // field rendered as a sliver with Apply overlapping it. The width
+              // has to go on containerStyle.
+              containerStyle={styles.couponInputWrap}
+              style={{ color: themeColors.text }}
             />
             <TouchableOpacity
               onPress={() => couponInput.trim() && setAppliedCoupon(couponInput.trim())}
@@ -1582,6 +1591,10 @@ const styles = StyleSheet.create({
 
   // Step content
   stepContent: {
+    // Without an explicit width this plain View sizes to its widest child
+    // instead of the screen, so Card shrinks and the flex:1 coupon input
+    // collapsed to an unlabelled sliver next to the Apply button.
+    width: '100%',
     paddingHorizontal: spacing.xl,
     paddingTop: spacing.xl,
   },
@@ -1603,15 +1616,13 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.xs,
   },
-  couponRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginVertical: spacing.sm },
-  couponInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    fontSize: fontSize.sm,
-  },
+  // alignSelf:'stretch' is the load-bearing bit: a row with no width sizes to
+  // its content, so the flex:1 input had nothing to fill and collapsed to a
+  // sliver with the Apply button overlapping it.
+  couponRow: { flexDirection: 'row', alignSelf: 'stretch', alignItems: 'center', gap: spacing.sm, marginVertical: spacing.sm },
+  // Sizes the shared-ui TextInput's OUTER container; the wrapper already draws
+  // the border and padding, so this only needs to claim the row's free space.
+  couponInputWrap: { flex: 1, marginBottom: 0 },
   couponApply: {
     backgroundColor: colors.primary[500],
     paddingHorizontal: spacing.lg,

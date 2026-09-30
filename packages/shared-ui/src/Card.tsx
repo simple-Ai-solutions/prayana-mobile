@@ -38,6 +38,11 @@ const styles = StyleSheet.create({
   base: {
     borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    // A Card with no width shrinks to its content, which starves any flex:1
+    // child inside it (a coupon input collapsed to a sliver this way). Cards
+    // are block-level everywhere they are used, so stretch by default; callers
+    // that want a narrow card can still override via the style prop.
+    alignSelf: 'stretch',
   },
   bordered: {
     borderWidth: 1,
