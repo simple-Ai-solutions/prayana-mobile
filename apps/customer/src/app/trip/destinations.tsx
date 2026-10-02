@@ -22,6 +22,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { makeAPICall } from '@prayana/shared-services';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 import { useDebounce, useCollaboration } from '@prayana/shared-hooks';
 import type { BottomModalRef } from '../../components/common/BottomModal';
 import CollaboratorAvatars from '../../components/trip/CollaboratorAvatars';
@@ -73,6 +74,8 @@ export default function DestinationsScreen() {
 
   // Store state
   const destinations = useCreateTripStore((s: any) => s.destinations) as any[];
+
+
   const startDate = useCreateTripStore((s) => s.startDate);
   const endDate = useCreateTripStore((s) => s.endDate);
 
@@ -96,6 +99,56 @@ export default function DestinationsScreen() {
   const [showResults, setShowResults] = useState(false);
   const [error, setError] = useState('');
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+
+  // Self-heal destination photos, mirroring the web's DestinationsStep.
+  // Only the search path attaches an image: a stop added by name (AI
+  // suggestion, restored trip, or a backend row with no match) arrives with
+  // none, so the card fell back to a generic pin while search-added stops
+  // showed a real photo. Look the missing ones up by name and keep the result
+  // here rather than writing a fabricated field into the trip store.
+  const [destImages, setDestImages] = useState<Record<string, string>>({});
+  const triedImages = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    // Suggestion pills need thumbnails too — same lookup, same cache, so a
+    // suggestion already resolved as a destination costs nothing.
+    const pool = [...(destinations || []), ...(aiSuggestions || [])];
+    const missing = pool.filter(
+      (d: any) => d?.name && !d.image && !destImages[d.name] && !triedImages.current.has(d.name),
+    );
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      for (const d of missing) {
+        if (cancelled) break;
+        triedImages.current.add(d.name);
+        try {
+          const res: any = await makeAPICall(
+            `/destinations/search?q=${encodeURIComponent(d.name)}&limit=1`,
+          );
+          const row = Array.isArray(res?.data) ? res.data[0] : null;
+          let img = row?.imageUrl || row?.image;
+          if (!img && Array.isArray(row?.images)) {
+            img = typeof row.images[0] === 'string' ? row.images[0] : row.images[0]?.url;
+          }
+          if (img && !cancelled) {
+            const url = normalizeImageUrl(img);
+            if (url) setDestImages((prev) => ({ ...prev, [d.name]: url }));
+          }
+        } catch {
+          // leave the placeholder — a missing photo must not break the step
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [destinations, aiSuggestions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** A destination's photo: its own, else one resolved by name. */
+  const imageFor = useCallback(
+    (d: any) => d?.image || destImages[d?.name] || '',
+    [destImages],
+  );
   const [isLoadingAI, setIsLoadingAI] = useState(false);
   const searchInputRef = useRef<TextInput>(null);
 
@@ -588,9 +641,9 @@ export default function DestinationsScreen() {
                 <View style={styles.destCardHeader}>
                   {/* Destination image thumbnail with order badge overlay */}
                   <View style={styles.destImageContainer}>
-                    {dest.image ? (
+                    {imageFor(dest) ? (
                       <Image
-                        source={{ uri: dest.image }}
+                        source={{ uri: imageFor(dest) }}
                         style={styles.destImage}
                         contentFit="cover"
                         transition={200}
@@ -694,7 +747,17 @@ export default function DestinationsScreen() {
                     onPress={() => handleAddAISuggestion(suggestion)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="add-circle" size={16} color={P[500]} />
+                    {imageFor(suggestion) ? (
+                      <Image
+                        source={{ uri: imageFor(suggestion) }}
+                        style={styles.aiPillImage}
+                        contentFit="cover"
+                        transition={150}
+                        cachePolicy="memory-disk"
+                      />
+                    ) : (
+                      <Ionicons name="add-circle" size={16} color={P[500]} />
+                    )}
                     <Text style={styles.aiPillName}>{suggestion.name}</Text>
                     {suggestion.suggestedDays ? (
                       <Text style={styles.aiPillDays}>{suggestion.suggestedDays}d</Text>
@@ -1231,6 +1294,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: P[200],
   },
+  aiPillImage: { width: 20, height: 20, borderRadius: 5 },
   aiPillName: {
     fontSize: fontSize.sm,
     fontWeight: fontWeight.medium,

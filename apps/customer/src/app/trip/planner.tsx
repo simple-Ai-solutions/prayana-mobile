@@ -27,6 +27,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
+import { geocodePlace, isValidCoords } from '../../lib/geocoding';
 import { makeAPICall } from '@prayana/shared-services';
 import { useImageEnrichment, useCoordinateEnrichment, useCollaboration } from '@prayana/shared-hooks';
 import type { BottomModalRef } from '../../components/common/BottomModal';
@@ -764,6 +765,53 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
     night: { timeRange: '10 PM – 12 AM' },
   };
 
+  // An activity counts as already added when its name matches one on the day.
+  // Names are what the planner dedupes on elsewhere, and the suggestion feed
+  // has no stable id to match against.
+  // The planner's activities carry {lat:0,lng:0} because that is what the
+  // suggestion endpoints return. Rather than write coordinates back into the
+  // trip store, geocode on demand and keep the results here — the map reads
+  // through this, and nothing else in the app depends on the fabricated zeros.
+  const [geoCoords, setGeoCoords] = useState<Record<string, { lat: number; lng: number }>>({});
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  useEffect(() => {
+    if (!showMapModal) return;
+    const missing = (currentActivities || []).filter(
+      (a: any) => a?.name && !isValidCoords(a.coordinates) && !geoCoords[a.name],
+    );
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    setGeoLoading(true);
+    (async () => {
+      for (const a of missing) {
+        if (cancelled) break;
+        const c = await geocodePlace(a.name, currentDestination?.name);
+        if (c && !cancelled) setGeoCoords((prev) => ({ ...prev, [a.name]: c }));
+      }
+      if (!cancelled) setGeoLoading(false);
+    })();
+    return () => { cancelled = true; setGeoLoading(false); };
+  }, [showMapModal, currentActivities, currentDestination?.name]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** An activity's real coordinates: stored if valid, else geocoded. */
+  const coordsFor = useCallback(
+    (a: any) => (isValidCoords(a?.coordinates) ? a.coordinates : geoCoords[a?.name] || null),
+    [geoCoords],
+  );
+
+  const suggestionAdded = useCallback(
+    (sug: { name?: string }) => {
+      const n = (sug?.name || '').trim().toLowerCase();
+      if (!n) return false;
+      return (currentActivities || []).some(
+        (a: any) => (a?.name || '').trim().toLowerCase() === n,
+      );
+    },
+    [currentActivities],
+  );
+
   const renderAISuggestions = () => {
     if (!showAISuggestions) return null;
 
@@ -890,12 +938,17 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                         </TouchableOpacity>
                       )}
                       <TouchableOpacity
-                        style={styles.aiAddBtn}
+                        style={[styles.aiAddBtn, suggestionAdded(suggestion) && styles.aiAddBtnAdded]}
                         // 28pt is far below the 44pt minimum, and this sits in
                         // a nested gesture-handler ScrollView that competes for
                         // the touch — taps were being claimed by the scroll.
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        disabled={suggestionAdded(suggestion)}
                         onPress={() => {
+                          // Guard against double-adds: the button stayed live
+                          // after a successful add, so tapping again (or a
+                          // double tap) duplicated the activity on the day.
+                          if (suggestionAdded(suggestion)) return;
                           addActivity(selectedDayIndex, {
                             name: suggestion.name,
                             description: suggestion.description || '',
@@ -912,7 +965,11 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
                         }}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="add" size={16} color="#ffffff" />
+                        <Ionicons
+                          name={suggestionAdded(suggestion) ? 'checkmark' : 'add'}
+                          size={16}
+                          color="#ffffff"
+                        />
                       </TouchableOpacity>
                     </View>
                   ))}
@@ -998,7 +1055,10 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
           {/* Group voting — "Plan with Friends" decisions (web parity: VotingPoll) */}
           <TouchableOpacity
             style={styles.budgetHeaderBtn}
-            onPress={() => pollsSheetRef.current?.expand()}
+            onPress={() => {
+              console.log('[Planner] polls icon tapped; ref present:', !!pollsSheetRef.current);
+              pollsSheetRef.current?.expand();
+            }}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="bar-chart-outline" size={20} color={P[500]} />
@@ -1415,7 +1475,12 @@ Return ONLY valid JSON (no markdown, no explanation, no code blocks):
             </View>
             <View style={styles.mapModalContent}>
               <ItineraryMap
-                places={currentActivities}
+                // Feed the map geocoded coordinates: the stored ones are the
+                // API's {lat:0,lng:0} placeholders, which plot nowhere.
+                places={(currentActivities || []).map((a: any) => {
+                  const c = coordsFor(a);
+                  return c ? { ...a, coordinates: c } : a;
+                })}
                 visible={true}
                 onClose={() => setShowMapModal(false)}
                 dayTitle={currentDay?.title}
@@ -2393,6 +2458,7 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     paddingVertical: spacing.md,
   },
+  aiAddBtnAdded: { backgroundColor: '#10b981' },
   aiAddBtn: {
     width: 28,
     height: 28,

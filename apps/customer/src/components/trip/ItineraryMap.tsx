@@ -14,10 +14,21 @@ import {
   TouchableOpacity,
 } from 'react-native';
 import MapView, { Marker, Callout, PROVIDER_GOOGLE } from 'react-native-maps';
+import { Image } from 'expo-image';
+import { normalizeImageUrl } from '../../lib/imageUrl';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, fontSize, fontWeight, shadow } from '@prayana/shared-ui';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+/** First usable photo on a place, across the shapes the API has used. */
+function placeImage(p: Place): string | null {
+  const raw =
+    p.image ||
+    p.imageUrls?.[0] ||
+    (typeof p.images?.[0] === 'string' ? p.images[0] : p.images?.[0]?.url);
+  return raw ? normalizeImageUrl(raw) : null;
+}
 
 interface Place {
   name: string;
@@ -25,6 +36,11 @@ interface Place {
   coordinates?: { lat: number; lng: number };
   time?: string;
   visitDuration?: string;
+  // Activities carry a photo under several historical shapes; the callout
+  // shows whichever one is present.
+  image?: string;
+  images?: any[];
+  imageUrls?: string[];
 }
 
 interface ItineraryMapProps {
@@ -183,6 +199,15 @@ export const ItineraryMap: React.FC<ItineraryMapProps> = ({
                   </View>
                   <Callout tooltip>
                     <View style={[styles.calloutContainer, shadow.lg]}>
+                      {placeImage(place) ? (
+                        <Image
+                          source={{ uri: placeImage(place) as string }}
+                          style={styles.calloutImage}
+                          contentFit="cover"
+                          transition={150}
+                          cachePolicy="memory-disk"
+                        />
+                      ) : null}
                       <Text style={styles.calloutTitle}>{place.name}</Text>
                       {place.description && (
                         <Text style={styles.calloutDescription} numberOfLines={2}>
@@ -472,6 +497,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     minWidth: 150,
     maxWidth: 220,
+  },
+  calloutImage: {
+    width: '100%',
+    height: 86,
+    borderRadius: 8,
+    marginBottom: 6,
   },
   calloutTitle: {
     fontSize: fontSize.sm,
