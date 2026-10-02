@@ -16,7 +16,9 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { streamChatMessage, type StreamHandle } from '../../lib/chatStream';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -80,6 +82,8 @@ interface ChatMessage {
   type: MessageType;
   content: string;
   timestamp: Date;
+  /** True while SSE tokens are still arriving for this bubble. */
+  streaming?: boolean;
   topPlaces?: Place[];
   images?: string[];
   actions?: Array<{ text: string; action: string }>;
@@ -105,8 +109,14 @@ interface TripFormData {
 // ============================================================
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_CHAR = 500;
+/** Server session id, so a relaunch resumes the same conversation. */
+const CHAT_SESSION_KEY = 'prayana.chat.sessionId';
 
-const SUGGESTION_CHIPS = [
+type SuggestionChip = { icon?: string; text: string; action?: string; placeholder?: string };
+
+// Fallback only — the server's /chat/suggestions is context-aware and is
+// preferred when it answers. These remain for offline/first paint.
+const SUGGESTION_CHIPS: SuggestionChip[] = [
   { icon: '🌍', text: 'Plan a trip', action: 'plan_trip' },
   { icon: '💡', text: 'Travel tips', placeholder: 'Give me travel tips for ' },
   { icon: '🗺️', text: 'Best destinations', placeholder: 'What are the best destinations for ' },
@@ -897,9 +907,10 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
 // ============================================================
 // WELCOME SCREEN
 // ============================================================
-function WelcomeScreen({ isDark, onChipPress }: {
+function WelcomeScreen({ isDark, chips, onChipPress }: {
   isDark: boolean;
-  onChipPress: (chip: typeof SUGGESTION_CHIPS[number]) => void;
+  chips: SuggestionChip[];
+  onChipPress: (chip: SuggestionChip) => void;
 }) {
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -925,7 +936,7 @@ function WelcomeScreen({ isDark, onChipPress }: {
       </Text>
 
       <View style={styles.chipsWrap}>
-        {SUGGESTION_CHIPS.map((chip, i) => (
+        {chips.map((chip, i) => (
           <TouchableOpacity key={i} onPress={() => onChipPress(chip)} activeOpacity={0.7}
             style={[styles.chip, { backgroundColor: isDark ? '#1e293b' : '#ffffff', borderColor: isDark ? '#334155' : '#e2e8f0' }]}>
             <Text style={styles.chipEmoji}>{chip.icon}</Text>
@@ -942,6 +953,10 @@ function WelcomeScreen({ isDark, onChipPress }: {
 // ============================================================
 export default function ChatScreen() {
   const router = useRouter();
+  // FloatingChatFAB and EmbeddedChatWidget both push /chat with these params,
+  // but the screen never read them — so tapping a destination suggestion
+  // opened an empty chat and the user's question was silently dropped.
+  const params = useLocalSearchParams<{ initialMessage?: string; context?: string }>();
   const { user } = useAuth();
   const { isDarkMode } = useTheme();
   const insets = useSafeAreaInsets();
@@ -962,6 +977,10 @@ export default function ChatScreen() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
   const sessionIdRef = useRef<string | null>(null);
+  // Live SSE handle, so a send can be aborted (and so a new send never races
+  // an in-flight stream).
+  const streamRef = useRef<StreamHandle | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
 
@@ -1048,9 +1067,45 @@ export default function ChatScreen() {
     }
   }, [isEscalating]);
 
-  // Start session on mount
+  // Start session on mount — reusing the previous one when there is one.
+  //
+  // Chat used to issue a brand-new session on every mount and keep messages in
+  // useState only, so closing the app (or even leaving the screen) discarded
+  // the whole conversation, including any itinerary generated in it. The server
+  // already stores the transcript, so persist the id and rehydrate from
+  // /chat/history instead of starting over.
   useEffect(() => {
+    let cancelled = false;
     (async () => {
+      const saved = await AsyncStorage.getItem(CHAT_SESSION_KEY).catch(() => null);
+
+      if (saved) {
+        try {
+          const res = await makeChatAPICall(`/chat/history/${saved}?limit=50`, { timeout: 15000 });
+          const rows: any[] = Array.isArray(res?.data) ? res.data : [];
+          if (!cancelled && rows.length > 0) {
+            // The list is inverted, and history arrives oldest-first.
+            const restored: ChatMessage[] = rows
+              .filter((r) => r?.content)
+              .map((r): ChatMessage => ({
+                id: r.messageId || r._id || generateId(),
+                role: r.role === 'user' ? 'user' : 'assistant',
+                type: 'text',
+                content: String(r.content),
+                timestamp: r.timestamp ? new Date(r.timestamp) : new Date(),
+              }))
+              .reverse();
+            setMessages(restored);
+            sessionIdRef.current = saved;
+            setActiveSessionId(saved);
+            setIsConnected(true);
+            return;
+          }
+        } catch {
+          // Session expired or unreachable — fall through and start a fresh one.
+        }
+      }
+
       try {
         const res = await makeChatAPICall('/chat/session/start', {
           method: 'POST',
@@ -1058,10 +1113,43 @@ export default function ChatScreen() {
           timeout: 15000,
         });
         const sid = res?.data?.sessionId;
-        if (sid) { sessionIdRef.current = sid; setActiveSessionId(sid); setIsConnected(true); }
+        if (sid && !cancelled) {
+          sessionIdRef.current = sid;
+          setActiveSessionId(sid);
+          setIsConnected(true);
+          AsyncStorage.setItem(CHAT_SESSION_KEY, sid).catch(() => {});
+        }
       } catch { /* offline */ }
     })();
+    return () => { cancelled = true; };
   }, []);
+
+  // Context-aware chips from the server, falling back to the hardcoded set.
+  // GET, not POST — the POST form 404s.
+  const [chips, setChips] = useState<SuggestionChip[]>(SUGGESTION_CHIPS);
+  useEffect(() => {
+    if (!activeSessionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await makeChatAPICall(
+          `/chat/suggestions?sessionId=${encodeURIComponent(activeSessionId)}`,
+          { timeout: 10000 },
+        );
+        const list = res?.data?.suggestions;
+        if (!cancelled && Array.isArray(list) && list.length > 0) {
+          setChips(
+            list.slice(0, 6).map((x: any) => ({
+              icon: x.icon,
+              text: x.text,
+              action: x.action,
+            })),
+          );
+        }
+      } catch { /* keep the fallback chips */ }
+    })();
+    return () => { cancelled = true; };
+  }, [activeSessionId]);
 
   const scrollToBottom = useCallback(() => {
     setTimeout(() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
@@ -1077,6 +1165,9 @@ export default function ChatScreen() {
     sessionIdRef.current = sid;
     setActiveSessionId(sid);
     setIsConnected(true);
+    // Persist here too: a session created on first send must survive a
+    // relaunch exactly like one created on mount.
+    AsyncStorage.setItem(CHAT_SESSION_KEY, sid).catch(() => {});
   };
 
   // ── Send regular text message ────────────────────────────────
@@ -1093,14 +1184,83 @@ export default function ChatScreen() {
     Keyboard.dismiss();
     scrollToBottom();
 
+    const reqBody = {
+      sessionId: sessionIdRef.current,
+      message: { content: trimmed, context: { type: 'general' } },
+    };
+
     try {
       await ensureSession();
+      reqBody.sessionId = sessionIdRef.current;
+
+      // Prefer SSE so text appears as it is generated; a 60s blocking POST is
+      // what made the mobile chat feel slower than the web. Any transport
+      // failure falls through to the original /chat/send path below.
+      const streamed = await new Promise<any | null>((resolve) => {
+        const liveId = generateId();
+        let buffer = '';
+        let opened = false;
+
+        const handle: StreamHandle = streamChatMessage(reqBody, {
+          onToken: (chunk) => {
+            buffer += chunk;
+            if (!opened) {
+              opened = true;
+              setIsTyping(false); // the bubble itself is now the indicator
+              setMessages((prev) => [{
+                id: liveId, role: 'assistant', type: 'text',
+                content: buffer, timestamp: new Date(), streaming: true,
+              } as ChatMessage, ...prev]);
+            } else {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === liveId ? { ...m, content: buffer } : m)),
+              );
+            }
+          },
+          onDone: (payload) => {
+            streamRef.current = null;
+            if (!opened) { resolve(null); return; }
+            // Replace the live bubble with the final one, which carries the
+            // cards the token stream cannot.
+            const ai = payload?.aiMessage;
+            setMessages((prev) =>
+              prev.map((m) => (m.id === liveId ? {
+                ...m,
+                content: ai?.content || buffer,
+                streaming: false,
+                topPlaces: ai?.topPlaces || [],
+                images: normalizeImages(ai?.images),
+                actions: ai?.actions || [],
+                relatedPlaces: ai?.relatedPlaces || [],
+                inventory: ai?.inventory || [],
+                actionCards: ai?.actionCards || [],
+              } as ChatMessage : m)),
+            );
+            resolve(payload || { ok: true });
+          },
+          onError: () => {
+            streamRef.current = null;
+            if (opened) {
+              // Partial text already shown — keep it rather than erroring.
+              setMessages((prev) =>
+                prev.map((m) => (m.id === liveId ? { ...m, streaming: false } : m)),
+              );
+              resolve({ ok: true });
+            } else {
+              resolve(null); // nothing rendered — fall back to POST
+            }
+          },
+        });
+        streamRef.current = handle;
+        setIsStreaming(true);
+      });
+
+      setIsStreaming(false);
+      if (streamed) { setIsTyping(false); return; }
+
       const response = await makeChatAPICall('/chat/send', {
         method: 'POST',
-        body: JSON.stringify({
-          sessionId: sessionIdRef.current,
-          message: { content: trimmed, context: { type: 'general' } },
-        }),
+        body: JSON.stringify(reqBody),
         timeout: 60000,
       });
 
@@ -1201,14 +1361,20 @@ export default function ChatScreen() {
     }
   }, [scrollToBottom]);
 
-  const handleChipPress = useCallback((chip: typeof SUGGESTION_CHIPS[number]) => {
-    if ((chip as any).action === 'plan_trip') {
+  const handleChipPress = useCallback((chip: SuggestionChip) => {
+    if (chip.action === 'plan_trip') {
       showTripPlannerForm();
-    } else if ((chip as any).placeholder) {
-      setInputText((chip as any).placeholder);
-      setTimeout(() => inputRef.current?.focus(), 100);
+      return;
     }
-  }, [showTripPlannerForm]);
+    if (chip.placeholder) {
+      setInputText(chip.placeholder);
+      setTimeout(() => inputRef.current?.focus(), 100);
+      return;
+    }
+    // Server chips carry an action but no placeholder — send the label as the
+    // question, which is what the web does for its action pills.
+    if (chip.text) sendMessage(chip.text);
+  }, [showTripPlannerForm, sendMessage]);
 
   const handlePlacePress = useCallback((name: string) => {
     sendMessage(`Tell me more about ${name}`);
@@ -1260,10 +1426,53 @@ export default function ChatScreen() {
 
   const handleSend = useCallback(() => sendMessage(inputText), [inputText, sendMessage]);
 
+  /** Abort an in-flight stream, keeping whatever text already arrived. */
+  const handleStopStreaming = useCallback(() => {
+    streamRef.current?.abort();
+    streamRef.current = null;
+    setIsStreaming(false);
+    setIsTyping(false);
+    setMessages((prev) => prev.map((m) => (m.streaming ? { ...m, streaming: false } : m)));
+  }, []);
+
+  // Send the message the caller arrived with, once — and only after the
+  // session exists, otherwise ensureSession races the mount effect.
+  const initialSentRef = useRef(false);
+  useEffect(() => {
+    const initial = (params.initialMessage || '').trim();
+    if (!initial || initialSentRef.current || !activeSessionId) return;
+    initialSentRef.current = true;
+    sendMessage(initial);
+  }, [params.initialMessage, activeSessionId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+
   const handleClearChat = useCallback(() => {
     Alert.alert('Clear conversation', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => { setMessages([]); setInputText(''); } },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: async () => {
+          setMessages([]);
+          setInputText('');
+          // Drop the stored session too, or the next launch would rehydrate
+          // the very transcript the user just cleared.
+          await AsyncStorage.removeItem(CHAT_SESSION_KEY).catch(() => {});
+          try {
+            const res = await makeChatAPICall('/chat/session/start', {
+              method: 'POST',
+              body: JSON.stringify({ context: { type: 'general' } }),
+              timeout: 15000,
+            });
+            const sid = res?.data?.sessionId;
+            if (sid) {
+              sessionIdRef.current = sid;
+              setActiveSessionId(sid);
+              AsyncStorage.setItem(CHAT_SESSION_KEY, sid).catch(() => {});
+            }
+          } catch { /* offline — ensureSession will retry on next send */ }
+        },
+      },
     ]);
   }, []);
 
@@ -1321,7 +1530,7 @@ export default function ChatScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         {isWelcomeScreen ? (
-          <WelcomeScreen isDark={isDarkMode} onChipPress={handleChipPress} />
+          <WelcomeScreen isDark={isDarkMode} chips={chips} onChipPress={handleChipPress} />
         ) : (
           <FlatList
             ref={flatListRef}
@@ -1400,6 +1609,18 @@ export default function ChatScreen() {
                 editable={!isTyping && !isGeneratingTrip}
               />
             </View>
+            {/* While a stream is live the send button becomes Stop — with
+                token streaming there is now something worth interrupting. */}
+            {isStreaming ? (
+              <TouchableOpacity
+                onPress={handleStopStreaming}
+                activeOpacity={0.8}
+                accessibilityLabel="Stop generating"
+                style={[styles.sendBtn, styles.sendBtnActive]}
+              >
+                <Ionicons name="stop" size={16} color="#ffffff" />
+              </TouchableOpacity>
+            ) : (
             <TouchableOpacity onPress={handleSend}
               disabled={!inputText.trim() || isTyping || isGeneratingTrip}
               activeOpacity={0.8}
@@ -1410,6 +1631,7 @@ export default function ChatScreen() {
                 <Ionicons name="send" size={18} color={inputText.trim() ? '#ffffff' : isDarkMode ? '#475569' : '#cbd5e1'} />
               )}
             </TouchableOpacity>
+            )}
           </View>
           <Text style={[styles.poweredBy, { color: isDarkMode ? '#1e293b' : '#e2e8f0' }]}>Powered by Prayana AI</Text>
         </View>
