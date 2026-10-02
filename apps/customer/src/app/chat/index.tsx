@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { streamChatMessage, type StreamHandle } from '../../lib/chatStream';
 import * as Clipboard from 'expo-clipboard';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -52,6 +53,9 @@ interface Place {
   reviewCount?: number;
   category?: string;
   city?: string;
+  /** Server returns these flat on topPlaces[]; used by the inline map card. */
+  latitude?: number;
+  longitude?: number;
 }
 
 // Bookable Prayana inventory the agent returns in `inventory[]`. `kind` picks
@@ -86,6 +90,8 @@ interface ChatMessage {
   timestamp: Date;
   /** True while SSE tokens are still arriving for this bubble. */
   streaming?: boolean;
+  /** Follow-up chips the server returns with a reply. */
+  suggestions?: { text: string; type?: string }[];
   topPlaces?: Place[];
   images?: string[];
   actions?: Array<{ text: string; action: string }>;
@@ -399,6 +405,77 @@ function parseLineSegments(line: string, isDark: boolean, tealColor: string, pla
 // ============================================================
 // PLACE CARD  (matches web vertical card layout)
 // ============================================================
+/**
+ * Inline map of the places in a reply. The server ships flat latitude/longitude
+ * on topPlaces[], so no geocoding is needed here — but several places often
+ * share the city-centre point, so markers are de-duplicated by coordinate to
+ * avoid stacking identical pins.
+ */
+function ChatMapCard({ places, isDark, onPlacePress }: {
+  places: Place[];
+  isDark: boolean;
+  onPlacePress: (name: string) => void;
+}) {
+  const pins = useMemo(() => {
+    const seen = new Set<string>();
+    return places
+      .filter((p) => typeof p.latitude === 'number' && typeof p.longitude === 'number')
+      .filter((p) => Math.abs(p.latitude as number) > 0.001 || Math.abs(p.longitude as number) > 0.001)
+      .filter((p) => {
+        const key = `${(p.latitude as number).toFixed(4)},${(p.longitude as number).toFixed(4)}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 8);
+  }, [places]);
+
+  if (pins.length === 0) return null;
+
+  const lats = pins.map((p) => p.latitude as number);
+  const lngs = pins.map((p) => p.longitude as number);
+  const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+  const spanLat = Math.max(Math.max(...lats) - Math.min(...lats), 0.05) * 1.6;
+  const spanLng = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.05) * 1.6;
+
+  return (
+    <View style={[styles.mapCard, { borderColor: isDark ? '#334155' : '#e2e8f0' }]}>
+      <MapView
+        provider={PROVIDER_GOOGLE}
+        style={styles.mapCardMap}
+        initialRegion={{
+          latitude: midLat, longitude: midLng,
+          latitudeDelta: spanLat, longitudeDelta: spanLng,
+        }}
+        pointerEvents="none"
+      >
+        {pins.map((p, i) => (
+          <Marker
+            key={`${p.name}-${i}`}
+            coordinate={{ latitude: p.latitude as number, longitude: p.longitude as number }}
+            title={p.name}
+          />
+        ))}
+      </MapView>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mapCardChips}>
+        {pins.map((p, i) => (
+          <TouchableOpacity
+            key={`chip-${i}`}
+            onPress={() => onPlacePress(p.name)}
+            style={[styles.mapCardChip, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }]}
+            activeOpacity={0.8}
+          >
+            <Text style={[styles.mapCardChipText, { color: isDark ? '#e2e8f0' : '#334155' }]} numberOfLines={1}>
+              {i + 1}. {p.name}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
 function PlaceCard({ place, index, isDark, onPress }: {
   place: Place; index: number; isDark: boolean; onPress: (p: Place) => void;
 }) {
@@ -819,7 +896,7 @@ const invStyles = StyleSheet.create({
   ratingText: { fontSize: 11, fontWeight: '600' },
 });
 
-function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePress, onInventoryPress, onActionCard, isGenerating, onRegenerate, isLastAssistant }: {
+function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePress, onInventoryPress, onActionCard, isGenerating, onRegenerate, onSuggestion, isLastAssistant }: {
   message: ChatMessage;
   isDark: boolean;
   onPlanTrip: (d: TripFormData) => void;
@@ -829,6 +906,7 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
   onActionCard: (card: ActionCard) => void;
   isGenerating: boolean;
   onRegenerate: () => void;
+  onSuggestion: (text: string) => void;
   /** Only the newest assistant reply offers Regenerate, as on the web. */
   isLastAssistant: boolean;
 }) {
@@ -977,6 +1055,7 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
                 <Text style={[styles.sectionSub, { color: textSecondary }]}>Discover amazing destinations</Text>
               </View>
             </View>
+            <ChatMapCard places={message.topPlaces} isDark={isDark} onPlacePress={onPlacePress} />
             {message.topPlaces
               .filter((p, i, arr) => arr.findIndex((q) => q.name?.toLowerCase() === p.name?.toLowerCase()) === i)
               .slice(0, 5)
@@ -1025,6 +1104,27 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
         )}
 
         {/* Related places chips */}
+        {!message.streaming && message.suggestions && message.suggestions.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.followUps}
+          >
+            {message.suggestions.slice(0, 5).map((sg, i) => (
+              <TouchableOpacity
+                key={`sg-${i}`}
+                onPress={() => onSuggestion(sg.text)}
+                style={[styles.followUpChip, { borderColor: isDark ? '#334155' : '#cbd5e1' }]}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.followUpText, { color: isDark ? '#cbd5e1' : '#475569' }]} numberOfLines={1}>
+                  {sg.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
         {message.relatedPlaces && message.relatedPlaces.length > 0 && (
           <View>
             <View style={styles.relatedRow}>
@@ -1389,6 +1489,7 @@ export default function ChatScreen() {
                 relatedPlaces: ai?.relatedPlaces || [],
                 inventory: ai?.inventory || [],
                 actionCards: ai?.actionCards || [],
+                suggestions: ai?.suggestions || [],
               } as ChatMessage : m)),
             );
             resolve(payload || { ok: true });
@@ -1436,6 +1537,9 @@ export default function ChatScreen() {
         // Bookable Prayana inventory + one-tap booking prompts the agent returns.
         inventory: aiMsgData?.inventory || response?.data?.inventory || [],
         actionCards: aiMsgData?.actionCards || response?.data?.actionCards || [],
+        // Follow-up chips: previously dropped, so suggestions only ever
+        // appeared on the empty welcome screen.
+        suggestions: aiMsgData?.suggestions || response?.data?.suggestions || [],
       };
       setMessages((prev) => [aiMsg, ...prev]);
     } catch {
@@ -1533,6 +1637,11 @@ export default function ChatScreen() {
 
   const handlePlacePress = useCallback((name: string) => {
     sendMessage(`Tell me more about ${name}`);
+  }, [sendMessage]);
+
+  /** Follow-up chips are already full questions — send them as written. */
+  const handleSuggestion = useCallback((text: string) => {
+    sendMessage(text);
   }, [sendMessage]);
 
   // Tap a bookable inventory card → deep-link into the right booking flow.
@@ -1661,9 +1770,10 @@ export default function ChatScreen() {
       onActionCard={handleActionCard}
       isGenerating={isGeneratingTrip}
       onRegenerate={handleRegenerate}
+      onSuggestion={handleSuggestion}
       isLastAssistant={item.id === lastAssistantId}
     />
-  ), [isDarkMode, generateTripItinerary, isGeneratingTrip, handlePlacePress, handleViewItinerary, handleInventoryPress, handleActionCard, handleRegenerate, lastAssistantId]);
+  ), [isDarkMode, generateTripItinerary, isGeneratingTrip, handlePlacePress, handleViewItinerary, handleInventoryPress, handleActionCard, handleRegenerate, handleSuggestion, lastAssistantId]);
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
   const charNearLimit = inputText.length > MAX_CHAR * 0.8;
@@ -1868,6 +1978,14 @@ const styles = StyleSheet.create({
 
   // AI bubble
   aiBubble: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: 18, borderBottomLeftRadius: 4, borderWidth: 1, ...shadow.sm },
+  followUps: { gap: 6, paddingVertical: 2, paddingRight: 8 },
+  followUpChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, maxWidth: 230 },
+  followUpText: { fontSize: 12.5, fontWeight: '600' },
+  mapCard: { borderWidth: 1, borderRadius: 14, overflow: 'hidden', marginBottom: 10 },
+  mapCardMap: { width: '100%', height: 150 },
+  mapCardChips: { padding: 8, gap: 6 },
+  mapCardChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, maxWidth: 190 },
+  mapCardChipText: { fontSize: 12, fontWeight: '600' },
   msgActions: { flexDirection: 'row', gap: 2, marginTop: 4, marginLeft: 4 },
   msgActionBtn: { padding: 6, borderRadius: 6 },
   aiTime: { fontSize: 10, marginTop: 6 },
