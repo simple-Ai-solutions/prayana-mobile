@@ -14,11 +14,13 @@ import {
   Animated,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { streamChatMessage, type StreamHandle } from '../../lib/chatStream';
+import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -221,6 +223,56 @@ function RichText({ text, isDark, onPlacePress }: {
           );
         }
 
+        // Markdown headings (#, ##, ###) — the renderer previously showed the
+        // hashes as literal text.
+        const heading = /^(#{1,3})\s+(.*)$/.exec(line.trim());
+        if (heading) {
+          const level = heading[1].length;
+          return (
+            <Text
+              key={idx}
+              style={{
+                color: textColor,
+                fontSize: level === 1 ? 19 : level === 2 ? 17 : 15,
+                fontWeight: '700',
+                marginTop: idx === 0 ? 0 : 6,
+                marginBottom: 2,
+              }}
+            >
+              {heading[2]}
+            </Text>
+          );
+        }
+
+        // Horizontal rule
+        if (/^(---|\*\*\*|___)\s*$/.test(line.trim())) {
+          return (
+            <View
+              key={idx}
+              style={{ height: 1, backgroundColor: isDark ? '#334155' : '#e2e8f0', marginVertical: 6 }}
+            />
+          );
+        }
+
+        // Blockquote
+        const quote = /^>\s?(.*)$/.exec(line.trim());
+        if (quote) {
+          return (
+            <View
+              key={idx}
+              style={{
+                borderLeftWidth: 3,
+                borderLeftColor: tealColor,
+                paddingLeft: 8,
+                paddingVertical: 2,
+                marginVertical: 2,
+              }}
+            >
+              <Text style={{ color: textColor, fontSize: 14, fontStyle: 'italic' }}>{quote[1]}</Text>
+            </View>
+          );
+        }
+
         // Bullet / numbered list line
         const isBullet = /^[-•*]\s/.test(line.trim()) || /^\d+\.\s/.test(line.trim());
 
@@ -234,6 +286,17 @@ function RichText({ text, isDark, onPlacePress }: {
               {segments.map((seg, si) => {
                 if (seg.type === 'bold') {
                   return <Text key={si} style={[styles.boldText, { color: tealColor }]}>{seg.text}</Text>;
+                }
+                if (seg.type === 'link') {
+                  return (
+                    <Text
+                      key={si}
+                      style={{ color: tealColor, textDecorationLine: 'underline', fontSize: 14 }}
+                      onPress={() => { if (seg.href) Linking.openURL(seg.href).catch(() => {}); }}
+                    >
+                      {seg.text}
+                    </Text>
+                  );
                 }
                 if (seg.type === 'place') {
                   return (
@@ -262,11 +325,39 @@ function RichText({ text, isDark, onPlacePress }: {
   );
 }
 
-type Segment = { type: 'bold' | 'plain' | 'place' | 'day' | 'time'; text: string };
+type Segment = { type: 'bold' | 'plain' | 'place' | 'day' | 'time' | 'link'; text: string; href?: string };
+
+/** Expand link placeholders inside a run of plain text. */
+function pushPlain(out: Segment[], text: string, links: { text: string; href: string }[]) {
+  if (!text) return;
+  if (links.length === 0 || !text.includes('\u0000')) {
+    out.push({ type: 'plain', text });
+    return;
+  }
+  const parts = text.split(/\u0000(\d+)\u0000/);
+  parts.forEach((part, i) => {
+    if (!part) return;
+    if (i % 2 === 1) {
+      const l = links[Number(part)];
+      if (l) out.push({ type: 'link', text: l.text, href: l.href });
+    } else {
+      out.push({ type: 'plain', text: part });
+    }
+  });
+}
 
 function parseLineSegments(line: string, isDark: boolean, tealColor: string, placeColor: string): Segment[] {
   // Strip leading bullet chars for display
-  const cleaned = line.replace(/^[-•*]\s/, '').replace(/^\d+\.\s/, '');
+  let cleaned = line.replace(/^[-•*]\s/, '').replace(/^\d+\.\s/, '');
+
+  // Markdown links were rendered as literal "[text](url)". Pull them out
+  // before the main tokenizer runs, replacing each with a placeholder so the
+  // proper-noun pattern cannot match inside a URL.
+  const links: { text: string; href: string }[] = [];
+  cleaned = cleaned.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, (_m, label, href) => {
+    links.push({ text: label, href });
+    return `\u0000${links.length - 1}\u0000`;
+  });
 
   // Tokenize by: **bold**, Day N, time-of-day words, proper noun phrases
   const pattern = /(\*\*[^*]+\*\*|Day\s+\d+|(?:^|\s)(Morning|Afternoon|Evening|Night)(?=\s|$)|(?:[A-Z][a-z]+(?:\s+[A-Z][a-z]+)+))/g;
@@ -280,7 +371,7 @@ function parseLineSegments(line: string, isDark: boolean, tealColor: string, pla
     const start = match.index;
 
     if (start > last) {
-      segments.push({ type: 'plain', text: cleaned.slice(last, start) });
+      pushPlain(segments, cleaned.slice(last, start), links);
     }
 
     if (raw.startsWith('**') && raw.endsWith('**')) {
@@ -299,7 +390,7 @@ function parseLineSegments(line: string, isDark: boolean, tealColor: string, pla
   }
 
   if (last < cleaned.length) {
-    segments.push({ type: 'plain', text: cleaned.slice(last) });
+    pushPlain(segments, cleaned.slice(last), links);
   }
 
   return segments.length ? segments : [{ type: 'plain', text: cleaned }];
@@ -728,7 +819,7 @@ const invStyles = StyleSheet.create({
   ratingText: { fontSize: 11, fontWeight: '600' },
 });
 
-function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePress, onInventoryPress, onActionCard, isGenerating }: {
+function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePress, onInventoryPress, onActionCard, isGenerating, onRegenerate, isLastAssistant }: {
   message: ChatMessage;
   isDark: boolean;
   onPlanTrip: (d: TripFormData) => void;
@@ -737,7 +828,12 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
   onInventoryPress: (card: InventoryCard) => void;
   onActionCard: (card: ActionCard) => void;
   isGenerating: boolean;
+  onRegenerate: () => void;
+  /** Only the newest assistant reply offers Regenerate, as on the web. */
+  isLastAssistant: boolean;
 }) {
+  const [copied, setCopied] = useState(false);
+  const [vote, setVote] = useState<'up' | 'down' | null>(null);
   const isUser = message.role === 'user';
   const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
   const textSecondary = isDark ? '#94a3b8' : '#64748b';
@@ -796,6 +892,65 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
           <View style={[styles.aiBubble, { backgroundColor: aiBg, borderColor: aiBorder }]}>
             <RichText text={message.content} isDark={isDark} onPlacePress={onPlacePress} />
             <Text style={[styles.aiTime, { color: textSecondary }]}>{formatTime(message.timestamp)}</Text>
+          </View>
+        )}
+
+        {/* Action toolbar — hidden while tokens are still arriving. */}
+        {!!message.content && !message.streaming && (
+          <View style={styles.msgActions}>
+            <TouchableOpacity
+              onPress={async () => {
+                await Clipboard.setStringAsync(message.content);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.msgActionBtn}
+              accessibilityLabel="Copy message"
+            >
+              <Ionicons
+                name={copied ? 'checkmark' : 'copy-outline'}
+                size={14}
+                color={copied ? '#10b981' : textSecondary}
+              />
+            </TouchableOpacity>
+
+            {isLastAssistant && (
+              <TouchableOpacity
+                onPress={onRegenerate}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.msgActionBtn}
+                accessibilityLabel="Regenerate reply"
+              >
+                <Ionicons name="refresh-outline" size={14} color={textSecondary} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              onPress={() => setVote((v) => (v === 'up' ? null : 'up'))}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.msgActionBtn}
+              accessibilityLabel="Good reply"
+            >
+              <Ionicons
+                name={vote === 'up' ? 'thumbs-up' : 'thumbs-up-outline'}
+                size={14}
+                color={vote === 'up' ? '#10b981' : textSecondary}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setVote((v) => (v === 'down' ? null : 'down'))}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.msgActionBtn}
+              accessibilityLabel="Bad reply"
+            >
+              <Ionicons
+                name={vote === 'down' ? 'thumbs-down' : 'thumbs-down-outline'}
+                size={14}
+                color={vote === 'down' ? '#ef4444' : textSecondary}
+              />
+            </TouchableOpacity>
           </View>
         )}
 
@@ -1476,6 +1631,26 @@ export default function ChatScreen() {
     ]);
   }, []);
 
+  /**
+   * Re-ask the question that produced the newest assistant reply. messages is
+   * newest-first, so the last user message is the first one found walking
+   * forward past the assistant bubble.
+   */
+  const handleRegenerate = useCallback(() => {
+    if (isTyping) return;
+    const lastUser = messages.find((m) => m.role === 'user' && !!m.content);
+    if (!lastUser) return;
+    // Remove the stale reply so the new one takes its place.
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.role === 'assistant');
+      return idx === -1 ? prev : prev.filter((_, i) => i !== idx);
+    });
+    sendMessage(lastUser.content);
+  }, [messages, isTyping, sendMessage]);
+
+  // The newest assistant bubble is the only one offering Regenerate.
+  const lastAssistantId = messages.find((m) => m.role === 'assistant')?.id;
+
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
     <MessageBubble
       message={item} isDark={isDarkMode}
@@ -1485,8 +1660,10 @@ export default function ChatScreen() {
       onInventoryPress={handleInventoryPress}
       onActionCard={handleActionCard}
       isGenerating={isGeneratingTrip}
+      onRegenerate={handleRegenerate}
+      isLastAssistant={item.id === lastAssistantId}
     />
-  ), [isDarkMode, generateTripItinerary, isGeneratingTrip, handlePlacePress, handleViewItinerary, handleInventoryPress, handleActionCard]);
+  ), [isDarkMode, generateTripItinerary, isGeneratingTrip, handlePlacePress, handleViewItinerary, handleInventoryPress, handleActionCard, handleRegenerate, lastAssistantId]);
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
   const charNearLimit = inputText.length > MAX_CHAR * 0.8;
@@ -1691,6 +1868,8 @@ const styles = StyleSheet.create({
 
   // AI bubble
   aiBubble: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: 18, borderBottomLeftRadius: 4, borderWidth: 1, ...shadow.sm },
+  msgActions: { flexDirection: 'row', gap: 2, marginTop: 4, marginLeft: 4 },
+  msgActionBtn: { padding: 6, borderRadius: 6 },
   aiTime: { fontSize: 10, marginTop: 6 },
 
   // Rich text
