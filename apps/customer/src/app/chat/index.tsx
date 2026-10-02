@@ -83,6 +83,18 @@ interface ActionCard {
   data?: any;
 }
 
+/** eSIM plans the agent offers inline, from aiMessage.esimPlans[]. */
+interface EsimPlan {
+  name: string;
+  country?: string;
+  countryCode?: string;
+  data?: string;
+  duration?: number | string;
+  price?: number;
+  currency?: string;
+  speed?: string;
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -99,6 +111,7 @@ interface ChatMessage {
   relatedPlaces?: Array<{ id?: string; name: string }>;
   inventory?: InventoryCard[];
   actionCards?: ActionCard[];
+  esimPlans?: EsimPlan[];
   itineraryData?: { markdown?: string; structured?: any };
   requestData?: {
     destination: string; duration: number;
@@ -839,6 +852,61 @@ const KIND_LABEL: Record<string, string> = {
   captain_tour: 'Group tour', cab: 'Cab', transport: 'Ride',
 };
 
+/**
+ * Buyable eSIM plan card. The web renders these from aiMessage.esimPlans[];
+ * mobile dropped the field, so a plan the agent found could only be reached by
+ * navigating away to the eSIM listing and finding it again.
+ *
+ * Buy opens the real checkout with the bundle preselected. That screen already
+ * collects the passport details and travel dates the provider requires before
+ * it will activate a SIM, and runs the tested Razorpay + verify flow.
+ */
+function EsimPlanCard({ plan, isDark, onBuy }: {
+  plan: EsimPlan;
+  isDark: boolean;
+  onBuy: () => void;
+}) {
+  const bg = isDark ? '#1e293b' : '#ffffff';
+  const border = isDark ? '#334155' : '#e2e8f0';
+  const text = isDark ? '#f1f5f9' : '#0f172a';
+  const sub = isDark ? '#94a3b8' : '#64748b';
+
+  const flag = (() => {
+    const cc = (plan.countryCode || '').trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(cc)) return '🌐';
+    return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + (c.charCodeAt(0) - 65)));
+  })();
+
+  const days = typeof plan.duration === 'number' ? `${plan.duration} days` : plan.duration;
+
+  return (
+    <View style={[styles.esimCard, { backgroundColor: bg, borderColor: border }]}>
+      <View style={styles.esimCardTop}>
+        <Text style={{ fontSize: 20 }}>{flag}</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.esimCardTitle, { color: text }]} numberOfLines={1}>
+            {plan.country || plan.name}
+          </Text>
+          <Text style={[styles.esimCardMeta, { color: sub }]} numberOfLines={1}>
+            {[plan.data, days].filter(Boolean).join(' • ')}
+            {plan.speed ? `  ·  ${plan.speed}` : ''}
+          </Text>
+        </View>
+        {typeof plan.price === 'number' && (
+          <Text style={[styles.esimCardPrice, { color: text }]}>
+            {plan.currency === 'USD' ? '$' : '₹'}
+            {Math.round(plan.price).toLocaleString('en-IN')}
+          </Text>
+        )}
+      </View>
+      <TouchableOpacity onPress={onBuy} activeOpacity={0.85} style={styles.esimCardBtn}>
+        <Ionicons name="cellular" size={14} color="#ffffff" />
+        <Text style={styles.esimCardBtnText}>Buy this plan</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function ChatInventoryCard({ card, isDark, onPress }: { card: InventoryCard; isDark: boolean; onPress: () => void }) {
   const bg = isDark ? '#1e293b' : '#ffffff';
   const border = isDark ? '#334155' : '#e2e8f0';
@@ -1087,6 +1155,23 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
         )}
 
         {/* One-tap booking prompts (confirm booking / book cab / buy eSIM / view itinerary) */}
+        {message.esimPlans && message.esimPlans.length > 0 && (
+          <View style={{ marginBottom: 6 }}>
+            {message.esimPlans.slice(0, 4).map((plan, i) => (
+              <EsimPlanCard
+                key={`esim-${i}`}
+                plan={plan}
+                isDark={isDark}
+                onBuy={() => onActionCard({
+                  type: 'buy_esim',
+                  label: plan.name,
+                  data: { bundleName: plan.name, country: plan.country },
+                })}
+              />
+            ))}
+          </View>
+        )}
+
         {message.actionCards && message.actionCards.length > 0 && (
           <View style={styles.actionsWrap}>
             {message.actionCards.map((card, i) => (
@@ -1491,6 +1576,7 @@ export default function ChatScreen() {
                 inventory: ai?.inventory || [],
                 actionCards: ai?.actionCards || [],
                 suggestions: ai?.suggestions || [],
+                esimPlans: ai?.esimPlans || [],
               } as ChatMessage : m)),
             );
             resolve(payload || { ok: true });
@@ -1541,6 +1627,7 @@ export default function ChatScreen() {
         // Follow-up chips: previously dropped, so suggestions only ever
         // appeared on the empty welcome screen.
         suggestions: aiMsgData?.suggestions || response?.data?.suggestions || [],
+        esimPlans: aiMsgData?.esimPlans || response?.data?.esimPlans || [],
       };
       setMessages((prev) => [aiMsg, ...prev]);
     } catch {
@@ -1698,15 +1785,61 @@ export default function ChatScreen() {
   // One-tap action cards (confirm booking / book cab / buy eSIM / view itinerary).
   const handleActionCard = useCallback((card: ActionCard) => {
     const d = card.data || {};
+    // The agent's prepare_* tools gather real detail — date, travellers,
+    // variant, bundle name — and the handlers below used to throw it away and
+    // drop the user on a generic listing page. Carry it into the booking
+    // screen so everything it collected is already filled in.
+    const qs = (obj: Record<string, any>) => {
+      const parts = Object.entries(obj)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`);
+      return parts.length ? `?${parts.join('&')}` : '';
+    };
+
     switch (card.type) {
-      case 'confirm_booking':
-        router.push((d.activityId || d.listingId ? `/activity/book/${d.activityId || d.listingId}` : '/activities') as any);
+      case 'confirm_booking': {
+        const id = d.activityId || d.listingId;
+        if (!id) { router.push('/activities' as any); break; }
+        router.push(`/activity/book/${id}${qs({
+          date: d.date,
+          adults: d.adults,
+          children: d.children,
+          variantId: d.variantId,
+        })}` as any);
         break;
+      }
       case 'book_cab':
-        router.push('/outstation-cabs' as any);
+        router.push(`/outstation-cabs${qs({
+          fromText: d.from || d.fromText,
+          toText: d.to || d.toText,
+          date: d.date,
+          time: d.time,
+        })}` as any);
         break;
       case 'buy_esim':
-        router.push((d.country ? `/esim?country=${encodeURIComponent(d.country)}` : '/esim') as any);
+        // A named bundle goes straight to its checkout; otherwise the
+        // country listing. Checkout collects passport/dates, which the
+        // provider requires before it will activate.
+        if (d.bundleName) {
+          router.push(`/esim/checkout/${encodeURIComponent(d.bundleName)}${qs({
+            country: d.country,
+          })}` as any);
+        } else {
+          router.push((d.country ? `/esim?country=${encodeURIComponent(d.country)}` : '/esim') as any);
+        }
+        break;
+      case 'book_captain_tour':
+        router.push(`/captain-tours/${encodeURIComponent(d.slug || '')}${qs({
+          batchId: d.batchId,
+        })}` as any);
+        break;
+      case 'book_package':
+        router.push(`/packages/checkout/${encodeURIComponent(d.packageId || '')}${qs({
+          variant: d.variantName || d.variant,
+          departureId: d.departureId,
+          startDate: d.startDate || d.date,
+          adults: d.adults,
+        })}` as any);
         break;
       case 'save_favorite':
         Toast.show({ type: 'success', text1: 'Saved' });
@@ -2037,6 +2170,16 @@ const styles = StyleSheet.create({
 
   // AI bubble
   aiBubble: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: 18, borderBottomLeftRadius: 4, borderWidth: 1, ...shadow.sm },
+  esimCard: { borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 8, gap: 10 },
+  esimCardTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  esimCardTitle: { fontSize: 14, fontWeight: '700' },
+  esimCardMeta: { fontSize: 12, marginTop: 2 },
+  esimCardPrice: { fontSize: 15, fontWeight: '800' },
+  esimCardBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: '#0d9488', paddingVertical: 9, borderRadius: 10,
+  },
+  esimCardBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
   followUps: { gap: 6, paddingVertical: 2, paddingRight: 8 },
   followUpChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, maxWidth: 230 },
   followUpText: { fontSize: 12.5, fontWeight: '600' },
