@@ -42,7 +42,7 @@ function OverlayCard({
   return (
     <Pressable style={({ pressed }) => [styles.card, pressed && { opacity: 0.9 }]} onPress={onPress}>
       {image ? (
-        <Image source={{ uri: image }} style={StyleSheet.absoluteFill} contentFit="cover"
+        <Image source={{ uri: image }} style={StyleSheet.absoluteFillObject} contentFit="cover"
           transition={200} cachePolicy="memory-disk" />
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.cardPh]} />

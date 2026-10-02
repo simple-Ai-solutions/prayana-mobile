@@ -190,7 +190,7 @@ export default function PackagesScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Hero — full-bleed photo, gradient, title + search (PWA parity) */}
       <View style={styles.hero}>
-        <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+        <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFillObject} contentFit="cover" transition={200} cachePolicy="memory-disk" />
         <LinearGradient colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.6)']} style={StyleSheet.absoluteFill} />
         <TouchableOpacity onPress={() => router.back()} style={styles.heroBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
           <Ionicons name="chevron-back" size={22} color="#fff" />

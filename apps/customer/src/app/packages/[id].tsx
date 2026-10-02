@@ -1533,7 +1533,7 @@ export default function PackageDetailScreen() {
                 >
                   <Image
                     source={{ uri: v.thumbnail }}
-                    style={StyleSheet.absoluteFill}
+                    style={StyleSheet.absoluteFillObject}
                     contentFit="cover"
                     transition={200}
                     cachePolicy="memory-disk"
@@ -1630,7 +1630,7 @@ export default function PackageDetailScreen() {
                     {img ? (
                       <Image
                         source={{ uri: img }}
-                        style={StyleSheet.absoluteFill}
+                        style={StyleSheet.absoluteFillObject}
                         contentFit="cover"
                         transition={200}
                         cachePolicy="memory-disk"
