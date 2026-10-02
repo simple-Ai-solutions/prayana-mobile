@@ -391,7 +391,7 @@ function ShrineCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
       <View style={styles.omFinial}><Text style={styles.omFinialText}>ॐ</Text></View>
       <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.shrineInner}>
         <View style={styles.shrineImgWrap}>
-          {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={150} />
+          {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFillObject} contentFit="cover" cachePolicy="memory-disk" transition={150} />
             : <View style={[StyleSheet.absoluteFill, styles.imgPh]}><Text style={styles.omBig}>ॐ</Text></View>}
           {/* Only badge packages that actually fly. This was unconditional, so
               every card in the rail claimed "BY HELICOPTER" — including the
@@ -428,7 +428,7 @@ function DomeCard({ pkg, onPress }: { pkg: Pkg; onPress: () => void }) {
   return (
     <TouchableOpacity style={styles.dome} activeOpacity={0.9} onPress={onPress}>
       <View style={styles.domeImgWrap}>
-        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={150} />
+        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFillObject} contentFit="cover" cachePolicy="memory-disk" transition={150} />
           : <View style={[StyleSheet.absoluteFill, styles.imgPh]}><Text style={styles.omBig}>ॐ</Text></View>}
         {pkg.duration?.days ? (
           <View style={styles.durBadge}><Text style={styles.durBadgeText}>{pkg.duration.days}D / {nights}N</Text></View>

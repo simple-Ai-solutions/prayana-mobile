@@ -200,7 +200,7 @@ export default function DivyaDarshanaPackagesScreen() {
                       {img ? (
                         <Image
                           source={{ uri: img }}
-                          style={StyleSheet.absoluteFill}
+                          style={StyleSheet.absoluteFillObject}
                           contentFit="cover"
                           transition={150}
                           cachePolicy="memory-disk"
