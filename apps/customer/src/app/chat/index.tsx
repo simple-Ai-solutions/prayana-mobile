@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { streamChatMessage, type StreamHandle } from '../../lib/chatStream';
 import * as Clipboard from 'expo-clipboard';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -1639,6 +1640,51 @@ export default function ChatScreen() {
     sendMessage(`Tell me more about ${name}`);
   }, [sendMessage]);
 
+  /**
+   * Share the user's location with the assistant so "near me" questions work.
+   *
+   * The server's context schema stores `searchLocation` (a string) — a
+   * `userLocation` object is accepted by the endpoint but silently dropped,
+   * verified against /chat/session/:id. So reverse-geocode to a place name and
+   * send that.
+   */
+  const [locating, setLocating] = useState(false);
+  const [userCity, setUserCity] = useState<string | null>(null);
+
+  const handleShareLocation = useCallback(async () => {
+    if (locating) return;
+    setLocating(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Toast.show({ type: 'error', text1: 'Location permission denied' });
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const places = await Location.reverseGeocodeAsync({
+        latitude: pos.coords.latitude,
+        longitude: pos.coords.longitude,
+      }).catch(() => []);
+      const city = places?.[0]?.city || places?.[0]?.subregion || places?.[0]?.region || null;
+      if (!city) {
+        Toast.show({ type: 'error', text1: 'Could not determine your location' });
+        return;
+      }
+      setUserCity(city);
+      await ensureSession();
+      await makeChatAPICall('/chat/context', {
+        method: 'POST',
+        body: JSON.stringify({ sessionId: sessionIdRef.current, context: { searchLocation: city } }),
+        timeout: 10000,
+      }).catch(() => {});
+      Toast.show({ type: 'success', text1: `Location shared — ${city}` });
+    } catch {
+      Toast.show({ type: 'error', text1: 'Could not get your location' });
+    } finally {
+      setLocating(false);
+    }
+  }, [locating]);
+
   /** Follow-up chips are already full questions — send them as written. */
   const handleSuggestion = useCallback((text: string) => {
     sendMessage(text);
@@ -1881,6 +1927,19 @@ export default function ChatScreen() {
                 <Ionicons name="headset-outline" size={20} color={isEscalating ? '#94a3b8' : '#f97316'} />
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              style={styles.inputIconBtn}
+              activeOpacity={0.7}
+              onPress={handleShareLocation}
+              disabled={locating}
+              accessibilityLabel="Share my location"
+            >
+              <Ionicons
+                name={userCity ? 'location' : 'location-outline'}
+                size={20}
+                color={locating ? '#94a3b8' : userCity ? '#10b981' : '#2EC4B6'}
+              />
+            </TouchableOpacity>
             <TouchableOpacity style={styles.inputIconBtn} activeOpacity={0.7} onPress={showTripPlannerForm}>
               <Ionicons name="map-outline" size={20} color="#2EC4B6" />
             </TouchableOpacity>
