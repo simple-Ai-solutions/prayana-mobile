@@ -899,6 +899,12 @@ function EsimPlanCard({ plan, isDark, onBuy }: {
           </Text>
         )}
       </View>
+      {/* Say upfront what activation needs. The provider will not issue a SIM
+          without passport and travel dates, and discovering that only after
+          tapping Buy reads as the app losing details it never had. */}
+      <Text style={[styles.esimCardNote, { color: sub }]}>
+        Needs your passport number and travel dates — anything already saved is filled in for you.
+      </Text>
       <TouchableOpacity onPress={onBuy} activeOpacity={0.85} style={styles.esimCardBtn}>
         <Ionicons name="cellular" size={14} color="#ffffff" />
         <Text style={styles.esimCardBtnText}>Buy this plan</Text>
@@ -2175,6 +2181,7 @@ const styles = StyleSheet.create({
   esimCardTitle: { fontSize: 14, fontWeight: '700' },
   esimCardMeta: { fontSize: 12, marginTop: 2 },
   esimCardPrice: { fontSize: 15, fontWeight: '800' },
+  esimCardNote: { fontSize: 11, lineHeight: 15 },
   esimCardBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     backgroundColor: '#0d9488', paddingVertical: 9, borderRadius: 10,

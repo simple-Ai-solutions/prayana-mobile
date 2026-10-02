@@ -33,6 +33,7 @@ import {
   esimAPI,
   openCheckout,
   toPaise,
+  makeAPICall,
 } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
@@ -216,6 +217,49 @@ export default function ESimCheckoutScreen() {
     if (!lastName && parts.length > 1) setLastName(parts.slice(1).join(' '));
     if (!email && user.email) setEmail(user.email);
     if (!phone && user.phoneNumber) setPhone(user.phoneNumber);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Pre-fill what the Identity Vault already holds, so a user who has saved
+  // their passport is not asked for the same details twice. The vault returns
+  // the number MASKED (numberLast4 only) by design, so the number itself still
+  // has to be typed — but the name on it, its expiry and the saved address do
+  // not. `vaultHint` tells the user what we already have.
+  const [vaultHint, setVaultHint] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res: any = await makeAPICall('/users/me/identity', { timeout: 10000 });
+        const d = res?.data || {};
+        if (cancelled) return;
+
+        const pp = d.passport;
+        if (pp) {
+          const onDoc = (pp.fullName || '').trim();
+          if (onDoc) {
+            const bits = onDoc.split(' ');
+            setFirstName((v) => v || bits[0] || '');
+            setLastName((v) => v || bits.slice(1).join(' '));
+          }
+          if (pp.numberLast4) setVaultHint(`Passport ending ${pp.numberLast4} is saved — enter the full number to confirm.`);
+        }
+
+        const addr = d.address || d.personalInfo?.address;
+        if (addr) {
+          setAddressLine1((v) => v || addr.line1 || addr.addressLine1 || '');
+          setCity((v) => v || addr.city || '');
+          setState((v) => v || addr.state || '');
+          setPincode((v) => v || addr.pincode || addr.postalCode || '');
+        }
+        const birth = d.dateOfBirth || d.personalInfo?.dateOfBirth;
+        if (birth) setDob((v) => v || String(birth).slice(0, 10));
+      } catch {
+        // Vault unreachable or empty — the form simply stays blank.
+      }
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
@@ -719,6 +763,16 @@ export default function ESimCheckoutScreen() {
                 Required by Matrix Cellular regulations for international eSIM activation.
               </Text>
 
+              {/* Tell the user what we already hold. The vault masks the number
+                  itself, so it still has to be typed — but saying so is better
+                  than appearing to have forgotten it. */}
+              {vaultHint ? (
+                <View style={[styles.vaultHint, { borderColor: colors.primary[300], backgroundColor: colors.primary[50] }]}>
+                  <Ionicons name="shield-checkmark-outline" size={14} color={colors.primary[600]} />
+                  <Text style={[styles.vaultHintText, { color: colors.primary[700] }]}>{vaultHint}</Text>
+                </View>
+              ) : null}
+
               <TextInput
                 label="Passport number"
                 value={passportNo}
@@ -923,6 +977,11 @@ const styles = StyleSheet.create({
   worthText: { fontSize: 9, fontWeight: fontWeight.bold, color: '#E61417' },
 
   sectionTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
+  vaultHint: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderWidth: 1, borderRadius: 10, padding: 10, marginBottom: 10,
+  },
+  vaultHintText: { flex: 1, fontSize: 12, fontWeight: '600' },
   sectionHint: { fontSize: fontSize.sm, color: colors.textTertiary, lineHeight: 20 },
   row2: { flexDirection: 'row', alignItems: 'flex-end' },
   uploadBox: {
