@@ -789,15 +789,16 @@ const styles = StyleSheet.create({
 
   // Sections
   section: {
-    // Tightened from 2xl (24) so the whole step fits without scrolling
-    // on a standard phone; the form is short enough not to need the air.
-    marginBottom: spacing.lg,
+    // Tightened twice: 2xl (24) -> lg (16) -> md (12). With Budget Tier and
+    // the save banner on screen the step still scrolled, and the labels read
+    // fine at this rhythm.
+    marginBottom: spacing.md,
   },
   sectionLabel: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
     color: colors.text,
-    marginBottom: spacing.sm,
+    marginBottom: 6,
   },
 
   // Text Input
@@ -820,7 +821,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     fontSize: fontSize.md,
     color: colors.text,
-    minHeight: 56,
+    minHeight: 44,
   },
   inputError: {
     borderColor: colors.error,
@@ -959,7 +960,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
   },
   counterBlock: {
@@ -1013,7 +1014,7 @@ const styles = StyleSheet.create({
   budgetCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
     borderRadius: borderRadius.lg,
     borderWidth: 2,
@@ -1025,7 +1026,7 @@ const styles = StyleSheet.create({
     backgroundColor: P[50],
   },
   budgetEmoji: {
-    fontSize: 28,
+    fontSize: 22,
     marginBottom: spacing.xs,
   },
   budgetLabel: {

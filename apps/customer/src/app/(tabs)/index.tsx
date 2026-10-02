@@ -365,6 +365,23 @@ const DIFFICULTY_COLORS: Record<string, string> = {
 // ============================================================
 // MAIN HOME SCREEN
 // ============================================================
+// An ISO-3166 alpha-2 code maps to its flag by offsetting each letter into the
+// Unicode regional-indicator block — no asset or lookup table needed.
+function flagForCountry(code?: string): string {
+  const cc = (code || 'IN').trim().toUpperCase();
+  // Any two letters produce *a* glyph, but an unassigned pair renders as the
+  // raw letters in a box. Only emit a flag for codes we actually ship.
+  const KNOWN = new Set([
+    'IN', 'US', 'GB', 'AE', 'SG', 'TH', 'MY', 'ID', 'LK', 'NP', 'BT', 'MV',
+    'AU', 'CA', 'FR', 'DE', 'IT', 'ES', 'CH', 'NL', 'JP', 'KR', 'CN', 'VN',
+    'PH', 'TR', 'EG', 'ZA', 'NZ', 'QA', 'SA', 'OM', 'KW', 'BH',
+  ]);
+  if (!/^[A-Z]{2}$/.test(cc) || !KNOWN.has(cc)) return '\uD83C\uDDEE\uD83C\uDDF3';
+  return String.fromCodePoint(
+    ...[...cc].map((ch) => 0x1f1e6 + (ch.charCodeAt(0) - 65)),
+  );
+}
+
 export default function HomeScreen() {
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
@@ -646,11 +663,11 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Country and currency"
           >
-            <View style={styles.appHeaderFlag}>
-              <View style={{ flex: 1, backgroundColor: '#FF9933' }} />
-              <View style={{ flex: 1, backgroundColor: '#FFFFFF' }} />
-              <View style={{ flex: 1, backgroundColor: '#138808' }} />
-            </View>
+            {/* Was a hardcoded Indian tricolour drawn as three flat bars: it
+                stayed Indian whatever country you picked, and without the
+                Ashoka Chakra it read as generic stripes. Derive the real flag
+                from the selected country code instead. */}
+            <Text style={styles.appHeaderFlag}>{flagForCountry(userPreferences.country)}</Text>
             <Text style={[styles.countryPillText, { color: themeColors.textSecondary }]}>
               {userPreferences.currency || 'INR'}
             </Text>
@@ -1728,7 +1745,7 @@ const styles = StyleSheet.create({
   countryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 999,
@@ -1738,14 +1755,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  appHeaderFlag: {
-    width: 22,
-    height: 15,
-    borderRadius: 2,
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(0,0,0,0.15)',
-  },
+  // Sized just under the 12pt "INR" label it sits beside. At 15pt the emoji
+  // was the largest thing in the pill and read as a sticker rather than a
+  // quiet country indicator.
+  appHeaderFlag: { fontSize: 11, lineHeight: 14 },
   appHeaderAvatar: {
     width: 30,
     height: 30,

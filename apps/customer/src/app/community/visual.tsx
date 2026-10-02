@@ -16,6 +16,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, fontSize, fontWeight, spacing, borderRadius, useTheme } from "@prayana/shared-ui";
 import { communityAPI } from "@prayana/shared-services";
+import { normalizeImageUrl } from "../../lib/imageUrl";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const COL_GAP = 8;
@@ -43,6 +44,8 @@ export default function VisualFeedScreen() {
   const router = useRouter();
   const { themeColors } = useTheme();
   const [items, setItems] = useState<Q[]>([]);
+  // Tiles whose photo 404s/403s — show a placeholder instead of white space.
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [category, setCategory] = useState("");
@@ -92,7 +95,12 @@ export default function VisualFeedScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.catList}
+        contentContainerStyle={styles.catRow}
+      >
         {CATEGORIES.map((c) => {
           const active = category === c.value;
           return (
@@ -135,11 +143,22 @@ export default function VisualFeedScreen() {
                   onPress={() => router.push(`/community/${q._id}` as any)}
                   style={[styles.tile, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
                 >
+                  {/* Images on these questions live in a private S3 bucket that
+                      currently returns AllAccessDisabled, so many tiles have no
+                      loadable photo. normalizeImageUrl rewrites the legacy S3
+                      host to the CDN where that works; where it does not, show
+                      a labelled placeholder rather than an empty white tile. */}
                   <Image
-                    source={{ uri: q.images[0].url }}
+                    source={{ uri: normalizeImageUrl(q.images[0].url) || q.images[0].url }}
                     style={styles.tileImage}
                     resizeMode="cover"
+                    onError={() => setFailed((prev) => ({ ...prev, [q._id]: true }))}
                   />
+                  {failed[q._id] ? (
+                    <View style={[styles.tileImage, styles.tileFallback]}>
+                      <Ionicons name="image-outline" size={22} color={themeColors.textTertiary} />
+                    </View>
+                  ) : null}
                   {q.images[0].verifiedVisit && (
                     <View style={styles.verifiedBadge}>
                       <Text style={{ color: "white", fontSize: 9, fontWeight: "700" }}>
@@ -177,8 +196,12 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   title: { fontSize: fontSize.lg, fontWeight: fontWeight.bold as any, color: colors.gray[900] },
-  catRow: { paddingHorizontal: spacing.md, paddingVertical: spacing.sm, gap: 6 },
+  // A horizontal ScrollView has no intrinsic height, so the row collapsed and
+  // sheared the chips in half — same defect as the Community feed's filters.
+  catList: { flexGrow: 0, height: 48 },
+  catRow: { paddingHorizontal: spacing.md, alignItems: 'center', gap: 6 },
   catChip: {
+    flexShrink: 0,
     paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999,
     backgroundColor: "white", borderWidth: 1, borderColor: colors.gray[200], marginRight: 6,
   },
@@ -197,6 +220,12 @@ const styles = StyleSheet.create({
     marginBottom: COL_GAP,
     borderWidth: 1,
     borderColor: colors.gray[200],
+  },
+  tileFallback: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.04)',
   },
   tileImage: { width: "100%", height: 200 },
   tileOverlay: {
