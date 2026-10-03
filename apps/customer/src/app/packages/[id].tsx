@@ -640,6 +640,50 @@ export default function PackageDetailScreen() {
     return () => { alive = false; };
   }, [pkg]);
 
+  // Sticky section tabs, mirroring the web's SectionTabs. Each section
+  // registers its y-offset via onLayout; tapping a tab scrolls the main list
+  // there, and scrolling lights up whichever section is currently under the
+  // bar. The web locks its scroll-spy during a programmatic scroll for the
+  // same reason we do here: otherwise every tab flashes on the way past.
+  const scrollRef = useRef<ScrollView>(null);
+  const sectionY = useRef<Record<string, number>>({});
+  const spyLocked = useRef(false);
+  const [activeSection, setActiveSection] = useState('itinerary');
+
+  const registerSection = useCallback(
+    (id: string) => (e: any) => {
+      sectionY.current[id] = e.nativeEvent.layout.y;
+    },
+    [],
+  );
+
+  const goToSection = useCallback((id: string) => {
+    const y = sectionY.current[id];
+    if (y == null) return;
+    setActiveSection(id);
+    spyLocked.current = true;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    setTimeout(() => { spyLocked.current = false; }, 700);
+  }, []);
+
+  const [showTabs, setShowTabs] = useState(false);
+
+  const onMainScroll = useCallback((e: any) => {
+    const raw = e.nativeEvent.contentOffset.y;
+    // Only reveal the bar once the hero has scrolled away, otherwise it would
+    // sit over the carousel from the moment the screen opens.
+    const firstY = sectionY.current[SECTION_TABS[0].id];
+    setShowTabs(firstY != null && raw > firstY - 120);
+    if (spyLocked.current) return;
+    const y = raw + 80;
+    let current = SECTION_TABS[0].id;
+    for (const t of SECTION_TABS) {
+      const sy = sectionY.current[t.id];
+      if (sy != null && sy <= y) current = t.id;
+    }
+    setActiveSection((prev) => (prev === current ? prev : current));
+  }, []);
+
   if (loading) {
     return (
       <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -812,50 +856,6 @@ export default function PackageDetailScreen() {
       savingsPercent,
     };
   })();
-
-  // Sticky section tabs, mirroring the web's SectionTabs. Each section
-  // registers its y-offset via onLayout; tapping a tab scrolls the main list
-  // there, and scrolling lights up whichever section is currently under the
-  // bar. The web locks its scroll-spy during a programmatic scroll for the
-  // same reason we do here: otherwise every tab flashes on the way past.
-  const scrollRef = useRef<ScrollView>(null);
-  const sectionY = useRef<Record<string, number>>({});
-  const spyLocked = useRef(false);
-  const [activeSection, setActiveSection] = useState('itinerary');
-
-  const registerSection = useCallback(
-    (id: string) => (e: any) => {
-      sectionY.current[id] = e.nativeEvent.layout.y;
-    },
-    [],
-  );
-
-  const goToSection = useCallback((id: string) => {
-    const y = sectionY.current[id];
-    if (y == null) return;
-    setActiveSection(id);
-    spyLocked.current = true;
-    scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
-    setTimeout(() => { spyLocked.current = false; }, 700);
-  }, []);
-
-  const [showTabs, setShowTabs] = useState(false);
-
-  const onMainScroll = useCallback((e: any) => {
-    const raw = e.nativeEvent.contentOffset.y;
-    // Only reveal the bar once the hero has scrolled away, otherwise it would
-    // sit over the carousel from the moment the screen opens.
-    const firstY = sectionY.current[SECTION_TABS[0].id];
-    setShowTabs(firstY != null && raw > firstY - 120);
-    if (spyLocked.current) return;
-    const y = raw + 80;
-    let current = SECTION_TABS[0].id;
-    for (const t of SECTION_TABS) {
-      const sy = sectionY.current[t.id];
-      if (sy != null && sy <= y) current = t.id;
-    }
-    setActiveSection((prev) => (prev === current ? prev : current));
-  }, []);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
