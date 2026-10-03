@@ -45,8 +45,22 @@ const DESCRIPTION_PREVIEW_LINES = 3;
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatCurrency(amount: number): string {
-  return `\u20B9${amount.toLocaleString('en-IN')}`;
+/**
+ * Global experiences are priced in their own currency — a Versailles ticket is
+ * EUR 25, not INR 25. This used to hardcode the rupee symbol, so a €25 ticket
+ * displayed as "₹25" and understated the real price by roughly 90x.
+ */
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  INR: '\u20B9', USD: '$', EUR: '\u20AC', GBP: '\u00A3', AED: 'AED ',
+  SGD: 'S$', THB: '\u0E3F', AUD: 'A$', JPY: '\u00A5', MYR: 'RM ',
+  IDR: 'Rp ', LKR: 'LKR ', NPR: 'NPR ', CHF: 'CHF ', CAD: 'C$',
+};
+
+function formatCurrency(amount: number, currencyCode?: string): string {
+  const code = (currencyCode || 'INR').toUpperCase();
+  const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
+  const locale = code === 'INR' ? 'en-IN' : 'en-US';
+  return `${symbol}${amount.toLocaleString(locale)}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -534,6 +548,8 @@ export default function ActivityDetailScreen() {
 
   const basePrice =
     activity.pricing?.basePrice ?? activity.pricing?.adultPrice ?? activity.price ?? 0;
+  const priceCurrency =
+    (activity as any).pricing?.currency || (activity as any).currency || 'INR';
 
   const avgRating =
     activity.averageRating ?? activity.rating?.average ?? reviewMeta.averageRating ?? 0;
@@ -661,7 +677,7 @@ export default function ActivityDetailScreen() {
           {/* Price */}
           <View style={styles.priceRow}>
             <Text style={[styles.priceLabel, { color: themeColors.textSecondary }]}>From </Text>
-            <Text style={styles.priceValue}>{formatCurrency(basePrice)}</Text>
+            <Text style={styles.priceValue}>{formatCurrency(basePrice, priceCurrency)}</Text>
             <Text style={[styles.priceUnit, { color: themeColors.textSecondary }]}> per person</Text>
           </View>
         </View>
@@ -911,7 +927,7 @@ export default function ActivityDetailScreen() {
         <View style={styles.bottomBar}>
           <View>
             <Text style={[styles.bottomPriceLabel, { color: themeColors.textTertiary }]}>From</Text>
-            <Text style={[styles.bottomPrice, { color: themeColors.text }]}>{formatCurrency(basePrice)}</Text>
+            <Text style={[styles.bottomPrice, { color: themeColors.text }]}>{formatCurrency(basePrice, priceCurrency)}</Text>
             <Text style={[styles.bottomPriceUnit, { color: themeColors.textTertiary }]}>per person</Text>
           </View>
           <Button title="Book Now" onPress={handleBookNow} size="lg" />

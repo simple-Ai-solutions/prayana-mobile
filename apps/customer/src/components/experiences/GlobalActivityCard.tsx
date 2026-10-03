@@ -27,7 +27,18 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
   const reviews = a.rating?.count ?? a.reviewCount ?? 0;
   const price =
     a.platformSellingPrice ?? a.pricing?.basePrice ?? a.price ?? a.platformMRP ?? null;
-  const currency = a.pricing?.currency || a.currency || '₹';
+  // The raw ISO code was printed straight against the number — "EUR25",
+  // "INR8,826.15" — so the same list mixed codes and looked unpriced. Map to a
+  // symbol, falling back to a spaced code for anything unmapped.
+  const CURRENCY_SYMBOLS: Record<string, string> = {
+    INR: '\u20B9', USD: '$', EUR: '\u20AC', GBP: '\u00A3', AED: 'AED ',
+    SGD: 'S$', THB: '\u0E3F', AUD: 'A$', JPY: '\u00A5', MYR: 'RM ',
+    IDR: 'Rp ', LKR: 'LKR ', NPR: 'NPR ', CHF: 'CHF ', CAD: 'C$',
+  };
+  const rawCurrency = a.pricing?.currency || a.currency || 'INR';
+  const code = String(rawCurrency).toUpperCase();
+  const currency = CURRENCY_SYMBOLS[code] ?? (code.length === 3 ? `${code} ` : rawCurrency);
+  const priceLocale = code === 'INR' ? 'en-IN' : 'en-US';
   const city = a.location?.city || a.externalData?.city?.code || '';
   const instant = a.instantBooking;
 
@@ -75,7 +86,7 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
           {price != null && (
             <Text style={styles.price}>
               {currency}
-              {Number(price).toLocaleString()}
+              {Number(price).toLocaleString(priceLocale)}
             </Text>
           )}
         </View>
