@@ -61,7 +61,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.prayanaai.customer",
-      "versionCode": 58,
+      "versionCode": 60,
       "config": {
         "googleMaps": {
           "apiKey": "AIzaSyBdyvoU_7G2MLzSvi9NxPheak6USvb39VA"
