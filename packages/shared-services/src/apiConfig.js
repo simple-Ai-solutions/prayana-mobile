@@ -283,12 +283,28 @@ export const makeAPICall = async (endpoint, options = {}) => {
         console.error(`[API] HTTP ${response.status}:`, errorText);
       }
 
-      // Create error object with status code
+      // Parse the body so callers can act on the server's own error contract.
+      // Without this only `status` survived, and structured replies — e.g. the
+      // 409 + deepLink the booking API returns for affiliate inventory — were
+      // flattened into the message string and effectively lost.
+      let errorBody = null;
+      try {
+        errorBody = errorText ? JSON.parse(errorText) : null;
+      } catch {
+        /* not JSON (HTML error page, proxy timeout) — keep the raw text below */
+      }
+
+      // Prefer the server's own message over the generic "HTTP error!" string.
       const error = new Error(
-        `HTTP error! status: ${response.status} - ${errorText}`
+        errorBody?.message || `HTTP error! status: ${response.status} - ${errorText}`
       );
       error.status = response.status;
       error.statusText = response.statusText;
+      error.data = errorBody;
+      error.body = errorText;
+      // Mirror axios' shape so call sites written against either convention work.
+      error.response = { status: response.status, data: errorBody };
+      if (errorBody?.code) error.code = errorBody.code;
       throw error;
     }
 

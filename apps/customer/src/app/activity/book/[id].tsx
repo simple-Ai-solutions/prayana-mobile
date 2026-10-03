@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -61,6 +62,47 @@ const toLocalISODate = (d: Date) =>
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/**
+ * The server refuses to create a booking for affiliate inventory and answers
+ * 409 with a deepLink (see bookingController: HEADOUT_AFFILIATE_REDIRECT,
+ * VIATOR_AFFILIATE_REDIRECT, AFFILIATE_REDIRECT). Recognise all three.
+ */
+function isAffiliateRedirect(payload: any): boolean {
+  const code = payload?.code;
+  return (
+    code === 'HEADOUT_AFFILIATE_REDIRECT' ||
+    code === 'VIATOR_AFFILIATE_REDIRECT' ||
+    code === 'AFFILIATE_REDIRECT'
+  );
+}
+
+/** Send the user to the partner's checkout, explaining why they are leaving. */
+async function openAffiliateRedirect(payload: any): Promise<void> {
+  const url: string | null = payload?.deepLink || null;
+  if (!url) {
+    Toast.show({
+      type: 'error',
+      text1: 'Booked with our partner',
+      text2: payload?.message || 'This experience is booked on the partner site.',
+    });
+    return;
+  }
+  Toast.show({
+    type: 'info',
+    text1: 'Opening partner site',
+    text2: payload?.message || 'This experience is booked with our partner.',
+  });
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Toast.show({
+      type: 'error',
+      text1: 'Could not open partner site',
+      text2: 'Please try again from the activity page.',
+    });
+  }
+}
 
 function formatCurrency(amount: number): string {
   return `\u20B9${amount.toLocaleString('en-IN')}`;
@@ -673,6 +715,8 @@ export default function BookingFlowScreen() {
         setBookingRef(booking.bookingReference || booking.referenceNumber || null);
         setBookingData(booking);
         goNext();
+      } else if (isAffiliateRedirect(res)) {
+        await openAffiliateRedirect(res);
       } else {
         Toast.show({
           type: 'error',
@@ -681,12 +725,21 @@ export default function BookingFlowScreen() {
         });
       }
     } catch (err: any) {
-      console.error('[Booking] create error:', err.message);
-      Toast.show({
-        type: 'error',
-        text1: 'Booking error',
-        text2: err.message || 'Something went wrong. Please try again.',
-      });
+      // The server answers 409 + a deepLink for affiliate inventory
+      // (HEADOUT_AFFILIATE_REDIRECT / VIATOR_AFFILIATE_REDIRECT). That arrived
+      // here as a thrown error and was shown as a bare "Booking failed", with
+      // the deep link discarded — which is what made these bookings look broken.
+      const payload = err?.response?.data || err?.data || err;
+      if (isAffiliateRedirect(payload)) {
+        await openAffiliateRedirect(payload);
+      } else {
+        console.error('[Booking] create error:', err.message);
+        Toast.show({
+          type: 'error',
+          text1: 'Booking error',
+          text2: err.message || 'Something went wrong. Please try again.',
+        });
+      }
     } finally {
       setBookingLoading(false);
     }
