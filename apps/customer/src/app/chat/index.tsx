@@ -1806,11 +1806,18 @@ export default function ChatScreen() {
       case 'confirm_booking': {
         const id = d.activityId || d.listingId;
         if (!id) { router.push('/activities' as any); break; }
-        router.push(`/activity/book/${id}${qs({
+        // Land on the detail screen, not straight into /activity/book. The card
+        // the agent builds carries no `source`/`provider`, so it cannot tell our
+        // own inventory from Headout/Viator affiliate listings — and pushing an
+        // affiliate listing into our checkout creates an order no partner can
+        // fulfil. The detail screen has the real document and branches on
+        // provider.mode, while these params stay prefilled either way.
+        router.push(`/activity/${id}${qs({
           date: d.date,
-          adults: d.adults,
-          children: d.children,
+          adults: d.adults ?? d.participants?.adults,
+          children: d.children ?? d.participants?.children,
           variantId: d.variantId,
+          autobook: '1',
         })}` as any);
         break;
       }

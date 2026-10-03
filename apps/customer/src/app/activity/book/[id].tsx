@@ -402,6 +402,15 @@ export default function BookingFlowScreen() {
     try {
       const res = await activityMarketplaceAPI.getActivityById(activityId);
       if (res?.success && res.data) {
+        // Defence in depth: this screen creates a Prayana order, which is
+        // meaningless for affiliate inventory (Headout/Viator) — the partner
+        // never hears about it, so the booking fails at payment. The detail
+        // screen already routes these out to the partner, but a deep link or
+        // a stale chat card could still land here. Bounce rather than take money.
+        if (res.data?.provider?.mode === 'affiliate') {
+          router.replace(`/activity/${activityId}` as any);
+          return;
+        }
         setActivity(res.data);
       } else {
         setPageError('Activity not found.');
@@ -411,7 +420,9 @@ export default function BookingFlowScreen() {
     } finally {
       setPageLoading(false);
     }
-  }, [activityId]);
+    // router is stable across renders in expo-router; listing it would not change
+    // behaviour but keeps the dep array honest.
+  }, [activityId, router]);
 
   useEffect(() => {
     fetchActivity();

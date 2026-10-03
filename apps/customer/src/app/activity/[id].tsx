@@ -97,6 +97,39 @@ function getCancellationLabel(policy: string | undefined): { label: string; colo
   }
 }
 
+/**
+ * Append booking intent to a partner deep link.
+ *
+ * Mirrors the web's withBookingParams in app/activity/[id]/page.js so a user
+ * who picked a date/traveller count here does not have to re-enter it on the
+ * partner site. React Native has a WHATWG URL implementation but its
+ * searchParams support is unreliable across engines, so build the query by
+ * hand and only touch URLs we can see are well-formed.
+ */
+function withBookingParams(
+  url: string,
+  { date, adults, children }: { date?: string | null; adults?: number; children?: number } = {},
+): string {
+  if (!url) return url;
+  const parts: string[] = [];
+  if (date) parts.push(`date=${encodeURIComponent(date)}`);
+  const a = Number(adults) || 0;
+  const c = Number(children) || 0;
+  if (a + c > 0) parts.push(`travelers=${a + c}`);
+  if (a > 0) parts.push(`adults=${a}`);
+  if (c > 0) parts.push(`children=${c}`);
+  if (!parts.length) return url;
+  // Preserve any existing query, and never push params past a fragment.
+  const [beforeHash, hash] = url.split('#');
+  // Some partner links already end in a bare "?" — appending "&" there would
+  // yield "?&date=...". Use "?" unless real query content follows it.
+  const qIndex = beforeHash.indexOf('?');
+  const hasQuery = qIndex !== -1 && qIndex < beforeHash.length - 1;
+  const sep = qIndex === -1 ? '?' : hasQuery ? '&' : '';
+  const joined = beforeHash + sep + parts.join('&');
+  return hash ? `${joined}#${hash}` : joined;
+}
+
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
@@ -406,7 +439,23 @@ const sectionStyles = StyleSheet.create({
 
 export default function ActivityDetailScreen() {
   const { themeColors } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  // date/adults/children/variantId/autobook arrive when the chat agent has
+  // already collected the booking intent (see chat's confirm_booking card).
+  const {
+    id,
+    date: paramDate,
+    adults: paramAdults,
+    children: paramChildren,
+    variantId: paramVariantId,
+    autobook: paramAutobook,
+  } = useLocalSearchParams<{
+    id: string;
+    date?: string;
+    adults?: string;
+    children?: string;
+    variantId?: string;
+    autobook?: string;
+  }>();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const reviewsSectionY = useRef(0);
@@ -505,13 +554,82 @@ export default function ActivityDetailScreen() {
     setFullscreenVisible(true);
   };
 
+  // Headout and Viator listings are affiliate inventory: Prayana never holds the
+  // seat, so pushing them into /activity/book would create an order the partner
+  // knows nothing about — which is exactly why those bookings were failing. Send
+  // the user to the partner's own checkout instead, as the web does.
+  const affiliateDeepLink: string | null =
+    activity?.provider?.mode === 'affiliate'
+      ? activity.provider.deepLink ||
+        // canonicalUrl is absolute; externalData.url is a site-relative path
+        // ("/versailles-palace-tickets/...") and is useless to Linking.openURL.
+        activity.externalData?.canonicalUrl ||
+        null
+      : null;
+
+  const partnerName =
+    activity?.provider?.providerName ||
+    (activity?.source === 'headout'
+      ? 'Headout'
+      : activity?.source === 'viator'
+        ? 'Viator'
+        : null);
+
   const requireAuth = useRequireAuth();
   const handleBookNow = () => {
     if (!activity) return;
-    const target = `/activity/book/${activity._id}`;
+
+    if (affiliateDeepLink) {
+      // No auth gate: there is nothing to save to the account, and a login wall
+      // in front of an outbound affiliate link only loses the click.
+      const url = withBookingParams(affiliateDeepLink, {
+        date: paramDate || null,
+        adults: Number(paramAdults) || 2,
+        children: Number(paramChildren) || 0,
+      });
+      Linking.openURL(url).catch(() => {
+        Toast.show({
+          type: 'error',
+          text1: 'Could not open partner site',
+          text2: `We could not reach ${partnerName || 'the partner'} on this device.`,
+        });
+      });
+      return;
+    }
+
+    const parts = [
+      paramDate ? `date=${encodeURIComponent(paramDate)}` : '',
+      paramAdults ? `adults=${encodeURIComponent(paramAdults)}` : '',
+      paramChildren ? `children=${encodeURIComponent(paramChildren)}` : '',
+      paramVariantId ? `variantId=${encodeURIComponent(paramVariantId)}` : '',
+    ].filter(Boolean);
+    const target = `/activity/book/${activity._id}${parts.length ? `?${parts.join('&')}` : ''}`;
     if (!requireAuth({ reason: 'Sign in to book this activity. Your booking and payment receipt will be saved to your account.', redirectAfter: target })) return;
     router.push(target);
   };
+
+  // The chat agent's "Confirm booking" card routes here with autobook=1 so the
+  // user keeps the single tap they already made in chat. Fire once, only after
+  // the activity has loaded, so the handler can see provider.mode and pick the
+  // affiliate vs internal path. A ref guard (not a dep on handleBookNow, which
+  // is rebuilt every render) keeps this from re-firing on re-render or on a
+  // back-navigation to this screen.
+  // Hold the latest closure so the effect below need not depend on it. Declared
+  // before the effect: `const` is not hoisted, so reading it from an effect that
+  // appears earlier in the body would hit the temporal dead zone on first render
+  // — which is precisely when autobook fires.
+  const handleBookNowRef = useRef<(() => void) | null>(null);
+  handleBookNowRef.current = handleBookNow;
+
+  const autobookFired = useRef(false);
+  useEffect(() => {
+    if (paramAutobook !== '1' || autobookFired.current) return;
+    if (loading || !activity) return;
+    autobookFired.current = true;
+    handleBookNowRef.current?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paramAutobook, loading, activity]);
+
 
   // ---------------------------------------------------------------------------
   // Loading / Error states
@@ -576,9 +694,28 @@ export default function ActivityDetailScreen() {
 
   const cancellation = getCancellationLabel(activity.cancellationPolicy?.type || activity.cancellationPolicy);
 
-  const duration = activity.duration?.display || activity.duration?.value
-    ? `${activity.duration.value} ${activity.duration.unit || 'hours'}`
-    : null;
+  // Our canned schedule ("full refund up to 7 days before") is Prayana's policy.
+  // On an affiliate listing the partner owns the refund, so stating ours would
+  // be a promise we cannot keep. The server already ships the correct sentence
+  // in cancellationPolicyDetail — prefer it whenever it is present.
+  const cancellationDesc: string =
+    (typeof activity.cancellationPolicyDetail === 'string' &&
+      activity.cancellationPolicyDetail.trim()) ||
+    cancellation.desc;
+
+  // Headout/Viator send a ready-made `label` ("7 hours"); our own listings send
+  // display, or value+unit. The previous expression's ternary bound across the
+  // `||`, so the pre-formatted strings were computed and then thrown away.
+  const duration: string | null =
+    activity.duration?.label ||
+    activity.duration?.display ||
+    (activity.duration?.value
+      ? `${activity.duration.value} ${activity.duration.unit || 'hours'}`
+      : null);
+
+  // Partner-supplied detail the screen was dropping entirely.
+  const maxGroupSize: number | null =
+    activity.groupSize?.max ?? activity.maxParticipants ?? null;
 
   const isInstantBooking = activity.instantBooking?.enabled ?? false;
 
@@ -669,7 +806,17 @@ export default function ActivityDetailScreen() {
             {categories.map((cat, i) => (
               <Badge key={i} label={cat} variant="primary" size="md" style={{ marginLeft: spacing.sm }} />
             ))}
-            {isInstantBooking && (
+            {maxGroupSize ? (
+              <Badge
+                label={`Up to ${maxGroupSize}`}
+                variant="default"
+                size="md"
+                style={{ marginLeft: spacing.sm }}
+              />
+            ) : null}
+            {/* "Instant Booking" on an affiliate listing would be our claim about
+                someone else's checkout, so only badge it for our own inventory. */}
+            {isInstantBooking && !affiliateDeepLink && (
               <Badge label="Instant Booking" variant="success" size="md" style={{ marginLeft: spacing.sm }} />
             )}
           </View>
@@ -680,6 +827,18 @@ export default function ActivityDetailScreen() {
             <Text style={styles.priceValue}>{formatCurrency(basePrice, priceCurrency)}</Text>
             <Text style={[styles.priceUnit, { color: themeColors.textSecondary }]}> per person</Text>
           </View>
+
+          {/* Tell the user before they tap that checkout happens on the partner
+              site — otherwise leaving the app looks like a bug. */}
+          {affiliateDeepLink && (
+            <View style={[styles.partnerNotice, { backgroundColor: themeColors.surfaceElevated, borderColor: themeColors.border }]}>
+              <Ionicons name="open-outline" size={16} color={themeColors.textSecondary} />
+              <Text style={[styles.partnerNoticeText, { color: themeColors.textSecondary }]}>
+                Secure checkout on {partnerName || 'our booking partner'}. You'll finish
+                booking on their site.
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Description */}
@@ -775,7 +934,9 @@ export default function ActivityDetailScreen() {
                 <View style={{ marginLeft: spacing.md }}>
                   <StarRating rating={Math.round(avgRating)} size={20} />
                   <Text style={[styles.avgRatingSubtext, { color: themeColors.textSecondary }]}>
-                    Based on {totalReviews} review{totalReviews !== 1 ? 's' : ''}
+                    Based on {totalReviews.toLocaleString('en-IN')} review
+                    {totalReviews !== 1 ? 's' : ''}
+                    {partnerName && reviews.length === 0 ? ` on ${partnerName}` : ''}
                   </Text>
                 </View>
               </View>
@@ -786,9 +947,9 @@ export default function ActivityDetailScreen() {
                 {reviews.map((review, idx) => (
                   <ReviewCard key={review._id || idx} review={review} />
                 ))}
-                {totalReviews > 3 && (
+                {reviews.length >= 3 && reviewMeta.total > reviews.length && (
                   <Button
-                    title={`View All ${totalReviews} Reviews`}
+                    title={`View All ${reviewMeta.total.toLocaleString('en-IN')} Reviews`}
                     onPress={() => router.push(`/activity/reviews/${id}`)}
                     variant="outline"
                     size="md"
@@ -797,7 +958,11 @@ export default function ActivityDetailScreen() {
                 )}
               </>
             ) : (
-              <Text style={[styles.emptyReviews, { color: themeColors.textTertiary }]}>No reviews yet. Be the first to review!</Text>
+              <Text style={[styles.emptyReviews, { color: themeColors.textTertiary }]}>
+                {totalReviews > 0 && partnerName
+                  ? `Individual reviews live on ${partnerName}. The rating above is their verified traveller score.`
+                  : 'No reviews yet. Be the first to review!'}
+              </Text>
             )}
           </Section>
         </View>
@@ -808,7 +973,7 @@ export default function ActivityDetailScreen() {
             <View style={[styles.cancellationDot, { backgroundColor: cancellation.color }]} />
             <View style={{ flex: 1 }}>
               <Text style={[styles.cancellationLabel, { color: themeColors.text }]}>{cancellation.label}</Text>
-              <Text style={[styles.cancellationDesc, { color: themeColors.textSecondary }]}>{cancellation.desc}</Text>
+              <Text style={[styles.cancellationDesc, { color: themeColors.textSecondary }]}>{cancellationDesc}</Text>
             </View>
           </View>
         </Section>
@@ -930,7 +1095,17 @@ export default function ActivityDetailScreen() {
             <Text style={[styles.bottomPrice, { color: themeColors.text }]}>{formatCurrency(basePrice, priceCurrency)}</Text>
             <Text style={[styles.bottomPriceUnit, { color: themeColors.textTertiary }]}>per person</Text>
           </View>
-          <Button title="Book Now" onPress={handleBookNow} size="lg" />
+          <Button
+            title={
+              affiliateDeepLink
+                ? partnerName
+                  ? `Book on ${partnerName}`
+                  : 'Book with partner'
+                : 'Book Now'
+            }
+            onPress={handleBookNow}
+            size="lg"
+          />
         </View>
       </SafeAreaView>
 
@@ -1034,6 +1209,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginBottom: spacing.md,
+  },
+  partnerNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+  },
+  partnerNoticeText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    lineHeight: 18,
   },
   priceRow: {
     flexDirection: 'row',

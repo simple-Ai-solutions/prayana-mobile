@@ -3,7 +3,7 @@
 // Activities tab. Mirrors the PWA ActivityCard.
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import { Star, MapPin, Zap } from 'lucide-react-native';
+import { Star, MapPin, Zap, Clock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import {
   useTheme,
@@ -39,8 +39,25 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
   const code = String(rawCurrency).toUpperCase();
   const currency = CURRENCY_SYMBOLS[code] ?? (code.length === 3 ? `${code} ` : rawCurrency);
   const priceLocale = code === 'INR' ? 'en-IN' : 'en-US';
-  const city = a.location?.city || a.externalData?.city?.code || '';
-  const instant = a.instantBooking;
+  // externalData.city.name ("Paris") reads better than .code ("PARIS").
+  const city =
+    a.location?.city || a.externalData?.city?.name || a.externalData?.city?.code || '';
+
+  // instantBooking is an OBJECT ({enabled, requiresManualConfirmation, ...}), so
+  // the old `const instant = a.instantBooking` was truthy for every listing and
+  // badged "Instant" even on records with enabled:false. Read the flag.
+  const instant =
+    typeof a.instantBooking === 'boolean' ? a.instantBooking : !!a.instantBooking?.enabled;
+
+  // Partner duration ("7 hours") — sent by Headout/Viator, previously unused.
+  const duration: string | null =
+    a.duration?.label ||
+    a.duration?.display ||
+    (a.duration?.value ? `${a.duration.value} ${a.duration.unit || 'hours'}` : null);
+
+  // 24,878 reads as a number; "(24878)" reads as an id.
+  const reviewLabel =
+    reviews >= 1000 ? `${(reviews / 1000).toFixed(reviews >= 10000 ? 0 : 1)}k` : `${reviews}`;
 
   return (
     <TouchableOpacity
@@ -73,13 +90,21 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
             </Text>
           </View>
         )}
+        {!!duration && (
+          <View style={styles.cityRow}>
+            <Clock size={11} color={themeColors.textTertiary} />
+            <Text style={[styles.city, { color: themeColors.textTertiary }]} numberOfLines={1}>
+              {duration}
+            </Text>
+          </View>
+        )}
         <View style={styles.metaRow}>
           {rating > 0 && (
             <View style={styles.ratingRow}>
               <Star size={12} color="#fbbf24" fill="#fbbf24" />
               <Text style={[styles.ratingText, { color: themeColors.textSecondary }]}>
                 {Number(rating).toFixed(1)}
-                {reviews > 0 ? ` (${reviews})` : ''}
+                {reviews > 0 ? ` (${reviewLabel})` : ''}
               </Text>
             </View>
           )}
