@@ -16,6 +16,8 @@
  *   POST /bookings/:id/payment/refund        → refunds (full or partial)
  */
 
+import { Platform } from 'react-native';
+
 // react-native-razorpay is a native module. We import lazily so the rest of
 // the app still bundles on web and during tests where the native side is absent.
 type RazorpayCheckout = {
@@ -139,17 +141,52 @@ export async function openCheckout(opts: {
       signature: result.razorpay_signature,
     };
   } catch (err: unknown) {
-    const e = err as RazorpayError;
-    // Razorpay returns code 0 / 'BAD_REQUEST_ERROR' / etc. Code 2 = user cancelled.
-    if (e?.code === 2 || /cancel/i.test(e?.description || '')) {
-      return { status: 'cancelled', reason: e?.description || 'User cancelled payment' };
-    }
-    return {
-      status: 'failed',
-      code: e?.code,
-      reason: e?.description || 'Payment failed. Please try again.',
-    };
+    return classifyError(err as RazorpayError);
   }
+}
+
+// The native SDKs number their errors differently. Android (com.razorpay.
+// Checkout): PAYMENT_CANCELED = 0, NETWORK_ERROR = 2. iOS: cancelled = 2,
+// network error = 0. Reading 2 as "cancelled" everywhere meant that pressing
+// back on Android came through as a failure, and the raw error shown.
+const CANCEL_CODE = Platform.OS === 'android' ? 0 : 2;
+const NETWORK_CODE = Platform.OS === 'android' ? 2 : 0;
+
+/**
+ * Android hands over `description` as the gateway's JSON
+ * ({"error":{"code":"BAD_REQUEST_ERROR","description":"…","reason":"payment_cancelled"}}),
+ * which must never reach the screen. Pull out the readable parts.
+ */
+function readGatewayError(description: unknown): { text: string; reason: string } {
+  const raw = typeof description === 'string' ? description.trim() : '';
+  if (raw.startsWith('{')) {
+    try {
+      const j = JSON.parse(raw);
+      const inner = j?.error ?? j;
+      return { text: String(inner?.description ?? ''), reason: String(inner?.reason ?? '') };
+    } catch {
+      return { text: '', reason: '' };
+    }
+  }
+  return { text: raw, reason: '' };
+}
+
+function classifyError(e: RazorpayError): PaymentResult {
+  const { text, reason } = readGatewayError(e?.description);
+  if (e?.code === CANCEL_CODE || /cancel/i.test(`${reason} ${text}`)) {
+    return { status: 'cancelled', reason: 'Payment cancelled' };
+  }
+  if (e?.code === NETWORK_CODE) {
+    return { status: 'failed', code: e?.code, reason: 'Network problem. Check your connection and try again.' };
+  }
+  // A readable gateway sentence ("Your payment didn't go through…") is fine
+  // to show; codes, JSON and "undefined" are not.
+  const readable = text && text !== 'undefined' && !/^[A-Z_]+$/.test(text) && text.length < 160;
+  return {
+    status: 'failed',
+    code: e?.code,
+    reason: readable ? text : 'Your payment did not go through. Please try again.',
+  };
 }
 
 /**

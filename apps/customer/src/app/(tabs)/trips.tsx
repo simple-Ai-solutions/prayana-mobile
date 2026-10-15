@@ -28,7 +28,9 @@ import {
   EmptyState,
   useTheme,
 } from '@prayana/shared-ui';
-import { createTripAPI } from '@prayana/shared-services';
+import { createTripAPI, makeAPICall } from '@prayana/shared-services';
+import { TripPass, NewTripTile, tripDays, tripSpots, tripPlaces } from '../../components/trips/TripPass';
+import { RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, TWO_UP_W, usePairSnap } from '../../lib/railLayout';
 import { useAuth } from '@prayana/shared-hooks';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -38,6 +40,18 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // ============================================================
 
 const FILTER_TABS = ['All', 'Upcoming', 'Completed', 'Draft'] as const;
+
+// The web's stock trip photos (MyTripsPage DEFAULT_TRIP_IMAGES), the last resort.
+const DEFAULT_TRIP_IMAGES = [
+  'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
+  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80',
+  'https://images.unsplash.com/photo-1530789253388-582c481c54b0?w=800&q=80',
+  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80',
+  'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?w=800&q=80',
+  'https://images.unsplash.com/photo-1528127269322-539801943592?w=800&q=80',
+];
 type FilterTab = (typeof FILTER_TABS)[number];
 
 const BUDGET_LABELS: Record<string, string> = {
@@ -459,6 +473,56 @@ export default function TripsScreen() {
     [trips, user?.uid]
   );
 
+  // --- Trip photos ---
+  // A trip's own cover, else its first place's stored photo (the web's
+  // getTripImage). Most phone-made trips have neither, so the first place is
+  // looked up in the place-image service; a stock travel photo is the last
+  // resort, never a bare icon.
+  const [placePhotos, setPlacePhotos] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const needed = [...new Set(
+      trips
+        .filter((t) => !t.coverImage && !t.destinations?.[0]?.images?.[0]?.url)
+        .map((t) => tripPlaces(t)[0])
+        .filter((n): n is string => !!n && !placePhotos[n]),
+    )];
+    if (!needed.length) return;
+    let alive = true;
+    (async () => {
+      const found: Record<string, string> = {};
+      for (let i = 0; i < needed.length; i += 8) {
+        try {
+          const res: any = await makeAPICall('/destinations/place-images-batch', {
+            method: 'POST',
+            body: JSON.stringify({ places: needed.slice(i, i + 8).map((n) => ({ placeName: n, location: n, count: 1 })) }),
+            timeout: 20000,
+          });
+          for (const r of res?.data || []) {
+            const url = r?.data?.[0]?.url;
+            if (r?.ok && url) found[r.placeName] = url;
+          }
+        } catch {
+          // Those trips fall back to a stock photo.
+        }
+      }
+      if (alive && Object.keys(found).length) setPlacePhotos((prev) => ({ ...prev, ...found }));
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trips]);
+
+  // `destinations[].image` is a link saved by older app versions and is often
+  // dead now, so a fresh place photo is preferred over it.
+  const imageFor = useCallback((trip: any, index: number) =>
+    trip.coverImage ||
+    trip.destinations?.[0]?.images?.[0]?.url ||
+    placePhotos[tripPlaces(trip)[0]] ||
+    trip.destinations?.[0]?.image ||
+    DEFAULT_TRIP_IMAGES[index % DEFAULT_TRIP_IMAGES.length],
+  [placePhotos]);
+
+  const guidesSnap = usePairSnap(TWO_UP_SNAP);
+
   // --- Filter ---
   const filteredTrips = useMemo(() => {
     const base = myTrips;
@@ -581,117 +645,20 @@ export default function TripsScreen() {
 
   const renderTripCard = useCallback(
     (trip: any, index: number, isShared = false) => {
-      const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
-      const destCount = trip.destinations?.length || 0;
-      const daysCount = trip.days?.length || 0;
-      const nightsCount = Math.max(0, daysCount - 1);
-      const status = (trip.status || 'draft').toLowerCase();
-      const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.draft;
-
-      // Destination names for tags
-      const destNames = (trip.destinations || [])
-        .slice(0, 4)
-        .map((d: any) => (typeof d === 'string' ? d : d.name || d.city || ''))
-        .filter(Boolean);
-      const extraDests = Math.max(0, (trip.destinations?.length || 0) - 4);
-
-      const coverImage =
-        trip.coverImage ||
-        (trip.destinations?.[0]?.image || trip.destinations?.[0]?.coverImage || null);
-
+      const isOwner = trip.userId === user?.uid || trip.isOwner === true;
+      const mine = trip.collaborators?.find((c: any) => c.userId === user?.uid);
       return (
-        <TouchableOpacity
+        <TripPass
           key={trip._id || trip.tripId || index}
-          style={[
-            styles.colorTripCard,
-            shadow.sm,
-            { backgroundColor: themeColors.surface, borderColor: gradient.border, borderLeftColor: gradient.accent },
-          ]}
-          activeOpacity={0.9}
-          onPress={() => handleTripPress(trip)}
-        >
-          {/* Left thumbnail */}
-          <View style={styles.colorTripThumb}>
-            {coverImage ? (
-              <Image
-                source={{ uri: coverImage }}
-                style={styles.colorTripThumbImage}
-                contentFit="cover"
-                cachePolicy="memory-disk"
-              />
-            ) : (
-              <View
-                style={[
-                  styles.colorTripThumbPlaceholder,
-                  { backgroundColor: gradient.accentLight },
-                ]}
-              >
-                <Ionicons name="airplane" size={22} color={gradient.accent} />
-              </View>
-            )}
-          </View>
-
-          {/* Right info */}
-          <View style={styles.colorTripInfo}>
-            {/* Title row */}
-            <View style={styles.colorTripTitleRow}>
-              <Text
-                style={[styles.colorTripName, { color: gradient.accent }]}
-                numberOfLines={1}
-              >
-                {trip.name || 'Untitled Trip'}
-              </Text>
-              <View style={styles.statusBadgeSmall}>
-                <Badge label={statusCfg.label} variant={statusCfg.variant} />
-              </View>
-            </View>
-
-            {/* Duration */}
-            {daysCount > 0 ? (
-              <Text style={[styles.colorTripDuration, { color: themeColors.textSecondary }]}>
-                {daysCount} Day{daysCount !== 1 ? 's' : ''}{' '}
-                {nightsCount > 0 ? `${nightsCount} Night${nightsCount !== 1 ? 's' : ''}` : ''}
-              </Text>
-            ) : (
-              <View
-                style={[styles.draftBadge, { backgroundColor: gradient.accentLight }]}
-              >
-                <Text style={[styles.draftBadgeText, { color: gradient.accent }]}>Draft</Text>
-              </View>
-            )}
-
-            {/* Shared by */}
-            {isShared && trip.ownerName && (
-              <Text style={[styles.sharedByText, { color: themeColors.textTertiary }]}>by {trip.ownerName}</Text>
-            )}
-
-            {/* Destination tags */}
-            {destNames.length > 0 && (
-              <View style={styles.destTagsRow}>
-                {destNames.map((name: string, i: number) => (
-                  <View
-                    key={i}
-                    style={[styles.destTag, { backgroundColor: gradient.accentLight }]}
-                  >
-                    <Ionicons name="location" size={10} color={gradient.accent} />
-                    <Text
-                      style={[styles.destTagText, { color: gradient.accent }]}
-                      numberOfLines={1}
-                    >
-                      {name}
-                    </Text>
-                  </View>
-                ))}
-                {extraDests > 0 && (
-                  <Text style={[styles.destTagExtra, { color: themeColors.textTertiary }]}>+{extraDests} more</Text>
-                )}
-              </View>
-            )}
-          </View>
-        </TouchableOpacity>
+          trip={trip}
+          image={imageFor(trip, index)}
+          fallbackImage={DEFAULT_TRIP_IMAGES[index % DEFAULT_TRIP_IMAGES.length]}
+          onOpen={() => handleTripPress(trip)}
+          shared={isShared ? { isOwner, role: isOwner ? 'owner' : mine?.role === 'editor' ? 'editor' : 'viewer' } : null}
+        />
       );
     },
-    [handleTripPress, themeColors]
+    [handleTripPress, imageFor, user?.uid]
   );
 
   // ============================================================
@@ -699,45 +666,6 @@ export default function TripsScreen() {
   // ============================================================
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* ======= HEADER ======= */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={[styles.title, { color: themeColors.text }]}>My Trips</Text>
-          {trips.length > 0 && (
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{trips.length}</Text>
-            </View>
-          )}
-        </View>
-      </View>
-
-      {/* ======= FILTER TABS ======= */}
-      <View style={[styles.filterContainer, { borderBottomColor: themeColors.border }]}>
-        <FlatList
-          data={FILTER_TABS as unknown as FilterTab[]}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item}
-          contentContainerStyle={styles.filterList}
-          renderItem={({ item: tab }) => {
-            const isActive = tab === activeFilter;
-            return (
-              <TouchableOpacity
-                style={[styles.filterTab, { backgroundColor: themeColors.surface }, isActive && styles.filterTabActive]}
-                onPress={() => setActiveFilter(tab)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[styles.filterTabText, { color: themeColors.textSecondary }, isActive && styles.filterTabTextActive]}
-                >
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      </View>
-
       {/* ======= SCROLLABLE CONTENT ======= */}
       {loading ? (
         <View style={styles.skeletonContainer}>
@@ -758,6 +686,67 @@ export default function TripsScreen() {
             />
           }
         >
+          {/* Header and filters scroll away with the list, so trips get the screen. */}
+          {/* ======= HEADER ======= */}
+          <View style={styles.header}>
+            <View style={styles.welcome}>
+              <Ionicons name="airplane" size={12} color="#E61417" />
+              <Text style={styles.welcomeText} numberOfLines={1}>
+                {user?.displayName && user.uid !== 'guest-user' ? `WELCOME BACK, ${String(user.displayName).split(' ')[0].toUpperCase()}` : 'YOUR TRAVEL COLLECTION'}
+              </Text>
+            </View>
+            <Text style={[styles.title, { color: themeColors.text }]}>
+              My <Text style={{ color: '#E61417' }}>trips</Text>
+            </Text>
+            {myTrips.length + sharedTrips.length > 0 ? (
+              <View style={styles.heroStats}>
+                {([
+                  ['bookmark', myTrips.length, myTrips.length === 1 ? 'Trip' : 'Trips'],
+                  ['people', sharedTrips.length, 'Shared'],
+                  ['calendar', myTrips.reduce((n, t) => n + tripDays(t), 0), 'Days planned'],
+                  ['location', myTrips.reduce((n, t) => n + tripSpots(t), 0), 'Spots'],
+                ] as const).map(([icon, n, label]) => (
+                  <View key={label} style={[styles.heroStat, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                    <Ionicons name={icon} size={14} color="#f97316" />
+                    <Text style={[styles.heroStatN, { color: themeColors.text }]}>{n}</Text>
+                    <Text style={[styles.heroStatL, { color: themeColors.textTertiary }]} numberOfLines={1}>{label}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
+              <Text style={[styles.heroSub, { color: themeColors.textSecondary }]}>
+                Itineraries you've built, drafts in progress and plans you share with friends.
+              </Text>
+            )}
+          </View>
+
+          {/* ======= FILTER TABS ======= */}
+          <View style={[styles.filterContainer, { borderBottomColor: themeColors.border }]}>
+            <FlatList
+              data={FILTER_TABS as unknown as FilterTab[]}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item}
+              contentContainerStyle={styles.filterList}
+              renderItem={({ item: tab }) => {
+                const isActive = tab === activeFilter;
+                return (
+                  <TouchableOpacity
+                    style={[styles.filterTab, { backgroundColor: themeColors.surface }, isActive && styles.filterTabActive]}
+                    onPress={() => setActiveFilter(tab)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[styles.filterTabText, { color: themeColors.textSecondary }, isActive && styles.filterTabTextActive]}
+                    >
+                      {tab}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
+
           {/* ====== TRAVEL GUIDES CAROUSEL ====== */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
@@ -766,49 +755,20 @@ export default function TripsScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
               contentContainerStyle={styles.guidesScroll}
               decelerationRate="fast"
-              snapToInterval={SCREEN_WIDTH * 0.42 + 12}
+              ref={guidesSnap.setRef}
+              {...guidesSnap.props}
             >
               {TRAVEL_GUIDES.map(renderGuideCard)}
             </ScrollView>
           </View>
 
-          {/* ====== QUICK STATS ====== */}
-          {myTrips.length > 0 && (
-            <View style={styles.statsRow}>
-              <View style={[styles.statCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                <View style={[styles.statIconBg, { backgroundColor: 'rgba(59,130,246,0.1)' }]}>
-                  <Ionicons name="globe-outline" size={20} color="#3B82F6" />
-                </View>
-                <Text style={[styles.statValue, { color: themeColors.text }]}>{quickStats.destinations}</Text>
-                <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Destinations</Text>
-              </View>
-              <View style={[styles.statCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                <View style={[styles.statIconBg, { backgroundColor: 'rgba(139,92,246,0.1)' }]}>
-                  <Ionicons name="calendar-outline" size={20} color="#8B5CF6" />
-                </View>
-                <Text style={[styles.statValue, { color: themeColors.text }]}>{quickStats.days}</Text>
-                <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Days Planned</Text>
-              </View>
-              <View style={[styles.statCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-                <View style={[styles.statIconBg, { backgroundColor: 'rgba(245,158,11,0.1)' }]}>
-                  <Ionicons name="camera-outline" size={20} color="#F59E0B" />
-                </View>
-                <Text style={[styles.statValue, { color: themeColors.text }]}>{quickStats.activities}</Text>
-                <Text style={[styles.statLabel, { color: themeColors.textTertiary }]}>Activities</Text>
-              </View>
-            </View>
-          )}
-
           {/* ====== MY TRIPS ====== */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>
-                {myTrips.length > 0
-                  ? 'Saved! Just a few steps left.'
-                  : 'Your Trips'}
-              </Text>
+              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Your itineraries</Text>
               {myTrips.length > 0 && (
                 <View style={[styles.sectionCountBadge, { backgroundColor: themeColors.surface }]}>
                   <Text style={[styles.sectionCountText, { color: themeColors.textSecondary }]}>{myTrips.length}</Text>
@@ -866,6 +826,7 @@ export default function TripsScreen() {
             ) : (
               <View style={styles.tripsListInline}>
                 {filteredTrips.map((trip, index) => renderTripCard(trip, index, false))}
+                <NewTripTile onPress={() => router.push('/trip/setup' as any)} />
               </View>
             )}
           </View>
@@ -893,86 +854,6 @@ export default function TripsScreen() {
               </View>
             </View>
           )}
-
-          {/* ====== EXPLORE MORE CTA ====== */}
-          <View style={styles.sectionContainer}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={() => router.push('/trip/setup' as any)}
-            >
-              <LinearGradient
-                colors={['#06B6D4', '#8B5CF6', '#EC4899']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.exploreCTACard, shadow.lg]}
-              >
-                {/* Decorative icons */}
-                <View style={styles.exploreBgIcons}>
-                  <Ionicons
-                    name="airplane"
-                    size={60}
-                    color="rgba(255,255,255,0.1)"
-                    style={{ position: 'absolute', top: -10, left: -10, transform: [{ rotate: '-30deg' }] }}
-                  />
-                  <Ionicons
-                    name="compass"
-                    size={50}
-                    color="rgba(255,255,255,0.1)"
-                    style={{ position: 'absolute', top: 0, right: -5 }}
-                  />
-                  <Ionicons
-                    name="leaf"
-                    size={45}
-                    color="rgba(255,255,255,0.1)"
-                    style={{ position: 'absolute', bottom: -5, left: 10 }}
-                  />
-                </View>
-
-                {/* Content */}
-                <View style={styles.exploreCTAContent}>
-                  <View style={styles.exploreCTAIconCircle}>
-                    <Ionicons name="sparkles" size={24} color="#ffffff" />
-                  </View>
-                  <Text style={styles.exploreCTATitle}>
-                    {myTrips.length === 0
-                      ? 'Start Your Journey'
-                      : 'Plan Your Next Adventure'}
-                  </Text>
-                  <Text style={styles.exploreCTADesc}>
-                    {myTrips.length === 0
-                      ? 'Create your first AI-powered trip plan with smart recommendations'
-                      : 'Discover new destinations and create your perfect itinerary'}
-                  </Text>
-                  <View style={styles.exploreCTAButton}>
-                    <Text style={styles.exploreCTAButtonText}>Create New Trip</Text>
-                    <Ionicons name="arrow-forward" size={16} color={colors.primary[600]} />
-                  </View>
-                </View>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-
-          {/* ====== TRAVEL TIPS CARDS ====== */}
-          <View style={styles.tipsRow}>
-            <TouchableOpacity
-              style={[styles.tipCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-              activeOpacity={0.85}
-              onPress={() => router.push('/(tabs)/' as any)}
-            >
-              <Text style={styles.tipEmoji}>{'\uD83C\uDF0D'}</Text>
-              <Text style={[styles.tipTitle, { color: themeColors.text }]}>Explore Guides</Text>
-              <Text style={[styles.tipDesc, { color: themeColors.textTertiary }]}>Browse curated destinations</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tipCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-              activeOpacity={0.85}
-              onPress={() => router.push('/trip/setup' as any)}
-            >
-              <Text style={styles.tipEmoji}>{'\uD83E\uDD16'}</Text>
-              <Text style={[styles.tipTitle, { color: themeColors.text }]}>AI Planning</Text>
-              <Text style={[styles.tipDesc, { color: themeColors.textTertiary }]}>Smart itinerary builder</Text>
-            </TouchableOpacity>
-          </View>
 
           {/* Bottom spacing */}
           <View style={{ height: 100 }} />
@@ -1015,17 +896,30 @@ const styles = StyleSheet.create({
 
   // --- Header ---
   header: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
+    paddingHorizontal: 16,
+    paddingTop: spacing.md,
     paddingBottom: spacing.md,
   },
+  welcome: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(230,20,23,0.07)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, borderColor: 'rgba(230,20,23,0.18)',
+  },
+  welcomeText: { color: '#E61417', fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
+  heroSub: { fontSize: 14, lineHeight: 20, marginTop: 6 },
+  heroStats: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  heroStat: { flex: 1, borderWidth: 1, borderRadius: 16, paddingVertical: 10, paddingHorizontal: 6, alignItems: 'center', gap: 2 },
+  heroStatN: { fontSize: 19, fontWeight: '900' },
+  heroStatL: { fontSize: 10.5, fontWeight: '600' },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   title: {
-    fontSize: fontSize['2xl'],
-    fontWeight: fontWeight.bold,
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -1,
+    marginTop: 8,
     color: colors.text,
   },
   countBadge: {
@@ -1075,7 +969,7 @@ const styles = StyleSheet.create({
 
   // --- Section ---
   sectionContainer: {
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: 16,
     marginTop: spacing.xl,
   },
   sectionHeader: {
@@ -1112,15 +1006,16 @@ const styles = StyleSheet.create({
   },
 
   // --- Travel Guides ---
+  // Two whole guides across the phone, moved a pair at a time.
   guidesScroll: {
-    paddingRight: spacing.xl,
+    paddingHorizontal: RAIL_PAD,
+    gap: RAIL_GAP,
   },
   guideCard: {
-    width: SCREEN_WIDTH * 0.42,
-    height: 150,
-    borderRadius: borderRadius.xl,
+    width: TWO_UP_W,
+    height: Math.round(TWO_UP_W * 1.15),
+    borderRadius: 20,
     overflow: 'hidden',
-    marginRight: 12,
   },
   guideImage: {
     ...StyleSheet.absoluteFillObject,
@@ -1293,6 +1188,7 @@ const styles = StyleSheet.create({
   },
   tripsListInline: {
     // Rendered inside sectionContainer which already has horizontal padding
+    gap: 16,
   },
 
   // --- Empty states ---

@@ -113,6 +113,48 @@ class HolidayPackagesAPI {
       body: JSON.stringify({ rating, title, body, photos }),
     });
   }
+
+  // ===== Trip gallery (traveller photos from a completed trip) =====
+  // The server checks each photo against the trip's places and dates and
+  // answers per file in `results` (approved / pending / rejected). A batch
+  // where nothing was accepted comes back as a 422 carrying the same body.
+  async uploadTripGallery(packageId, files) {
+    const form = new FormData();
+    files.forEach((f) => form.append("media", { uri: f.uri, name: f.name, type: f.type }));
+    try {
+      return await makeAPICall(`/packages/${packageId}/trip-gallery/customer`, {
+        method: "POST",
+        headers: await getAuthHeaders(),
+        body: form,
+        timeout: 120000,
+      });
+    } catch (err) {
+      if (err?.status === 422 && err.data) return err.data;
+      throw err;
+    }
+  }
+
+  // The caller's own uploads, including ones still awaiting review.
+  async getMyTripGallery(packageId) {
+    return makeAPICall(`/packages/${packageId}/trip-gallery/mine`, {
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  async deleteMyTripGalleryItem(packageId, itemId) {
+    return makeAPICall(`/packages/${packageId}/trip-gallery/customer/${itemId}`, {
+      method: "DELETE",
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  async reportTripGalleryItem(packageId, itemId, reason) {
+    return makeAPICall(`/packages/${packageId}/trip-gallery/${itemId}/report`, {
+      method: "POST",
+      headers: await getAuthHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+  }
 }
 
 export const holidayPackagesAPI = new HolidayPackagesAPI();

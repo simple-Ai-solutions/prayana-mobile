@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,10 @@ import {
   Dimensions,
   Modal,
   Pressable,
+  Share,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 import { WebView } from 'react-native-webview';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,9 +33,19 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { holidayPackagesAPI, destinationAPI, makeAPICall, videosAPI } from '@prayana/shared-services';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { normalizeImageUrl } from '../../lib/imageUrl';
+import { packageFaq } from '../../lib/packageFaq';
+import {
+  DarshanaStrip, DayPills, TransferRow, DayNote, GoodToKnowCard, FaqCard, ReviewsCard,
+} from '../../components/packages/DetailExtras';
+import {
+  WeatherCard, RouteTotals, useRouteLegs, legLabel, PriceAlertButton, QuoteSheet, DownloadButton, LanguageButton,
+} from '../../components/packages/DetailActions';
+import { RouteMap, type RouteStop } from '../../components/packages/RouteMap';
+import { TripGallery, type TripGalleryItem } from '../../components/packages/TripGallery';
+import { DayCustomise, SwapButton, RequestsSummary } from '../../components/packages/Customise';
+import { useTripRequests } from '../../lib/tripRequests';
 import {
 
   activeAddOns,
@@ -335,6 +348,7 @@ type HolidayPackage = {
   category?: string | string[];
   variants?: PkgVariant[];
   rating?: { average?: number; count?: number };
+  tripGallery?: TripGalleryItem[];
   images?: { url: string; alt?: string; isPrimary?: boolean; caption?: string }[];
   inclusions?: string[];
   exclusions?: string[];
@@ -393,7 +407,11 @@ export default function PackageDetailScreen() {
   }, [navigation, router]);
   const requireAuth = useRequireAuth();
   const { themeColors } = useTheme();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from } = useLocalSearchParams<{ id: string; from?: string }>();
+  // Opened from Divya Darshana: show its strip, with the way back to the yatras
+  // and the Yatra Expert line, as the web's DarshanaThemeBanner does.
+  const fromDarshana = from === 'darshana';
+  const [stripH, setStripH] = useState(0);
   const [pkg, setPkg] = useState<HolidayPackage | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
@@ -454,6 +472,104 @@ export default function PackageDetailScreen() {
   useEffect(() => {
     fetchPackage();
   }, [fetchPackage]);
+
+  // The review cards themselves; the average and count come with the package.
+  const [reviews, setReviews] = useState<any[]>([]);
+  useEffect(() => {
+    if (!pkg?._id || !((pkg.rating?.count ?? 0) > 0)) return undefined;
+    let alive = true;
+    makeAPICall(`/packages/${pkg._id}/reviews?limit=20`)
+      .then((r: any) => alive && setReviews(Array.isArray(r?.data) ? r.data : []))
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [pkg?._id, pkg?.rating?.count]);
+
+  const faq = useMemo(() => packageFaq(pkg), [pkg]);
+  // Requested trip changes belong to this package; opening another clears them.
+  const startRequests = useTripRequests((st) => st.start);
+  useEffect(() => { if (pkg?._id) startRequests(pkg._id); }, [pkg?._id, startRequests]);
+  const [quoteOpen, setQuoteOpen] = useState(false);
+  // Paused while a finger is on the route map, so dragging the map moves the
+  // map and not the page.
+  const [pageScroll, setPageScroll] = useState(true);
+  // Reading in another language swaps in the translated text; the original is
+  // kept so "English" puts it back. Vendor, prices and ratings stay as loaded.
+  const originalPkg = useRef<HolidayPackage | null>(null);
+  const applyTranslation = useCallback((data: any | null) => {
+    if (!data) {
+      if (originalPkg.current) setPkg(originalPkg.current);
+      return;
+    }
+    setPkg((prev) => {
+      if (!prev) return prev;
+      if (!originalPkg.current) originalPkg.current = prev;
+      const base = originalPkg.current;
+      return {
+        ...base,
+        ...data,
+        primaryBusiness: (base as any).primaryBusiness,
+        rating: base.rating,
+        stats: (base as any).stats,
+      } as HolidayPackage;
+    });
+  }, []);
+  // Road distance and drive time between the trip's stops (web route-legs).
+  const routeLegs = useRouteLegs(pkg?._id, (pkg?.destinations || []).length);
+
+  // Save to wishlist — kept on the phone, like the web's saved_packages.
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!pkg?._id) return;
+    AsyncStorage.getItem('saved_packages')
+      .then((raw) => setSaved((JSON.parse(raw || '[]') as string[]).includes(pkg._id)))
+      .catch(() => {});
+  }, [pkg?._id]);
+  const toggleSaved = useCallback(async () => {
+    if (!pkg?._id) return;
+    try {
+      const list: string[] = JSON.parse((await AsyncStorage.getItem('saved_packages')) || '[]');
+      const next = list.includes(pkg._id) ? list.filter((x) => x !== pkg._id) : [...list, pkg._id];
+      await AsyncStorage.setItem('saved_packages', JSON.stringify(next));
+      const now = next.includes(pkg._id);
+      setSaved(now);
+      Toast.show({ type: 'success', text1: now ? 'Saved to wishlist' : 'Removed from wishlist' });
+    } catch {
+      Toast.show({ type: 'error', text1: "Couldn't update your wishlist" });
+    }
+  }, [pkg?._id]);
+  const sharePackage = useCallback(() => {
+    if (!pkg) return;
+    const path = fromDarshana ? 'divya-darshana' : 'packages';
+    const url = `https://prayanaai.com/${path}/${pkg.slug || pkg._id}`;
+    Share.share({ message: `${pkg.title}\n${url}`, url }).catch(() => {});
+  }, [pkg, fromDarshana]);
+
+  // Day pills: jump to a day. The itinerary card's offset in the page plus the
+  // day's offset in the card is where the day starts.
+  const itinY = useRef(0);
+  const itinH = useRef(0);
+  // The day pills pin under the section tabs while the itinerary is on screen
+  // (web parity: DayPillsNav is sticky), and light up the day being read.
+  const tabBarH = useRef(48);
+  const [pinDays, setPinDays] = useState(false);
+  const dayY = useRef<Record<number, number>>({});
+  const [activeDay, setActiveDay] = useState(0);
+  // Opening one day closes the others, which moves every day below it, so
+  // the scroll waits for the chosen day's own onLayout to report where it
+  // finally sits. The timer covers a day that was already the open one.
+  const pendingDay = useRef<number | null>(null);
+  const scrollToDay = useCallback((i: number) => {
+    pendingDay.current = null;
+    const y = itinY.current + (dayY.current[i] ?? 0);
+    // Clear of the Darshana strip and the section tabs pinned over the page.
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - tabBarH.current - 64), animated: true });
+  }, []);
+  const jumpToDay = useCallback((i: number) => {
+    setActiveDay(i);
+    setOpenDays({ [i]: true });
+    pendingDay.current = i;
+    setTimeout(() => { if (pendingDay.current === i) scrollToDay(i); }, 250);
+  }, [scrollToDay]);
 
   // Live server price for the chosen variant (2 adults, undated quote).
   useEffect(() => {
@@ -662,7 +778,8 @@ export default function PackageDetailScreen() {
     if (y == null) return;
     setActiveSection(id);
     spyLocked.current = true;
-    scrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+    // Land the section's title just below the sticky tab bar, not under it.
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - tabBarH.current - 8), animated: true });
     setTimeout(() => { spyLocked.current = false; }, 700);
   }, []);
 
@@ -674,12 +791,28 @@ export default function PackageDetailScreen() {
     // sit over the carousel from the moment the screen opens.
     const firstY = sectionY.current[SECTION_TABS[0].id];
     setShowTabs(firstY != null && raw > firstY - 120);
+    // Pinned once the card's own pills have scrolled under the tabs, until the
+    // last day leaves; the day shown is the last one whose top has passed.
+    const under = raw + tabBarH.current;
+    const pin = itinH.current > 0 && under > itinY.current + 70 && under < itinY.current + itinH.current - 160;
+    setPinDays((prev) => (prev === pin ? prev : pin));
+    if (pin && pendingDay.current == null) {
+      let day = 0;
+      Object.entries(dayY.current).forEach(([k, v]) => {
+        if (itinY.current + v <= under + 60) day = Math.max(day, Number(k));
+      });
+      setActiveDay((prev) => (prev === day ? prev : day));
+    }
     if (spyLocked.current) return;
-    const y = raw + 80;
+    // The section whose top sits nearest above the tab bar. Sections are not
+    // laid out in tab order (the gallery comes before the inclusions), so the
+    // furthest one passed wins, not the last tab passed.
+    const y = raw + tabBarH.current + 40;
     let current = SECTION_TABS[0].id;
+    let best = -Infinity;
     for (const t of SECTION_TABS) {
       const sy = sectionY.current[t.id];
-      if (sy != null && sy <= y) current = t.id;
+      if (sy != null && sy <= y && sy > best) { best = sy; current = t.id; }
     }
     setActiveSection((prev) => (prev === current ? prev : current));
   }, []);
@@ -766,18 +899,17 @@ export default function PackageDetailScreen() {
   })();
 
   // Fit the map to every stop with a little padding.
-  const routeRegion = (() => {
-    if (!routeStops.length) return undefined;
-    const lats = routeStops.map((s) => s.lat);
-    const lngs = routeStops.map((s) => s.lng);
-    const minLat = Math.min(...lats), maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
-    return {
-      latitude: (minLat + maxLat) / 2,
-      longitude: (minLng + maxLng) / 2,
-      latitudeDelta: Math.max(0.05, (maxLat - minLat) * 1.5),
-      longitudeDelta: Math.max(0.05, (maxLng - minLng) * 1.5),
-    };
+  // The map plots the trip's destinations in order, as the web does; the
+  // itinerary's own places only when no destination carries coordinates.
+  const mapStops: RouteStop[] = (() => {
+    const dests = [...(pkg.destinations || [])]
+      .filter((d: any) => d.coordinates?.lat != null && d.coordinates?.lng != null)
+      .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+      .map((d: any) => ({
+        name: d.name || d.city || 'Stop', city: d.city, nights: d.nightsHere,
+        lat: Number(d.coordinates.lat), lng: Number(d.coordinates.lng),
+      }));
+    return dests.length ? dests : routeStops.map((r) => ({ name: r.title, city: r.city, lat: r.lat, lng: r.lng }));
   })();
 
   // Social-proof line from stats, like the web TrustStrip.
@@ -859,8 +991,14 @@ export default function PackageDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+      {fromDarshana ? (
+        <View onLayout={(e) => setStripH(e.nativeEvent.layout.height)}>
+          <DarshanaStrip topInset={0} onBack={goBackToPackages} />
+        </View>
+      ) : null}
       <ScrollView
         ref={scrollRef}
+        scrollEnabled={pageScroll}
         contentContainerStyle={{ paddingBottom: 120 }}
         showsVerticalScrollIndicator={false}
         onScroll={onMainScroll}
@@ -905,6 +1043,28 @@ export default function PackageDetailScreen() {
               ))}
             </View>
           ) : null}
+              {/* Save and share, over the photo's top-right corner (web parity);
+                  they scroll away with the photo. */}
+          <View style={[styles.fabRight, { top: spacing.sm }]}>
+            <Pressable
+              onPress={sharePackage}
+              style={({ pressed }) => [styles.fabRound, pressed && { opacity: 0.7 }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Share this package"
+            >
+              <Ionicons name="share-social-outline" size={19} color="#fff" />
+            </Pressable>
+            <Pressable
+              onPress={toggleSaved}
+              style={({ pressed }) => [styles.fabRound, pressed && { opacity: 0.7 }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={saved ? 'Remove from wishlist' : 'Save to wishlist'}
+            >
+              <Ionicons name={saved ? 'heart' : 'heart-outline'} size={20} color={saved ? '#f43f5e' : '#fff'} />
+            </Pressable>
+          </View>
           {/* Photo counter — the web's "View Photos" pill is hover-only, so it
               never appears on touch. Show the count instead. */}
           {images.length > 1 && images[0].url ? (
@@ -951,12 +1111,22 @@ export default function PackageDetailScreen() {
 
           {/* Trust badges — four pastel pills, web parity. */}
           <View style={[styles.trustStrip, { borderTopColor: themeColors.border }]}>
-            {TRUST_BADGES.map((b) => (
+            {TRUST_BADGES.filter(
+              (b) => b.label !== 'Verified Vendor' || (pkg as any).primaryBusiness?.verificationStatus === 'approved',
+            ).map((b) => (
               <View key={b.label} style={[styles.trustPill, { backgroundColor: b.bg }]}>
                 <Ionicons name={b.icon as any} size={13} color={b.fg} />
                 <Text style={[styles.trustText, { color: b.fg }]}>{b.label}</Text>
               </View>
             ))}
+          </View>
+          {/* Tools: price alert, itinerary PDF and language (web title card). */}
+          <View style={styles.toolRow}>
+            {ctaPrice > 0 ? (
+              <PriceAlertButton packageId={pkg._id} packageTitle={pkg.title} currentPrice={ctaPrice} />
+            ) : null}
+            <DownloadButton kind="itinerary" pkg={pkg} variant={selectedVariant} price={ctaPrice} />
+            <LanguageButton packageId={pkg._id} onTranslated={applyTranslation} />
           </View>
         </View>
 
@@ -973,8 +1143,6 @@ export default function PackageDetailScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              snapToAlignment="start"
-              decelerationRate="fast"
               contentContainerStyle={{ gap: spacing.md, paddingVertical: spacing.md }}
             >
               {pkg.variants.map((v) => {
@@ -1243,6 +1411,16 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
+        {/* The weather at the trip's main stop today (web WeatherWidget). */}
+        {(() => {
+          const d: any = (pkg.destinations || []).find((x: any) => x.coordinates?.lat != null);
+          return d ? (
+            <View style={styles.weatherWrap}>
+              <WeatherCard name={d.city || d.name} lat={Number(d.coordinates.lat)} lng={Number(d.coordinates.lng)} />
+            </View>
+          ) : null;
+        })()}
+
         {/* Quick facts — 2×2 pastel icon grid, web parity */}
         <Card style={styles.section}>
           <View style={styles.qfHead}>
@@ -1307,18 +1485,34 @@ export default function PackageDetailScreen() {
 
         {/* Itinerary */}
         {pkg.itinerary && pkg.itinerary.length > 0 ? (
+          <View onLayout={(e) => {
+            itinY.current = e.nativeEvent.layout.y;
+            itinH.current = e.nativeEvent.layout.height;
+            registerSection('itinerary')(e);
+          }}>
           <Card style={styles.section}>
-            <View onLayout={registerSection('itinerary')} />
               <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Day-by-day itinerary</Text>
+            <DayPills
+              days={pkg.itinerary.map((d, di) => ({ label: `DAY ${d.dayNumber ?? d.day ?? di + 1}`, title: d.title }))}
+              active={activeDay}
+              onPick={jumpToDay}
+            />
             {pkg.itinerary.map((d, di) => {
               const dayNo = d.dayNumber ?? d.day ?? di + 1;
               const acts = (d.activities || []).map(toActivity).filter((a) => a.title);
               const meals = mealLabels(d.meals);
               const open = !!openDays[di];
               return (
-                <View key={di} style={[styles.dayBlock, { borderTopColor: themeColors.border }]}>
+                <View
+                  key={di}
+                  style={[styles.dayBlock, { borderTopColor: themeColors.border }]}
+                  onLayout={(e) => {
+                    dayY.current[di] = e.nativeEvent.layout.y;
+                    if (pendingDay.current === di) scrollToDay(di);
+                  }}
+                >
                   {/* Collapsible day header — tap to expand/collapse. */}
-                  <TouchableOpacity style={styles.dayHead} activeOpacity={0.7} onPress={() => toggleDay(di)}>
+                  <TouchableOpacity style={styles.dayHead} activeOpacity={0.7} onPress={() => { toggleDay(di); setActiveDay(di); }}>
                     {/* "DAY 1" pill — the web uses a full label, not a "D1" chip.
                         Filled blue when open, outlined when collapsed. */}
                     <View style={[styles.dayBadge, open ? styles.dayBadgeOpen : styles.dayBadgeClosed]}>
@@ -1412,6 +1606,10 @@ export default function PackageDetailScreen() {
                                     {a.goodToKnow}
                                   </Text>
                                 ) : null}
+                                <SwapButton
+                                  day={dayNo}
+                                  activity={(d.activities || []).find((x: any) => typeof x === 'object' && (x?.title || x?.placeName) === a.title)}
+                                />
                               </View>
                             </View>
                           ))}
@@ -1423,13 +1621,27 @@ export default function PackageDetailScreen() {
                           <Text style={[styles.dayMeta, { color: themeColors.textSecondary }]}>{meals.join(', ')}</Text>
                         </View>
                       ) : null}
+                      <TransferRow transport={(d as any).transport} />
+                      <DayNote text={(d as any).notes} />
+                      <DayCustomise
+                        day={dayNo}
+                        city={(d as any).destination || pkg.primaryDestination}
+                        meals={d.meals}
+                        variants={(pkg.variants || []).filter((v: any) => v.isActive !== false) as any}
+                        currentVariant={variantName || undefined}
+                        onPickVariant={setVariantName}
+                      />
                     </View>
                   ) : null}
                 </View>
               );
             })}
           </Card>
+          </View>
         ) : null}
+
+        {/* What the traveller asked to change, sent with the booking. */}
+        <RequestsSummary cardStyle={styles.section} />
 
         {/* Route map — every stop on the trip, plotted */}
         {routeStops.length > 0 ? (
@@ -1443,32 +1655,16 @@ export default function PackageDetailScreen() {
                 {routeStops.length} stops across {(pkg.destinations || []).length || 1} destination
                 {((pkg.destinations || []).length || 1) === 1 ? '' : 's'}
               </Text>
+              <RouteTotals route={routeLegs} />
             </View>
-            <MapView
-              provider={PROVIDER_GOOGLE}
-              style={styles.routeMap}
-              initialRegion={routeRegion}
-              scrollEnabled={false}
-              zoomEnabled={false}
-              pitchEnabled={false}
-              rotateEnabled={false}
-              toolbarEnabled={false}
-            >
-              <Polyline
-                coordinates={routeStops.map((s) => ({ latitude: s.lat, longitude: s.lng }))}
-                strokeColor="#2563eb"
-                strokeWidth={3}
-              />
-              {routeStops.map((s, i) => (
-                <Marker
-                  key={`${s.title}-${i}`}
-                  coordinate={{ latitude: s.lat, longitude: s.lng }}
-                  title={s.title}
-                  description={s.city}
-                  pinColor={i === 0 ? '#059669' : i === routeStops.length - 1 ? '#dc2626' : '#2563eb'}
-                />
-              ))}
-            </MapView>
+            <RouteMap
+              stops={mapStops}
+              legs={routeLegs}
+              dayTitleFor={(st) => (pkg.itinerary || []).find((d: any) =>
+                [st.name, st.city].filter(Boolean).some((n) => String(d.destination || '').toLowerCase() === String(n).toLowerCase()),
+              )?.title}
+              onInteract={(on) => setPageScroll(!on)}
+            />
             {/* Numbered city pills under the map, like the web route strip. */}
             {(pkg.destinations || []).length > 0 ? (
               <ScrollView
@@ -1485,7 +1681,12 @@ export default function PackageDetailScreen() {
                       {d.name || d.city}
                     </Text>
                     {i < (pkg.destinations || []).length - 1 ? (
-                      <Ionicons name="arrow-forward" size={12} color={themeColors.textTertiary} style={{ marginHorizontal: 6 }} />
+                      <View style={styles.legGap}>
+                        <Ionicons name="arrow-forward" size={12} color={themeColors.textTertiary} />
+                        {legLabel(routeLegs, i) ? (
+                          <Text style={[styles.legText, { color: themeColors.textTertiary }]}>{legLabel(routeLegs, i)}</Text>
+                        ) : null}
+                      </View>
                     ) : null}
                   </View>
                 ))}
@@ -1608,7 +1809,6 @@ export default function PackageDetailScreen() {
           <Card style={styles.section}>
             <View style={styles.sectionAccentRow}>
               <Ionicons name="location" size={16} color="#059669" />
-              <View onLayout={registerSection('gallery')} />
               <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Destination highlights</Text>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.destRail}>
@@ -1656,6 +1856,18 @@ export default function PackageDetailScreen() {
             </ScrollView>
           </Card>
         ) : null}
+
+        {/* Real photos from past trips — the Gallery tab lands here (web's
+            #trip-gallery). Measured on a page-level wrapper: an anchor inside
+            the card would report its offset within the card. */}
+        <View onLayout={registerSection('gallery')}>
+          <TripGallery
+            packageId={pkg._id}
+            items={pkg.tripGallery || []}
+            fallback={images.map((i) => i.url).filter(Boolean)}
+            cardStyle={styles.section}
+          />
+        </View>
 
         {/* Inclusions — emerald tinted card with a filled icon tile (web parity) */}
         {pkg.inclusions && pkg.inclusions.length > 0 ? (
@@ -1751,6 +1963,7 @@ export default function PackageDetailScreen() {
 
         {/* Cancellation — refund ladder, not just the blurb */}
         {pkg.cancellationPolicy?.description || (pkg.cancellationPolicy?.rules || []).length > 0 ? (
+          <View onLayout={registerSection('policies')}>
           <Card style={styles.section}>
             <View style={styles.sectionAccentRow}>
               {/* Emerald normally, amber when the policy is strict — the icon
@@ -1760,7 +1973,6 @@ export default function PackageDetailScreen() {
                 size={16}
                 color={pkg.cancellationPolicy?.type === 'strict' ? '#d97706' : '#059669'}
               />
-              <View onLayout={registerSection('policies')} />
               <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Cancellation policy</Text>
             </View>
             {(pkg.cancellationPolicy?.rules || []).length > 0 ? (
@@ -1791,7 +2003,14 @@ export default function PackageDetailScreen() {
               </Text>
             ) : null}
           </Card>
+          </View>
         ) : null}
+
+        {/* Good to know — the operator's practical notes, important ones first. */}
+        <GoodToKnowCard items={(pkg as any).goodToKnow || []} cardStyle={styles.section} />
+
+        {/* FAQ — answered from this package's own fields (web lib/packageFaq). */}
+        <FaqCard items={faq} cardStyle={styles.section} />
 
         {/* Prayana Assured — emerald→teal→cyan gradient, white text (web parity) */}
         <LinearGradient
@@ -1948,9 +2167,12 @@ export default function PackageDetailScreen() {
         {(pkg.itinerary || []).length > 0 ? (
           <Card style={[styles.section, { padding: 0, overflow: 'hidden' }]}>
             <View style={styles.schedHeadWrap}>
-              <View style={styles.sectionAccentRow}>
-                <Ionicons name="calendar" size={16} color="#2563eb" />
-                <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Trip schedule</Text>
+              <View style={[styles.sectionAccentRow, { justifyContent: 'space-between' }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="calendar" size={16} color="#2563eb" />
+                  <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Trip schedule</Text>
+                </View>
+                <DownloadButton kind="schedule" pkg={pkg} compact />
               </View>
             </View>
             {/* Horizontally scrollable: at phone widths the three columns do not
@@ -2019,55 +2241,10 @@ export default function PackageDetailScreen() {
           </Card>
         ) : null}
 
-        {/* Traveller reviews */}
-        <Card style={styles.section}>
-          <View style={styles.sectionAccentRow}>
-            <Ionicons name="star" size={16} color="#f59e0b" />
-            <View onLayout={registerSection('reviews')} />
-              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Traveller reviews</Text>
-          </View>
-          {pkg.rating?.count ? (
-            <View style={styles.reviewSummary}>
-              <Text style={[styles.reviewAvg, { color: themeColors.text }]}>{pkg.rating.average?.toFixed(1)}</Text>
-              <View style={{ flex: 1 }}>
-                <StarRating rating={pkg.rating.average || 0} size={14} />
-                <Text style={[styles.aboutSub, { color: themeColors.textSecondary }]}>
-                  {pkg.rating.count} review{pkg.rating.count === 1 ? '' : 's'}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.emptyReviews}>
-              <Ionicons name="chatbubble-ellipses-outline" size={26} color={themeColors.textTertiary} />
-              <Text style={[styles.aboutSub, { color: themeColors.textSecondary, textAlign: 'center' }]}>
-                No reviews yet — be the first to travel and tell us how it went.
-              </Text>
-            </View>
-          )}
-        </Card>
+        {/* Traveller reviews — star breakdown and the review cards (web parity). */}
+        <View onLayout={registerSection('reviews')} />
+        <ReviewsCard rating={pkg.rating} reviews={reviews} cardStyle={styles.section} />
 
-        {/* Been on this trip? — share memories */}
-        <Card style={[styles.section, styles.shareCard]}>
-          <View style={styles.shareRow}>
-            <View style={styles.shareIcon}>
-              <Ionicons name="camera" size={18} color="#059669" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.aboutTitle, { color: themeColors.text }]}>Been on this trip?</Text>
-              <Text style={[styles.aboutSub, { color: themeColors.textSecondary }]}>
-                Share your photos and help future travellers.
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.shareBtn}
-            activeOpacity={0.85}
-            onPress={() => router.push('/community' as any)}
-          >
-            <Ionicons name="images-outline" size={15} color="#fff" />
-            <Text style={styles.shareBtnText}>Share your memories</Text>
-          </TouchableOpacity>
-        </Card>
 
         {/* You may also like */}
         {similar.length > 0 ? (
@@ -2108,7 +2285,10 @@ export default function PackageDetailScreen() {
       {/* Sticky section tabs — pinned below the header, outside the ScrollView
           so they stay put while the content moves under them. */}
       {showTabs ? (
-      <View style={[styles.tabBar, { backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+      <View
+        onLayout={(e) => { tabBarH.current = e.nativeEvent.layout.height; }}
+        style={[styles.tabBar, { top: insets.top + stripH, backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}
+      >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarRow}>
           {SECTION_TABS.map((t) => {
             const active = activeSection === t.id;
@@ -2141,9 +2321,21 @@ export default function PackageDetailScreen() {
       </View>
       ) : null}
 
+      {/* Day pills pinned under the tabs while reading the itinerary. */}
+      {showTabs && pinDays && (pkg.itinerary || []).length > 1 ? (
+        <View style={[styles.dayPin, { top: insets.top + stripH + tabBarH.current, backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}>
+          <DayPills
+            days={(pkg.itinerary || []).map((d, di) => ({ label: `DAY ${d.dayNumber ?? d.day ?? di + 1}`, title: d.title }))}
+            active={activeDay}
+            onPick={jumpToDay}
+          />
+        </View>
+      ) : null}
+
       {/* Floating back button. Rendered AFTER the ScrollView so the image
           carousel cannot paint over it, and positioned against the real
           safe-area inset so it never lands in the status bar. */}
+      {!fromDarshana ? (
       <Pressable
         onPress={goBackToPackages}
         style={({ pressed }) => [
@@ -2160,6 +2352,8 @@ export default function PackageDetailScreen() {
       >
         <Ionicons name="chevron-back" size={22} color="#fff" />
       </Pressable>
+      ) : null}
+
 
       {/* Sticky CTA — reflects the chosen variant + discount (green) */}
       <View style={[styles.cta, { backgroundColor: themeColors.surface, borderTopColor: themeColors.border }]}>
@@ -2188,6 +2382,11 @@ export default function PackageDetailScreen() {
           style={styles.bookBtn}
           activeOpacity={0.9}
           onPress={() => {
+            // An on-request option has no price to pay yet: ask for a quote.
+            if (selectedVariant?.pricing?.isOnRequest) {
+              setQuoteOpen(true);
+              return;
+            }
             const params = new URLSearchParams();
             if (variantName) params.set('variant', variantName);
             // Ids only — checkout re-reads each extra off the package and the
@@ -2205,6 +2404,18 @@ export default function PackageDetailScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      <QuoteSheet
+        visible={quoteOpen}
+        onClose={() => setQuoteOpen(false)}
+        destination={pkg.primaryDestination}
+        context={{
+          packageId: pkg._id,
+          packageTitle: pkg.title,
+          variantName: selectedVariant?.displayName || selectedVariant?.name,
+          quotedPrice: selectedVariant?.pricing?.display?.amount ?? selectedVariant?.pricing?.basePrice,
+        }}
+      />
 
       {/* Shorts player — plays inside the app rather than kicking out to
           YouTube. The close bar sits OUTSIDE the WebView's rectangle, because a
@@ -2258,6 +2469,10 @@ export default function PackageDetailScreen() {
 const styles = StyleSheet.create({
   // Sticky section tabs. Pinned under the header (outside the ScrollView) so
   // they remain visible as the content scrolls beneath.
+  dayPin: {
+    position: 'absolute', left: 0, right: 0, zIndex: 19, elevation: 3,
+    paddingHorizontal: spacing.lg, paddingTop: 8, borderBottomWidth: 1,
+  },
   tabBar: {
     position: 'absolute',
     left: 0,
@@ -2283,6 +2498,15 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.lg },
   errorTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },
 
+  toolRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
+  weatherWrap: { marginHorizontal: spacing.lg, marginTop: spacing.md },
+  legGap: { alignItems: 'center', marginHorizontal: 8 },
+  legText: { fontSize: 10, fontWeight: '600', marginTop: 1 },
+  fabRight: { position: 'absolute', right: spacing.lg, flexDirection: 'row', gap: 10, zIndex: 100, elevation: 30 },
+  fabRound: {
+    width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
   fab: {
     position: 'absolute',
     // `top` is supplied at the call site from useSafeAreaInsets — a static
@@ -2432,7 +2656,6 @@ const styles = StyleSheet.create({
   qaAsk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 12, marginTop: spacing.sm },
   qaAskText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#2563eb' },
   mapHead: { padding: spacing.lg, paddingBottom: spacing.sm },
-  routeMap: { width: '100%', height: 220 },
   cityStrip: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   cityPillRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   cityNum: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
@@ -2488,7 +2711,6 @@ const styles = StyleSheet.create({
   reviewSummary: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
   reviewAvg: { fontSize: 34, fontWeight: fontWeight.bold },
   emptyReviews: { alignItems: 'center', gap: 8, paddingVertical: spacing.lg },
-  shareCard: { backgroundColor: '#ffffff' },
   whenNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#faf5ff', borderRadius: 10, padding: spacing.md, marginTop: spacing.md },
   whenNoticeText: { flex: 1, fontSize: 12, lineHeight: 17 },
   whenSub: { fontSize: 11, fontWeight: fontWeight.bold, letterSpacing: 0.6, marginTop: spacing.lg, marginBottom: 2, textTransform: 'uppercase' },
@@ -2506,10 +2728,6 @@ const styles = StyleSheet.create({
   inclSub: { fontSize: 12, marginTop: 1, fontWeight: fontWeight.medium },
   inclRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, paddingVertical: 5 },
   inclBullet: { width: 18, height: 18, borderRadius: 9, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  shareRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  shareIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#ecfdf5', alignItems: 'center', justifyContent: 'center' },
-  shareBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#059669', borderRadius: 12, paddingVertical: 13, marginTop: spacing.md },
-  shareBtnText: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
   simCard: { width: 190, borderWidth: 1, borderRadius: 14, overflow: 'hidden' },
   simImg: { width: '100%', height: 110 },
   simTitle: { fontSize: 13, fontWeight: fontWeight.semibold, lineHeight: 17 },

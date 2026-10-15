@@ -6,19 +6,28 @@
 // Both cards are the same shell: a 3:4 photo, a bottom scrim covering the
 // lower 62%, and white text over it. Only the overlay contents differ, so the
 // shell lives in one component here rather than being written twice.
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, Pressable, AccessibilityInfo, useWindowDimensions,
+} from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useVideoPlayer, VideoView, setVideoCacheSizeAsync } from 'expo-video';
+import { useNetInfo } from '@react-native-community/netinfo';
 import { useTheme, spacing, fontWeight } from '@prayana/shared-ui';
 import { activityMarketplaceAPI, holidayPackagesAPI } from '@prayana/shared-services';
 import { normalizeImageUrl } from '../../lib/imageUrl';
+import { trekArtFor } from '../../lib/trekArt';
+import { TrekPosterCard, POSTER_CARD_W } from './TrekPosterCard';
+import { TWO_UP_W, RAIL_GAP, usePairSnap } from '../../lib/railLayout';
+import { assignDealClips } from '../../lib/dealClips';
 
 const TREK_ACCENT = '#16A34A';   // green icon tile on the trekking rail
 const DEALS_ACCENT = '#10B981';  // emerald icon tile on the deals rail
-const CARD_W = 178;
+// Two whole cards across the phone (see lib/railLayout).
+const CARD_W = TWO_UP_W;
 const CARD_H = Math.round((CARD_W * 4) / 3); // aspect 3:4
 
 const inr = (n?: number) => Number(n || 0).toLocaleString('en-IN');
@@ -29,11 +38,48 @@ const primaryImage = (images?: any[]): string | undefined => {
   return pick?.url ? normalizeImageUrl(pick.url) : undefined;
 };
 
+// Clips are cached on the phone so each one downloads once. All of the home
+// clips together are about 31 MB, so 64 MB holds them with room to spare
+// (the player's own default is 1 GB). This must run before any player exists,
+// which is why it sits at module load; the size persists across launches.
+setVideoCacheSizeAsync(64 * 1024 * 1024).catch(() => {});
+
+/**
+ * Muted looping clip over a card's photo. Only mounted while the card leads
+ * its rail on screen and the phone is on Wi-Fi, so a rail of twelve treks
+ * decodes one video at a time and mobile data is never spent on it. A
+ * TextureView stays transparent until its first frame, so the poster
+ * underneath shows while the clip loads (no fade wrapper: on Android an
+ * opacity layer around it kept the video from ever drawing).
+ */
+export function CardVideo({ uri }: { uri: string }) {
+  const player = useVideoPlayer({ uri, useCaching: true }, (p) => {
+    p.loop = true;
+    p.muted = true;
+    p.play();
+  });
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <VideoView
+        player={player}
+        style={StyleSheet.absoluteFill}
+        contentFit="cover"
+        nativeControls={false}
+        // The default SurfaceView draws behind the window, under the card's
+        // photo; a TextureView composites in order and honours the clip.
+        surfaceType="textureView"
+      />
+    </View>
+  );
+}
+
 /** Shared photo card: image, scrim, and whatever overlay the rail supplies. */
 function OverlayCard({
-  image, onPress, children, topLeft, topRight,
+  image, video, onPress, children, topLeft, topRight,
 }: {
   image?: string;
+  video?: string | null;
   onPress: () => void;
   children: React.ReactNode;
   topLeft?: React.ReactNode;
@@ -47,6 +93,7 @@ function OverlayCard({
       ) : (
         <View style={[StyleSheet.absoluteFill, styles.cardPh]} />
       )}
+      {!!video && <CardVideo uri={video} />}
       {/* Scrim over the bottom 62%, matching the web gradient stops. */}
       <LinearGradient
         colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.85)']}
@@ -84,6 +131,133 @@ function RailHeader({
   );
 }
 
+/**
+ * Which cards of a horizontal rail are on screen, so only those play a clip:
+ * the rail itself has to be within the window (the home page scrolls it in
+ * and out), and the card within the rail's sideways scroll. Reduce-motion
+ * users get no motion at all and keep the stills. Nothing moves off Wi-Fi:
+ * on mobile data a video rail stays as posters and a photo-reel rail shows
+ * each card's one main photo, so the home screen never spends someone's data
+ * pack on clips or extra photos. A `video` rail plays only its lead card. The rail must
+ * use `spacing.lg` side padding and the given card width and gap.
+ */
+export function useRailPlayback(cardW = CARD_W, gap = RAIL_GAP, { video = false } = {}) {
+  const { width: screenW, height: screenH } = useWindowDimensions();
+  const [scrollX, setScrollX] = useState(0);
+  const [inView, setInView] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  // Rests on a whole pair of cards after every swipe.
+  const snap = usePairSnap(2 * (cardW + gap));
+  const ref = snap.ref;
+  // Unknown counts as mobile data until NetInfo says otherwise.
+  const net = useNetInfo();
+  const onWifi =
+    (net.type === 'wifi' || net.type === 'ethernet') &&
+    !(net.details as { isConnectionExpensive?: boolean } | null)?.isConnectionExpensive;
+
+  useEffect(() => {
+    let alive = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((on) => alive && setReduceMotion(on));
+    const sub = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
+    return () => { alive = false; sub.remove(); };
+  }, []);
+
+  // The page's own scroll is not ours to listen to, so check where the rail
+  // sits a few times a second; a state update only happens when it changes.
+  useEffect(() => {
+    const check = () => {
+      (ref.current as any)?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
+        setInView(h > 0 && y < screenH && y + h > 0);
+      });
+    };
+    check();
+    const id = setInterval(check, 700);
+    return () => clearInterval(id);
+  }, [screenH]);
+
+  const leftOf = (i: number) => spacing.lg + i * (cardW + gap) - scrollX;
+  // A video rail plays only its lead card — the first one at least half on
+  // screen — since several decoders at once are too much for a slower phone.
+  const lead = Math.max(0, Math.ceil((scrollX - spacing.lg - cardW / 2) / (cardW + gap)));
+  const canPlay = (i: number) => {
+    if (reduceMotion || !inView || !onWifi) return false;
+    // Video rails show posters only: decoding clips while the page scrolls
+    // made the home screen stutter. The clips play on the detail pages.
+    if (video) return HOME_VIDEOS && i === lead;
+    const left = leftOf(i);
+    return left < screenW && left + cardW > 0;
+  };
+  const scrollProps = {
+    ref,
+    onScroll: (e: any) => setScrollX(e.nativeEvent.contentOffset.x),
+    scrollEventThrottle: 100,
+    ...snap.props,
+  };
+  return { canPlay, scrollProps, inView };
+}
+
+const PHOTO_STEP_MS = 3200; // the web's touch-screen pace for photo reels
+/** Clips on home rails. Off: posters only, for a smooth home scroll. */
+export const HOME_VIDEOS = false;
+
+/**
+ * One clock for a whole rail of photo reels: a counter that ticks every
+ * PHOTO_STEP_MS. Each card on screen moves to its next photo on a tick.
+ */
+export function useRailClock(active = true) {
+  const [tick, setTick] = useState(0);
+  // Stopped while the rail is off screen: a tick re-renders the whole rail,
+  // and a dozen rails ticking out of sight made the home page scroll unevenly.
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setTick((t) => t + 1), PHOTO_STEP_MS);
+    return () => clearInterval(id);
+  }, [active]);
+  return tick;
+}
+
+/**
+ * The photo a card shows from `frames`: it steps on each `tick` while the
+ * card is `playing`, counted from when it came on screen so it always opens
+ * on its main photo. It only steps once the photo on show AND the next one
+ * have both downloaded — switching sooner cancels the download in flight,
+ * and on a slow connection a large photo would then never appear. Pass the
+ * returned `onLoad` to the Image.
+ */
+export function usePhotoStep(frames: string[], playing: boolean, tick: number) {
+  const [step, setStep] = useState(0);
+  const [loaded, setLoaded] = useState<Set<string>>(() => new Set());
+  const lastTick = useRef(tick);
+  const markLoaded = useCallback((url?: string) => {
+    if (!url) return;
+    setLoaded((prev) => (prev.has(url) ? prev : new Set(prev).add(url)));
+  }, []);
+
+  const photo = frames.length ? frames[step % frames.length] : undefined;
+  const next = frames.length > 1 ? frames[(step + 1) % frames.length] : undefined;
+
+  useEffect(() => {
+    if (!playing || frames.length < 2) {
+      lastTick.current = tick;
+      return;
+    }
+    if (tick === lastTick.current) return;
+    lastTick.current = tick;
+    if (photo && next && loaded.has(photo) && loaded.has(next)) setStep((n) => n + 1);
+  }, [tick, playing, frames.length, photo, next, loaded]);
+
+  // Fetch the next photo only once the one on show is in, so the two never
+  // compete for a slow connection.
+  useEffect(() => {
+    if (!playing || !photo || !next || !loaded.has(photo) || loaded.has(next)) return;
+    let alive = true;
+    Image.prefetch(next).then((ok) => alive && ok && markLoaded(next));
+    return () => { alive = false; };
+  }, [playing, photo, next, loaded, markLoaded]);
+
+  return { photo, onLoad: () => markLoaded(photo) };
+}
+
 // ── Trek with strangers, or bring your crew ──────────────────────────────
 export function TrekkingRail() {
   const [items, setItems] = useState<any[] | null>(null);
@@ -101,6 +275,8 @@ export function TrekkingRail() {
     return () => { alive = false; };
   }, []);
 
+  const { canPlay, scrollProps } = useRailPlayback(POSTER_CARD_W, RAIL_GAP, { video: true });
+
   // The web hides this below two results rather than showing a lone card.
   if (!items || items.length < 2) return null;
 
@@ -113,55 +289,22 @@ export function TrekkingRail() {
         subtitle="Weekend trails and Himalayan expeditions — join a solo-traveller group or book the whole departure for your people."
         onSeeAll={() => router.push('/experiences/trekking-hikes' as any)}
       />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-        {items.map((a) => {
-          const price = a.platformSellingPrice || a.pricing?.basePrice || 0;
-          const perLabel = a.pricing?.priceType === 'per_person' ? '/person' : '/group';
-          const maxGroup = a.groupSize?.max || 0;
-          const bookings = a.stats?.totalBookings || 0;
-          // Badge precedence matches the web: popularity, then private, then size.
-          const badge =
-            bookings >= 10 ? 'POPULAR' : a.isPrivate ? 'PRIVATE'
-              : maxGroup > 0 && maxGroup < 10 ? 'SMALL GROUP' : null;
-          const dur = a.duration?.label
-            || (a.duration?.value ? `${a.duration.value} ${a.duration.unit || 'days'}` : '');
-          const place = [a.location?.city, a.location?.state].filter(Boolean).join(', ');
-
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.rail}
+        {...scrollProps}
+      >
+        {items.map((a, i) => {
+          // Only the commissioned clips play, as on the web: no stock filler.
+          const clip = trekArtFor(a)?.video;
           return (
-            <OverlayCard
+            <TrekPosterCard
               key={a._id}
-              image={primaryImage(a.images)}
+              activity={a}
+              video={clip && canPlay(i) ? <CardVideo uri={clip} /> : null}
               onPress={() => router.push(`/activity/${a._id}` as any)}
-              topLeft={badge ? (
-                <View style={styles.badge}>
-                  <View style={styles.badgeDot} />
-                  <Text style={styles.badgeText}>{badge}</Text>
-                </View>
-              ) : null}
-            >
-              {!!place && (
-                <View style={styles.metaRow}>
-                  <Ionicons name="location-outline" size={10} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.place} numberOfLines={1}>{place}</Text>
-                </View>
-              )}
-              <Text style={styles.title} numberOfLines={2}>{a.title}</Text>
-              {(!!dur || maxGroup > 0) && (
-                <View style={styles.metaRow}>
-                  {!!dur && <Text style={styles.meta}>{dur}</Text>}
-                  {!!dur && maxGroup > 0 && <Text style={styles.meta}> · </Text>}
-                  {maxGroup > 0 && <Text style={styles.meta}>up to {maxGroup}</Text>}
-                </View>
-              )}
-              <View style={styles.priceRow}>
-                <Text style={styles.price}>
-                  ₹{inr(price)}<Text style={styles.per}>{perLabel}</Text>
-                </Text>
-                <View style={styles.bookBtn}>
-                  <Text style={styles.bookText}>Book</Text>
-                </View>
-              </View>
-            </OverlayCard>
+            />
           );
         })}
       </ScrollView>
@@ -169,7 +312,7 @@ export function TrekkingRail() {
   );
 }
 
-// ── Last-minute deals ────────────────────────────────────────────────────
+// ── Sea, sand, savings (last-minute deals) ──────────────────────────────
 export function ValueDealsRail() {
   const [deals, setDeals] = useState<any[] | null>(null);
 
@@ -182,6 +325,10 @@ export function ValueDealsRail() {
     return () => { alive = false; };
   }, []);
 
+  // The web home shelf's own footage, one distinct clip per card.
+  const clips = useMemo(() => assignDealClips(deals || []), [deals]);
+  const { canPlay, scrollProps } = useRailPlayback(CARD_W, RAIL_GAP, { video: true });
+
   if (!deals || deals.length === 0) return null;
 
   return (
@@ -189,12 +336,17 @@ export function ValueDealsRail() {
       <RailHeader
         icon="pricetag"
         tint={DEALS_ACCENT}
-        title="Last-minute deals"
-        subtitle="Andaman, Bali and Thailand — our lowest prices, ready to book now."
+        title="Sea, sand, savings"
+        subtitle="Island escapes to Andaman, Bali and Thailand, all under ₹25,000 — our lowest prices, ready to book."
         onSeeAll={() => router.push('/packages?maxBudget=25000' as any)}
       />
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
-        {deals.map((p) => {
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.rail}
+        {...scrollProps}
+      >
+        {deals.map((p, i) => {
           const listPrice = p.pricing?.startingFrom || 0;
           const sell = p.platformSellingPrice || listPrice;
           const mrp = p.platformMRP || 0;
@@ -206,7 +358,11 @@ export function ValueDealsRail() {
           return (
             <OverlayCard
               key={p._id}
-              image={primaryImage(p.images)}
+              // The clip's own first frame is the poster, so on mobile data
+              // the card still shows the sea-and-sand shot, and on Wi-Fi the
+              // clip takes over from it without a visible change.
+              image={clips[p._id] ? clips[p._id].replace(/\.mp4$/, '.jpg') : primaryImage(p.images)}
+              video={canPlay(i) ? clips[p._id] || null : null}
               // Deals route by slug; the trek cards route by _id.
               onPress={() => router.push(`/packages/${encodeURIComponent(p._id)}` as any)}
               topLeft={notice > 0 ? (
@@ -251,7 +407,7 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: fontWeight.bold, letterSpacing: -0.3 },
   headerSub: { fontSize: 12, marginTop: 2, lineHeight: 16 },
   seeAll: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  rail: { gap: 16, paddingHorizontal: spacing.lg },
+  rail: { gap: RAIL_GAP, paddingHorizontal: spacing.lg },
 
   card: { width: CARD_W, height: CARD_H, borderRadius: 16, overflow: 'hidden', backgroundColor: '#e5e7eb' },
   cardPh: { backgroundColor: '#e5e7eb' },
@@ -262,7 +418,6 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 10, left: 10, flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4,
   },
-  badgeDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#34D399' },
   badgeText: { color: '#fff', fontSize: 9, fontWeight: fontWeight.semibold, letterSpacing: 0.5 },
   discountPill: {
     position: 'absolute', top: 10, right: 10, backgroundColor: '#22C55E',
@@ -272,7 +427,6 @@ const styles = StyleSheet.create({
 
   place: { color: 'rgba(255,255,255,0.8)', fontSize: 10, marginBottom: 1 },
   title: { color: '#fff', fontSize: 12.5, fontWeight: fontWeight.bold, lineHeight: 16, marginBottom: 3 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   meta: { color: 'rgba(255,255,255,0.8)', fontSize: 10 },
   priceRow: {
     flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
@@ -281,6 +435,4 @@ const styles = StyleSheet.create({
   strike: { color: 'rgba(255,255,255,0.6)', fontSize: 9, textDecorationLine: 'line-through', marginBottom: 1 },
   price: { color: '#fff', fontSize: 14, fontWeight: fontWeight.bold },
   per: { color: 'rgba(255,255,255,0.7)', fontSize: 9, fontWeight: fontWeight.normal },
-  bookBtn: { backgroundColor: '#F97316', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
-  bookText: { color: '#fff', fontSize: 10, fontWeight: fontWeight.semibold },
 });

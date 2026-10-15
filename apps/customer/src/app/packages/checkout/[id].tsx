@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTripRequests, requestLines } from '../../../lib/tripRequests';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import Toast from 'react-native-toast-message';
@@ -233,6 +234,13 @@ export default function PackageCheckoutScreen() {
   // Step 4: legal acceptance (required by the server before booking)
   const [agreedLegal, setAgreedLegal] = useState(false);
   const [specialRequests, setSpecialRequests] = useState('');
+  // Changes asked for on the package page (activities, meals). Sent as a
+  // request for the team to confirm; never added to what is charged.
+  const tripReq = useTripRequests();
+  const changeLines = useMemo(
+    () => (tripReq.packageId && tripReq.packageId === id ? requestLines(tripReq) : []),
+    [tripReq, id],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -413,7 +421,20 @@ export default function PackageCheckoutScreen() {
           customerName: name.trim(),
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
-          specialRequests: specialRequests.trim() || undefined,
+          specialRequests: [
+            specialRequests.trim(),
+            changeLines.length ? `Requested trip changes (to confirm):\n${changeLines.map((l) => `• ${l}`).join('\n')}` : '',
+          ].filter(Boolean).join('\n\n') || undefined,
+          // Recorded for the team; carries no surcharge, so the price charged
+          // is unchanged until they confirm.
+          ...(changeLines.length ? {
+            customizations: {
+              requestOnly: true,
+              addedActivities: tripReq.added.map((a) => ({ dayNumber: a.day, activity: { title: a.title, externalId: a.externalId } })),
+              swappedActivities: tripReq.swapped.map((w) => ({ dayNumber: w.day, from: w.from, newActivity: { title: w.to } })),
+              mealPlanChanges: tripReq.meals,
+            },
+          } : {}),
           // Ids only — the server prices each extra off the package itself.
           selectedAddOns: selectedAddOnPayload,
           // Required — server rejects the booking without these acceptances.
@@ -459,8 +480,9 @@ export default function PackageCheckoutScreen() {
         notes: { bookingId: currentBookingId!, packageId: pkg._id },
       });
 
+      // Backing out of the payment sheet is the traveller's choice, not an
+      // error — return to the form quietly.
       if (result.status === 'cancelled') {
-        Toast.show({ type: 'info', text1: 'Payment cancelled' });
         setSubmitting(false);
         return;
       }
@@ -490,6 +512,7 @@ export default function PackageCheckoutScreen() {
           text1: 'Booking confirmed',
           text2: 'See it under My Bookings.',
         });
+        tripReq.reset();
         router.replace('/bookings');
       } else {
         Toast.show({
@@ -751,6 +774,18 @@ export default function PackageCheckoutScreen() {
                 <ReviewRow label="Email" value={email} />
               </Card>
 
+              {changeLines.length > 0 && (
+                <Card style={[styles.review, styles.changesCard]}>
+                  <Text style={styles.changesTitle}>Requested changes ({changeLines.length})</Text>
+                  {changeLines.map((l) => (
+                    <Text key={l} style={styles.changesLine}>• {l}</Text>
+                  ))}
+                  <Text style={styles.changesNote}>
+                    Our team confirms these, and any change in price, before you travel. They are not added to today's payment.
+                  </Text>
+                </Card>
+              )}
+
               {/* Server-authoritative price breakdown */}
               <Card style={styles.review}>
                 {pricing ? (
@@ -997,6 +1032,10 @@ const styles = StyleSheet.create({
   legalLink: { color: packageColors.primary[600], fontWeight: fontWeight.semibold },
 
   review: { padding: spacing.lg, gap: spacing.sm },
+  changesCard: { borderWidth: 1, borderColor: '#fcd34d', backgroundColor: '#fffbeb' },
+  changesTitle: { fontSize: 14, fontWeight: '800', color: '#78350f' },
+  changesLine: { fontSize: 13, color: '#78350f', lineHeight: 19 },
+  changesNote: { fontSize: 11.5, color: '#92400e', marginTop: 4, lineHeight: 16 },
   reviewRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

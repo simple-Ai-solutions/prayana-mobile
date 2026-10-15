@@ -4,73 +4,51 @@ import {
   Text,
   ScrollView,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Dimensions,
   ActivityIndicator,
 } from 'react-native';
+import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  Button,
-  colors,
-  fontSize,
-  fontWeight,
-  spacing,
-  shadow,
-  borderRadius,
-  useTheme,
-} from '@prayana/shared-ui';
+import { colors, spacing, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
 import { createTripAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import TemplateSelector from '../../components/trip/TemplateSelector';
+import { tripDays, tripSpots, tripTitle, editedAgo } from '../../components/trips/TripPass';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// --- Template data ---
+// --- Trip styles: a starting budget and pace, then the usual setup ---
 const TEMPLATES = [
   {
-    id: 'weekend',
-    name: 'Weekend Getaway',
-    emoji: '\uD83C\uDFD6\uFE0F',
-    duration: '2 days',
-    budget: 'budget',
-    tripType: 'leisure',
-    description: 'Quick escape for the weekend',
-    gradient: [colors.primary[400], colors.primary[600]] as [string, string],
+    id: 'weekend', name: 'Weekend Getaway', duration: '2 days', budget: 'budget', tripType: 'leisure',
+    description: 'A quick escape', icon: 'sunny' as const,
+    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=640&q=80',
   },
   {
-    id: 'week-adventure',
-    name: 'Week Long Adventure',
-    emoji: '\uD83D\uDDFA\uFE0F',
-    duration: '7 days',
-    budget: 'moderate',
-    tripType: 'adventure',
-    description: 'A full week of exploration',
-    gradient: [colors.info, '#1d4ed8'] as [string, string],
+    id: 'week-adventure', name: 'Week-long Adventure', duration: '7 days', budget: 'moderate', tripType: 'adventure',
+    description: 'A full week of exploring', icon: 'compass' as const,
+    image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=640&q=80',
   },
   {
-    id: 'luxury',
-    name: 'Luxury Escape',
-    emoji: '\uD83D\uDC8E',
-    duration: '5 days',
-    budget: 'luxury',
-    tripType: 'leisure',
-    description: 'Premium travel experience',
-    gradient: ['#a855f7', '#7c3aed'] as [string, string],
+    id: 'luxury', name: 'Luxury Escape', duration: '5 days', budget: 'luxury', tripType: 'leisure',
+    description: 'Premium stays, slow days', icon: 'diamond' as const,
+    image: 'https://images.unsplash.com/photo-1615836245337-f5b9b2303f10?w=640&q=80',
   },
   {
-    id: 'cultural',
-    name: 'Cultural Tour',
-    emoji: '\uD83C\uDFDB\uFE0F',
-    duration: '4 days',
-    budget: 'moderate',
-    tripType: 'cultural',
-    description: 'Immerse in local culture',
-    gradient: [colors.success, '#15803d'] as [string, string],
+    id: 'cultural', name: 'Cultural Tour', duration: '4 days', budget: 'moderate', tripType: 'cultural',
+    description: 'Forts, food and festivals', icon: 'library' as const,
+    image: 'https://images.unsplash.com/photo-1477587458883-47145ed94245?w=640&q=80',
   },
 ];
+
+const HERO = require('../../../assets/hero-scenery.jpg');
+const RED = '#E61417';
+const ORANGE = '#f97316';
 
 export default function CreateTripScreen() {
   const router = useRouter();
@@ -148,133 +126,133 @@ export default function CreateTripScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* ======= HEADER ======= */}
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: themeColors.text }]}>Trip Planner</Text>
-          <Text style={[styles.subtitle, { color: themeColors.textSecondary }]}>Plan your perfect journey with AI</Text>
-        </View>
-
-        {/* ======= START NEW TRIP CTA ======= */}
-        <View style={styles.ctaContainer}>
-          <TouchableOpacity
-            style={[styles.ctaButton, shadow.md]}
-            activeOpacity={0.85}
-            onPress={handleStartNewTrip}
-          >
-            <LinearGradient
-              colors={[colors.primary[500], colors.primary[600]]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.ctaGradient}
-            >
-              <Text style={styles.ctaEmoji}>{'\u2728'}</Text>
-              <View style={styles.ctaTextContainer}>
-                <Text style={styles.ctaTitle}>Start New Trip</Text>
-                <Text style={styles.ctaSubtitle}>Create a custom trip from scratch</Text>
-              </View>
-              <Text style={styles.ctaArrow}>{'\u2192'}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        {/* ======= TEMPLATES SECTION ======= */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Start from a Template</Text>
-          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>Pick a template and customize it your way</Text>
-
-          <View style={styles.templateGrid}>
-            {TEMPLATES.map((template) => (
-              <TouchableOpacity
-                key={template.id}
-                style={[styles.templateCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                activeOpacity={0.85}
-                onPress={() => handleTemplatePress(template)}
-              >
-                <LinearGradient
-                  colors={template.gradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.templateGradient}
-                >
-                  <Text style={styles.templateEmoji}>{template.emoji}</Text>
+        {/* ======= HERO: a photo card with the main action ======= */}
+        <View style={styles.heroWrap}>
+          <Pressable onPress={handleStartNewTrip} accessibilityRole="button" accessibilityLabel="Start a new trip" style={({ pressed }) => [styles.hero, pressed && { transform: [{ scale: 0.99 }] }]}>
+            <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" />
+            <LinearGradient colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.85)']} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
+            <View style={styles.heroPill}>
+              <Ionicons name="sparkles" size={11} color={RED} />
+              <Text style={styles.heroPillText}>AI TRIP PLANNER</Text>
+            </View>
+            <View style={styles.heroBody}>
+              <Text style={styles.heroTitle}>Plan your perfect{'\n'}escape with AI</Text>
+              <Text style={styles.heroSub}>Tell us where and when — get a day-by-day plan with routes, timings and budget.</Text>
+              <View style={styles.heroCta}>
+                <Text style={styles.heroCtaText}>Start a new trip</Text>
+                <LinearGradient colors={[ORANGE, RED]} style={styles.heroCtaIcon}>
+                  <Ionicons name="arrow-forward" size={16} color="#fff" />
                 </LinearGradient>
+              </View>
+            </View>
+          </Pressable>
+        </View>
+
+        {/* ======= HOW IT WORKS ======= */}
+        <View style={styles.steps}>
+          {([
+            ['location', 'Pick places'],
+            ['calendar', 'Choose dates'],
+            ['sparkles', 'AI builds it'],
+          ] as const).map(([icon, label], i) => (
+            <React.Fragment key={label}>
+              {i > 0 ? <View style={[styles.stepLine, { backgroundColor: themeColors.border }]} /> : null}
+              <View style={styles.step}>
+                <View style={[styles.stepIcon, { backgroundColor: 'rgba(249,115,22,0.1)' }]}>
+                  <Ionicons name={icon} size={16} color={ORANGE} />
+                </View>
+                <Text style={[styles.stepText, { color: themeColors.textSecondary }]}>{label}</Text>
+              </View>
+            </React.Fragment>
+          ))}
+        </View>
+
+        {/* ======= CONTINUE PLANNING ======= */}
+        {loadingDrafts ? (
+          <View style={styles.draftLoader}>
+            <ActivityIndicator size="small" color={ORANGE} />
+          </View>
+        ) : recentDrafts.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Continue planning</Text>
+            <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>Pick up where you left off</Text>
+            <View style={{ gap: 10 }}>
+              {recentDrafts.map((draft, idx) => {
+                const days = tripDays(draft);
+                const spots = tripSpots(draft);
+                const edited = editedAgo(draft.updatedAt || draft.createdAt);
+                return (
+                  <Pressable
+                    key={draft._id || draft.tripId || String(idx)}
+                    style={({ pressed }) => [styles.draftCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }, pressed && { opacity: 0.9 }]}
+                    onPress={() => handleContinueDraft(draft)}
+                    accessibilityRole="button"
+                  >
+                    <LinearGradient colors={[ORANGE, RED]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.draftIcon}>
+                      <Ionicons name="map" size={20} color="#fff" />
+                    </LinearGradient>
+                    <View style={styles.draftInfo}>
+                      <Text style={[styles.draftName, { color: themeColors.text }]} numberOfLines={1}>{tripTitle(draft)}</Text>
+                      <Text style={[styles.draftMeta, { color: themeColors.textTertiary }]} numberOfLines={1}>
+                        {[days ? `${days} day${days === 1 ? '' : 's'}` : null, spots ? `${spots} spots` : null, edited ? `edited ${edited}` : null].filter(Boolean).join(' · ') || 'Just started'}
+                      </Text>
+                    </View>
+                    <View style={[styles.resume, { backgroundColor: themeColors.text }]}>
+                      <Text style={[styles.resumeText, { color: themeColors.background }]}>Resume</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
+        {/* ======= TRIP STYLES ======= */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Start with a trip style</Text>
+          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>We set the pace and budget — you pick the places</Text>
+          <View style={styles.templateGrid}>
+            {TEMPLATES.map((t) => (
+              <Pressable
+                key={t.id}
+                style={({ pressed }) => [styles.templateCard, pressed && { transform: [{ scale: 0.98 }] }]}
+                onPress={() => handleTemplatePress(t)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t.name}, ${t.duration}`}
+              >
+                <Image source={{ uri: t.image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" />
+                <LinearGradient colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.82)']} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
+                <View style={styles.templateIcon}>
+                  <Ionicons name={t.icon} size={14} color="#fff" />
+                </View>
                 <View style={styles.templateInfo}>
-                  <Text style={[styles.templateName, { color: themeColors.text }]} numberOfLines={1}>
-                    {template.name}
-                  </Text>
-                  <Text style={[styles.templateMeta, { color: themeColors.textTertiary }]}>
-                    {template.duration} &middot;{' '}
-                    {template.budget.charAt(0).toUpperCase() + template.budget.slice(1)}
+                  <Text style={styles.templateName} numberOfLines={2}>{t.name}</Text>
+                  <Text style={styles.templateMeta}>
+                    {t.duration} · {t.budget.charAt(0).toUpperCase() + t.budget.slice(1)}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
         </View>
 
-        {/* ======= DESTINATION TEMPLATES ======= */}
+        {/* ======= READY-MADE ITINERARIES ======= */}
         <TemplateSelector />
 
-        {/* ======= RECENT DRAFTS ======= */}
-        {loadingDrafts ? (
-          <View style={styles.draftLoader}>
-            <ActivityIndicator size="small" color={colors.primary[500]} />
-          </View>
-        ) : recentDrafts.length > 0 ? (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Continue Planning</Text>
-            <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>Pick up where you left off</Text>
-
-            {recentDrafts.map((draft, idx) => {
-              const destCount = draft.destinations?.length || 0;
-              const dateRange =
-                draft.startDate && draft.endDate
-                  ? `${formatDate(draft.startDate)} - ${formatDate(draft.endDate)}`
-                  : 'Dates not set';
-
-              return (
-                <TouchableOpacity
-                  key={draft._id || draft.tripId || String(idx)}
-                  style={[styles.draftCard, shadow.sm, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                  activeOpacity={0.85}
-                  onPress={() => handleContinueDraft(draft)}
-                >
-                  <View style={styles.draftIconContainer}>
-                    <LinearGradient
-                      colors={[colors.primary[100], colors.primary[200]]}
-                      style={styles.draftIcon}
-                    >
-                      <Text style={styles.draftIconText}>{'\uD83D\uDCDD'}</Text>
-                    </LinearGradient>
-                  </View>
-                  <View style={styles.draftInfo}>
-                    <Text style={[styles.draftName, { color: themeColors.text }]} numberOfLines={1}>
-                      {draft.name || 'Untitled Trip'}
-                    </Text>
-                    <Text style={[styles.draftMeta, { color: themeColors.textTertiary }]}>
-                      {dateRange}
-                      {destCount > 0 ? ` \u00B7 ${destCount} dest${destCount !== 1 ? 's' : ''}` : ''}
-                    </Text>
-                  </View>
-                  <Text style={styles.draftArrow}>{'\u203A'}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ) : null}
-
-        {/* ======= AI TIP ======= */}
+        {/* ======= AI NOTE ======= */}
         <View style={[styles.section, { marginBottom: spacing['3xl'] }]}>
-          <View style={[styles.tipCard, shadow.sm]}>
-            <Text style={styles.tipEmoji}>{'\uD83E\uDD16'}</Text>
+          <LinearGradient colors={['#111827', '#1f2937']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.tipCard}>
+            <LinearGradient colors={['rgba(230,20,23,0.5)', 'rgba(230,20,23,0)']} start={{ x: 1, y: 0 }} end={{ x: 0.3, y: 1 }} style={StyleSheet.absoluteFill} />
+            <View style={styles.tipIcon}>
+              <Ionicons name="sparkles" size={20} color="#fff" />
+            </View>
             <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>AI-Powered Planning</Text>
+              <Text style={styles.tipTitle}>Planning, done for you</Text>
               <Text style={styles.tipText}>
-                Our AI suggests destinations, activities, and optimizes your itinerary based on your
-                preferences, budget, and travel style.
+                Our AI suggests places and activities, orders them into sensible routes, and fits them to your budget and travel style.
               </Text>
             </View>
-          </View>
+          </LinearGradient>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -285,200 +263,69 @@ export default function CreateTripScreen() {
 // STYLES
 // ============================================================
 
-const TEMPLATE_CARD_WIDTH = (SCREEN_WIDTH - spacing.xl * 2 - spacing.md) / 2;
+const TEMPLATE_CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - 12) / 2;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollContent: {
-    paddingBottom: spacing['3xl'],
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  scrollContent: { paddingBottom: spacing['3xl'] },
 
-  // --- Header ---
-  header: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.md,
+  heroWrap: { paddingHorizontal: 16, paddingTop: 10 },
+  hero: {
+    height: 300, borderRadius: 28, overflow: 'hidden', justifyContent: 'flex-end',
+    shadowColor: '#0f172a', shadowOpacity: 0.25, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 6,
   },
-  title: {
-    fontSize: fontSize['2xl'],
-    fontWeight: fontWeight.bold,
-    color: colors.text,
+  heroPill: {
+    position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
   },
-  subtitle: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
+  heroPillText: { color: RED, fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
+  heroBody: { padding: 20 },
+  heroTitle: { color: '#fff', fontSize: 30, fontWeight: '900', letterSpacing: -0.8, lineHeight: 35 },
+  heroSub: { color: 'rgba(255,255,255,0.88)', fontSize: 13.5, lineHeight: 19, marginTop: 8 },
+  heroCta: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch',
+    backgroundColor: '#fff', borderRadius: 18, paddingLeft: 18, paddingRight: 6, paddingVertical: 6, marginTop: 16,
   },
+  heroCtaText: { color: '#111827', fontSize: 16, fontWeight: '900' },
+  heroCtaIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 
-  // --- CTA Button ---
-  ctaContainer: {
-    paddingHorizontal: spacing.xl,
-    marginTop: spacing.lg,
-  },
-  ctaButton: {
-    borderRadius: borderRadius.xl,
-    overflow: 'hidden',
-  },
-  ctaGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl,
-  },
-  ctaEmoji: {
-    fontSize: 28,
-    marginRight: spacing.lg,
-  },
-  ctaTextContainer: {
-    flex: 1,
-  },
-  ctaTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: '#ffffff',
-  },
-  ctaSubtitle: {
-    fontSize: fontSize.xs,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
-  },
-  ctaArrow: {
-    fontSize: fontSize.xl,
-    color: '#ffffff',
-    fontWeight: fontWeight.bold,
-    marginLeft: spacing.md,
-  },
+  steps: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginTop: 18 },
+  step: { alignItems: 'center', gap: 6 },
+  stepIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  stepText: { fontSize: 11.5, fontWeight: '700' },
+  stepLine: { flex: 1, height: 1.5, marginHorizontal: 6, marginBottom: 20 },
 
-  // --- Section ---
-  section: {
-    marginTop: spacing['2xl'],
-    paddingHorizontal: spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
-    color: colors.text,
-  },
-  sectionSubtitle: {
-    fontSize: fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-    marginBottom: spacing.lg,
-  },
+  section: { marginTop: 28, paddingHorizontal: 16 },
+  sectionTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4, color: colors.text },
+  sectionSubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2, marginBottom: 12 },
 
-  // --- Template Grid ---
-  templateGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
+  templateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   templateCard: {
-    width: TEMPLATE_CARD_WIDTH,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
+    width: TEMPLATE_CARD_WIDTH, height: Math.round(TEMPLATE_CARD_WIDTH * 1.05), borderRadius: 20, overflow: 'hidden',
+    justifyContent: 'flex-end', backgroundColor: '#1f2937',
+    shadowColor: '#0f172a', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, elevation: 3,
   },
-  templateGradient: {
-    height: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
+  templateIcon: {
+    position: 'absolute', top: 10, left: 10, width: 30, height: 30, borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.22)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.35)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  templateEmoji: {
-    fontSize: 28,
-  },
-  templateInfo: {
-    padding: spacing.md,
-  },
-  templateName: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.text,
-  },
-  templateMeta: {
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-    marginTop: spacing.xs,
-  },
+  templateInfo: { padding: 12 },
+  templateName: { color: '#fff', fontSize: 15.5, fontWeight: '900', lineHeight: 19 },
+  templateMeta: { color: 'rgba(255,255,255,0.85)', fontSize: 12, fontWeight: '600', marginTop: 3 },
 
-  // --- Draft Cards ---
-  draftLoader: {
-    marginTop: spacing['2xl'],
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
-  draftCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  draftIconContainer: {
-    marginRight: spacing.md,
-  },
-  draftIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: borderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  draftIconText: {
-    fontSize: 20,
-  },
-  draftInfo: {
-    flex: 1,
-  },
-  draftName: {
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.semibold,
-    color: colors.text,
-  },
-  draftMeta: {
-    fontSize: fontSize.xs,
-    color: colors.textTertiary,
-    marginTop: spacing.xs,
-  },
-  draftArrow: {
-    fontSize: 24,
-    color: colors.textTertiary,
-    marginLeft: spacing.sm,
-  },
+  draftLoader: { marginTop: spacing['2xl'], alignItems: 'center', paddingVertical: spacing.lg },
+  draftCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, padding: 12, borderWidth: 1 },
+  draftIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  draftInfo: { flex: 1, minWidth: 0 },
+  draftName: { fontSize: 15.5, fontWeight: '800' },
+  draftMeta: { fontSize: 12.5, marginTop: 3 },
+  resume: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 },
+  resumeText: { fontSize: 12.5, fontWeight: '800' },
 
-  // --- AI Tip ---
-  tipCard: {
-    flexDirection: 'row',
-    backgroundColor: colors.primary[50],
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colors.primary[100],
-  },
-  tipEmoji: {
-    fontSize: 24,
-    marginRight: spacing.md,
-    marginTop: 2,
-  },
-  tipContent: {
-    flex: 1,
-  },
-  tipTitle: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.primary[700],
-    marginBottom: spacing.xs,
-  },
-  tipText: {
-    fontSize: fontSize.xs,
-    color: colors.primary[600],
-    lineHeight: 18,
-  },
+  tipCard: { flexDirection: 'row', gap: 14, borderRadius: 22, padding: 18, overflow: 'hidden' },
+  tipIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' },
+  tipContent: { flex: 1 },
+  tipTitle: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  tipText: { color: 'rgba(255,255,255,0.75)', fontSize: 12.5, lineHeight: 18, marginTop: 4 },
 });

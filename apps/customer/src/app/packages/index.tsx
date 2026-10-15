@@ -32,6 +32,8 @@ import { holidayPackagesAPI } from '@prayana/shared-services';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 import { GroupDeparturesTab } from '../../components/packages/GroupDeparturesTab';
+import { HolidayCard, DealPoster, DealTile, ThemeTiles, THEMES } from '../../components/packages/HolidayCards';
+import { FULL_W, RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, usePairSnap } from '../../lib/railLayout';
 
 // Packages use the theme's blue accent rather than the app-wide orange, so the
 // holiday-package flow reads as its own product. Aliased once here: every
@@ -72,6 +74,7 @@ const SCOPES: { key: Scope; label: string }[] = [
 // Full-bleed hero photo — the same Himalayan landscape the PWA uses.
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80';
 const BLUE = '#008cff';
+const PAGE_SIZE = 30;
 
 // Sort options (server keys — see /packages/search sort mapping).
 const SORTS: { key: string; label: string }[] = [
@@ -127,6 +130,11 @@ export default function PackagesScreen() {
   const [deals, setDeals] = useState<HolidayPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // The catalogue is paged (30 at a time, 180+ in all): the rest load as you
+  // scroll, and the header quotes the server's total, not the page size.
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // Facet filters (Duration / Budget / City) — mirrors the web filter accordions.
   const [facets, setFacets] = useState<any>(null);
@@ -154,7 +162,8 @@ export default function PackagesScreen() {
           minNights: filters.minNights,
           maxNights: filters.maxNights,
           cities: filters.cities || undefined,
-          limit: 30,
+          limit: PAGE_SIZE,
+          page: 1,
         }),
         // Only fetch featured + deals on the unfiltered initial view.
         initial ? holidayPackagesAPI.getFeatured() : Promise.resolve(null),
@@ -163,6 +172,8 @@ export default function PackagesScreen() {
         !facets ? holidayPackagesAPI.getFacets().catch(() => null) : Promise.resolve(null),
       ]);
       setPackages(searchRes?.data || searchRes?.packages || []);
+      setPage(1);
+      setTotal(searchRes?.pagination?.total ?? (searchRes?.data || []).length);
       if (featuredRes) setFeatured(featuredRes?.data || featuredRes?.packages || []);
       if (dealsRes) setDeals(dealsRes?.data || dealsRes?.packages || []);
       if (facetsRes?.data) setFacets(facetsRes.data);
@@ -179,375 +190,266 @@ export default function PackagesScreen() {
     load();
   }, [load]);
 
+  const loadMore = useCallback(async () => {
+    if (loading || loadingMore || packages.length >= total) return;
+    setLoadingMore(true);
+    try {
+      const res: any = await holidayPackagesAPI.search({
+        q: search.trim() || undefined,
+        category: filters.category || (activeCategory !== 'all' ? activeCategory : undefined),
+        scope: scope !== 'all' ? scope : undefined,
+        sort,
+        minBudget: filters.minBudget,
+        maxBudget: filters.maxBudget,
+        minNights: filters.minNights,
+        maxNights: filters.maxNights,
+        cities: filters.cities || undefined,
+        limit: PAGE_SIZE,
+        page: page + 1,
+      });
+      const more: HolidayPackage[] = res?.data || res?.packages || [];
+      setPackages((prev) => {
+        const seen = new Set(prev.map((x) => x._id));
+        return [...prev, ...more.filter((x) => !seen.has(x._id))];
+      });
+      setPage((n) => n + 1);
+      if (!more.length) setTotal((t) => Math.min(t, packages.length));
+    } catch (err: any) {
+      console.warn('[Packages] load more failed:', err?.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loading, loadingMore, packages.length, total, page, search, filters, activeCategory, scope, sort]);
+
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     load();
   }, [load]);
 
-  const heroFeatured = useMemo(() => featured.slice(0, 5), [featured]);
+  // De-duplicated so a package never appears twice in one rail.
+  const heroFeatured = useMemo(() => {
+    const seen = new Set<string>();
+    // Until packages are marked featured on the server, lead with the
+    // top-rated ones that have a photo.
+    const source = featured.length ? featured : packages.filter((p) => pkgImage(p));
+    return source.filter((p) => (seen.has(p._id) ? false : (seen.add(p._id), true))).slice(0, 5);
+  }, [featured, packages]);
+  const dealList = useMemo(() => {
+    const seen = new Set<string>();
+    return deals.filter((p) => (seen.has(p._id) ? false : (seen.add(p._id), true)));
+  }, [deals]);
+  const browsing = !search.trim() && activeCategory === 'all' && scope === 'all' && activeFilterCount === 0 && sort === 'rating';
+  const open = (pkg: HolidayPackage) => router.push(`/packages/${encodeURIComponent(pkg._id)}` as any);
+  const featSnap = usePairSnap(FULL_W + RAIL_GAP);
+  const dealSnap = usePairSnap(TWO_UP_SNAP);
+  const [featAt, setFeatAt] = useState(0);
+  const onFeatEnd = (e: any) => setFeatAt(Math.round(e.nativeEvent.contentOffset.x / (FULL_W + RAIL_GAP)));
 
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* Hero — full-bleed photo, gradient, title + search (PWA parity) */}
+  const top = (
+    <View>
+      {/* Hero — photo, title, search; scrolls away with the page. */}
       <View style={styles.hero}>
         <Image source={{ uri: HERO_IMAGE }} style={StyleSheet.absoluteFillObject} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-        <LinearGradient colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.6)']} style={StyleSheet.absoluteFill} />
-        <TouchableOpacity onPress={() => router.back()} style={styles.heroBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
-          <Ionicons name="chevron-back" size={22} color="#fff" />
-        </TouchableOpacity>
-        <View style={styles.heroBody}>
-          <Text style={styles.heroTitle}>Holiday Packages<Text style={{ color: '#FBBF24' }}>.</Text></Text>
-          <Text style={styles.heroSub}>Discover handpicked escapes across India & beyond</Text>
-          <View style={styles.heroSearch}>
-            <Ionicons name="search-outline" size={18} color="#6B7280" />
-            <RNTextInput
-              style={styles.heroSearchInput}
-              placeholder="Search destination, package, category..."
-              placeholderTextColor="#9CA3AF"
-              value={search}
-              onChangeText={setSearch}
-              returnKeyType="search"
-            />
-            {search ? (
-              <TouchableOpacity onPress={() => setSearch('')}>
-                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            ) : null}
+        <LinearGradient colors={['rgba(5,20,40,0.45)', 'rgba(5,20,40,0.2)', 'rgba(5,20,40,0.75)']} style={StyleSheet.absoluteFill} />
+        <View style={styles.heroTop}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.heroBack} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}>
+            <Ionicons name="chevron-back" size={22} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.heroBadge}>
+            <Ionicons name="pricetags" size={11} color="#FBBF24" />
+            <Text style={styles.heroBadgeText}>HOLIDAY DEALS</Text>
           </View>
+          <View style={{ width: 36 }} />
+        </View>
+        <View style={styles.heroBody}>
+          <Text style={styles.heroTitle}>Holidays that{'\n'}feel <Text style={{ color: '#FBBF24' }}>effortless</Text></Text>
+          <Text style={styles.heroSub}>Stays, transfers & sightseeing — one price, one booking</Text>
+        </View>
+        <View style={styles.heroSearch}>
+          <Ionicons name="search" size={18} color="#6B7280" />
+          <RNTextInput
+            style={styles.heroSearchInput}
+            placeholder="Where do you want to go?"
+            placeholderTextColor="#9CA3AF"
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+          />
+          {search ? (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
 
-      {/* Hero tab strip — web parity */}
-      <View style={[styles.tabStrip, { borderBottomColor: themeColors.border }]}>
-        {([['packages', 'Packages'], ['departures', 'Group Tours']] as const).map(([key, label]) => {
+      {/* Packages | Group Tours */}
+      <View style={[styles.tabStrip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+        {([['packages', 'Packages', 'briefcase'], ['departures', 'Group Tours', 'people']] as const).map(([key, label, icon]) => {
           const active = browseTab === key;
           return (
-            <TouchableOpacity
-              key={key}
-              onPress={() => setBrowseTab(key)}
-              style={[styles.tabBtn, active && { borderBottomColor: packageColors.primary[500] }]}
-              activeOpacity={0.8}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  { color: active ? packageColors.primary[600] : themeColors.textSecondary },
-                  active && { fontWeight: fontWeight.bold as any },
-                ]}
-              >
-                {label}
-              </Text>
+            <TouchableOpacity key={key} onPress={() => setBrowseTab(key)} style={[styles.tabBtn, active && styles.tabBtnOn]} activeOpacity={0.85}>
+              <Ionicons name={icon} size={15} color={active ? '#fff' : themeColors.textSecondary} />
+              <Text style={[styles.tabText, { color: active ? '#fff' : themeColors.textSecondary }]}>{label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+
+  const browseHeader = (
+    <View>
+      {top}
+
+      {/* India / International */}
+      <View style={[styles.scopeRow, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+        {SCOPES.map((sc) => {
+          const active = scope === sc.key;
+          return (
+            <TouchableOpacity key={sc.key} onPress={() => setScope(sc.key)} style={[styles.scopePill, active && styles.scopePillOn]} activeOpacity={0.8}>
+              <Text style={[styles.scopePillText, { color: active ? BLUE : themeColors.textSecondary }]}>{sc.label}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
 
-      {browseTab === 'departures' ? (
-        <GroupDeparturesTab
-          onOpenPackage={(pkg, dateISO) =>
-            router.push({
-              pathname: `/packages/${encodeURIComponent(pkg._id)}`,
-              params: dateISO ? { date: dateISO } : {},
-            } as any)
-          }
-        />
-      ) : (
-      <>
-      {/* India / International scope */}
-      <View style={styles.scopeRow}>
-        {SCOPES.map((s) => {
-          const active = scope === s.key;
-          return (
-            <TouchableOpacity
-              key={s.key}
-              onPress={() => setScope(s.key)}
-              style={[styles.scopePill, active && { backgroundColor: '#fff', ...shadow.sm }]}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.scopePillText, { color: active ? BLUE : themeColors.textSecondary }]}>{s.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
+      {/* Holidays by theme */}
+      <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Holidays by theme</Text>
+      <ThemeTiles active={activeCategory} onPick={setActiveCategory} />
+
+      {browsing && heroFeatured.length > 0 ? (
+        <View>
+          <View style={styles.sectionHead}>
+            <Text style={[styles.sectionTitleInline, { color: themeColors.text }]}>Handpicked for you</Text>
+          </View>
+          <ScrollView
+            horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast"
+            contentContainerStyle={{ paddingHorizontal: RAIL_PAD, gap: RAIL_GAP, paddingBottom: 6 }}
+            ref={featSnap.setRef}
+            {...featSnap.props}
+            onScrollEndDrag={(e) => { featSnap.props.onScrollEndDrag(e); onFeatEnd(e); }}
+            onMomentumScrollEnd={(e) => { featSnap.props.onMomentumScrollEnd(e); onFeatEnd(e); }}
+          >
+            {heroFeatured.map((pkg) => <DealPoster key={`f-${pkg._id}`} pkg={pkg} onPress={() => open(pkg)} />)}
+          </ScrollView>
+          <View style={styles.dots}>
+            {heroFeatured.map((p, i) => <View key={p._id} style={[styles.dot, i === featAt && styles.dotOn]} />)}
+          </View>
+        </View>
+      ) : null}
+
+      {browsing && dealList.length > 0 ? (
+        <View>
+          <View style={styles.sectionHead}>
+            <LinearGradient colors={['#ef4444', '#b91c1c']} style={styles.sectionIcon}><Ionicons name="flame" size={14} color="#fff" /></LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sectionTitleInline, { color: themeColors.text }]}>Last-minute deals</Text>
+              <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>Lowest prices for trips leaving soon</Text>
+            </View>
+          </View>
+          <ScrollView
+            horizontal showsHorizontalScrollIndicator={false} decelerationRate="fast"
+            contentContainerStyle={{ paddingHorizontal: RAIL_PAD, gap: RAIL_GAP, paddingBottom: 6 }}
+            ref={dealSnap.setRef}
+            {...dealSnap.props}
+          >
+            {dealList.map((pkg) => <DealTile key={`d-${pkg._id}`} pkg={pkg} onPress={() => open(pkg)} />)}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* All packages: count, Filters and sort */}
+      <View style={styles.sectionHead}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.sectionTitleInline, { color: themeColors.text }]}>
+            {search.trim() ? 'Results' : activeCategory !== 'all' ? (THEMES.find((t) => t.key === activeCategory)?.label || CATEGORIES.find((c) => c.key === activeCategory)?.label) + ' holidays' : 'All holidays'}
+          </Text>
+          <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>{loading ? 'Finding the best prices…' : `${total || packages.length} packages`}</Text>
+        </View>
       </View>
-
-      {/* Category chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.chipRail}
-        contentContainerStyle={styles.categoryRow}
-      >
-        {CATEGORIES.map((cat) => {
-          const active = activeCategory === cat.key;
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              style={[
-                styles.catChip,
-                { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                active && styles.catChipActive,
-              ]}
-              onPress={() => setActiveCategory(cat.key)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={cat.icon}
-                size={16}
-                color={active ? '#fff' : themeColors.textSecondary}
-              />
-              <Text style={[styles.catChipText, { color: themeColors.textSecondary }, active && styles.catChipTextActive]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* Sort pills + Filters */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.sortRow}>
         <TouchableOpacity
           onPress={() => setFilterOpen(true)}
-          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? packageColors.primary[500] : themeColors.border, backgroundColor: activeFilterCount ? packageColors.primary[500] + '18' : 'transparent' }]}
+          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? BLUE : themeColors.border, backgroundColor: activeFilterCount ? BLUE + '18' : themeColors.surface }]}
         >
-          <Ionicons name="options-outline" size={14} color={activeFilterCount ? packageColors.primary[600] : themeColors.textSecondary} />
-          <Text style={[styles.sortChipText, { color: activeFilterCount ? packageColors.primary[600] : themeColors.textSecondary }]}>
-            Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}
-          </Text>
+          <Ionicons name="options-outline" size={14} color={activeFilterCount ? BLUE : themeColors.text} />
+          <Text style={[styles.sortChipText, { color: activeFilterCount ? BLUE : themeColors.text }]}>Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
         </TouchableOpacity>
-        {SORTS.map((s) => {
-          const active = sort === s.key;
+        {SORTS.map((so) => {
+          const active = sort === so.key;
           return (
-            <TouchableOpacity
-              key={s.key}
-              onPress={() => setSort(s.key)}
-              style={[styles.sortChip, { borderColor: active ? packageColors.primary[500] : themeColors.border, backgroundColor: active ? packageColors.primary[500] + '18' : 'transparent' }]}
-            >
-              <Text style={[styles.sortChipText, { color: active ? packageColors.primary[600] : themeColors.textSecondary }]}>{s.label}</Text>
+            <TouchableOpacity key={so.key} onPress={() => setSort(so.key)} style={[styles.sortChip, { borderColor: active ? BLUE : themeColors.border, backgroundColor: active ? BLUE : themeColors.surface }]}>
+              <Text style={[styles.sortChipText, { color: active ? '#fff' : themeColors.textSecondary }]}>{so.label}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
+      {loading ? <View style={styles.loadingBox}><ActivityIndicator size="large" color={BLUE} /></View> : null}
+    </View>
+  );
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={packageColors.primary[500]} />
-        </View>
-      ) : packages.length === 0 && heroFeatured.length === 0 ? (
-        <EmptyState
-          icon={<Ionicons name="airplane-outline" size={56} color={colors.gray[300]} />}
-          title="No packages found"
-          description={
-            search.trim()
-              ? `No packages match "${search}"`
-              : 'Try a different category or check back later.'
-          }
-          actionLabel="Clear filters"
-          onAction={() => {
-            setSearch('');
-            setActiveCategory('all');
-            setScope('all');
-            setFilters({});
-          }}
-        />
+  return (
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+      {browseTab === 'departures' ? (
+        <>
+          {top}
+          <GroupDeparturesTab
+            onOpenPackage={(pkg, dateISO) =>
+              router.push({
+                pathname: `/packages/${encodeURIComponent(pkg._id)}`,
+                params: dateISO ? { date: dateISO } : {},
+              } as any)
+            }
+          />
+        </>
       ) : (
         <FlashList
-          data={packages}
+          data={loading ? [] : packages}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
-            <PackageCard
-              pkg={item}
-              onPress={() =>
-                // Navigate by _id, not slug: some slugs collide with empty
-                // duplicate documents (images/variants/itinerary all blank),
-                // whereas the _id always resolves the full package.
-                router.push(`/packages/${encodeURIComponent(item._id)}`)
-              }
-            />
+            <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
+              {/* Open by _id, not slug: some slugs collide with empty duplicates. */}
+              <HolidayCard pkg={item} onPress={() => open(item)} />
+            </View>
           )}
-          ListHeaderComponent={
-            heroFeatured.length > 0 && !search.trim() && activeCategory === 'all' && scope === 'all' && activeFilterCount === 0 ? (
-              <View style={styles.featuredSection}>
-                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Featured for you</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
-                >
-                  {heroFeatured.map((pkg) => (
-                    <FeaturedCard
-                      key={pkg._id}
-                      pkg={pkg}
-                      onPress={() =>
-                        router.push(`/packages/${encodeURIComponent(pkg._id)}`)
-                      }
-                    />
-                  ))}
-                </ScrollView>
-                {deals.length > 0 && (
-                  <>
-                    <View style={styles.dealsHead}>
-                      <Ionicons name="flame" size={16} color="#3b82f6" />
-                      <Text style={[styles.sectionTitle, { color: themeColors.text, marginTop: 0 }]}>Last-minute deals</Text>
-                    </View>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={{ paddingHorizontal: spacing.lg, gap: spacing.md }}
-                    >
-                      {deals.map((pkg) => (
-                        <FeaturedCard
-                          key={`deal-${pkg._id}`}
-                          pkg={pkg}
-                          onPress={() => router.push(`/packages/${encodeURIComponent(pkg._id)}`)}
-                        />
-                      ))}
-                    </ScrollView>
-                  </>
-                )}
-                <Text style={[styles.sectionTitle, { marginTop: spacing.xl, color: themeColors.text }]}>
-                  All packages
-                </Text>
-              </View>
+          ListHeaderComponent={browseHeader}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.6}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.loadingBox}><ActivityIndicator color={BLUE} /></View>
+            ) : !loading && packages.length > 0 && packages.length >= total ? (
+              <Text style={[styles.sectionSub, { color: themeColors.textTertiary, textAlign: 'center', paddingVertical: 12 }]}>
+                You've seen all {packages.length} packages
+              </Text>
             ) : null
           }
-          contentContainerStyle={{ paddingBottom: spacing['3xl'] }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          ListEmptyComponent={
+            loading ? null : (
+              <EmptyState
+                icon={<Ionicons name="airplane-outline" size={56} color={colors.gray[300]} />}
+                title="No packages found"
+                description={search.trim() ? `No packages match "${search}"` : 'Try a different theme or filter.'}
+                actionLabel="Clear filters"
+                onAction={() => { setSearch(''); setActiveCategory('all'); setScope('all'); setFilters({}); }}
+              />
+            )
           }
+          contentContainerStyle={{ paddingBottom: spacing['3xl'] }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={BLUE} />}
         />
-      )}
-      </>
       )}
 
       <PackageFilterSheet
         open={filterOpen}
         facets={facets}
         value={filters}
-        resultCount={packages.length}
+        resultCount={total || packages.length}
         onClose={() => setFilterOpen(false)}
         onApply={(f) => setFilters(f)}
       />
     </SafeAreaView>
-  );
-}
-
-function PackageCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => void }) {
-  const { themeColors } = useTheme();
-  const img = pkgImage(pkg);
-  const days = pkg.duration?.days || 0;
-  const nights = pkg.duration?.nights || Math.max(0, days - 1);
-  const price = pkg.pricing?.startingFrom || 0;
-  const mrp = pkg.pricing?.mrp;
-  const off = mrp && mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  const dest = [pkg.destination?.city, pkg.destination?.state].filter(Boolean).join(', ');
-
-  return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.cardWrap}>
-      <Card style={styles.card}>
-        <View style={styles.cardImageWrap}>
-          {img ? (
-            <Image source={{ uri: img }} style={styles.cardImage} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-          ) : (
-            <LinearGradient
-              colors={[packageColors.primary[300], packageColors.primary[600]]}
-              style={styles.cardImage}
-            />
-          )}
-          {off > 0 ? (
-            <View style={styles.offBadge}>
-              <Text style={styles.offText}>{off}% OFF</Text>
-            </View>
-          ) : null}
-          {pkg.isFeatured ? (
-            <View style={styles.featuredBadge}>
-              <Ionicons name="flame" size={12} color="#fff" />
-              <Text style={styles.featuredText}>Featured</Text>
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.cardBody}>
-          <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={2}>
-            {pkg.title}
-          </Text>
-          {dest ? (
-            <View style={styles.metaRow}>
-              <Ionicons name="location-outline" size={13} color={themeColors.textTertiary} />
-              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>{dest}</Text>
-            </View>
-          ) : null}
-          {days > 0 ? (
-            <View style={styles.metaRow}>
-              <Ionicons name="time-outline" size={13} color={themeColors.textTertiary} />
-              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
-                {days} day{days === 1 ? '' : 's'}
-                {nights > 0 ? ` · ${nights} night${nights === 1 ? '' : 's'}` : ''}
-              </Text>
-            </View>
-          ) : null}
-          {pkg.rating?.average ? (
-            <View style={styles.metaRow}>
-              <StarRating rating={pkg.rating.average} size={12} />
-              <Text style={[styles.metaText, { color: themeColors.textSecondary }]}>
-                {pkg.rating.average.toFixed(1)}
-                {pkg.rating.count ? ` (${pkg.rating.count})` : ''}
-              </Text>
-            </View>
-          ) : null}
-
-          <View style={[styles.priceRow, { borderTopColor: themeColors.border }]}>
-            <View>
-              <Text style={[styles.priceLabel, { color: themeColors.textTertiary }]}>Starting from</Text>
-              <Text style={styles.priceValue}>
-                ₹{price.toLocaleString('en-IN')}
-                {mrp && mrp > price ? (
-                  <Text style={[styles.mrpText, { color: themeColors.textTertiary }]}> ₹{mrp.toLocaleString('en-IN')}</Text>
-                ) : null}
-              </Text>
-            </View>
-            <View style={styles.priceCta}>
-              <Text style={styles.priceCtaText}>View</Text>
-              <Ionicons name="arrow-forward" size={14} color="#fff" />
-            </View>
-          </View>
-        </View>
-      </Card>
-    </TouchableOpacity>
-  );
-}
-
-function FeaturedCard({ pkg, onPress }: { pkg: HolidayPackage; onPress: () => void }) {
-  const img = pkgImage(pkg);
-  return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.featCardWrap}>
-      <View style={styles.featCard}>
-        {img ? (
-          <Image source={{ uri: img }} style={styles.featImage} contentFit="cover" transition={200} cachePolicy="memory-disk" />
-        ) : (
-          <LinearGradient
-            colors={[packageColors.primary[400], packageColors.primary[700]]}
-            style={styles.featImage}
-          />
-        )}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.85)']}
-          style={styles.featOverlay}
-        />
-        <View style={styles.featContent}>
-          {pkg.duration?.days ? (
-            <Badge label={`${pkg.duration.days}D / ${pkg.duration.nights || pkg.duration.days - 1}N`} variant="primary" size="sm" />
-          ) : null}
-          <Text style={styles.featTitle} numberOfLines={2}>
-            {pkg.title}
-          </Text>
-          {pkg.pricing?.startingFrom ? (
-            <Text style={styles.featPrice}>
-              ₹{pkg.pricing.startingFrom.toLocaleString('en-IN')}
-              <Text style={styles.featPriceMeta}> / person</Text>
-            </Text>
-          ) : null}
-        </View>
-      </View>
-    </TouchableOpacity>
   );
 }
 
@@ -586,33 +488,45 @@ const styles = StyleSheet.create({
   },
 
   // Hero
-  hero: { height: 210, justifyContent: 'flex-end', backgroundColor: '#1f2937' },
+  hero: { paddingBottom: 18, backgroundColor: '#0b2a4a', overflow: 'hidden' },
+  heroTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 8 },
   heroBack: {
-    position: 'absolute', top: spacing.sm, left: spacing.lg,
     width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.3)',
     alignItems: 'center', justifyContent: 'center',
   },
-  heroBody: { padding: spacing.lg, paddingBottom: spacing.lg, alignItems: 'center' },
-  heroTitle: { color: '#fff', fontSize: 26, fontWeight: fontWeight.bold, letterSpacing: -0.4 },
-  heroSub: { color: 'rgba(255,255,255,0.9)', fontSize: fontSize.sm, marginTop: 4, textAlign: 'center' },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(251,191,36,0.4)' },
+  heroBadgeText: { color: '#FBBF24', fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
+  heroBody: { paddingHorizontal: 18, paddingTop: 26 },
+  heroTitle: { color: '#fff', fontSize: 32, fontWeight: '900', letterSpacing: -1, lineHeight: 37 },
+  heroSub: { color: 'rgba(255,255,255,0.9)', fontSize: 13.5, marginTop: 8 },
   heroSearch: {
     flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
     backgroundColor: '#fff', borderRadius: 16, paddingHorizontal: spacing.md,
-    height: 48, marginTop: spacing.md, width: '100%',
+    height: 52, marginTop: 18, marginHorizontal: 16,
     shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 6 }, elevation: 6,
   },
   heroSearchInput: { flex: 1, fontSize: fontSize.md, color: '#111827' },
 
   // India / International scope
-  tabStrip: { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: spacing.lg },
-  tabBtn: { paddingVertical: 12, marginRight: spacing.xl, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText: { fontSize: fontSize.sm, fontWeight: '600' },
-  scopeRow: {
-    flexDirection: 'row', alignSelf: 'center', marginTop: spacing.md,
-    backgroundColor: '#F3F4F6', borderRadius: 999, padding: 4, gap: 4,
+  tabStrip: {
+    flexDirection: 'row', marginHorizontal: 16, marginTop: -22, borderRadius: 18, borderWidth: 1, padding: 5, gap: 5,
+    shadowColor: '#0f172a', shadowOpacity: 0.12, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 4,
   },
-  scopePill: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 999 },
-  scopePillText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 14 },
+  tabBtnOn: { backgroundColor: BLUE },
+  tabText: { fontSize: 14, fontWeight: '800' },
+  scopeRow: { flexDirection: 'row', marginHorizontal: 16, marginTop: 16, borderRadius: 999, borderWidth: 1, padding: 4, gap: 4 },
+  scopePill: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
+  scopePillOn: { backgroundColor: 'rgba(0,140,255,0.1)' },
+  scopePillText: { fontSize: 13, fontWeight: '800' },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginTop: 26, marginBottom: 12 },
+  sectionIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  sectionTitleInline: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
+  sectionSub: { fontSize: 12.5, marginTop: 1 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(148,163,184,0.5)' },
+  dotOn: { width: 18, backgroundColor: BLUE },
+  loadingBox: { paddingVertical: 40, alignItems: 'center' },
 
   categoryRow: {
     paddingHorizontal: spacing.lg,
@@ -620,8 +534,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignItems: 'center', // keep chips content-height (else they stretch to tall ovals)
   },
-  sortRow: { paddingHorizontal: spacing.lg, paddingBottom: spacing.sm, gap: spacing.sm, alignItems: 'center' },
-  sortChip: { borderWidth: 1.5, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: 6, alignSelf: 'center' },
+  sortRow: { paddingHorizontal: 16, paddingBottom: 16, gap: 8, alignItems: 'center' },
+  sortChip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, alignSelf: 'center' },
   filterChip: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sortChipText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
   dealsHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.xl, paddingHorizontal: spacing.lg, marginBottom: spacing.sm },
@@ -653,11 +567,13 @@ const styles = StyleSheet.create({
 
   featuredSection: { paddingTop: spacing.md },
   sectionTitle: {
-    fontSize: fontSize.lg,
-    fontWeight: fontWeight.bold,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.4,
     color: colors.text,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 14,
   },
 
   // Featured horizontal card

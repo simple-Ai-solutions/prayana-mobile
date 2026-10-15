@@ -39,6 +39,7 @@ import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
 import { EsimBundle, capabilityFor, coverageLabel, dataLabelFor } from '../../../lib/esim';
 import { DateField } from '../../../components/common/DateField';
+import { EsimCouponBox, type AppliedCoupon } from '../../../components/esim/EsimCouponBox';
 
 /** "Data only" / "Data + calls" etc. — the plan's real capability. */
 function capabilityLabel(b: EsimBundle): string {
@@ -84,6 +85,11 @@ type CheckoutStep = 'review' | 'contact' | 'travel' | 'pay';
 // `displayName`, `data`, `validity` and `requiresKyc` do not exist on the wire,
 // so every one of them rendered blank.
 type Bundle = EsimBundle;
+
+/** The plan price less a previewed promo discount. The server's own figure
+ * (the Razorpay order amount) is what is actually charged. */
+const payable = (price: number | undefined, c: AppliedCoupon | null) =>
+  Math.max(0, Math.round((price || 0) - (c?.discount || 0)));
 
 export default function ESimCheckoutScreen() {
   const router = useRouter();
@@ -141,6 +147,14 @@ export default function ESimCheckoutScreen() {
 
   // Order id once created
   const [orderId, setOrderId] = useState<string | null>(null);
+  // A promo code previewed on the payment step. The order carries the code and
+  // the server prices it; an order made before the code changed is dropped so
+  // the next Pay creates one at the new price.
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const changeCoupon = (c: AppliedCoupon | null) => {
+    setCoupon(c);
+    setOrderId(null);
+  };
 
   const requiresMatrixKyc = useMemo(() => {
     if (!bundle) return false;
@@ -419,6 +433,7 @@ export default function ESimCheckoutScreen() {
           // on divergence, so it can never be over/under-charged. The web sends
           // this; mobile omitted it.
           quotedPrice: bundle.sellingPrice,
+          couponCode: coupon?.code || undefined,
         });
         // The server returns the new order id as `data.orderId` (not `_id`).
         // Reading `_id` here made createOrder look failed on EVERY plan — the
@@ -475,19 +490,15 @@ export default function ESimCheckoutScreen() {
       const result = await openCheckout({
         keyId: keyId || ENV.razorpayKeyId,
         orderId: rzpOrderId,
-        amountInPaise: amount || toPaise(bundle.sellingPrice || 0),
+        amountInPaise: amount || toPaise(payable(bundle.sellingPrice, coupon)),
         currency: currency || bundle.sellingCurrency || 'INR',
         description: bundle.name,
         prefill: { email: email.trim(), contact: phone.trim(), name: `${firstName} ${lastName}`.trim() },
         notes: { orderId: currentOrderId!, bundleName: bundle.name },
       });
 
+      // Backing out of the payment sheet is not an error — return quietly.
       if (result.status === 'cancelled') {
-        Toast.show({
-          type: 'info',
-          text1: 'Payment cancelled',
-          text2: 'You can resume from My eSIM Orders.',
-        });
         setSubmitting(false);
         return;
       }
@@ -526,6 +537,17 @@ export default function ESimCheckoutScreen() {
         });
       }
     } catch (err: any) {
+      // The server re-checks the promo when the order is made; if it no longer
+      // applies (used up, expired), drop it so the customer can pay full price.
+      if (err?.code === 'COUPON_INVALID' || err?.data?.code === 'COUPON_INVALID') {
+        changeCoupon(null);
+        Toast.show({
+          type: 'error',
+          text1: "Promo code can't be used",
+          text2: err?.data?.message || 'It has been removed. Please check the price and pay again.',
+        });
+        return;
+      }
       Toast.show({
         type: 'error',
         text1: 'Something went wrong',
@@ -618,8 +640,13 @@ export default function ESimCheckoutScreen() {
                     ₹{bundle.originalPrice.toLocaleString('en-IN')}
                   </Text>
                 )}
+                {coupon && coupon.discount > 0 ? (
+                  <Text style={styles.summaryPriceWas}>
+                    ₹{(bundle.sellingPrice || 0).toLocaleString('en-IN')}
+                  </Text>
+                ) : null}
                 <Text style={styles.summaryPriceValue}>
-                  ₹{(bundle.sellingPrice || 0).toLocaleString('en-IN')}
+                  ₹{payable(bundle.sellingPrice, coupon).toLocaleString('en-IN')}
                 </Text>
               </View>
             </View>
@@ -846,9 +873,17 @@ export default function ESimCheckoutScreen() {
                   <ReviewRow label="Travel" value={`${travelStart} → ${travelEnd}`} />
                 ) : null}
               </Card>
+              <EsimCouponBox
+                orderAmount={bundle.sellingPrice || 0}
+                productId={bundle.providerBundleId}
+                userId={user?.uid}
+                applied={coupon}
+                onApply={changeCoupon}
+                onRemove={() => changeCoupon(null)}
+              />
               <Text style={[styles.sectionHint, { color: themeColors.textTertiary }]}>
                 You'll be charged ₹
-                {(bundle.sellingPrice || 0).toLocaleString('en-IN')}. The eSIM
+                {payable(bundle.sellingPrice, coupon).toLocaleString('en-IN')}. The eSIM
                 QR code arrives instantly on success.
               </Text>
             </View>
@@ -865,7 +900,7 @@ export default function ESimCheckoutScreen() {
           <Button
             title={
               step === 'pay'
-                ? `Pay ₹${(bundle.sellingPrice || 0).toLocaleString('en-IN')}`
+                ? `Pay ₹${payable(bundle.sellingPrice, coupon).toLocaleString('en-IN')}`
                 : step === 'review'
                   ? 'Continue'
                   : step === 'contact'

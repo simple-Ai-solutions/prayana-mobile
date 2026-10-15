@@ -39,7 +39,7 @@ import {
 } from '../../theme/vendorColors';
 import { supportAPI } from '@prayana/shared-services';
 
-const SUPPORT_PHONE = '+919632790625';
+const SUPPORT_PHONE = '+919449753920';
 
 type Ticket = {
   _id: string;
@@ -200,7 +200,7 @@ export default function SupportScreen() {
             </View>
             <View>
               <Text style={styles.contactLabel}>CALL US</Text>
-              <Text style={styles.contactValue}>+91 9632 790 625</Text>
+              <Text style={styles.contactValue}>+91 94497 53920</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />
@@ -217,7 +217,7 @@ export default function SupportScreen() {
             </View>
             <View>
               <Text style={styles.contactLabel}>WHATSAPP</Text>
-              <Text style={styles.contactValue}>+91 9632 790 625</Text>
+              <Text style={styles.contactValue}>+91 94497 53920</Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.6)" />

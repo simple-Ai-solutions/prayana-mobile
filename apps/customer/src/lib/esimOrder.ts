@@ -59,7 +59,8 @@ export interface EsimOrder {
     isUnlimited?: boolean;
   };
 
-  pricing?: { sellingPrice?: number };
+  /** sellingPrice is what was charged, after any coupon (listPrice before it). */
+  pricing?: { sellingPrice?: number; listPrice?: number | null; discount?: number; couponCode?: string | null };
   /**
    * method: 'partner_wallet' when a Partner Point shop paid from its wallet;
    * null/absent means Razorpay (every order before the reseller programme).

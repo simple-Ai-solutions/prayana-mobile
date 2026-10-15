@@ -30,6 +30,19 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
+import { Image as XImage } from 'expo-image';
+import { ExploreCard, FeaturedPoster } from '../../components/explore/ExploreCards';
+import { FULL_W, RAIL_GAP, RAIL_PAD, usePairSnap } from '../../lib/railLayout';
+
+const HERO = require('../../../assets/hero-scenery.jpg');
+const RED = '#E61417';
+const ORANGE = '#f97316';
+const FEATURED_COUNT = 5;
+// A colour per category chip, so the row reads at a glance.
+const CAT_COLORS: Record<string, string> = {
+  all: '#111827', adventure: '#f97316', cultural: '#8b5cf6', food: '#f43f5e', 'water-sports': '#0ea5e9',
+  nature: '#10b981', wellness: '#14b8a6', nightlife: '#6366f1', shopping: '#ec4899', tours: '#f59e0b', photography: '#64748b',
+};
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_IMAGE_HEIGHT = 200;
@@ -256,7 +269,12 @@ export default function ExploreScreen() {
           pagination.hasMore ?? (pageNum * PAGE_SIZE < total);
 
         if (append) {
-          setActivities((prev) => [...prev, ...data]);
+          // Pages can overlap when the ranking shifts between requests; never
+          // list an activity twice.
+          setActivities((prev) => {
+            const seen = new Set(prev.map((x: any) => x._id || x.id));
+            return [...prev, ...data.filter((x: any) => !seen.has(x._id || x.id))];
+          });
         } else {
           setActivities(data);
         }
@@ -398,13 +416,20 @@ export default function ExploreScreen() {
   // ============================================================
   const renderActivityCard = useCallback(
     ({ item }: { item: any }) => (
-      <ActivityCard
-        activity={item}
-        onPress={() => handleActivityPress(item._id || item.id)}
-      />
+      <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+        <ExploreCard a={item} onPress={() => handleActivityPress(item._id || item.id)} />
+      </View>
     ),
     [handleActivityPress]
   );
+
+  // The first few lead as big swipeable posters while browsing everything.
+  const showFeatured = !loading && !searchQuery.trim() && selectedCategory === 'all' && sortBy === 'recommended' && activities.length > FEATURED_COUNT;
+  const featured = showFeatured ? activities.slice(0, FEATURED_COUNT) : [];
+  const listData = showFeatured ? activities.slice(FEATURED_COUNT) : activities;
+  const featSnap = usePairSnap(FULL_W + RAIL_GAP);
+  const [featAt, setFeatAt] = useState(0);
+  const onFeatEnd = (e: any) => setFeatAt(Math.round(e.nativeEvent.contentOffset.x / (FULL_W + RAIL_GAP)));
 
   const keyExtractor = useCallback(
     (item: any, index: number) => item._id || item.id || String(index),
@@ -415,16 +440,25 @@ export default function ExploreScreen() {
   const ListHeaderComponent = useMemo(
     () => (
       <View>
-        {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <View style={[styles.searchBar, shadow.sm, { backgroundColor: themeColors.inputBackground, borderColor: themeColors.border }]}>
-            <Ionicons name="search-outline" size={20} color={themeColors.textTertiary} />
+        {/* Hero: a soft travel-photo wash behind the title and search. */}
+        <View style={styles.hero}>
+          <XImage source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} contentFit="cover" blurRadius={36} />
+          <LinearGradient colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.55)', themeColors.background]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+          <View style={styles.heroPill}>
+            <Ionicons name="compass" size={12} color={RED} />
+            <Text style={styles.heroPillText}>EXPERIENCES & TREKS</Text>
+          </View>
+          <Text style={[styles.heroTitle, { color: themeColors.text }]}>
+            Find your next{'\n'}<Text style={{ color: RED }}>adventure</Text>
+          </Text>
+          <View style={[styles.searchBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+            <Ionicons name="search" size={19} color={themeColors.textTertiary} />
             <TextInput
               style={[styles.searchInput, { color: themeColors.text }]}
               value={searchQuery}
               onChangeText={handleSearchChange}
               onSubmitEditing={handleSearchSubmit}
-              placeholder="Search activities..."
+              placeholder="Treks, waterfalls, Goa, Coorg…"
               placeholderTextColor={themeColors.textTertiary}
               returnKeyType="search"
               autoCorrect={false}
@@ -437,7 +471,7 @@ export default function ExploreScreen() {
           </View>
         </View>
 
-        {/* Category Pills */}
+        {/* Category chips, each in its own colour. */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -446,42 +480,63 @@ export default function ExploreScreen() {
         >
           {CATEGORIES.map((cat) => {
             const isSelected = selectedCategory === cat.key;
+            const tint = CAT_COLORS[cat.key] || ORANGE;
             return (
               <TouchableOpacity
                 key={cat.key}
                 style={[
                   styles.categoryPill,
-                  { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                  isSelected && styles.categoryPillActive,
+                  isSelected
+                    ? { backgroundColor: tint, borderColor: tint }
+                    : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
                 ]}
                 onPress={() => handleCategorySelect(cat.key)}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name={cat.icon}
-                  size={16}
-                  color={isSelected ? '#ffffff' : themeColors.textSecondary}
-                  style={{ marginRight: spacing.xs }}
-                />
-                <Text
-                  style={[
-                    styles.categoryPillText,
-                    { color: themeColors.textSecondary },
-                    isSelected && styles.categoryPillTextActive,
-                  ]}
-                >
-                  {cat.label}
-                </Text>
+                <View style={[styles.catIcon, { backgroundColor: isSelected ? 'rgba(255,255,255,0.22)' : `${tint}1A` }]}>
+                  <Ionicons name={cat.icon} size={13} color={isSelected ? '#ffffff' : tint} />
+                </View>
+                <Text style={[styles.categoryPillText, { color: isSelected ? '#fff' : themeColors.text }]}>{cat.label}</Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
 
+        {/* Featured posters */}
+        {featured.length > 0 ? (
+          <View style={{ marginBottom: 6 }}>
+            <View style={styles.secHead}>
+              <LinearGradient colors={[ORANGE, RED]} style={styles.secIcon}><Ionicons name="flame" size={14} color="#fff" /></LinearGradient>
+              <Text style={[styles.secTitle, { color: themeColors.text }]}>Trending this week</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              contentContainerStyle={{ paddingHorizontal: RAIL_PAD, gap: RAIL_GAP, paddingBottom: 6 }}
+              ref={featSnap.setRef}
+              {...featSnap.props}
+              onScrollEndDrag={(e) => { featSnap.props.onScrollEndDrag(e); onFeatEnd(e); }}
+              onMomentumScrollEnd={(e) => { featSnap.props.onMomentumScrollEnd(e); onFeatEnd(e); }}
+            >
+              {featured.map((a) => <FeaturedPoster key={a._id || a.id} a={a} onPress={() => handleActivityPress(a._id || a.id)} />)}
+            </ScrollView>
+            <View style={styles.dots}>
+              {featured.map((a, i) => <View key={a._id || i} style={[styles.dot, i === featAt && styles.dotOn]} />)}
+            </View>
+          </View>
+        ) : null}
+
         {/* Sort & Results Count Row */}
         <View style={styles.sortRow}>
-          <Text style={[styles.resultsCount, { color: themeColors.textSecondary }]}>
-            {loading ? 'Searching...' : `${totalResults} activities`}
-          </Text>
+          <View>
+            <Text style={[styles.secTitle, { color: themeColors.text }]}>
+              {searchQuery.trim() ? 'Results' : selectedCategory !== 'all' ? CATEGORIES.find((c) => c.key === selectedCategory)?.label : 'All experiences'}
+            </Text>
+            <Text style={[styles.resultsCount, { color: themeColors.textSecondary }]}>
+              {loading ? 'Searching…' : `${totalResults} to choose from`}
+            </Text>
+          </View>
           <TouchableOpacity
             style={styles.sortButton}
             onPress={() => setSortModalVisible(true)}
@@ -506,6 +561,8 @@ export default function ExploreScreen() {
       handleSearchSubmit,
       handleSearchClear,
       handleCategorySelect,
+      featured,
+      featAt,
     ]
   );
 
@@ -562,16 +619,11 @@ export default function ExploreScreen() {
   // ============================================================
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>Explore</Text>
-        <Text style={[styles.headerSubtitle, { color: themeColors.textSecondary }]}>Discover amazing experiences</Text>
-      </View>
 
       {/* Activity List */}
       <FlatList
         ref={flatListRef}
-        data={loading ? [] : activities}
+        data={loading ? [] : listData}
         renderItem={renderActivityCard}
         keyExtractor={keyExtractor}
         contentContainerStyle={styles.listContent}
@@ -657,6 +709,21 @@ export default function ExploreScreen() {
 // STYLES
 // ============================================================
 const styles = StyleSheet.create({
+  hero: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 14, overflow: 'hidden' },
+  heroPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 1, borderColor: 'rgba(230,20,23,0.18)',
+  },
+  heroPillText: { color: RED, fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
+  heroTitle: { fontSize: 32, fontWeight: '900', letterSpacing: -1, lineHeight: 37, marginTop: 10 },
+  catIcon: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
+  secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 12 },
+  secIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  secTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
+  dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(148,163,184,0.5)' },
+  dotOn: { width: 18, backgroundColor: RED },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -689,12 +756,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    height: 48,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    height: 52,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: colors.border,
     gap: spacing.sm,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4,
   },
   searchInput: {
     flex: 1,
@@ -708,14 +777,16 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   categoryList: {
-    paddingHorizontal: spacing.xl,
-    gap: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    gap: 8,
   },
   categoryPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
+    paddingLeft: 5,
+    paddingRight: 13,
+    paddingVertical: 5,
     borderRadius: borderRadius.full,
     backgroundColor: colors.gray[100],
     borderWidth: 1,
@@ -726,8 +797,8 @@ const styles = StyleSheet.create({
     borderColor: colors.primary[500],
   },
   categoryPillText: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.medium,
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.textSecondary,
   },
   categoryPillTextActive: {
@@ -740,8 +811,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.xl,
-    paddingBottom: spacing.md,
+    paddingHorizontal: 16,
+    paddingTop: 18,
+    paddingBottom: 14,
   },
   resultsCount: {
     fontSize: fontSize.sm,

@@ -198,8 +198,8 @@ export default function TransportCheckoutScreen() {
         notes: { bookingId: currentBookingId!, vehicleId: vehicle._id },
       });
 
+      // Backing out of the payment sheet is not an error — return quietly.
       if (result.status === 'cancelled') {
-        Toast.show({ type: 'info', text1: 'Payment cancelled' });
         setSubmitting(false);
         return;
       }

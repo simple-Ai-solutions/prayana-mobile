@@ -74,9 +74,21 @@ const CITIES: Record<string, string[]> = {
   MV: ["Male", "Maafushi", "Hulhumale"],
 };
 
-export function countryImage(iso?: string): string | null {
+/**
+ * The country's photo, requested at `width` px. The table stores 1600px
+ * originals for the full-bleed destination hero; a card two-up on a phone
+ * needs a fraction of that, and pulling the full size for a dozen cards is
+ * what left them black while they downloaded.
+ */
+export function countryImage(iso?: string, width = 1600): string | null {
   if (!iso) return null;
-  return COUNTRY_IMAGES[iso.toUpperCase()] ?? null;
+  const url = COUNTRY_IMAGES[iso.toUpperCase()];
+  return url ? sizedImage(url, width) : null;
+}
+
+/** An Unsplash URL re-requested at `width` px (other hosts pass through). */
+export function sizedImage(url: string, width: number): string {
+  return url.includes('images.unsplash.com') ? url.replace(/([?&])w=\d+/, `$1w=${width}`) : url;
 }
 
 export function countryCities(iso?: string): string[] {

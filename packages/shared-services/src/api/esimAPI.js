@@ -2,7 +2,7 @@
 // Mirrors /api/esim/* on the server. Used by the customer eSIM flow:
 // catalogue → bundle detail → create order → KYC upload → payment → fulfilment.
 
-import { makeAPICall, getAuthHeaders } from "../apiConfig";
+import { makeAPICall, getAuthHeaders, API_CONFIG } from "../apiConfig";
 
 class EsimAPI {
   // Public catalogue (no auth needed)
@@ -107,6 +107,47 @@ class EsimAPI {
       method: "POST",
       headers: await getAuthHeaders(),
       body: JSON.stringify(payload),
+    });
+  }
+
+  // Whether the eSIM profile is on the customer's phone yet:
+  // { installed: true|false|null, statusCode }. Only Matrix reports it;
+  // other providers answer statusCode "not_supported".
+  async getInstallStatus(orderId) {
+    return makeAPICall(`/esim/orders/${orderId}/install-status`, {
+      headers: await getAuthHeaders(),
+    });
+  }
+
+  // The GST invoice is a PDF, so callers download it themselves with these.
+  invoiceUrl(orderId) {
+    return `${API_CONFIG.BASE_URL}/esim/orders/${orderId}/invoice`;
+  }
+  async invoiceHeaders() {
+    return getAuthHeaders();
+  }
+
+  // ===== Promos =====
+  // The admin's current eSIM promo ({ code, displayPercent, headline, ... }),
+  // or null. The server answers 204 when none is running, which makeAPICall
+  // would try to parse as JSON, so this one is fetched directly.
+  async getActivePromo() {
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/esim/active-promo`, { headers: { Accept: "application/json" } });
+      if (res.status === 204 || !res.ok) return null;
+      const json = await res.json().catch(() => null);
+      return json?.success && json.data?.code ? json.data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Check a promo code against this plan's price. Only a preview: the server
+  // re-validates the code (and may cap the discount) when the order is made.
+  async validateCoupon({ code, userId, orderAmount, productId }) {
+    return makeAPICall(`/coupons/validate`, {
+      method: "POST",
+      body: JSON.stringify({ code, userId, orderAmount, applicableType: "esim", packageId: productId, activityId: productId }),
     });
   }
 }

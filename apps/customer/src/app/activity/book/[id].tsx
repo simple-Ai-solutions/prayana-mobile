@@ -781,12 +781,8 @@ export default function BookingFlowScreen() {
         notes: { bookingId, activityId: String(activityId || '') },
       });
 
+      // Backing out of the payment sheet is not an error — return quietly.
       if (result.status === 'cancelled') {
-        Toast.show({
-          type: 'info',
-          text1: 'Payment cancelled',
-          text2: 'You can complete payment anytime from My Bookings.',
-        });
         setPaymentLoading(false);
         return;
       }

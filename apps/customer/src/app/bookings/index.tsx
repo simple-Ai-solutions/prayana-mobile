@@ -389,15 +389,20 @@ function SkeletonCard() {
 
 export default function MyBookingsScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ reviewBookingId?: string }>();
+  const params = useLocalSearchParams<{ reviewBookingId?: string; category?: string; tab?: string }>();
   const { user } = useAuth();
   const { themeColors, isDarkMode } = useTheme();
 
   // State
   const [bookings, setBookings] = useState<Booking[]>([]);
-  const [activeTab, setActiveTab] = useState<TabKey>('all');
+  // A package page's "Share your memories" opens straight on completed trips.
+  const [activeTab, setActiveTab] = useState<TabKey>(
+    STATUS_TABS.some((t) => t.key === params.tab) ? (params.tab as TabKey) : 'all',
+  );
   // Top-level category, activities first — same default as the web.
-  const [category, setCategory] = useState<CategoryKey>('activities');
+  const [category, setCategory] = useState<CategoryKey>(
+    CATEGORIES.some((c) => c.key === params.category) ? (params.category as CategoryKey) : 'activities',
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -1040,6 +1045,18 @@ export default function MyBookingsScreen() {
             )}
           </View>
         </View>
+        {item.status === 'completed' ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => router.push(`/bookings/memories/${item._id}` as any)}
+            accessibilityRole="button"
+          >
+            <LinearGradient colors={['#f97316', '#ec4899']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.memoriesBtn}>
+              <Ionicons name="camera-outline" size={15} color="#fff" />
+              <Text style={styles.memoriesBtnText}>Share Photos</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        ) : null}
       </Card>
     );
   };
@@ -1519,6 +1536,16 @@ const styles = StyleSheet.create({
     marginLeft: spacing.xs,
     flex: 1,
   },
+  memoriesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  memoriesBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   priceText: {
     fontSize: fontSize.md,
     fontWeight: fontWeight.bold,

@@ -120,7 +120,7 @@ export default function DivyaDarshanaPackagesScreen() {
   );
 
   // Open by _id, not slug — some slugs resolve to empty duplicate documents.
-  const openPkg = (p: Pkg) => router.push(`/packages/${encodeURIComponent(p._id)}` as any);
+  const openPkg = (p: Pkg) => router.push(`/packages/${encodeURIComponent(p._id)}?from=darshana` as any);
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: CREAM }]} edges={['top']}>

@@ -33,6 +33,7 @@ import { EsimQRCode } from '../../../components/esim/EsimQRCode';
 import { EsimUsageMeter } from '../../../components/esim/EsimUsageMeter';
 import { EsimInstallGuide } from '../../../components/esim/EsimInstallGuide';
 import { EsimRechargeSection } from '../../../components/esim/EsimRechargeSection';
+import { useInstallStatus, EsimInstallBadge, EsimInvoiceButton, EsimTroubleshoot } from '../../../components/esim/EsimOrderExtras';
 
 const ACCENT_RED = '#E61417';
 
@@ -45,6 +46,7 @@ export default function EsimOrderScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const installStatus = useInstallStatus(orderId as string | undefined, order?.status === 'active');
 
   const load = useCallback(async () => {
     if (!orderId) return;
@@ -227,6 +229,8 @@ export default function EsimOrderScreen() {
         )}
 
         {/* QR code + install */}
+        {order.status === 'active' && <EsimInstallBadge status={installStatus} />}
+
         {canInstall && (
           <EsimQRCode
             installUrl={esim.installUrl}
@@ -270,6 +274,12 @@ export default function EsimOrderScreen() {
             }
           />
           <Row label="Paid via" value={paidVia} />
+          {order.pricing?.couponCode ? (
+            <Row
+              label={`Promo ${order.pricing.couponCode}`}
+              value={order.pricing.discount ? `−₹${order.pricing.discount.toLocaleString('en-IN')}` : 'Applied'}
+            />
+          ) : null}
           <Row
             label="Total paid"
             value={`₹${(order.pricing?.sellingPrice ?? 0).toLocaleString('en-IN')}`}
@@ -277,7 +287,12 @@ export default function EsimOrderScreen() {
           />
         </View>
 
+        {order.payment?.status === 'paid' || order.payment?.paidAt ? (
+          <EsimInvoiceButton orderId={order._id ?? (orderId as string)} reference={order.orderReference} />
+        ) : null}
+
         {(order.status === 'active' || order.status === 'processing') && <EsimInstallGuide />}
+        {(order.status === 'active' || order.status === 'processing') && <EsimTroubleshoot />}
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,1162 +1,574 @@
-// Travel eSIM — the mobile port of the web's app/esim/page.jsx.
+// Travel eSIM — designed for the phone first.
 //
-// WHAT CHANGED, AND WHY IT MATTERED
-// This screen used to ship 13 hardcoded "plans" with invented USD prices
-// ($8.99 USA, $12.50 Japan...). It fetched the live catalogue, but the adapter
-// tested `Array.isArray(res.data)` while the API actually returns
-// `{ success, data: { countries, bundles, exchangeRates } }` — an OBJECT. The
-// check never passed, so the live data was silently discarded and EVERY user
-// saw fabricated prices in the wrong currency. All of it is gone.
+// The web's landing page (app/esim/page.jsx) is one long scroll of sections.
+// On a phone people search or tap a destination, so this screen leads with a
+// short title bar and swipeable destination posters, then pins the search box
+// and a Countries / Regions / Global switch to the top while you scroll. The
+// Countries view is rails of two whole cards (Trending, Best value, Asia,
+// Europe) and an A–Z list; a destination's plans slide up in a sheet as
+// compact rows to compare, with what you are buying always in the bar at the
+// bottom. The explainers live behind one "New to eSIM?" card.
 //
-// Real bundles are priced in INR by the server (sellingPrice / originalPrice /
-// discountPercent). If the catalogue can't be reached we show an error with a
-// retry — never a made-up price.
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  ActivityIndicator,
-  ImageBackground,
-  RefreshControl,
-} from 'react-native';
+// Every price is the live catalogue's (`sellingPrice`, INR, from the server).
+// If the catalogue can't be reached we say so with a retry — never a made-up
+// price.
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, StyleSheet, TextInput, ActivityIndicator, RefreshControl, Pressable } from 'react-native';
+import { EsimAllCountriesSheet } from '../../components/esim/EsimAllCountriesSheet';
 // Nested inside a gesture-handler ScrollView, plain RN Touchables drop taps.
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { goBack } from '../../lib/goBack';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
+import { useTheme } from '@prayana/shared-ui';
 import { esimAPI } from '@prayana/shared-services';
-import {
-  CoverageScope,
-  EsimBundle,
-  EsimCountry,
-  ExchangeRates,
-  SORT_LABELS,
-  SortKey,
-  bundleKey,
-  orderCountries,
-  popularPlanNames,
-  sortBundles,
-  splitByScope,
-} from '../../lib/esim';
+import { EsimBundle, EsimCountry, bundleKey, coverageCountFor, orderCountries, splitByScope } from '../../lib/esim';
 import { ESIM_REGIONS } from '../../lib/esimRegions';
 import { useRequireAuth } from '../../lib/useRequireAuth';
-import { CountryFlag } from '../../components/esim/CountryFlag';
-import { EsimCountryCard } from '../../components/esim/EsimCountryCard';
-import { EsimHeroVideo } from '../../components/esim/EsimHeroVideo';
-import { EsimRegionRow } from '../../components/esim/EsimRegionRow';
-import { EsimDestinationHero } from '../../components/esim/EsimDestinationHero';
-import { EsimPlanCard, ACCENT_RED } from '../../components/esim/EsimPlanCard';
-import { EsimProductDetails } from '../../components/esim/EsimProductDetails';
-import { EsimHowItWorks } from '../../components/esim/EsimHowItWorks';
-import { EsimFAQ } from '../../components/esim/EsimFAQ';
-import { EsimCompatibleDevices } from '../../components/esim/EsimCompatibleDevices';
+import { goBack } from '../../lib/goBack';
+import { EsimPosterRail } from '../../components/esim/EsimPosterRail';
+import { EsimRegionPass } from '../../components/esim/EsimRegionPass';
+import { EsimOfferTicker } from '../../components/esim/EsimLandingExtras';
+import { EsimCountryRail, EsimCountryListRow, EsimGuideCard, EsimGuideSheet, BrowseDeal } from '../../components/esim/EsimBrowse';
+import { EsimPlansSheet } from '../../components/esim/EsimPlansSheet';
+import { EsimPlanRow } from '../../components/esim/EsimPlanRow';
+import { ESIM_RED, dataLabel as formatData } from '../../components/esim/EsimPass';
 
-const SORT_KEYS: SortKey[] = ['value', 'price-low', 'price-high', 'data', 'duration'];
+// The posters lead with the web hero's popular destinations, in its order.
+const SPOTLIGHT = ['TR', 'TH', 'JP', 'AE', 'FR', 'IT', 'SG', 'GB', 'ES', 'KR'];
+const TRENDING = 12;
+const A_Z_PREVIEW = 5;
+// Global plans are sold with every country's catalogue; the US one carries the
+// full set. "Global" = covering 50+ countries.
+const GLOBAL_SOURCE = 'US';
+const GLOBAL_MIN_COUNTRIES = 50;
 
-// How many destinations to show before "See all" (the catalogue sells ~157).
-const FEATURED_COUNT = 12;
+type Tab = 'countries' | 'regions' | 'global';
+type Deal = BrowseDeal & { fromINR: number; planCount: number };
 
-/** The live "from ₹X · N plans" summary behind each browse card. */
-interface CountryDeal {
-  fromINR: number;
-  planCount: number;
+const is5G = (b: EsimBundle) => /5g/i.test(Array.isArray(b.speed) ? b.speed.join(' ') : String(b.speed ?? ''));
+
+/** The cheapest bundle, reduced to what a card shows. */
+function summarise(list: EsimBundle[]): Deal {
+  const cheapest = list.reduce((m, b) => ((b.sellingPrice ?? Infinity) < (m.sellingPrice ?? Infinity) ? b : m));
+  const price = cheapest.sellingPrice ?? 0;
+  const mrp = cheapest.originalPrice && cheapest.originalPrice > price ? cheapest.originalPrice : undefined;
+  return {
+    fromINR: price,
+    planCount: list.length,
+    mrpINR: mrp,
+    discountPercent: cheapest.discountPercent || (mrp ? Math.round((1 - price / mrp) * 100) : 0),
+    dataLabel: formatData(cheapest.dataAmountMB, cheapest.isUnlimited),
+    has5G: list.some(is5G),
+  };
 }
 
 export default function EsimScreen() {
   const router = useRouter();
   const { themeColors, isDarkMode } = useTheme();
   const requireAuth = useRequireAuth();
-  // Lets other screens open straight into a destination's plans, e.g.
-  // /esim?country=JP.
+  // /esim?country=JP opens straight into a destination's plans.
   const params = useLocalSearchParams<{ country?: string; debugCountry?: string }>();
-  const initialCountry = (params.country || params.debugCountry || null) as string | null;
+  const linkedCountry = (params.country || params.debugCountry || null) as string | null;
 
   const [countries, setCountries] = useState<EsimCountry[]>([]);
-  const [deals, setDeals] = useState<Record<string, CountryDeal>>({});
-  const [bundles, setBundles] = useState<EsimBundle[]>([]);
-  const [rates, setRates] = useState<ExchangeRates>(null);
-  const [loading, setLoading] = useState(true);
+  const [deals, setDeals] = useState<Record<string, Deal>>({});
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
 
+  const [tab, setTab] = useState<Tab>('countries');
   const [search, setSearch] = useState('');
-  const [country, setCountry] = useState<string | null>(initialCountry);
-  const [sortBy, setSortBy] = useState<SortKey>('value');
-  const [sortOpen, setSortOpen] = useState(false);
-  const [showAllCountries, setShowAllCountries] = useState(false);
-  // The region row the customer drilled into, if any. Tapping "Europe" used to
-  // jump straight to a single country's plans; it now filters the destination
-  // picker down to that region, which is what the row is offering.
+  const [allOpen, setAllOpen] = useState(false);
   const [region, setRegion] = useState<string | null>(null);
-  const [scope, setScope] = useState<CoverageScope>('country');
-  // Standard = metered data; Unlimited = the isUnlimited plans. The PWA offers
-  // this as a second filter row, tagging Unlimited as NEW.
-  const [planType, setPlanType] = useState<'data' | 'unlimited'>('data');
+  const [guideOpen, setGuideOpen] = useState(false);
 
-  /**
-   * The catalogue is country-scoped: called WITHOUT a country it returns the
-   * 157 countries it can sell (and zero bundles); called WITH one it returns
-   * that country's bundles. So we browse countries first and fetch plans on
-   * selection — the same shape the web's flow has.
-   */
-  const load = useCallback(async (countryCode: string | null) => {
-    setError('');
+  // The destination whose plans are open in the sheet.
+  const [country, setCountry] = useState<string | null>(linkedCountry);
+  const [bundles, setBundles] = useState<EsimBundle[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  const [plansError, setPlansError] = useState('');
+  useEffect(() => { if (linkedCountry) setCountry(linkedCountry); }, [linkedCountry]);
+
+  // Global plans for the Global tab, fetched the first time it is opened.
+  const [globalPlans, setGlobalPlans] = useState<EsimBundle[] | null>(null);
+  const [globalError, setGlobalError] = useState('');
+  const [globalPick, setGlobalPick] = useState<string | null>(null);
+
+  const scrollRef = useRef<any>(null);
+  // Bundles already fetched while pricing the cards, so opening one of those
+  // destinations shows its plans at once instead of asking again.
+  const bundleCache = useRef<Record<string, EsimBundle[]>>({});
+
+  /** The countries the catalogue sells (no country param = the list, no bundles). */
+  const loadCountries = useCallback(async () => {
+    setListError('');
     try {
-      const res: any = await esimAPI.getCatalogue(countryCode ? { country: countryCode } : {});
-      const data = res?.data ?? {};
-
-      if (Array.isArray(data.countries) && data.countries.length) {
-        setCountries(orderCountries(data.countries));
-      }
-      if (data.exchangeRates) setRates(data.exchangeRates);
-
-      if (!countryCode) {
-        setBundles([]);
-        return;
-      }
-
-      const list: EsimBundle[] = Array.isArray(data.bundles) ? data.bundles : [];
-      setBundles(list);
-      if (!list.length) setError('No plans available for this destination yet.');
+      const res: any = await esimAPI.getCatalogue({});
+      const list = res?.data?.countries;
+      // 33 entries come back with no ISO code. They can't be priced or opened
+      // (the catalogue returns no bundles for them) and would all share one
+      // key, so they are left out.
+      const sellable = Array.isArray(list) ? list.filter((c: EsimCountry) => !!c.iso) : [];
+      if (sellable.length) setCountries(orderCountries(sellable));
+      else setListError('No destinations available right now.');
     } catch {
-      setBundles([]);
-      // No silent fallback to fabricated plans — say what actually happened.
-      setError("Couldn't reach the eSIM service. Please try again.");
+      setListError("Couldn't reach the eSIM service. Please try again.");
     }
   }, []);
 
   useEffect(() => {
-    let alive = true;
-    setLoading(true);
-    load(country).finally(() => {
-      if (alive) setLoading(false);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [country, load]);
+    setListLoading(true);
+    loadCountries().finally(() => setListLoading(false));
+  }, [loadCountries]);
 
   /**
-   * A country-scoped catalogue call returns that country's bundles but NOT the
-   * country list, so opening straight into a destination (deep link, or
-   * /esim?country=JP) would leave the picker empty and the heading showing the
-   * raw ISO code. Fetch the list once, unscoped, to back both.
+   * Live "from" prices for the cards. The catalogue only prices a country when
+   * asked for that country, so price the ones on screen, four at a time; a
+   * card whose fetch fails just shows no price.
    */
   useEffect(() => {
-    if (!country || countries.length) return;
+    if (!countries.length) return;
     let alive = true;
     (async () => {
-      try {
-        const res: any = await esimAPI.getCatalogue({});
-        const list = res?.data?.countries;
-        if (alive && Array.isArray(list) && list.length) setCountries(orderCountries(list));
-      } catch {
-        // Non-fatal: the plans still render, the picker just stays empty.
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [country, countries.length]);
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await load(country);
-    setRefreshing(false);
-  }, [country, load]);
-
-  /**
-   * Per-destination "from" price + plan count for the browse cards.
-   *
-   * The catalogue only prices a country when you ask for that country, so the
-   * web fetches the featured destinations in batches of 4 and reduces each to
-   * its cheapest bundle. Same here — batched so we don't fire 12 requests at
-   * once, and entirely best-effort: a card whose fetch fails simply renders
-   * without a price rather than showing a made-up one.
-   */
-  useEffect(() => {
-    if (country || !countries.length) return;
-    let alive = true;
-
-    (async () => {
-      // Price the featured cards AND every country each region row samples,
-      // otherwise a region's "from" price and plan count are computed from
-      // whichever of its countries happen to be in the featured 12.
       const wanted = new Set<string>([
-        ...countries.slice(0, FEATURED_COUNT).map((c) => c.iso),
+        ...SPOTLIGHT,
+        ...countries.slice(0, TRENDING).map((c) => c.iso),
         ...ESIM_REGIONS.flatMap((r) => r.sampleCodes),
       ]);
       const targets = countries.filter((c) => wanted.has(c.iso));
-
       for (let i = 0; i < targets.length; i += 4) {
         if (!alive) return;
-        const batch = targets.slice(i, i + 4);
-        const settled = await Promise.all(
-          batch.map(async (c) => {
+        const found = await Promise.all(
+          targets.slice(i, i + 4).map(async (c) => {
             try {
               const res: any = await esimAPI.getCatalogue({ country: c.iso });
               const list: EsimBundle[] = res?.data?.bundles ?? [];
-              if (!list.length) return null;
-              const cheapest = list.reduce((min, b) =>
-                (b.sellingPrice ?? Infinity) < (min.sellingPrice ?? Infinity) ? b : min,
-              );
-              return [c.iso, { fromINR: cheapest.sellingPrice ?? 0, planCount: list.length }] as const;
+              if (list.length) bundleCache.current[c.iso] = list;
+              return list.length ? ([c.iso, summarise(list)] as const) : null;
             } catch {
               return null;
             }
           }),
         );
         if (!alive) return;
-        const found = settled.filter(Boolean) as Array<readonly [string, CountryDeal]>;
-        if (found.length) {
-          setDeals((prev) => ({ ...prev, ...Object.fromEntries(found) }));
-        }
+        const ok = found.filter(Boolean) as Array<readonly [string, Deal]>;
+        if (ok.length) setDeals((prev) => ({ ...prev, ...Object.fromEntries(ok) }));
       }
     })();
+    return () => { alive = false; };
+  }, [countries]);
 
-    return () => {
-      alive = false;
-    };
-  }, [country, countries]);
+  /** A destination's bundles for the sheet. */
+  const loadPlans = useCallback(async (iso: string, fresh = false) => {
+    setPlansError('');
+    const cached = !fresh && bundleCache.current[iso];
+    if (cached) {
+      setBundles(cached);
+      setPlansLoading(false);
+      return;
+    }
+    setPlansLoading(true);
+    setBundles([]);
+    try {
+      const res: any = await esimAPI.getCatalogue({ country: iso });
+      const list: EsimBundle[] = Array.isArray(res?.data?.bundles) ? res.data.bundles : [];
+      setBundles(list);
+      if (list.length) bundleCache.current[iso] = list;
+      if (!list.length) setPlansError('No plans available for this destination yet.');
+      // Keep the card's price in step with what the sheet shows.
+      else setDeals((prev) => ({ ...prev, [iso]: summarise(list) }));
+    } catch {
+      setPlansError("Couldn't load plans. Please try again.");
+    } finally {
+      setPlansLoading(false);
+    }
+  }, []);
 
-  /**
-   * Each region row quotes the cheapest price among its sample countries. Reuse
-   * the deals we already fetched rather than firing another round of requests —
-   * a region with nothing loaded yet just renders without a price line.
-   */
+  useEffect(() => { if (country) loadPlans(country); }, [country, loadPlans]);
+
+  useEffect(() => {
+    if (tab !== 'global' || globalPlans) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res: any = await esimAPI.getCatalogue({ country: GLOBAL_SOURCE });
+        const list: EsimBundle[] = res?.data?.bundles ?? [];
+        const global = splitByScope(list).global
+          .filter((b) => (coverageCountFor(b) ?? 0) >= GLOBAL_MIN_COUNTRIES)
+          .sort((a, b) => (a.sellingPrice ?? 0) - (b.sellingPrice ?? 0));
+        if (alive) setGlobalPlans(global);
+      } catch {
+        if (alive) setGlobalError("Couldn't load global plans. Please try again.");
+      }
+    })();
+    return () => { alive = false; };
+  }, [tab, globalPlans]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    bundleCache.current = {};
+    await loadCountries();
+    setRefreshing(false);
+  }, [loadCountries]);
+
+  const goToCheckout = useCallback((plan: EsimBundle, shoppedFrom?: string | null) => {
+    // An eSIM is tied to an account (the order needs an auth token), so ask
+    // for sign-in before the form, not after it.
+    if (!requireAuth({ reason: 'Sign in to buy an eSIM — your order and QR code are tied to your account.' })) return;
+    setCountry(null);
+    router.push({
+      pathname: '/esim/checkout/[bundle]',
+      params: {
+        bundle: plan.name,
+        provider: plan.provider ?? '',
+        bundleId: plan.providerBundleId ?? '',
+        country: shoppedFrom ?? plan.country ?? '',
+      },
+    });
+  }, [router, requireAuth]);
+
+  const byIso = useMemo(() => new Map(countries.map((c) => [c.iso, c])), [countries]);
+  const pick = useCallback((codes: string[]) => codes.map((c) => byIso.get(c)).filter(Boolean) as EsimCountry[], [byIso]);
+
+  const spotlight = useMemo(() => pick(SPOTLIGHT), [pick]);
+  const trending = useMemo(() => countries.slice(0, TRENDING), [countries]);
+  const bestValue = useMemo(() => {
+    // Many destinations share the same entry price, so lead with ones the
+    // Trending row doesn't already open with.
+    const lead = new Set(countries.slice(0, 4).map((c) => c.iso));
+    return countries
+      .filter((c) => deals[c.iso]?.fromINR && !lead.has(c.iso))
+      .sort((a, b) =>
+        (deals[b.iso].discountPercent ?? 0) - (deals[a.iso].discountPercent ?? 0) || deals[a.iso].fromINR - deals[b.iso].fromINR)
+      .slice(0, 10);
+  }, [countries, deals]);
+  const asia = useMemo(() => pick(ESIM_REGIONS.find((r) => r.name === 'Asia Pacific')?.sampleCodes ?? []), [pick]);
+  const europe = useMemo(() => pick(ESIM_REGIONS.find((r) => r.name === 'Europe')?.sampleCodes ?? []), [pick]);
+  const aToZ = useMemo(() => [...countries].sort((a, b) => a.name.localeCompare(b.name)), [countries]);
+
+  const query = search.trim().toLowerCase();
+  const results = useMemo(
+    () => (query ? countries.filter((c) => c.name.toLowerCase().includes(query) || c.iso.toLowerCase() === query) : []),
+    [countries, query],
+  );
+
+  // Each region quotes the cheapest of its sampled countries.
   const regionFrom = useMemo(() => {
-    const out: Record<string, { fromINR?: number; planCount?: number }> = {};
+    const out: Record<string, { fromINR?: number; planCount?: number; dataLabel?: string; destinations?: number }> = {};
     for (const r of ESIM_REGIONS) {
-      const sampled = r.sampleCodes.map((iso) => deals[iso]).filter(Boolean) as CountryDeal[];
+      const sampled = r.sampleCodes.map((iso) => deals[iso]).filter(Boolean) as Deal[];
       if (!sampled.length) continue;
-      const prices = sampled.map((d) => d.fromINR).filter((p) => p > 0);
+      const cheapest = sampled.reduce((m, d) => (d.fromINR < m.fromINR ? d : m));
       out[r.name] = {
-        fromINR: prices.length ? Math.min(...prices) : undefined,
-        // Count the bundles the catalogue actually returns for this region.
-        //
-        // Do NOT use the table's `plansCount` for this: despite the name it is a
-        // COUNT OF COUNTRIES (42 alongside totalCountries: 43 for Europe), not a
-        // count of plans. Rendering it as "42 plans" would be plainly wrong —
-        // Europe sells 292.
+        fromINR: cheapest.fromINR,
+        dataLabel: cheapest.dataLabel,
+        destinations: sampled.length,
+        // Bundles the catalogue returns for these countries — NOT the table's
+        // plansCount, which counts countries.
         planCount: sampled.reduce((n, d) => n + d.planCount, 0),
       };
     }
     return out;
   }, [deals]);
 
-  /**
-   * Country plans and Regional/Global plans are separate products (local number
-   * vs foreign number), so they get separate tabs — never one merged, price-sorted
-   * list. Some destinations only exist inside global bundles, so if there are no
-   * country plans we fall back to global rather than showing an empty tab.
-   */
-  const scoped = useMemo(() => splitByScope(bundles), [bundles]);
-  const effectiveScope: CoverageScope =
-    scope === 'country' && scoped.country.length === 0 ? 'global' : scope;
+  const regionCountries = useMemo(() => {
+    const r = ESIM_REGIONS.find((x) => x.name === region);
+    if (!r) return [];
+    const codes = new Set(r.sampleCodes);
+    return countries.filter((c) => codes.has(c.iso) || (c.region ?? '').toLowerCase().includes(r.filterKey.toLowerCase()));
+  }, [countries, region]);
 
-  // Standard vs Unlimited, within the chosen scope. Fall back rather than show
-  // an empty tab when a destination sells only one of the two.
-  const byType = useMemo(() => {
-    const inScope = scoped[effectiveScope];
-    return {
-      data: inScope.filter((b) => !b.isUnlimited),
-      unlimited: inScope.filter((b) => !!b.isUnlimited),
-    };
-  }, [scoped, effectiveScope]);
+  const openCountry = useCallback((iso: string) => { setCountry(iso); setSearch(''); }, []);
+  const selectedName = country ? byIso.get(country)?.name ?? country : null;
 
-  const effectiveType: 'data' | 'unlimited' =
-    byType[planType].length === 0
-      ? planType === 'data'
-        ? 'unlimited'
-        : 'data'
-      : planType;
-
-  const visible = useMemo(() => {
-    // The search box picks a DESTINATION, so it must not also filter the plan
-    // list. It used to: searching "Thailand" and then selecting it left the
-    // query filtering plans, and since Thai plans are named "Thailand eSIM ..."
-    // while the global bundles are not, the Regional/Global tab silently
-    // rendered zero plans.
-    const inScope = byType[effectiveType];
-    const sorted = sortBundles(inScope, sortBy);
-    const popular = popularPlanNames(sorted);
-    // Hoist popular plans, as the web does.
-    const hoisted = [
-      ...sorted.filter((b) => popular.has(b.name)),
-      ...sorted.filter((b) => !popular.has(b.name)),
-    ];
-    return { list: hoisted, popular };
-  }, [byType, effectiveType, sortBy]);
-
-  const goToCheckout = useCallback(
-    (plan: EsimBundle) => {
-      // An eSIM can only be bought by a real signed-in user (the order call
-      // needs an auth token; a guest has none). Gate BEFORE checkout so the
-      // customer is asked to sign in up front, not after filling the whole form.
-      if (
-        !requireAuth({
-          reason: 'Sign in to buy an eSIM — your order and QR code are tied to your account.',
-        })
-      ) {
-        return;
-      }
-      router.push({
-        pathname: '/esim/checkout/[bundle]',
-        params: {
-          bundle: plan.name,
-          provider: plan.provider ?? '',
-          bundleId: plan.providerBundleId ?? '',
-          country: plan.country ?? '',
-        },
-      });
-    },
-    [router, requireAuth],
-  );
-
-  const selectedCountryName = countries.find((c) => c.iso === country)?.name ?? country ?? null;
-
-  // With no country picked, the search box filters the country rail instead of
-  // plans — that's the only thing on screen to filter.
-  /**
-   * The picker shows, in order of preference:
-   *   - the search matches, while the customer is searching;
-   *   - the featured shortlist otherwise (expandable to all 157 via "See all").
-   *
-   * The selected country is always kept in the list even if it falls outside the
-   * shortlist, so picking, say, Peru doesn't make the highlighted chip vanish.
-   */
-  const searchQuery = search.trim().toLowerCase();
-  // Searching is just "there is a query". This used to ALSO require that no
-  // country was selected, which silently killed the search box the moment you
-  // picked one — the Search button did nothing and typing filtered nothing.
-  const isSearching = searchQuery.length > 0;
-
-  const matchedCountries = useMemo(() => {
-    // A chosen region narrows the pool first. ESIM_REGIONS lists a handful of
-    // sample codes per region for pricing, so pool from those plus anything the
-    // catalogue itself tags with the region.
-    let pool = countries;
-    if (region && !isSearching) {
-      const r = ESIM_REGIONS.find((x) => x.name === region);
-      if (r) {
-        const codes = new Set(r.sampleCodes);
-        pool = countries.filter(
-          (c) =>
-            codes.has(c.iso) ||
-            (c.region ?? '').toLowerCase().includes(r.filterKey.toLowerCase()),
-        );
-      }
-    }
-
-    if (!isSearching) return pool;
-    return pool.filter(
-      (c) =>
-        c.name.toLowerCase().includes(searchQuery) || c.iso.toLowerCase().includes(searchQuery),
-    );
-  }, [countries, searchQuery, isSearching, region]);
-
-  const visibleCountries = useMemo(() => {
-    if (isSearching || showAllCountries) return matchedCountries;
-
-    // Collapsed shortlist — plus the selection, wherever it ranks.
-    const shortlist = matchedCountries.slice(0, FEATURED_COUNT);
-    const picked = country ? matchedCountries.find((c) => c.iso === country) : undefined;
-    return picked && !shortlist.some((c) => c.iso === country)
-      ? [picked, ...shortlist.slice(0, FEATURED_COUNT - 1)]
-      : shortlist;
-  }, [matchedCountries, isSearching, country, showAllCountries]);
-
-  /** Jump straight to the top match — what the red Search button commits to. */
-  const runSearch = useCallback(() => {
-    const hit = matchedCountries[0];
-    if (!hit) return;
-    setCountry(hit.iso);
-    setSearch('');
-    setShowAllCountries(false);
-    setScope('country');
-    setPlanType('data');
-  }, [matchedCountries]);
+  const line = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)';
+  const TABS: { key: Tab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: 'countries', label: 'Countries', icon: 'flag-outline' },
+    { key: 'regions', label: 'Regions', icon: 'map-outline' },
+    { key: 'global', label: 'Global', icon: 'globe-outline' },
+  ];
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
+    <SafeAreaView style={[s.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
       <ScrollView
+        ref={scrollRef}
+        stickyHeaderIndices={[2]}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.body}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT_RED} />
-        }
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 40 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ESIM_RED} />}
       >
-        {/* ─── HERO ─── */}
-        {/* The PWA hero plays a looping background video; so does this one, over
-            the same poster image it falls back to. */}
-        <EsimHeroVideo style={styles.hero}>
-          <LinearGradient
-            colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.72)']}
-            style={StyleSheet.absoluteFill}
-          />
-
-          <View style={styles.heroTop}>
-            <TouchableOpacity
-              onPress={() => goBack()}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={styles.backBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => router.push('/esim/my-orders')}
-              style={styles.ordersBtn}
-              accessibilityRole="button"
-            >
-              <Ionicons name="receipt-outline" size={14} color="#FFFFFF" />
-              <Text style={styles.ordersBtnText}>My eSIMs</Text>
-            </TouchableOpacity>
+        {/* [0] Title bar */}
+        <View style={s.top}>
+          <TouchableOpacity onPress={() => goBack()} hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }} style={[s.round, { backgroundColor: themeColors.surface, borderColor: line }]} accessibilityRole="button" accessibilityLabel="Go back">
+            <Ionicons name="chevron-back" size={21} color={themeColors.text} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={[s.title, { color: themeColors.text }]} numberOfLines={1}>Travel <Text style={{ color: ESIM_RED }}>eSIM</Text></Text>
+            <Text style={[s.kicker, { color: themeColors.textSecondary }]} numberOfLines={1}>Data in 120+ countries · instant QR</Text>
           </View>
+          <TouchableOpacity onPress={() => router.push('/esim/my-orders')} style={[s.mine, { backgroundColor: themeColors.surface, borderColor: line }]} accessibilityRole="button">
+            <Ionicons name="qr-code-outline" size={14} color={themeColors.text} />
+            <Text style={[s.mineText, { color: themeColors.text }]}>My eSIMs</Text>
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.heroContent}>
-            <View style={styles.eyebrow}>
-              <Ionicons name="phone-portrait-outline" size={11} color="#FFFFFF" />
-              <Text style={styles.eyebrowText}>TRAVEL eSIM</Text>
-            </View>
-            <Text style={styles.heroTitle}>Stay connected</Text>
-            <Text style={styles.heroTitleAccent}>everywhere you go</Text>
-            <Text style={styles.heroSub}>
-              eSIM data plans for 190+ countries. Instant activation, no SIM swap.
-            </Text>
-          </View>
-        </EsimHeroVideo>
+        {/* [1] Destination posters */}
+        <View style={{ paddingTop: 6, paddingBottom: 4 }}>
+          <EsimPosterRail countries={spotlight} deals={deals} onPick={openCountry} />
+        </View>
 
-        {/* ─── FLOATING SEARCH (overlaps the hero edge, like the web) ─── */}
-        <View style={styles.searchWrap}>
-          <View
-            style={[
-              styles.searchBar,
-              { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-            ]}
-          >
+        {/* [2] Pinned: search + Countries / Regions / Global */}
+        <View style={[s.sticky, { backgroundColor: themeColors.background, borderBottomColor: line }]}>
+          <View style={[s.search, { backgroundColor: themeColors.surface, borderColor: line }]}>
             <Ionicons name="search" size={18} color={themeColors.textTertiary} />
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search a country..."
+              placeholder="Where are you travelling?"
               placeholderTextColor={themeColors.textTertiary}
-              style={[styles.searchInput, { color: themeColors.text }]}
+              style={[s.searchInput, { color: themeColors.text }]}
               autoCorrect={false}
               returnKeyType="search"
-              // Hitting Search on the keyboard must do the same thing as the
-              // button, or the field feels broken to anyone who types and taps
-              // Return.
-              onSubmitEditing={runSearch}
+              onSubmitEditing={() => results[0] && openCountry(results[0].iso)}
             />
-            {search.length > 0 && (
-              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            {search ? (
+              <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }} accessibilityLabel="Clear search">
                 <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
               </TouchableOpacity>
-            )}
-
-            {/* The PWA's red Search button, flush inside the field. Dimmed when
-                there is nothing to jump to, rather than looking tappable and
-                doing nothing. */}
-            <TouchableOpacity
-              onPress={runSearch}
-              disabled={!matchedCountries.length || !isSearching}
-              style={[
-                styles.searchBtn,
-                (!matchedCountries.length || !isSearching) && styles.searchBtnOff,
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel="Search"
-            >
-              <Text style={styles.searchBtnText}>Search</Text>
-            </TouchableOpacity>
+            ) : null}
           </View>
-        </View>
-
-        {/* Promo bar — the free VIP month that comes with any eSIM over ₹500.
-            Its CTA used to push '/vip', a route this app does not have, so the
-            tap did nothing at all. The perk IS the eSIM, so it now scrolls to
-            the plans that carry it (or to the picker if no country is chosen
-            yet), and it hides once you are already looking at plans. */}
-        {!country && (
-          <TouchableOpacity
-            onPress={() => {
-              const first = countries[0];
-              if (first) {
-                setCountry(first.iso);
-                setSearch('');
-                setScope('country');
-                setPlanType('data');
-              }
-            }}
-            style={[styles.promo, { backgroundColor: themeColors.surface }]}
-            accessibilityRole="button"
-            accessibilityLabel="Free VIP month, worth ₹999, with any eSIM over ₹500"
-          >
-            <View style={styles.promoPill}>
-              <Text style={styles.promoPillText}>₹999 VALUE</Text>
-            </View>
-            <Text style={[styles.promoText, { color: themeColors.text }]} numberOfLines={1}>
-              Free VIP + 50 credits
-            </Text>
-            <View style={styles.promoCta}>
-              <Text style={styles.promoCtaText}>Buy now</Text>
-              <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* ─── DESTINATIONS — every country the catalogue actually sells ─── */}
-        {/* ─── BROWSE BY REGION ─── */}
-        {!country && !isSearching && (
-          <View style={styles.section}>
-            <Text style={styles.regionEyebrow}>BROWSE BY REGION</Text>
-            <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-              Where are you headed?
-            </Text>
-            <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-              Live prices across 100+ countries — instant delivery, keep your number, zero roaming
-              bills.
-            </Text>
-
-            <View style={styles.regionList}>
-              {ESIM_REGIONS.map((r) => (
-                <EsimRegionRow
-                  key={r.name}
-                  region={r}
-                  fromINR={regionFrom[r.name]?.fromINR}
-                  planCount={regionFrom[r.name]?.planCount}
-                  selected={region === r.name}
-                  onPress={() => {
-                    // Filter the picker to this region — do NOT jump to a single
-                    // country. Tapping "Europe" and landing on France's plans is
-                    // not what the row promises.
-                    setRegion((cur) => (cur === r.name ? null : r.name));
-                    setSearch('');
-                    setShowAllCountries(true);
-                  }}
-                />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Destination picker. Once a country is chosen this collapses — leaving
-            "Recommended for You" on screen under the plans you are already
-            reading is just noise. It comes back while you search for another. */}
-        {(!country || isSearching) && (
-        <View style={styles.section}>
-          <View style={styles.plansHeader}>
-            <View style={styles.plansHeaderText}>
-              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                {isSearching ? 'Destinations' : region ? region : 'Recommended for You'}
-              </Text>
-              <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                {isSearching
-                  ? `${matchedCountries.length} match${matchedCountries.length === 1 ? '' : 'es'}`
-                  : region
-                    ? `${matchedCountries.length} destinations in ${region} · tap one`
-                    : countries.length
-                      ? `${countries.length} destinations · tap one to see its plans`
-                      : 'Tap a country to see its plans'}
-              </Text>
-            </View>
-
-            {countries.length > FEATURED_COUNT && !isSearching && (
-              <TouchableOpacity
-                onPress={() => setShowAllCountries((v) => !v)}
-                style={[styles.sortBtn, { borderColor: themeColors.border }]}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.sortBtnText, { color: themeColors.textSecondary }]}>
-                  {showAllCountries ? 'Show less' : 'See all'}
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {/* Photo cards, two per row — the PWA's "Recommended for You" grid.
-              A row of text chips (what this used to be) is not the design. */}
-          <View style={styles.countryGrid}>
-            {visibleCountries.map((c) => {
-              const deal = deals[c.iso];
+          <View style={[s.tabs, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f2f4' }]}>
+            {TABS.map((t) => {
+              const on = tab === t.key && !query;
               return (
-                <View key={c.iso} style={styles.countryCell}>
-                  <EsimCountryCard
-                    iso={c.iso}
-                    name={c.name}
-                    fromINR={deal?.fromINR}
-                    planCount={deal?.planCount}
-                    selected={country === c.iso}
-                    onPress={() => {
-                      // Clear the query on selection: it has done its job, and
-                      // leaving "Thailand" in the box makes the picker look like
-                      // it is still filtering when it no longer is. Reset the
-                      // scope too — each destination has its own country/global
-                      // split, and a tab that is empty here may not be there.
-                      setCountry(country === c.iso ? null : c.iso);
-                      setSearch('');
-                      setShowAllCountries(false);
-                      setRegion(null);
-                      setScope('country');
-                      setPlanType('data');
-                    }}
-                  />
-                </View>
+                // Pressable, not the gesture-handler Touchable: that one puts
+                // `style` on an inner view, so flex: 1 never reached the row.
+                <Pressable key={t.key} onPress={() => { setTab(t.key); setSearch(''); }} style={[s.tab, on && [s.tabOn, { backgroundColor: themeColors.surface }]]} accessibilityRole="tab" accessibilityState={{ selected: on }}>
+                  <Ionicons name={t.icon} size={14} color={on ? ESIM_RED : themeColors.textSecondary} />
+                  <Text style={[s.tabText, { color: on ? themeColors.text : themeColors.textSecondary }]}>{t.label}</Text>
+                </Pressable>
               );
             })}
           </View>
-
-          {isSearching && visibleCountries.length === 0 && (
-            <Text style={[styles.sectionSub, { color: themeColors.textSecondary, marginTop: spacing.md }]}>
-              No destination matches "{search.trim()}".
-            </Text>
-          )}
         </View>
-        )}
 
-        {/* ─── PLANS — only once a destination is chosen, since the catalogue is
-             country-scoped and returns no bundles without one. ─── */}
-        {country && (
-        <View style={styles.section}>
-          {/* Destination hero — the photo card the PWA leads with. */}
-          {!loading && !error && bundles.length > 0 && (
-            <EsimDestinationHero
-              countryName={selectedCountryName ?? country}
-              countryCode={country}
-              bundles={bundles}
-            />
-          )}
-
-          {/* Green eyebrow: "🇹🇭 THAILAND · COUNTRY PLAN" */}
-          {!loading && !error && (
-            <View style={styles.eyebrowRow}>
-              <CountryFlag countryCode={country} size={18} />
-              <Text style={styles.planEyebrowText} numberOfLines={1}>
-                {(selectedCountryName ?? country).toUpperCase()} ·{' '}
-                {effectiveScope === 'global' ? 'REGIONAL / GLOBAL PLAN' : 'COUNTRY PLAN'}
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.plansHeader}>
-            <View style={styles.plansHeaderText}>
-              <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                {selectedCountryName
-                  ? `Pick a ${selectedCountryName} eSIM plan`
-                  : 'Pick an eSIM plan'}
-              </Text>
-              {!loading && !error && (
-                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                  {effectiveScope === 'global'
-                    ? 'Covers many countries · foreign number · outbound calls only'
-                    : 'Local data eSIM · 4G LTE · Activates the moment you land'}
-                </Text>
-              )}
-            </View>
-
-            {!loading && !error && visible.list.length > 1 && (
-              <View>
-                <TouchableOpacity
-                  onPress={() => setSortOpen((v) => !v)}
-                  style={[styles.sortBtn, { borderColor: themeColors.border }]}
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="swap-vertical" size={14} color={themeColors.textSecondary} />
-                  <Text style={[styles.sortBtnText, { color: themeColors.textSecondary }]}>
-                    {SORT_LABELS[sortBy]}
-                  </Text>
-                </TouchableOpacity>
-
-                {sortOpen && (
-                  <View
-                    style={[
-                      styles.sortMenu,
-                      { backgroundColor: themeColors.surface, borderColor: themeColors.border },
-                    ]}
-                  >
-                    {SORT_KEYS.map((k) => (
-                      <TouchableOpacity
-                        key={k}
-                        onPress={() => {
-                          setSortBy(k);
-                          setSortOpen(false);
-                        }}
-                        style={styles.sortItem}
-                      >
-                        <Text
-                          style={[
-                            styles.sortItemText,
-                            { color: k === sortBy ? ACCENT_RED : themeColors.text },
-                          ]}
-                        >
-                          {SORT_LABELS[k]}
-                        </Text>
-                        {k === sortBy && <Ionicons name="checkmark" size={15} color={ACCENT_RED} />}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Coverage scope — a country eSIM and a global eSIM are different
-              products, so make the customer choose rather than merging them.
-              Only offered when the destination actually sells both. */}
-          {!loading && !error && scoped.country.length > 0 && scoped.global.length > 0 && (
-            <View style={[styles.scopeTabs, { borderColor: themeColors.border }]}>
-              {([
-                { key: 'country' as const, label: `${selectedCountryName ?? 'Country'} only`, count: scoped.country.length },
-                { key: 'global' as const, label: 'Regional / Global', count: scoped.global.length },
-              ]).map((t) => {
-                const active = effectiveScope === t.key;
-                return (
-                  <TouchableOpacity
-                    key={t.key}
-                    onPress={() => setScope(t.key)}
-                    style={[styles.scopeTab, active && { backgroundColor: ACCENT_RED }]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text
-                      style={[
-                        styles.scopeTabText,
-                        { color: active ? '#FFFFFF' : themeColors.textSecondary },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {t.label} ({t.count})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Standard vs Unlimited — only when the destination sells both. */}
-          {!loading && !error && byType.data.length > 0 && byType.unlimited.length > 0 && (
-            <View style={[styles.scopeTabs, { borderColor: themeColors.border }]}>
-              {([
-                { key: 'data' as const, label: 'Standard', isNew: false },
-                { key: 'unlimited' as const, label: 'Unlimited', isNew: true },
-              ]).map((t) => {
-                const active = effectiveType === t.key;
-                return (
-                  <TouchableOpacity
-                    key={t.key}
-                    onPress={() => setPlanType(t.key)}
-                    style={[styles.scopeTab, active && { backgroundColor: ACCENT_RED }]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                  >
-                    <Text
-                      style={[
-                        styles.scopeTabText,
-                        { color: active ? '#FFFFFF' : themeColors.textSecondary },
-                      ]}
-                    >
-                      {t.label}
-                    </Text>
-                    {t.isNew && (
-                      <View style={styles.newBadge}>
-                        <Text style={styles.newBadgeText}>NEW</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-
-          {/* Global plans cost more and hand the customer a foreign number —
-              say so plainly, since the cheapest plan on the list is often one. */}
-          {!loading && !error && effectiveScope === 'global' && (
-            <View style={styles.scopeWarning}>
-              <Ionicons name="alert-circle" size={16} color={ACCENT_RED} />
-              <Text style={[styles.scopeWarningText, { color: themeColors.textSecondary }]}>
-                Regional/Global plans work across many countries but come with a foreign number and
-                usually cost more.
-                {scoped.country.length > 0 && selectedCountryName
-                  ? ` For a trip only to ${selectedCountryName}, a "${selectedCountryName} only" plan is usually cheaper.`
-                  : ''}{' '}
-                To receive calls, use WhatsApp or data calling.
-              </Text>
-            </View>
-          )}
-
-          {loading ? (
-            <View style={styles.stateBox}>
-              <ActivityIndicator size="large" color={ACCENT_RED} />
-              <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
-                Loading plans...
-              </Text>
-            </View>
-          ) : error ? (
-            <View style={styles.stateBox}>
-              <Ionicons name="alert-circle-outline" size={40} color={themeColors.textTertiary} />
-              <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>{error}</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  setLoading(true);
-                  load(country).finally(() => setLoading(false));
-                }}
-                style={styles.retryBtn}
-                accessibilityRole="button"
-              >
-                <Text style={styles.retryText}>Try again</Text>
+        {/* [3] Content */}
+        <View>
+          {listLoading ? (
+            <View style={s.state}><ActivityIndicator color={ESIM_RED} size="large" /></View>
+          ) : listError ? (
+            <View style={s.state}>
+              <Ionicons name="cloud-offline-outline" size={36} color={themeColors.textTertiary} />
+              <Text style={[s.stateText, { color: themeColors.textSecondary }]}>{listError}</Text>
+              <TouchableOpacity onPress={() => { setListLoading(true); loadCountries().finally(() => setListLoading(false)); }} style={s.retry}>
+                <Text style={s.retryText}>Try again</Text>
               </TouchableOpacity>
             </View>
-          ) : visible.list.length === 0 ? (
-            <View style={styles.stateBox}>
-              <Ionicons name="cellular-outline" size={40} color={themeColors.textTertiary} />
-              <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
-                {effectiveScope === 'global'
-                  ? `No regional or global plans cover ${selectedCountryName ?? 'this destination'} yet.`
-                  : `No ${selectedCountryName ?? 'local'}-only plans yet — try Regional / Global.`}
+          ) : query ? (
+            /* Search results */
+            <View style={s.pad}>
+              <Text style={[s.sectionTitle, { color: themeColors.text }]}>
+                {results.length ? `${results.length} destination${results.length === 1 ? '' : 's'}` : `No destination matches "${search.trim()}"`}
               </Text>
+              <View style={s.list}>
+                {results.slice(0, 40).map((c) => (
+                  <EsimCountryListRow key={c.iso} iso={c.iso} name={c.name} deal={deals[c.iso]} onPress={() => openCountry(c.iso)} />
+                ))}
+              </View>
             </View>
-          ) : (
-            <View style={styles.grid}>
-              {visible.list.map((plan) => (
-                <View key={bundleKey(plan)} style={styles.gridCell}>
-                  <EsimPlanCard
-                    plan={plan}
-                    exchangeRates={rates}
-                    isPopular={visible.popular.has(plan.name)}
-                    onPress={goToCheckout}
+          ) : tab === 'countries' ? (
+            <>
+              <View style={[s.pad, { marginTop: 14 }]}>
+                <EsimOfferTicker onBuy={() => spotlight[0] && openCountry(spotlight[0].iso)} />
+              </View>
+
+              <EsimCountryRail title="Trending now" subtitle="Where travellers are heading this month" icon="flame" iconColors={['#F97316', ESIM_RED]} countries={trending} deals={deals} onPick={openCountry} />
+              <EsimCountryRail title="Best value this week" subtitle="Lowest prices and biggest discounts today" icon="pricetag" iconColors={['#10B981', '#047857']} countries={bestValue} deals={deals} onPick={openCountry} />
+
+              <View style={[s.pad, { marginTop: 26 }]}>
+                <EsimGuideCard onPress={() => setGuideOpen(true)} />
+              </View>
+
+              <EsimCountryRail title="Asia Pacific" subtitle="Temples, islands and city lights" icon="sunny" iconColors={['#F43F5E', '#BE123C']} countries={asia} deals={deals} onPick={openCountry} />
+              <EsimCountryRail title="Europe" subtitle="One trip, many borders" icon="train" iconColors={['#3B82F6', '#1D4ED8']} countries={europe} deals={deals} onPick={openCountry} />
+
+              <View style={[s.pad, { marginTop: 28 }]}>
+                <View style={s.azHead}>
+                  <Text style={[s.sectionTitle, { color: themeColors.text }]}>All destinations</Text>
+                  <Text style={[s.azCount, { color: themeColors.textSecondary }]}>{countries.length} countries</Text>
+                </View>
+                <View style={s.list}>
+                  {aToZ.slice(0, A_Z_PREVIEW).map((c) => (
+                    <EsimCountryListRow key={c.iso} iso={c.iso} name={c.name} deal={deals[c.iso]} onPress={() => openCountry(c.iso)} />
+                  ))}
+                </View>
+                {aToZ.length > A_Z_PREVIEW ? (
+                  // The full list opens on its own screen, so this page stays short.
+                  <Pressable onPress={() => setAllOpen(true)} style={({ pressed }) => [s.more, { borderColor: ESIM_RED, backgroundColor: themeColors.surface }, pressed && { opacity: 0.85 }]} accessibilityRole="button">
+                    <Ionicons name="earth" size={17} color={ESIM_RED} />
+                    <Text style={[s.moreText, { color: ESIM_RED }]}>View all {aToZ.length} countries</Text>
+                    <Ionicons name="arrow-forward" size={16} color={ESIM_RED} />
+                  </Pressable>
+                ) : null}
+              </View>
+            </>
+          ) : tab === 'regions' ? (
+            <View style={[s.pad, { marginTop: 16, gap: 16 }]}>
+              <Text style={[s.lead, { color: themeColors.textSecondary }]}>
+                One eSIM for a multi-country trip — or tap a region to see its countries.
+              </Text>
+              {ESIM_REGIONS.map((r) => (
+                <View key={r.name} style={{ gap: 12 }}>
+                  <EsimRegionPass
+                    region={r}
+                    fromINR={regionFrom[r.name]?.fromINR}
+                    planCount={regionFrom[r.name]?.planCount}
+                    dataLabel={regionFrom[r.name]?.dataLabel}
+                    destinations={regionFrom[r.name]?.destinations}
+                    selected={region === r.name}
+                    onPress={() => setRegion((cur) => (cur === r.name ? null : r.name))}
                   />
+                  {region === r.name ? (
+                    <View style={s.list}>
+                      {regionCountries.map((c) => (
+                        <EsimCountryListRow key={c.iso} iso={c.iso} name={c.name} deal={deals[c.iso]} onPress={() => openCountry(c.iso)} />
+                      ))}
+                    </View>
+                  ) : null}
                 </View>
               ))}
             </View>
+          ) : (
+            /* Global */
+            <View style={[s.pad, { marginTop: 16 }]}>
+              <LinearGradient colors={['#0f172a', '#1e293b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.globalHero}>
+                <LinearGradient colors={['rgba(56,189,248,0.45)', 'rgba(56,189,248,0)']} start={{ x: 1, y: 0 }} end={{ x: 0.2, y: 1 }} style={StyleSheet.absoluteFill} />
+                <Ionicons name="globe" size={30} color="#7dd3fc" />
+                <Text style={s.globalTitle}>One eSIM, 60+ countries</Text>
+                <Text style={s.globalSub}>For round-the-world trips and frequent flyers. A foreign number; data works the moment you land.</Text>
+              </LinearGradient>
+              {globalError ? (
+                <Text style={[s.stateText, { color: themeColors.textSecondary, marginTop: 16 }]}>{globalError}</Text>
+              ) : !globalPlans ? (
+                <View style={s.state}><ActivityIndicator color={ESIM_RED} /></View>
+              ) : (
+                <View style={{ gap: 14, marginTop: 18 }}>
+                  {globalPlans.map((p) => {
+                    const on = globalPick === bundleKey(p);
+                    return (
+                      <View key={bundleKey(p)} style={{ gap: 8 }}>
+                        <EsimPlanRow plan={p} selected={on} showCoverage onPress={() => setGlobalPick(on ? null : bundleKey(p))} />
+                        {on ? (
+                          <TouchableOpacity onPress={() => goToCheckout(p, GLOBAL_SOURCE)} accessibilityRole="button">
+                            <LinearGradient colors={['#FF3344', ESIM_RED, '#C30E11']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.globalBuy}>
+                              <Text style={s.globalBuyText}>Buy this plan</Text>
+                              <Ionicons name="arrow-forward" size={16} color="#fff" />
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
           )}
+
+          {/* Always: the trust line. */}
+          <View style={[s.pad, { marginTop: 28 }]}>
+            <View style={[s.trust, { borderColor: line }]}>
+              {([
+                { icon: 'flash-outline', text: 'Instant QR' },
+                { icon: 'shield-checkmark-outline', text: 'Secure pay' },
+                { icon: 'refresh-outline', text: 'Easy top-ups' },
+                { icon: 'chatbubbles-outline', text: '24/7 help' },
+              ] as const).map((t) => (
+                <View key={t.text} style={s.trustItem}>
+                  <Ionicons name={t.icon} size={18} color={ESIM_RED} />
+                  <Text style={[s.trustText, { color: themeColors.textSecondary }]}>{t.text}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={[s.note, { color: themeColors.textTertiary }]}>
+              eSIMs are non-refundable once activated. Unactivated eSIMs can be refunded within 7 days of purchase.
+            </Text>
           </View>
-        )}
-
-        {/* Section order mirrors the PWA: the spec table and the destination
-            pitch sit directly under the plans, then the shared explainers. */}
-        {country && !loading && !error && visible.list.length > 0 && (
-          <EsimProductDetails
-            plans={visible.list}
-            scope={effectiveScope}
-            countryName={selectedCountryName ?? country}
-            countryCode={country}
-          />
-        )}
-
-        <EsimCompatibleDevices />
-        <EsimHowItWorks />
-        <EsimFAQ />
-
-        <View style={styles.footerNote}>
-          <Ionicons name="shield-checkmark-outline" size={16} color={ACCENT_RED} />
-          <Text style={[styles.footerNoteText, { color: themeColors.textSecondary }]}>
-            eSIMs are non-refundable once activated. Unactivated eSIMs may be refunded within 7 days
-            of purchase.
-          </Text>
         </View>
       </ScrollView>
+
+      <EsimPlansSheet
+        visible={!!country}
+        countryCode={country}
+        countryName={selectedName}
+        bundles={bundles}
+        loading={plansLoading}
+        error={plansError}
+        onRetry={() => country && loadPlans(country, true)}
+        onClose={() => setCountry(null)}
+        onBuy={(plan) => goToCheckout(plan, country)}
+      />
+      <EsimAllCountriesSheet
+        visible={allOpen}
+        countries={aToZ}
+        deals={deals}
+        onClose={() => setAllOpen(false)}
+        onPick={(iso) => { setAllOpen(false); openCountry(iso); }}
+      />
+      <EsimGuideSheet
+        visible={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        onBrowse={() => { setTab('countries'); scrollRef.current?.scrollTo({ y: 0, animated: true }); }}
+      />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   safe: { flex: 1 },
-  body: { paddingBottom: spacing['2xl'] },
+  pad: { paddingHorizontal: 16 },
 
-  // Hero
-  hero: { minHeight: 250, justifyContent: 'space-between' },
-  heroImg: {},
-  heroTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  ordersBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  ordersBtnText: { color: '#FFFFFF', fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
+  top: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 10 },
+  round: { width: 38, height: 38, borderRadius: 19, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  kicker: { fontSize: 12, fontWeight: '600', marginTop: 1 },
+  title: { fontSize: 22, fontWeight: '900', letterSpacing: -0.6 },
+  mine: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 8 },
+  mineText: { fontSize: 12.5, fontWeight: '700' },
 
-  heroContent: { paddingHorizontal: spacing.lg, paddingBottom: spacing['2xl'] + spacing.md },
-  eyebrow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 5,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.18)',
-    marginBottom: spacing.sm,
+  sticky: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 10, gap: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  search: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, height: 50,
+    shadowColor: '#0f172a', shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 2,
   },
-  eyebrowText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 0.8,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    fontWeight: fontWeight.bold,
-    letterSpacing: -0.75,
-    lineHeight: 34,
-  },
-  // The web renders this line in the red brand gradient; RN has no gradient text
-  // without extra deps, so the brand red is applied flat.
-  heroTitleAccent: {
-    color: '#FF6B72',
-    fontSize: 28,
-    fontWeight: fontWeight.bold,
-    letterSpacing: -0.75,
-    lineHeight: 34,
-  },
-  heroSub: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: fontSize.sm,
-    marginTop: spacing.sm,
-    lineHeight: 20,
-    maxWidth: 300,
-  },
+  searchInput: { flex: 1, fontSize: 15.5, fontWeight: '500' },
+  tabs: { flexDirection: 'row', borderRadius: 14, padding: 4 },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 9, borderRadius: 11 },
+  tabOn: { shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 2 },
+  tabText: { fontSize: 13.5, fontWeight: '700' },
 
-  // Search — pulled up over the hero boundary
-  searchWrap: { paddingHorizontal: spacing.lg, marginTop: -26 },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 6 },
-    elevation: 6,
-  },
-  searchInput: { flex: 1, paddingVertical: spacing.md + 2, fontSize: fontSize.md },
+  state: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 50 },
+  stateText: { fontSize: 14, textAlign: 'center' },
+  retry: { backgroundColor: ESIM_RED, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+  retryText: { color: '#fff', fontWeight: '800' },
 
-  // Sections
-  section: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
-  sectionTitle: { fontSize: fontSize.xl, fontWeight: fontWeight.bold, letterSpacing: -0.75 },
-  sectionSub: { fontSize: fontSize.sm, marginTop: 2 },
+  sectionTitle: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, marginTop: 16 },
+  lead: { fontSize: 13.5, lineHeight: 19 },
+  list: { gap: 10, marginTop: 12 },
+  azHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' },
+  azCount: { fontSize: 12.5, fontWeight: '600' },
+  more: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderRadius: 14, paddingVertical: 13, marginTop: 12 },
+  moreText: { fontSize: 14, fontWeight: '700' },
 
-  searchBtn: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: borderRadius.lg,
-    backgroundColor: ACCENT_RED,
-    marginVertical: 6,
-    marginRight: -spacing.sm,
-  },
-  searchBtnOff: { opacity: 0.4 },
-  searchBtnText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  globalHero: { borderRadius: 22, padding: 20, gap: 6, overflow: 'hidden' },
+  globalTitle: { color: '#fff', fontSize: 22, fontWeight: '800', letterSpacing: -0.5, marginTop: 6 },
+  globalSub: { color: 'rgba(255,255,255,0.75)', fontSize: 13, lineHeight: 18 },
+  globalBuy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 14 },
+  globalBuyText: { color: '#fff', fontSize: 15, fontWeight: '800' },
 
-  // Promo bar
-  promo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: ACCENT_RED,
-  },
-  promoPill: {
-    backgroundColor: ACCENT_RED,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  promoPillText: { color: '#FFFFFF', fontSize: 10, fontWeight: fontWeight.bold },
-  promoText: { flex: 1, fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
-  promoCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: ACCENT_RED,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  promoCtaText: { color: '#FFFFFF', fontSize: fontSize.xs, fontWeight: fontWeight.bold },
-
-  // Browse by region
-  regionEyebrow: {
-    color: '#6B7280',
-    fontSize: 10,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 1,
-    marginBottom: 4,
-  },
-  regionList: { marginTop: spacing.md, gap: spacing.sm },
-
-  // Recommended destinations — photo cards, two per row (the PWA's grid).
-  countryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  countryCell: { width: '48.5%' },
-
-  // Green eyebrow above the plans headline, as on the web (#16A34A).
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xs,
-  },
-  planEyebrowText: {
-    flexShrink: 1,
-    color: '#16A34A',
-    fontSize: 11,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 0.8,
-  },
-
-  plansHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    zIndex: 20,
-  },
-  plansHeaderText: { flex: 1 },
-
-  sortBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 7,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  sortBtnText: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
-  sortMenu: {
-    position: 'absolute',
-    top: 38,
-    right: 0,
-    minWidth: 190,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    paddingVertical: 4,
-    zIndex: 100,
-    elevation: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-  },
-  sortItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-  },
-  sortItemText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
-
-  // Coverage scope tabs
-  scopeTabs: {
-    flexDirection: 'row',
-    marginTop: spacing.md,
-    padding: 3,
-    borderRadius: 999,
-    borderWidth: 1,
-    gap: 3,
-  },
-  scopeTab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 999,
-  },
-  scopeTabText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
-  // Web tags Unlimited with a yellow NEW chip (#FACC15 on #7C2D12).
-  newBadge: {
-    backgroundColor: '#FACC15',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  newBadgeText: { color: '#7C2D12', fontSize: 8, fontWeight: fontWeight.bold },
-
-  scopeWarning: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-    marginTop: spacing.md,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: 'rgba(230,20,23,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(230,20,23,0.12)',
-  },
-  scopeWarningText: { flex: 1, fontSize: fontSize.xs, lineHeight: 18 },
-
-  // Single column, matching the PWA at phone width. A 2-up grid cannot fit the
-  // free-VIP bundle panel, the feature rows and the price without everything
-  // wrapping into an unreadable mess.
-  grid: { marginTop: spacing.sm },
-  gridCell: { width: '100%' },
-
-  // States
-  stateBox: { alignItems: 'center', paddingVertical: spacing['2xl'], gap: spacing.md },
-  stateText: { fontSize: fontSize.sm, textAlign: 'center', paddingHorizontal: spacing.lg },
-  retryBtn: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: 999,
-    backgroundColor: ACCENT_RED,
-  },
-  retryText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
-
-  footerNote: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-    marginTop: spacing.xl,
-    marginHorizontal: spacing.lg,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    backgroundColor: 'rgba(230,20,23,0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(230,20,23,0.10)',
-  },
-  footerNoteText: { flex: 1, fontSize: fontSize.xs, lineHeight: 17 },
+  trust: { flexDirection: 'row', justifyContent: 'space-between', borderWidth: 1, borderRadius: 18, paddingVertical: 14, paddingHorizontal: 8 },
+  trustItem: { flex: 1, alignItems: 'center', gap: 5 },
+  trustText: { fontSize: 11.5, fontWeight: '600' },
+  note: { fontSize: 11.5, lineHeight: 16, textAlign: 'center', marginTop: 12 },
 });
