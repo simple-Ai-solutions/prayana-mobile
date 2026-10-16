@@ -28,6 +28,8 @@ export function streamChatMessage(
   body: Record<string, any>,
   handlers: StreamHandlers,
   timeoutMs = 90000,
+  // e.g. the session's access key (lib/chatSession)
+  extraHeaders: Record<string, string> = {},
 ): StreamHandle {
   const xhr = new XMLHttpRequest();
   let consumed = 0;
@@ -85,7 +87,7 @@ export function streamChatMessage(
     xhr.open('POST', `${getBaseURL()}/chat/stream`, true);
     xhr.setRequestHeader('Content-Type', 'application/json');
     xhr.setRequestHeader('Accept', 'text/event-stream');
-    Object.entries(headers).forEach(([k, v]) => {
+    Object.entries({ ...headers, ...extraHeaders }).forEach(([k, v]) => {
       if (typeof v === 'string') xhr.setRequestHeader(k, v);
     });
     xhr.timeout = timeoutMs;
@@ -96,7 +98,9 @@ export function streamChatMessage(
       if (xhr.readyState === 4) {
         drain();
         if (xhr.status < 200 || xhr.status >= 300) {
-          finish(() => handlers.onError(new Error(`Stream HTTP ${xhr.status}`)));
+          // The status rides along so the caller can tell a refused session
+          // (403/404: start a new one) from a transport failure
+          finish(() => handlers.onError(Object.assign(new Error(`Stream HTTP ${xhr.status}`), { status: xhr.status })));
           return;
         }
         // Stream ended without a "done" frame — treat as complete if we got

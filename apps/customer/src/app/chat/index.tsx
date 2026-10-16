@@ -18,8 +18,15 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { streamChatMessage, type StreamHandle } from '../../lib/chatStream';
+import {
+  loadSavedChatSession,
+  startChatSession,
+  forgetChatSession,
+  chatSessionHeaders,
+  chatSessionKeyFor,
+  isSessionRefused,
+} from '../../lib/chatSession';
 import * as Clipboard from 'expo-clipboard';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -131,8 +138,6 @@ interface TripFormData {
 // ============================================================
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_CHAR = 500;
-/** Server session id, so a relaunch resumes the same conversation. */
-const CHAT_SESSION_KEY = 'prayana.chat.sessionId';
 
 type SuggestionChip = { icon?: string; text: string; action?: string; placeholder?: string };
 
@@ -1385,7 +1390,7 @@ export default function ChatScreen() {
             visibilityTime: 6000,
           });
         },
-      }));
+      }, chatSessionKeyFor(activeSessionId)));
     })();
 
     return () => {
@@ -1403,6 +1408,7 @@ export default function ChatScreen() {
     try {
       await makeChatAPICall('/chat/escalate', {
         method: 'POST',
+        headers: chatSessionHeaders(sid),
         body: JSON.stringify({ sessionId: sid, reason: 'explicit' }),
         timeout: 15000,
       });
@@ -1424,11 +1430,15 @@ export default function ChatScreen() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const saved = await AsyncStorage.getItem(CHAT_SESSION_KEY).catch(() => null);
+      const savedSession = await loadSavedChatSession();
+      const saved = savedSession?.sessionId || null;
 
       if (saved) {
         try {
-          const res = await makeChatAPICall(`/chat/history/${saved}?limit=50`, { timeout: 15000 });
+          const res = await makeChatAPICall(`/chat/history/${saved}?limit=50`, {
+            timeout: 15000,
+            headers: chatSessionHeaders(saved),
+          });
           const rows: any[] = Array.isArray(res?.data) ? res.data : [];
           if (!cancelled && rows.length > 0) {
             // The list is inverted, and history arrives oldest-first.
@@ -1454,17 +1464,11 @@ export default function ChatScreen() {
       }
 
       try {
-        const res = await makeChatAPICall('/chat/session/start', {
-          method: 'POST',
-          body: JSON.stringify({ context: { type: 'general' } }),
-          timeout: 15000,
-        });
-        const sid = res?.data?.sessionId;
-        if (sid && !cancelled) {
+        const { sessionId: sid } = await startChatSession({ type: 'general' });
+        if (!cancelled) {
           sessionIdRef.current = sid;
           setActiveSessionId(sid);
           setIsConnected(true);
-          AsyncStorage.setItem(CHAT_SESSION_KEY, sid).catch(() => {});
         }
       } catch { /* offline */ }
     })();
@@ -1481,7 +1485,7 @@ export default function ChatScreen() {
       try {
         const res = await makeChatAPICall(
           `/chat/suggestions?sessionId=${encodeURIComponent(activeSessionId)}`,
-          { timeout: 10000 },
+          { timeout: 10000, headers: chatSessionHeaders(activeSessionId) },
         );
         const list = res?.data?.suggestions;
         if (!cancelled && Array.isArray(list) && list.length > 0) {
@@ -1504,17 +1508,20 @@ export default function ChatScreen() {
 
   const ensureSession = async () => {
     if (sessionIdRef.current) return;
-    const res = await makeChatAPICall('/chat/session/start', {
-      method: 'POST', body: JSON.stringify({ context: { type: 'general' } }), timeout: 15000,
-    });
-    const sid = res?.data?.sessionId;
-    if (!sid) throw new Error('Could not start session');
+    // Saved too: a session created on first send must survive a relaunch
+    // exactly like one created on mount.
+    const { sessionId: sid } = await startChatSession({ type: 'general' });
     sessionIdRef.current = sid;
     setActiveSessionId(sid);
     setIsConnected(true);
-    // Persist here too: a session created on first send must survive a
-    // relaunch exactly like one created on mount.
-    AsyncStorage.setItem(CHAT_SESSION_KEY, sid).catch(() => {});
+  };
+
+  // The server refused the session (it predates access keys, or it's gone):
+  // carry on in a new one. The messages on screen stay.
+  const renewSession = async () => {
+    await forgetChatSession();
+    sessionIdRef.current = null;
+    await ensureSession();
   };
 
   // ── Send regular text message ────────────────────────────────
@@ -1543,6 +1550,7 @@ export default function ChatScreen() {
       // Prefer SSE so text appears as it is generated; a 60s blocking POST is
       // what made the mobile chat feel slower than the web. Any transport
       // failure falls through to the original /chat/send path below.
+      let refused = false;
       const streamed = await new Promise<any | null>((resolve) => {
         const liveId = generateId();
         let buffer = '';
@@ -1587,8 +1595,9 @@ export default function ChatScreen() {
             );
             resolve(payload || { ok: true });
           },
-          onError: () => {
+          onError: (err) => {
             streamRef.current = null;
+            refused = !opened && isSessionRefused(err);
             if (opened) {
               // Partial text already shown — keep it rather than erroring.
               setMessages((prev) =>
@@ -1599,7 +1608,7 @@ export default function ChatScreen() {
               resolve(null); // nothing rendered — fall back to POST
             }
           },
-        });
+        }, 90000, chatSessionHeaders(reqBody.sessionId));
         streamRef.current = handle;
         setIsStreaming(true);
       });
@@ -1607,11 +1616,26 @@ export default function ChatScreen() {
       setIsStreaming(false);
       if (streamed) { setIsTyping(false); return; }
 
-      const response = await makeChatAPICall('/chat/send', {
-        method: 'POST',
-        body: JSON.stringify(reqBody),
-        timeout: 60000,
-      });
+      if (refused) {
+        await renewSession();
+        reqBody.sessionId = sessionIdRef.current;
+      }
+      const send = () =>
+        makeChatAPICall('/chat/send', {
+          method: 'POST',
+          headers: chatSessionHeaders(reqBody.sessionId),
+          body: JSON.stringify(reqBody),
+          timeout: 60000,
+        });
+      let response: any;
+      try {
+        response = await send();
+      } catch (err) {
+        if (refused || !isSessionRefused(err)) throw err;
+        await renewSession();
+        reqBody.sessionId = sessionIdRef.current;
+        response = await send();
+      }
 
       const aiMsgData = response?.data?.aiMessage;
       const aiText =
@@ -1767,6 +1791,7 @@ export default function ChatScreen() {
       await ensureSession();
       await makeChatAPICall('/chat/context', {
         method: 'POST',
+        headers: chatSessionHeaders(sessionIdRef.current),
         body: JSON.stringify({ sessionId: sessionIdRef.current, context: { searchLocation: city } }),
         timeout: 10000,
       }).catch(() => {});
@@ -1913,19 +1938,12 @@ export default function ChatScreen() {
           setInputText('');
           // Drop the stored session too, or the next launch would rehydrate
           // the very transcript the user just cleared.
-          await AsyncStorage.removeItem(CHAT_SESSION_KEY).catch(() => {});
+          await forgetChatSession();
+          sessionIdRef.current = null;
           try {
-            const res = await makeChatAPICall('/chat/session/start', {
-              method: 'POST',
-              body: JSON.stringify({ context: { type: 'general' } }),
-              timeout: 15000,
-            });
-            const sid = res?.data?.sessionId;
-            if (sid) {
-              sessionIdRef.current = sid;
-              setActiveSessionId(sid);
-              AsyncStorage.setItem(CHAT_SESSION_KEY, sid).catch(() => {});
-            }
+            const { sessionId: sid } = await startChatSession({ type: 'general' });
+            sessionIdRef.current = sid;
+            setActiveSessionId(sid);
           } catch { /* offline — ensureSession will retry on next send */ }
         },
       },
