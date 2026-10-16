@@ -196,7 +196,14 @@ export default function QuestionDetailScreen() {
       >
         <View style={[styles.questionCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <Text style={styles.cardCategory}>{question.category.toUpperCase()}</Text>
+            <TouchableOpacity
+              onPress={() => router.push(`/community/category/${encodeURIComponent(question.category)}` as any)}
+              hitSlop={8}
+              accessibilityRole="link"
+              accessibilityLabel={`More ${question.category} questions`}
+            >
+              <Text style={styles.cardCategory}>{question.category.toUpperCase()} ›</Text>
+            </TouchableOpacity>
             {question.isResolved && (
               <View style={[styles.badge, { backgroundColor: "#dcfce7" }]}>
                 <Text style={[styles.badgeText, { color: "#15803d" }]}>Resolved</Text>
@@ -221,13 +228,19 @@ export default function QuestionDetailScreen() {
             </ScrollView>
           )}
 
-          {/* Tags (PWA parity) */}
+          {/* Tags (PWA parity) — each opens its tag page */}
           {(question.tags?.length ?? 0) > 0 && (
             <View style={styles.tagRow}>
               {question.tags.map((t: string, i: number) => (
-                <View key={i} style={[styles.tagChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                <TouchableOpacity
+                  key={i}
+                  onPress={() => router.push(`/community/tag/${encodeURIComponent(t.toLowerCase())}` as any)}
+                  style={[styles.tagChip, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
+                  accessibilityRole="link"
+                  accessibilityLabel={`Questions tagged ${t}`}
+                >
                   <Text style={[styles.tagChipText, { color: themeColors.textSecondary }]}>#{t}</Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}

@@ -4,10 +4,11 @@
 // agreeing (a choice under DPDP s6 must be freely given) — and a Customise
 // view with the same three categories as the web.
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Switch, Linking, Modal } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Switch, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@prayana/shared-ui';
+import { openInApp } from '../../lib/openInApp';
 import { ALLOW_ALL, Consent, DENY_ALL, POLICY_URL, saveConsent, useConsent } from '../../lib/consent';
 
 const TEAL = '#0d9488';
@@ -81,7 +82,7 @@ export function ConsentSheet() {
               <Text style={[s.body, { color: themeColors.textSecondary }]}>
                 We use what's strictly necessary to run Prayana. With your permission we'd also use analytics, and
                 advertising if we ever show ads.{' '}
-                <Text style={s.link} onPress={() => Linking.openURL(POLICY_URL)}>Cookie Policy</Text>
+                <Text style={s.link} onPress={() => openInApp(POLICY_URL)}>Cookie Policy</Text>
               </Text>
               {/* Same size and the same single tap for Reject as for Accept. */}
               <View style={s.btns}>

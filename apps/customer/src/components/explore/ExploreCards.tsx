@@ -1,16 +1,19 @@
 // Explore cards: a wide "featured" poster for the swipe rail, and the list
 // card — a full-bleed photo with the place, duration and tags on it, then a
 // stub with what's included, the price and a Book button. Commissioned trek
-// art (lib/trekArt) is used where a trip has it.
+// art (lib/trekArt) is used where a trip has it. The list card carries a
+// small heart that saves it to the Wishlist.
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@prayana/shared-ui';
 import { trekArtFor } from '../../lib/trekArt';
 import { FULL_W } from '../../lib/railLayout';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
+import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
 
 const RED = '#E61417';
 const ORANGE = '#f97316';
@@ -43,6 +46,23 @@ function Facts({ a }: { a: any }) {
         </View>
       ) : null}
     </View>
+  );
+}
+
+function SaveHeart({ id }: { id?: string }) {
+  const saved = useIsSaved(id);
+  if (!id) return null;
+  return (
+    <Pressable
+      onPress={() => { toggleSaved(id); Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}); }}
+      hitSlop={8}
+      style={({ pressed }) => [s.heart, pressed && { transform: [{ scale: 0.9 }] }]}
+      accessibilityRole="button"
+      accessibilityLabel={saved ? 'Remove from Wishlist' : 'Save to Wishlist'}
+      accessibilityState={{ selected: saved }}
+    >
+      <Ionicons name={saved ? 'heart' : 'heart-outline'} size={17} color={saved ? '#ff4d5e' : '#fff'} />
+    </Pressable>
   );
 }
 
@@ -109,9 +129,12 @@ export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
           {a?.instantBooking?.enabled ? (
             <View style={s.instant}><Ionicons name="flash" size={10} color="#111827" /><Text style={s.instantText}>Instant confirm</Text></View>
           ) : <View />}
-          {rating > 0 ? (
-            <View style={s.rating}><Ionicons name="star" size={11} color="#f59e0b" /><Text style={s.ratingText}>{rating.toFixed(1)}</Text></View>
-          ) : null}
+          <View style={s.topRight}>
+            {rating > 0 ? (
+              <View style={s.rating}><Ionicons name="star" size={11} color="#f59e0b" /><Text style={s.ratingText}>{rating.toFixed(1)}</Text></View>
+            ) : null}
+            <SaveHeart id={a?._id || a?.id} />
+          </View>
         </View>
         <View style={s.photoFoot}>
           {tags.length ? (
@@ -178,6 +201,8 @@ const s = StyleSheet.create({
   },
   photo: { aspectRatio: 16 / 11, justifyContent: 'space-between' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', padding: 12 },
+  topRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  heart: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.45)' },
   rating: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
   ratingText: { color: '#fff', fontSize: 11.5, fontWeight: '800' },
   photoFoot: { padding: 16, paddingTop: 0 },

@@ -4,11 +4,14 @@
 // title, a two-line preview, tags, then the asker with a stable gradient
 // avatar, time, votes, answers and views. A photo shows as a thumbnail on the
 // right, and is dropped if it fails to load rather than left as a grey box.
+// The category chip and tags open their topic and tag pages; a page already
+// showing one passes it so its own chips don't link back to themselves.
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useTheme } from '@prayana/shared-ui';
 import { categoryMeta } from '../../lib/communityCategories';
 
@@ -49,8 +52,14 @@ const hashOf = (s = '') => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 
 /** The preview as one flowing line: greetings' line breaks collapsed. */
 const flat = (t?: string) => (t || '').replace(/\s+/g, ' ').trim();
 
-export function QuestionCard({ q, onPress }: { q: Question; onPress: () => void }) {
+export function QuestionCard({ q, onPress, currentCategory, currentTag }: {
+  q: Question;
+  onPress: () => void;
+  currentCategory?: string;
+  currentTag?: string;
+}) {
   const { themeColors, isDarkMode } = useTheme();
+  const router = useRouter();
   const [imgOk, setImgOk] = useState(true);
   const cat = categoryMeta(q.category);
   const answers = q.answerCount || 0;
@@ -76,10 +85,17 @@ export function QuestionCard({ q, onPress }: { q: Question; onPress: () => void 
       <View style={[s.bar, { backgroundColor: cat.color }]} />
 
       <View style={s.chips}>
-        <View style={[s.cat, { backgroundColor: `${cat.color}1A` }]}>
+        <Pressable
+          onPress={() => router.push(`/community/category/${encodeURIComponent(q.category)}` as any)}
+          disabled={!q.category || currentCategory === q.category}
+          hitSlop={6}
+          accessibilityRole="link"
+          accessibilityLabel={`${cat.label} questions`}
+          style={({ pressed }) => [s.cat, { backgroundColor: `${cat.color}1A` }, pressed && { opacity: 0.7 }]}
+        >
           <Ionicons name={cat.icon} size={12} color={cat.color} />
           <Text style={[s.catText, { color: cat.color }]}>{cat.label}</Text>
-        </View>
+        </Pressable>
         {resolved ? (
           <View style={s.resolved}>
             <Ionicons name="checkmark-circle" size={12} color="#047857" />
@@ -116,9 +132,17 @@ export function QuestionCard({ q, onPress }: { q: Question; onPress: () => void 
       {q.tags?.length ? (
         <View style={s.tags}>
           {q.tags.slice(0, 3).map((t) => (
-            <View key={t} style={[s.tag, { backgroundColor: isDarkMode ? 'rgba(249,115,22,0.12)' : '#fff7ed' }]}>
+            <Pressable
+              key={t}
+              onPress={() => router.push(`/community/tag/${encodeURIComponent(t.toLowerCase())}` as any)}
+              disabled={currentTag === t.toLowerCase()}
+              hitSlop={4}
+              accessibilityRole="link"
+              accessibilityLabel={`Questions tagged ${t}`}
+              style={({ pressed }) => [s.tag, { backgroundColor: isDarkMode ? 'rgba(249,115,22,0.12)' : '#fff7ed' }, pressed && { opacity: 0.7 }]}
+            >
               <Text style={s.tagText} numberOfLines={1}>#{t}</Text>
-            </View>
+            </Pressable>
           ))}
         </View>
       ) : null}

@@ -8,7 +8,7 @@
 // Same UX as the web: ONE checkbox accepts the bundled docs (each linked), plus
 // a separate explicit checkbox when the listing requires a safety waiver.
 import React, { useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, Linking } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, colors, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
@@ -17,8 +17,7 @@ import {
   RequiredLegalDoc,
   requiredDocsFor,
 } from '../../lib/legalRegistry';
-
-const LEGAL_BASE = 'https://prayanaai.com';
+import { openInApp, SITE_URL } from '../../lib/openInApp';
 
 interface Props {
   /** Registry context, e.g. "booking:activity". */
@@ -88,7 +87,7 @@ export const LegalAcceptanceBlock: React.FC<Props> = ({
   };
 
   const openDoc = (d: RequiredLegalDoc) => {
-    Linking.openURL(`${LEGAL_BASE}${d.href}`).catch(() => {});
+    openInApp(`${SITE_URL}${d.href}`);
   };
 
   const CheckRow = ({

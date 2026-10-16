@@ -15,6 +15,8 @@ import {
   shadow,
 } from '@prayana/shared-ui';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
+import { useAppStore } from '@prayana/shared-stores';
+import { useExchangeRates, convertCurrency } from '../../lib/exchangeRates';
 
 interface Props {
   activity: any;
@@ -23,6 +25,8 @@ interface Props {
 
 export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%' }) => {
   const { themeColors } = useTheme();
+  const rates = useExchangeRates();
+  const userCurrency = useAppStore((st: any) => st.userPreferences?.currency);
   const img = a.images?.[0]?.url || a.images?.[0] || a.heroImage || fallbackPhoto(a);
   const rating = a.rating?.average ?? a.rating ?? 0;
   const reviews = a.rating?.count ?? a.reviewCount ?? 0;
@@ -37,7 +41,13 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
     IDR: 'Rp ', LKR: 'LKR ', NPR: 'NPR ', CHF: 'CHF ', CAD: 'C$',
   };
   const rawCurrency = a.pricing?.currency || a.currency || 'INR';
-  const code = String(rawCurrency).toUpperCase();
+  const nativeCode = String(rawCurrency).toUpperCase();
+  // Shown in the user's currency (₹ unless they chose another), as the web
+  // does; the listing's own currency only when no rate is known.
+  const userCode = String(userCurrency || 'INR').toUpperCase();
+  const converted = price != null ? convertCurrency(Number(price), nativeCode, userCode, rates) : null;
+  const code = converted != null ? userCode : nativeCode;
+  const shownPrice = converted ?? price;
   const currency = CURRENCY_SYMBOLS[code] ?? (code.length === 3 ? `${code} ` : rawCurrency);
   const priceLocale = code === 'INR' ? 'en-IN' : 'en-US';
   // externalData.city.name ("Paris") reads better than .code ("PARIS").
@@ -112,7 +122,7 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
           {price != null && (
             <Text style={styles.price}>
               {currency}
-              {Math.round(Number(price)).toLocaleString(priceLocale)}
+              {Math.round(Number(shownPrice)).toLocaleString(priceLocale)}
             </Text>
           )}
         </View>

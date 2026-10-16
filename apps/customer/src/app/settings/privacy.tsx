@@ -1,7 +1,7 @@
 // Settings → Privacy choices: change the first-launch choice any time, the
 // app's version of the website's /settings/privacy/cookies page.
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, ScrollView, Linking } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import Toast from 'react-native-toast-message';
 import { useTheme } from '@prayana/shared-ui';
 import { ConsentToggles } from '../../components/consent/ConsentSheet';
 import { Consent, DENY_ALL, POLICY_URL, saveConsent, useConsent } from '../../lib/consent';
+import { openInApp } from '../../lib/openInApp';
 
 const TEAL = '#0d9488';
 
@@ -50,7 +51,7 @@ export default function PrivacyChoicesScreen() {
             Last updated {new Date(consent.decidedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
           </Text>
         ) : null}
-        <Pressable onPress={() => Linking.openURL(POLICY_URL)} style={s.policy} accessibilityRole="link">
+        <Pressable onPress={() => openInApp(POLICY_URL)} style={s.policy} accessibilityRole="link">
           <Ionicons name="document-text-outline" size={16} color={TEAL} />
           <Text style={s.policyText}>Read the Cookie Policy</Text>
         </Pressable>

@@ -947,7 +947,7 @@ export default function BookingDetailScreen() {
               Toast.show({
                 type: 'info',
                 text1: 'Need Help?',
-                text2: 'Contact us at support@prayana.ai',
+                text2: 'Contact us at simpleaisolutions@prayanaai.com',
                 visibilityTime: 4000,
               });
             }}

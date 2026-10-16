@@ -66,6 +66,9 @@ import { CountryExperiences } from '../../components/experiences/CountryExperien
 import { DestinationTile } from '../../components/experiences/DestinationTile';
 import { CityRail } from '../../components/experiences/CityRail';
 import { IndiaMagazineHero } from '../../components/experiences/IndiaMagazineHero';
+import { EditionPoster } from '../../components/experiences/EditionPoster';
+import { cityHref, countryHref } from '../../components/experiences/PlaceExperiences';
+import { DESTINATION_EDITIONS } from '../../lib/destinationEditions';
 
 const ORANGE = '#F97316';
 const ROSE = '#E11D48';
@@ -222,8 +225,14 @@ export default function GlobalExperiencesScreen() {
     [applyFilter],
   );
 
+  // A city or country with a known country opens its own page (web
+  // /global-experiences/<country>/<city>); one without stays in-page.
   const pickCity = useCallback(
     (g: CityGroup) => {
+      if (g.country?.trim()) {
+        router.push(cityHref(g.country.trim(), g.city));
+        return;
+      }
       const sel: Selection = { city: g.city, country: g.country || undefined, label: g.city };
       setTypeTab('all');
       setCategory('');
@@ -234,12 +243,17 @@ export default function GlobalExperiencesScreen() {
 
   const pickCountry = useCallback(
     (g: CountryGroup) => {
+      // groupByCountry files a city with no country under its own name.
+      if (cities.some((c) => c.country?.trim() === g.country)) {
+        router.push(countryHref(g.country));
+        return;
+      }
       const sel: Selection = { country: g.country, label: g.country };
       setTypeTab('all');
       setCategory('');
       applyFilter({ sel, q: '', cat: '' });
     },
-    [applyFilter],
+    [applyFilter, cities],
   );
 
   const clearFilter = useCallback(() => {
@@ -564,6 +578,36 @@ export default function GlobalExperiencesScreen() {
         ) : (
           /* ════════════════ EXPLORE VIEW ════════════════ */
           <>
+            {/* Destination editions — magazine-style country pages */}
+            <View style={styles.section}>
+              <View style={styles.editionsHead}>
+                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
+                  Destination <Text style={{ color: ORANGE }}>editions</Text>
+                </Text>
+                <TouchableOpacity
+                  onPress={() => router.push('/experiences-in' as any)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  style={styles.seeAll}
+                >
+                  <Text style={styles.seeAllText}>See all</Text>
+                  <Ionicons name="chevron-forward" size={14} color={ORANGE} />
+                </TouchableOpacity>
+              </View>
+              <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
+                Country guides you read like a magazine.
+              </Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.editionRail}
+            >
+              {DESTINATION_EDITIONS.map((e) => (
+                <EditionPoster key={e.slug} edition={e} width={124} height={164} compact />
+              ))}
+            </ScrollView>
+
             {/* Top experiences by country (accordion) */}
             <View style={styles.section}>
               <View style={styles.topDestPill}>
@@ -749,6 +793,11 @@ const styles = StyleSheet.create({
   topDestPillText: { color: '#0F766E', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
 
   countries: { paddingHorizontal: spacing.lg, marginTop: spacing.lg, gap: spacing.lg },
+
+  editionsHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  seeAllText: { color: ORANGE, fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  editionRail: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.md, paddingBottom: spacing.sm },
 
   tileRail: { gap: spacing.md, paddingVertical: spacing.md, paddingRight: spacing.lg },
 

@@ -34,7 +34,7 @@ export default function SettingsLayout() {
     >
       <Stack.Screen
         name="index"
-        options={{ title: 'About' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="edit-profile"
@@ -50,7 +50,7 @@ export default function SettingsLayout() {
       />
       <Stack.Screen
         name="help"
-        options={{ title: 'Help Center' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="privacy"

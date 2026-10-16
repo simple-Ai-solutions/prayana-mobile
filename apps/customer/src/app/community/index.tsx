@@ -190,9 +190,18 @@ export default function CommunityFeedScreen() {
       </ScrollView>
 
       <View style={s.masthead}>
-        <Text style={[s.h2, { color: themeColors.text }]}>
-          {query ? `Results for "${query}"` : catMeta ? catMeta.label : sortMeta.title}
-        </Text>
+        <View style={s.mastRow}>
+          <Text style={[s.h2, { color: themeColors.text, flex: 1 }]} numberOfLines={1}>
+            {query ? `Results for "${query}"` : catMeta ? catMeta.label : sortMeta.title}
+          </Text>
+          {/* The chip filters in place; this opens the topic's own page. */}
+          {catMeta && !query ? (
+            <Pressable onPress={() => router.push(`/community/category/${catMeta.value}` as any)} hitSlop={8} style={[s.seeAll, { backgroundColor: `${catMeta.color}1A` }]} accessibilityRole="link" accessibilityLabel={`Open ${catMeta.label} topic`}>
+              <Text style={[s.seeAllText, { color: catMeta.color }]}>See all</Text>
+              <Ionicons name="chevron-forward" size={13} color={catMeta.color} />
+            </Pressable>
+          ) : null}
+        </View>
         <Text style={[s.mastNote, { color: themeColors.textSecondary }]}>
           {loading ? 'Loading questions…' : `${items.length} ${items.length === 1 ? 'question' : 'questions'}${query ? '' : ` · ${sortMeta.note}`}`}
         </Text>
@@ -300,6 +309,9 @@ const s = StyleSheet.create({
   topicText: { fontSize: 13, fontWeight: '700' },
   masthead: { paddingHorizontal: 16, paddingBottom: 12 },
   h2: { fontSize: 21, fontWeight: '900', letterSpacing: -0.5 },
+  mastRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  seeAll: { flexDirection: 'row', alignItems: 'center', gap: 2, borderRadius: 999, paddingLeft: 11, paddingRight: 8, paddingVertical: 6 },
+  seeAllText: { fontSize: 12.5, fontWeight: '800' },
   mastNote: { fontSize: 13, marginTop: 2 },
 
   skel: { borderWidth: 1, borderRadius: 20, padding: 16, gap: 10 },

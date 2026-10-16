@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import * as Haptics from 'expo-haptics';
 import {
   colors,
   fontSize,
@@ -36,6 +37,7 @@ import {
 import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { trackRecentlyViewed } from '../../lib/recentlyViewedActivities';
+import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
 import { SPOTLIGHT_W } from '../../lib/railLayout';
 import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
 import { TrekPosterCard } from '../../components/home/TrekPosterCard';
@@ -580,6 +582,21 @@ export default function ActivityDetailScreen() {
         ? 'Viator'
         : null);
 
+  // Wishlist heart — kept on the device, like the web's saved_activities.
+  const saved = useIsSaved(activity?._id);
+  const handleToggleSave = () => {
+    if (!activity?._id) return;
+    const now = toggleSaved(activity._id);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    Toast.show({
+      type: now ? 'success' : 'info',
+      text1: now ? 'Saved to Wishlist' : 'Removed',
+      text2: now ? 'Find it under My Wishlist.' : undefined,
+      visibilityTime: 1800,
+      onPress: now ? () => { Toast.hide(); router.push('/wishlist' as any); } : undefined,
+    });
+  };
+
   const requireAuth = useRequireAuth();
   const handleBookNow = () => {
     if (!activity) return;
@@ -763,6 +780,20 @@ export default function ActivityDetailScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={22} color="#ffffff" />
+        </TouchableOpacity>
+      </SafeAreaView>
+
+      {/* Floating save (wishlist) button */}
+      <SafeAreaView style={styles.saveBtnContainer} edges={['top']}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={handleToggleSave}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={saved ? 'Remove from Wishlist' : 'Save to Wishlist'}
+          accessibilityState={{ selected: saved }}
+        >
+          <Ionicons name={saved ? 'heart' : 'heart-outline'} size={21} color={saved ? '#ff4d5e' : '#ffffff'} />
         </TouchableOpacity>
       </SafeAreaView>
 
@@ -1161,6 +1192,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: spacing.lg,
+    zIndex: 20,
+  },
+  saveBtnContainer: {
+    position: 'absolute',
+    top: 0,
+    right: spacing.lg,
     zIndex: 20,
   },
   backBtn: {

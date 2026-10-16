@@ -8,6 +8,8 @@ export default function CommunityLayout() {
       <Stack.Screen name="ask" />
       <Stack.Screen name="visual" />
       <Stack.Screen name="[id]" />
+      <Stack.Screen name="category/[category]" />
+      <Stack.Screen name="tag/[tag]" />
     </Stack>
   );
 }
