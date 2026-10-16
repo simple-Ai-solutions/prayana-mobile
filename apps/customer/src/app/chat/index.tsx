@@ -44,6 +44,8 @@ import {
 import { useAuth } from '@prayana/shared-hooks';
 import { makeChatAPICall, makeItineraryAPICall, socketService, auth } from '@prayana/shared-services';
 import Toast from 'react-native-toast-message';
+import TripDestinationPicker from '../../components/chat/TripDestinationPicker';
+import TripChoicesCard, { type TripChoicesData } from '../../components/chat/TripChoicesCard';
 
 // ============================================================
 // TYPES
@@ -662,127 +664,6 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
 }
 
 // ============================================================
-// TRIP PLANNER FORM
-// ============================================================
-function TripPlannerForm({ onSubmit, isGenerating, isDark }: {
-  onSubmit: (d: TripFormData) => void;
-  isGenerating: boolean;
-  isDark: boolean;
-}) {
-  const [step, setStep] = useState(1);
-  const [destination, setDestination] = useState('');
-  const [startingPoint, setStartingPoint] = useState('');
-  const [days, setDays] = useState(5);
-  const [transportMode, setTransportMode] = useState('car_bus');
-
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const cardBorder = isDark ? '#334155' : '#e2e8f0';
-  const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
-  const inputBg = isDark ? '#0f172a' : '#f8fafc';
-
-  const handleNext = () => {
-    if (step === 1) {
-      if (!destination.trim()) return;
-      setStep(2);
-    } else {
-      onSubmit({ destination: destination.trim(), duration: days, startingPoint: startingPoint.trim(), transportMode });
-    }
-  };
-
-  return (
-    <View style={[styles.plannerCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-      {/* Progress bar */}
-      <View style={styles.progressBar}>
-        {[1, 2].map((s) => (
-          <View key={s} style={[styles.progressSegment, {
-            backgroundColor: s <= step ? '#2EC4B6' : isDark ? '#334155' : '#e2e8f0',
-          }]} />
-        ))}
-      </View>
-
-      <View style={styles.plannerBody}>
-        {step === 1 && (
-          <View>
-            <View style={styles.plannerRow}>
-              <Text style={{ fontSize: 18 }}>📍</Text>
-              <Text style={[styles.plannerTitle, { color: textPrimary }]}>Where would you like to go?</Text>
-            </View>
-            <TextInput
-              style={[styles.plannerInput, { backgroundColor: inputBg, borderColor: cardBorder, color: textPrimary }]}
-              value={destination} onChangeText={setDestination}
-              placeholder="e.g. Paris, Tokyo, Bali…"
-              placeholderTextColor={textSecondary} autoFocus editable={!isGenerating}
-            />
-            <Text style={[styles.plannerHint, { color: textSecondary }]}>💡 Start typing any city, country or region</Text>
-          </View>
-        )}
-
-        {step === 2 && (
-          <View>
-            <Text style={[styles.plannerLabel, { color: textPrimary }]}>📍 Starting from (optional)</Text>
-            <TextInput
-              style={[styles.plannerInput, { backgroundColor: inputBg, borderColor: cardBorder, color: textPrimary }]}
-              value={startingPoint} onChangeText={setStartingPoint}
-              placeholder="Your city…" placeholderTextColor={textSecondary} editable={!isGenerating}
-            />
-
-            <Text style={[styles.plannerLabel, { color: textPrimary, marginTop: spacing.md }]}>📅 How many days?</Text>
-            <View style={styles.durationRow}>
-              {DURATION_OPTIONS.map((d) => (
-                <TouchableOpacity key={d} onPress={() => setDays(d)} activeOpacity={0.7}
-                  style={[styles.durationBtn, days === d
-                    ? { backgroundColor: '#2EC4B6', borderColor: '#2EC4B6' }
-                    : { backgroundColor: inputBg, borderColor: cardBorder }]}>
-                  <Text style={[styles.durationText, { color: days === d ? '#ffffff' : textPrimary }]}>{d}d</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={[styles.plannerLabel, { color: textPrimary, marginTop: spacing.md }]}>How will you travel?</Text>
-            <View style={styles.transportRow}>
-              {TRANSPORT_OPTIONS.map((mode) => {
-                const sel = transportMode === mode.id;
-                return (
-                  <TouchableOpacity key={mode.id} onPress={() => setTransportMode(mode.id)} activeOpacity={0.7}
-                    style={[styles.transportBtn, {
-                      borderColor: sel ? '#2EC4B6' : cardBorder,
-                      backgroundColor: sel ? (isDark ? 'rgba(46,196,182,0.15)' : 'rgba(46,196,182,0.1)') : inputBg,
-                    }]}>
-                    <Text style={{ fontSize: 22 }}>{mode.emoji}</Text>
-                    <Text style={[styles.transportLabel, { color: sel ? '#2EC4B6' : textSecondary }]}>{mode.name}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        <View style={styles.plannerActions}>
-          {step > 1 && (
-            <TouchableOpacity onPress={() => setStep(1)} disabled={isGenerating}
-              style={[styles.backBtn, { backgroundColor: isDark ? '#334155' : '#f1f5f9' }]} activeOpacity={0.7}>
-              <Text style={{ color: textSecondary, fontSize: fontSize.sm, fontWeight: fontWeight.medium }}>Back</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity onPress={handleNext} activeOpacity={0.8}
-            disabled={(step === 1 && !destination.trim()) || isGenerating}
-            style={[styles.nextBtn, (step === 1 && !destination.trim()) || isGenerating ? { backgroundColor: '#94a3b8' } : {}]}>
-            {isGenerating ? (
-              <><ActivityIndicator size="small" color="#fff" style={{ marginRight: 6 }} /><Text style={styles.nextBtnText}>Creating…</Text></>
-            ) : step === 2 ? (
-              <><Text style={{ fontSize: 14 }}>✨</Text><Text style={styles.nextBtnText}>Generate Trip</Text></>
-            ) : (
-              <><Text style={styles.nextBtnText}>Next</Text><Ionicons name="chevron-forward" size={14} color="#fff" /></>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-// ============================================================
 // ITINERARY PREVIEW CARD
 // ============================================================
 function ItineraryPreviewCard({ message, isDark, onViewFull, fallbackImages, places }: {
@@ -1022,15 +903,15 @@ const invStyles = StyleSheet.create({
   ratingText: { fontSize: 11, fontWeight: '600' },
 });
 
-function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePress, onInventoryPress, onActionCard, isGenerating, onRegenerate, onSuggestion, isLastAssistant }: {
+function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, onPlacePress, onInventoryPress, onActionCard, onRegenerate, onSuggestion, isLastAssistant }: {
   message: ChatMessage;
   isDark: boolean;
-  onPlanTrip: (d: TripFormData) => void;
+  /** "Plan a trip": a place picked (null: help me choose). */
+  onPickDestination: (destination: string | null) => void;
   onViewItinerary: (m: ChatMessage) => void;
   onPlacePress: (name: string) => void;
   onInventoryPress: (card: InventoryCard) => void;
   onActionCard: (card: ActionCard) => void;
-  isGenerating: boolean;
   onRegenerate: () => void;
   onSuggestion: (text: string) => void;
   /** Only the newest assistant reply offers Regenerate, as on the web. */
@@ -1048,7 +929,7 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
       <View style={[styles.msgRow, styles.assistantRow]}>
         <View style={styles.msgAvatar}><BotAvatar size={28} /></View>
         <View style={{ flex: 1, maxWidth: SCREEN_WIDTH - 80 }}>
-          <TripPlannerForm onSubmit={onPlanTrip} isGenerating={isGenerating} isDark={isDark} />
+          <TripDestinationPicker isDark={isDark} onPick={onPickDestination} />
         </View>
       </View>
     );
@@ -1085,6 +966,9 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
   // ── ASSISTANT MESSAGE ────────────────────────────────────────
   // A plan Isha built shows as its card, with the reply's place photos on it
   const plan = message.streaming ? null : agentPlanMessage(message);
+  // Isha's trip options (how long, when, who…), answered in one go
+  const tripChoices = message.streaming ? [] : (message.actionCards || []).filter((c) => c.type === 'trip_choices' && c.data?.questions?.length);
+  const otherCards = (message.actionCards || []).filter((c) => c.type !== 'trip_choices' && !(plan && c.type === 'view_itinerary'));
   const aiBg = isDark ? '#1e293b' : '#ffffff';
   const aiBorder = isDark ? '#334155' : '#e2e8f0';
 
@@ -1181,6 +1065,10 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
           </ScrollView>
         )}
 
+        {tripChoices.map((card, i) => (
+          <TripChoicesCard key={`trip-choices-${i}`} data={card.data as TripChoicesData} isDark={isDark} onSubmit={onSuggestion} />
+        ))}
+
         {/* Top places section */}
         {message.topPlaces && message.topPlaces.length > 0 && (
           <View>
@@ -1241,10 +1129,11 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
           </View>
         )}
 
-        {message.actionCards && message.actionCards.some((c) => !(plan && c.type === 'view_itinerary')) && (
+        {otherCards.length > 0 && (
           <View style={styles.actionsWrap}>
-            {/* The plan card opens the plan: no second "Open your plan" button */}
-            {message.actionCards.filter((c) => !(plan && c.type === 'view_itinerary')).map((card, i) => (
+            {/* The trip options are their own card, and the plan card opens the
+                plan: neither is a button here */}
+            {otherCards.map((card, i) => (
               <TouchableOpacity
                 key={i}
                 onPress={() => onActionCard(card)}
@@ -1376,7 +1265,6 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
-  const [isGeneratingTrip, setIsGeneratingTrip] = useState(false);
 
   // ── Human-handoff state (mirrors ChatSession.mode on the server) ───────
   const [handoffMode, setHandoffMode] = useState<'ai' | 'queued' | 'human' | 'resolved'>('ai');
@@ -1751,61 +1639,14 @@ export default function ChatScreen() {
     scrollToBottom();
   }, [scrollToBottom]);
 
-  const generateTripItinerary = useCallback(async (formData: TripFormData) => {
-    setIsGeneratingTrip(true);
-
-    const userMsg: ChatMessage = {
-      id: generateId(), role: 'user', type: 'text',
-      content: `Plan a ${formData.duration}-day trip to ${formData.destination} by ${transportLabel(formData.transportMode).name}${formData.startingPoint ? ` from ${formData.startingPoint}` : ''}`,
-      timestamp: new Date(),
-    };
-
-    const previewId = generateId();
-    const previewMsg: ChatMessage = {
-      id: previewId, role: 'assistant', type: 'itinerary_preview',
-      content: '', timestamp: new Date(),
-      requestData: { destination: formData.destination, duration: formData.duration, transportMode: formData.transportMode, startingPoint: formData.startingPoint || undefined },
-      itineraryData: {},
-    };
-
-    setMessages((prev) => [previewMsg, userMsg, ...prev]);
-    scrollToBottom();
-
-    const body = JSON.stringify({
-      destination: formData.destination, duration: formData.duration,
-      startingPoint: formData.startingPoint || null, transportMode: formData.transportMode,
-      preferences: { budget: 'moderate', interests: [], travelStyle: 'relaxed', groupType: 'general' },
-    });
-
-    try {
-      const [markdownRes, structuredRes] = await Promise.allSettled([
-        makeItineraryAPICall('/itinerary/generate-markdown', { method: 'POST', body }),
-        makeItineraryAPICall('/itinerary/generate', { method: 'POST', body }),
-      ]);
-
-      const markdown = markdownRes.status === 'fulfilled' ? (markdownRes.value?.data?.markdown || '') : '';
-      let structured: any = null;
-      if (structuredRes.status === 'fulfilled') {
-        const sv = structuredRes.value;
-        if (sv?.data?.itinerary) structured = sv.data;
-      }
-
-      setMessages((prev) => prev.map((m) =>
-        m.id === previewId ? { ...m, itineraryData: { markdown, structured } } : m
-      ));
-    } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== previewId));
-      setMessages((prev) => [{
-        id: generateId(), role: 'assistant', type: 'text',
-        content: `Sorry, I couldn't generate the itinerary for ${formData.destination}. Please try again.`,
-        timestamp: new Date(),
-      }, ...prev]);
-      Toast.show({ type: 'error', text1: 'Generation failed', text2: 'Please try again.' });
-    } finally {
-      setIsGeneratingTrip(false);
-      scrollToBottom();
-    }
-  }, [scrollToBottom]);
+  // A place picked in "Plan a trip": the picker goes and Isha takes it from
+  // there, with the place's photos and the trip options
+  const planTripTo = useCallback((destination: string | null) => {
+    setMessages((prev) => prev.filter((m) => m.type !== 'trip_planner_form'));
+    sendMessage(destination
+      ? `I want to plan a trip to ${destination}`
+      : 'Help me choose where to travel next: suggest a few places that are good at this time of year');
+  }, [sendMessage]);
 
   const handleChipPress = useCallback((chip: SuggestionChip) => {
     if (chip.action === 'plan_trip') {
@@ -2069,17 +1910,16 @@ export default function ChatScreen() {
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
     <MessageBubble
       message={item} isDark={isDarkMode}
-      onPlanTrip={generateTripItinerary}
+      onPickDestination={planTripTo}
       onViewItinerary={handleViewItinerary}
       onPlacePress={handlePlacePress}
       onInventoryPress={handleInventoryPress}
       onActionCard={handleActionCard}
-      isGenerating={isGeneratingTrip}
       onRegenerate={handleRegenerate}
       onSuggestion={handleSuggestion}
       isLastAssistant={item.id === lastAssistantId}
     />
-  ), [isDarkMode, generateTripItinerary, isGeneratingTrip, handlePlacePress, handleViewItinerary, handleInventoryPress, handleActionCard, handleRegenerate, handleSuggestion, lastAssistantId]);
+  ), [isDarkMode, planTripTo, handlePlacePress, handleViewItinerary, handleInventoryPress, handleActionCard, handleRegenerate, handleSuggestion, lastAssistantId]);
 
   const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
   const charNearLimit = inputText.length > MAX_CHAR * 0.8;
@@ -2096,7 +1936,7 @@ export default function ChatScreen() {
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <View style={styles.headerAvatarWrap}>
-            <BotAvatar size={36} animate={isTyping || isGeneratingTrip} />
+            <BotAvatar size={36} animate={isTyping} />
             <View style={[styles.statusDot, { borderColor: isDarkMode ? '#0f172a' : '#ffffff', backgroundColor: isConnected ? '#22c55e' : '#94a3b8' }]} />
           </View>
           <View>
@@ -2104,7 +1944,7 @@ export default function ChatScreen() {
             <View style={styles.headerStatusRow}>
               {isConnected && <View style={styles.headerStatusDot} />}
               <Text style={[styles.headerStatus, { color: isDarkMode ? '#64748b' : '#94a3b8' }]}>
-                {isTyping || isGeneratingTrip ? 'Thinking…' : isConnected ? '✨ Online' : 'Connecting…'}
+                {isTyping ? 'Thinking…' : isConnected ? '✨ Online' : 'Connecting…'}
               </Text>
             </View>
           </View>
@@ -2134,7 +1974,7 @@ export default function ChatScreen() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[styles.msgList, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}
             keyboardShouldPersistTaps="handled"
-            ListHeaderComponent={(isTyping || isGeneratingTrip) ? <TypingIndicator isDark={isDarkMode} /> : null}
+            ListHeaderComponent={(isTyping) ? <TypingIndicator isDark={isDarkMode} /> : null}
             initialNumToRender={20} maxToRenderPerBatch={10} windowSize={10}
           />
         )}
@@ -2212,7 +2052,7 @@ export default function ChatScreen() {
                 placeholder="Ask Isha anything about travel…"
                 placeholderTextColor={isDarkMode ? '#475569' : '#94a3b8'}
                 multiline returnKeyType="default" blurOnSubmit={false}
-                editable={!isTyping && !isGeneratingTrip}
+                editable={!isTyping}
               />
             </View>
             {/* While a stream is live the send button becomes Stop — with
@@ -2228,9 +2068,9 @@ export default function ChatScreen() {
               </TouchableOpacity>
             ) : (
             <TouchableOpacity onPress={handleSend}
-              disabled={!inputText.trim() || isTyping || isGeneratingTrip}
+              disabled={!inputText.trim() || isTyping}
               activeOpacity={0.8}
-              style={[styles.sendBtn, inputText.trim() && !isTyping && !isGeneratingTrip ? styles.sendBtnActive : styles.sendBtnDisabled]}>
+              style={[styles.sendBtn, inputText.trim() && !isTyping ? styles.sendBtnActive : styles.sendBtnDisabled]}>
               {isTyping ? (
                 <ActivityIndicator size="small" color={isDarkMode ? '#475569' : '#94a3b8'} />
               ) : (
