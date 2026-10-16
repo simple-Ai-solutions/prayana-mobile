@@ -8,6 +8,8 @@
 //
 // The server frames events as "data: {json}\n\n" with these shapes:
 //   { type: "token", text }  — append to the live bubble
+//   { type: "status", text } — what Isha is doing ("Finding places to visit…")
+//   { type: "media", images } — the place's photos, before the words
 //   { type: "done", aiMessage, mode, ... } — final payload, same object the
 //                                            non-streaming /chat/send returns
 //   { type: "error", message }
@@ -18,6 +20,8 @@ import { getBaseURL, getAuthHeaders } from '@prayana/shared-services';
 
 export type StreamHandlers = {
   onToken: (text: string) => void;
+  onStatus?: (text: string) => void;
+  onMedia?: (evt: { images?: any[] }) => void;
   onDone: (payload: any) => void;
   onError: (err: Error) => void;
 };
@@ -66,6 +70,10 @@ export function streamChatMessage(
       if (evt.type === 'token' && typeof evt.text === 'string') {
         sawToken = true;
         handlers.onToken(evt.text);
+      } else if (evt.type === 'status' && typeof evt.text === 'string') {
+        handlers.onStatus?.(evt.text);
+      } else if (evt.type === 'media') {
+        handlers.onMedia?.(evt);
       } else if (evt.type === 'done') {
         finish(() => handlers.onDone(evt));
       } else if (evt.type === 'error') {

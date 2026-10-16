@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Platform, Linking } from 'react-native';
+import { Platform } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -189,7 +189,6 @@ function AuthGuard() {
 function RootNavigator() {
   const { isDarkMode } = useTheme();
   const { isLoading, user, isAuthenticated } = useAuth();
-  const router = useRouter();
 
   // Once resources are ready, hide the native (static) splash and hand off to
   // the branded AnimatedSplash overlay — the mobile counterpart of the PWA's
@@ -219,30 +218,9 @@ function RootNavigator() {
     setTrackingAllowed(false);
   }, []);
 
-  // Deep link handling — works for both custom scheme (prayana://...) and
-  // universal links (https://prayanaai.com/app/...). Cold-start case uses
-  // getInitialURL; warm-start uses the addEventListener subscription.
-  useEffect(() => {
-    let mounted = true;
-
-    Linking.getInitialURL()
-      .then((url) => {
-        if (!mounted || !url) return;
-        const route = resolveDeepLink(url);
-        if (route && route !== '/') router.push(route as never);
-      })
-      .catch(() => {});
-
-    const sub = Linking.addEventListener('url', (event) => {
-      const route = resolveDeepLink(event.url);
-      if (route && route !== '/') router.push(route as never);
-    });
-
-    return () => {
-      mounted = false;
-      sub.remove();
-    };
-  }, [router]);
+  // Links (prayana://... and https://prayanaai.com/app/...) are opened by
+  // Expo Router itself, through app/+native-intent.tsx. Pushing them here too
+  // opened every linked screen twice, the second without its query.
 
   return (
     <>

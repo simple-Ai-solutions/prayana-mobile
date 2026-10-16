@@ -27,7 +27,7 @@ export function resolveDeepLink(url: string | null | undefined): DeepLinkResult 
     // Custom scheme: prayana://activity/abc → /activity/abc
     if (u.protocol === 'prayana:') {
       const path = `/${u.host}${u.pathname}`.replace(/\/+/g, '/');
-      return path && path !== '/' ? path : '/';
+      return path && path !== '/' ? `${path}${u.search || ''}` : '/';
     }
 
     // Universal link: https://prayanaai.com/app/activity/abc

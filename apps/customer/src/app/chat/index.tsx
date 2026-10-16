@@ -134,6 +134,8 @@ interface ChatMessage {
     destination: string; duration: number;
     transportMode?: string; startingPoint?: string;
   };
+  /** What Isha is doing while she works and nothing is written yet. */
+  status?: string;
   /** The plan Isha built in this reply, if she built one. */
   itinerary?: AgentPlan | string | null;
   /** Real places found live near somewhere ("scuba in Andaman": its dive centres). */
@@ -275,9 +277,9 @@ function RichText({ text, isDark, onPlacePress }: {
   isDark: boolean;
   onPlacePress?: (name: string) => void;
 }) {
-  const textColor = isDark ? '#e2e8f0' : '#1e293b';
-  const tealColor = isDark ? '#5eead4' : '#0d9488';
-  const placeColor = isDark ? '#f87171' : '#ef4444';
+  const textColor = isDark ? '#E7E5E4' : '#292524';
+  const tealColor = isDark ? '#FAFAF9' : '#0C0A09';
+  const placeColor = isDark ? '#FAFAF9' : '#0C0A09';
 
   const lines = text.split('\n');
 
@@ -290,7 +292,7 @@ function RichText({ text, isDark, onPlacePress }: {
         const isDayHeader = /^[✈️🌅🌆🌙⭐🗓️]?\s*(Day\s+\d+[:\s])/i.test(line.trim());
         if (isDayHeader) {
           return (
-            <View key={idx} style={[styles.dayHeaderWrap, { backgroundColor: isDark ? 'rgba(46,196,182,0.15)' : '#f0fdfa', borderColor: isDark ? 'rgba(46,196,182,0.3)' : '#99f6e4' }]}>
+            <View key={idx} style={[styles.dayHeaderWrap, { backgroundColor: isDark ? '#292524' : '#F5F5F4', borderColor: isDark ? '#44403C' : '#E7E5E4' }]}>
               <Text style={[styles.dayHeaderText, { color: tealColor }]}>{line.trim()}</Text>
             </View>
           );
@@ -322,7 +324,7 @@ function RichText({ text, isDark, onPlacePress }: {
           return (
             <View
               key={idx}
-              style={{ height: 1, backgroundColor: isDark ? '#334155' : '#e2e8f0', marginVertical: 6 }}
+              style={{ height: 1, backgroundColor: isDark ? '#44403C' : '#E7E5E4', marginVertical: 6 }}
             />
           );
         }
@@ -354,7 +356,7 @@ function RichText({ text, isDark, onPlacePress }: {
 
         return (
           <View key={idx} style={[styles.textLine, isBullet && styles.bulletLine]}>
-            {isBullet && <Text style={[styles.bullet, { color: tealColor }]}>•</Text>}
+            {isBullet && <Text style={[styles.bullet, { color: isDark ? '#A8A29E' : '#78716C' }]}>•</Text>}
             <Text style={[styles.lineText, { color: textColor }]}>
               {segments.map((seg, si) => {
                 if (seg.type === 'bold') {
@@ -659,10 +661,10 @@ function PlaceCard({ place, index, isDark, onPress }: {
   place: Place; index: number; isDark: boolean; onPress: (p: Place) => void;
 }) {
   const img = getPlaceImage(place);
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const cardBorder = isDark ? '#334155' : '#e2e8f0';
-  const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+  const cardBg = isDark ? '#292524' : '#ffffff';
+  const cardBorder = isDark ? '#44403C' : '#E7E5E4';
+  const textPrimary = isDark ? '#F5F5F4' : '#1C1917';
+  const textSecondary = isDark ? '#A8A29E' : '#78716C';
 
   return (
     <TouchableOpacity
@@ -675,9 +677,9 @@ function PlaceCard({ place, index, isDark, onPress }: {
         {img ? (
           <Image source={{ uri: img }} style={styles.placeCardImage} contentFit="cover" />
         ) : (
-          <LinearGradient colors={['#2EC4B6', '#0d9488']} style={[styles.placeCardImage, { alignItems: 'center', justifyContent: 'center' }]}>
-            <Text style={{ fontSize: 28 }}>🏛️</Text>
-          </LinearGradient>
+          <View style={[styles.placeCardImage, { alignItems: 'center', justifyContent: 'center', backgroundColor: isDark ? '#292524' : '#F5F5F4' }]}>
+            <Ionicons name="image-outline" size={24} color={isDark ? '#78716C' : '#A8A29E'} />
+          </View>
         )}
         {/* Number badge */}
         <View style={styles.placeNumBadge}>
@@ -703,7 +705,7 @@ function PlaceCard({ place, index, isDark, onPress }: {
 
         {place.category ? (
           <View style={styles.categoryBadge}>
-            <Text style={styles.categoryText}>🏷️ {place.category}</Text>
+            <Text style={styles.categoryText}>{place.category}</Text>
           </View>
         ) : null}
       </View>
@@ -714,6 +716,8 @@ function PlaceCard({ place, index, isDark, onPress }: {
 // ============================================================
 // BOT AVATAR
 // ============================================================
+const ISHA_AVATAR = require('../../../assets/isha/isha-avatar.png');
+
 function BotAvatar({ size = 36, animate = false }: { size?: number; animate?: boolean }) {
   const pulse = useRef(new Animated.Value(1)).current;
   useEffect(() => {
@@ -728,15 +732,12 @@ function BotAvatar({ size = 36, animate = false }: { size?: number; animate?: bo
     return () => anim.stop();
   }, [animate, pulse]);
 
+  const ring = size >= 56 ? 2.5 : 1.5;
   return (
     <Animated.View style={{ transform: [{ scale: pulse }] }}>
-      <LinearGradient
-        colors={['#2EC4B6', '#0d9488', '#0891b2']}
-        style={[styles.botAvatarBg, { width: size, height: size, borderRadius: size / 2 }]}
-        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-      >
-        <Text style={{ fontSize: size * 0.42 }}>✨</Text>
-      </LinearGradient>
+      <View style={[styles.botAvatarBg, { width: size, height: size, borderRadius: size / 2, borderWidth: ring, padding: ring }]}>
+        <Image source={ISHA_AVATAR} style={{ width: '100%', height: '100%', borderRadius: size / 2 }} contentFit="cover" />
+      </View>
     </Animated.View>
   );
 }
@@ -762,10 +763,8 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
   }, [d1, d2, d3]);
 
   const ty = (d: Animated.Value) => d.interpolate({ inputRange: [0, 1], outputRange: [0, -5] });
-  const cardBg = isDark
-    ? 'rgba(30,41,59,0.9)'
-    : 'rgba(240,253,250,0.9)';
-  const cardBorder = isDark ? 'rgba(46,196,182,0.2)' : 'rgba(46,196,182,0.3)';
+  const cardBg = isDark ? '#1C1917' : '#FFFFFF';
+  const cardBorder = isDark ? '#292524' : '#E7E5E4';
 
   return (
     <View style={styles.typingRow}>
@@ -776,7 +775,7 @@ function TypingIndicator({ isDark }: { isDark: boolean }) {
             <Animated.View key={i} style={[styles.dot, { transform: [{ translateY: ty(d) }] }]} />
           ))}
         </View>
-        <Text style={[styles.typingLabel, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+        <Text style={[styles.typingLabel, { color: isDark ? '#A8A29E' : '#78716C' }]}>
           Isha is thinking…
         </Text>
       </View>
@@ -798,10 +797,11 @@ function ItineraryPreviewCard({ message, isDark, onViewFull, fallbackImages, pla
   const transport = requestData?.transportMode ? transportLabel(requestData.transportMode) : null;
   const hasData = !!itineraryData?.markdown || !!itineraryData?.structured;
 
-  const cardBg = isDark ? '#1e293b' : '#ffffff';
-  const cardBorder = isDark ? '#334155' : '#e2e8f0';
-  const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
+  const c = inkColors(isDark);
+  const cardBg = c.surface;
+  const cardBorder = c.border;
+  const textPrimary = c.text;
+  const textSecondary = c.muted;
 
   const images: string[] = [];
   const structured = itineraryData?.structured;
@@ -826,16 +826,12 @@ function ItineraryPreviewCard({ message, isDark, onViewFull, fallbackImages, pla
   return (
     <TouchableOpacity onPress={() => onViewFull(message)} activeOpacity={0.85}
       style={[styles.itineraryCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-      <View style={[styles.itineraryTopStrip, { backgroundColor: '#2EC4B6' }]}>
-        <Text style={styles.itineraryStripText}>✨ AI CURATED ITINERARY</Text>
-      </View>
-
       <View style={styles.itineraryContent}>
         {/* Left */}
         <View style={styles.itineraryLeft}>
           <View style={styles.itineraryBadges}>
-            <View style={styles.badge}><Text style={styles.badgeText}>📅 {duration} DAYS</Text></View>
-            {transport && <View style={styles.badge}><Text style={styles.badgeText}>{transport.emoji} {transport.name}</Text></View>}
+            <View style={[styles.badge, { backgroundColor: c.track, borderColor: c.border }]}><Text style={[styles.badgeText, { color: c.label }]}>{duration} days</Text></View>
+            {transport && <View style={[styles.badge, { backgroundColor: c.track, borderColor: c.border }]}><Text style={[styles.badgeText, { color: c.label }]}>{transport.name}</Text></View>}
           </View>
           <Text style={[styles.itineraryTitle, { color: textPrimary }]} numberOfLines={2}>
             Trip to {destination}
@@ -845,8 +841,8 @@ function ItineraryPreviewCard({ message, isDark, onViewFull, fallbackImages, pla
           </Text>
           {!hasData && (
             <View style={styles.generatingRow}>
-              <ActivityIndicator size="small" color="#2EC4B6" />
-              <Text style={{ color: '#2EC4B6', fontSize: fontSize.xs }}>Generating…</Text>
+              <ActivityIndicator size="small" color={c.muted} />
+              <Text style={{ color: c.muted, fontSize: fontSize.xs }}>Planning your days…</Text>
             </View>
           )}
         </View>
@@ -868,12 +864,45 @@ function ItineraryPreviewCard({ message, isDark, onViewFull, fallbackImages, pla
       </View>
 
       <View style={[styles.itineraryFooter, { borderTopColor: cardBorder }]}>
-        <Text style={{ color: '#2EC4B6', fontSize: fontSize.xs, fontWeight: fontWeight.bold, letterSpacing: 0.5 }}>
-          VIEW FULL ITINERARY
+        <Text style={{ color: c.ink, fontSize: fontSize.sm, fontWeight: fontWeight.semibold }}>
+          View full itinerary
         </Text>
-        <Ionicons name="arrow-forward" size={14} color="#2EC4B6" />
+        <Ionicons name="arrow-forward" size={15} color={c.ink} />
       </View>
     </TouchableOpacity>
+  );
+}
+
+// ============================================================
+// PHOTO COLLAGE: one photo, two side by side, or one large and two stacked
+// ============================================================
+function PhotoCollage({ images, isDark }: { images: string[]; isDark: boolean }) {
+  const unique = Array.from(new Set(images.filter(Boolean)));
+  const shown = unique.slice(0, 3);
+  const more = unique.length - shown.length;
+  if (!shown.length) return null;
+  const tile = (uri: string, flex: number, extra = 0) => (
+    <View key={uri} style={[styles.collageTile, { flex, backgroundColor: isDark ? '#292524' : '#F5F5F4' }]}>
+      <Image source={{ uri }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} />
+      {extra > 0 && (
+        <View style={styles.collageMore}>
+          <Text style={styles.collageMoreText}>+{extra}</Text>
+        </View>
+      )}
+    </View>
+  );
+  return (
+    <View style={[styles.collage, shown.length === 1 && { height: 200 }]}>
+      {shown.length < 3 ? shown.map((uri) => tile(uri, 1)) : (
+        <>
+          {tile(shown[0], 2)}
+          <View style={{ flex: 1, gap: 3 }}>
+            {tile(shown[1], 1)}
+            {tile(shown[2], 1, more)}
+          </View>
+        </>
+      )}
+    </View>
   );
 }
 
@@ -919,10 +948,10 @@ function EsimPlanCard({ plan, isDark, onBuy }: {
   isDark: boolean;
   onBuy: () => void;
 }) {
-  const bg = isDark ? '#1e293b' : '#ffffff';
-  const border = isDark ? '#334155' : '#e2e8f0';
-  const text = isDark ? '#f1f5f9' : '#0f172a';
-  const sub = isDark ? '#94a3b8' : '#64748b';
+  const bg = isDark ? '#292524' : '#ffffff';
+  const border = isDark ? '#44403C' : '#E7E5E4';
+  const text = isDark ? '#F5F5F4' : '#1C1917';
+  const sub = isDark ? '#A8A29E' : '#78716C';
 
   const flag = (() => {
     const cc = (plan.countryCode || '').trim().toUpperCase();
@@ -958,19 +987,19 @@ function EsimPlanCard({ plan, isDark, onBuy }: {
       <Text style={[styles.esimCardNote, { color: sub }]}>
         Needs your passport number and travel dates — anything already saved is filled in for you.
       </Text>
-      <TouchableOpacity onPress={onBuy} activeOpacity={0.85} style={styles.esimCardBtn}>
-        <Ionicons name="cellular" size={14} color="#ffffff" />
-        <Text style={styles.esimCardBtnText}>Buy this plan</Text>
+      <TouchableOpacity onPress={onBuy} activeOpacity={0.85} style={[styles.esimCardBtn, { backgroundColor: isDark ? '#FAFAF9' : '#0C0A09' }]}>
+        <Ionicons name="cellular" size={14} color={isDark ? '#0C0A09' : '#FFFFFF'} />
+        <Text style={[styles.esimCardBtnText, { color: isDark ? '#0C0A09' : '#FFFFFF' }]}>Buy this plan</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 function ChatInventoryCard({ card, isDark, onPress }: { card: InventoryCard; isDark: boolean; onPress: () => void }) {
-  const bg = isDark ? '#1e293b' : '#ffffff';
-  const border = isDark ? '#334155' : '#e2e8f0';
-  const text = isDark ? '#f1f5f9' : '#0f172a';
-  const sub = isDark ? '#94a3b8' : '#64748b';
+  const bg = isDark ? '#292524' : '#ffffff';
+  const border = isDark ? '#44403C' : '#E7E5E4';
+  const text = isDark ? '#F5F5F4' : '#1C1917';
+  const sub = isDark ? '#A8A29E' : '#78716C';
   const sym = card.currency === 'USD' ? '$' : '₹';
   return (
     <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={[invStyles.card, { backgroundColor: bg, borderColor: border }]}>
@@ -1041,9 +1070,9 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
   const [copied, setCopied] = useState(false);
   const [vote, setVote] = useState<'up' | 'down' | null>(null);
   const isUser = message.role === 'user';
-  const textPrimary = isDark ? '#f1f5f9' : '#0f172a';
-  const textSecondary = isDark ? '#94a3b8' : '#64748b';
-  const tealColor = isDark ? '#5eead4' : '#0d9488';
+  const textPrimary = isDark ? '#F5F5F4' : '#1C1917';
+  const textSecondary = isDark ? '#A8A29E' : '#78716C';
+  const tealColor = isDark ? '#FAFAF9' : '#0C0A09';
 
   if (message.type === 'trip_planner_form') {
     return (
@@ -1071,15 +1100,10 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
   if (isUser) {
     return (
       <View style={[styles.msgRow, styles.userRow]}>
-        <LinearGradient
-          colors={['#0d9488', '#0f766e']}
-          style={styles.userBubble}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
-        >
-          <Text style={styles.userText}>{message.content}</Text>
-          <Text style={styles.userTime}>✓✓ {formatTime(message.timestamp)}</Text>
-        </LinearGradient>
-        <View style={styles.userDot} />
+        <View style={[styles.userBubble, { backgroundColor: isDark ? '#292524' : '#F5F5F4' }]}>
+          <Text style={[styles.userText, { color: isDark ? '#FAFAF9' : '#1C1917' }]}>{message.content}</Text>
+          <Text style={[styles.userTime, { color: isDark ? '#78716C' : '#A8A29E' }]}>{formatTime(message.timestamp)}</Text>
+        </View>
       </View>
     );
   }
@@ -1090,14 +1114,32 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
   // Isha's trip options (how long, when, who…), answered in one go
   const tripChoices = message.streaming ? [] : (message.actionCards || []).filter((c) => c.type === 'trip_choices' && c.data?.questions?.length);
   const otherCards = (message.actionCards || []).filter((c) => c.type !== 'trip_choices' && !(plan && c.type === 'view_itinerary'));
-  const aiBg = isDark ? '#1e293b' : '#ffffff';
-  const aiBorder = isDark ? '#334155' : '#e2e8f0';
+  // The same listing once, even when it arrives twice
+  const inventory = (message.inventory || []).filter((card, i, all) =>
+    all.findIndex((o) => o.kind === card.kind && (o.id || o.title) === (card.id || card.title)) === i);
+  const aiBg = isDark ? '#1C1917' : '#FFFFFF';
+  const aiBorder = isDark ? '#292524' : '#E7E5E4';
 
   return (
     <View style={[styles.msgRow, styles.assistantRow]}>
       <View style={styles.msgAvatar}><BotAvatar size={28} /></View>
 
       <View style={{ flex: 1, maxWidth: SCREEN_WIDTH - 80, gap: 8 }}>
+        {/* The reply's photos lead (on the plan card when there is one) */}
+        {!plan && message.images && message.images.length > 0 && (
+          <PhotoCollage images={message.images} isDark={isDark} />
+        )}
+
+        {/* What Isha is doing, until her first words arrive */}
+        {message.streaming && !message.content && (
+          <View style={[styles.statusChip, { backgroundColor: aiBg, borderColor: aiBorder }]}>
+            <ActivityIndicator size="small" color={textSecondary} />
+            <Text style={[styles.statusText, { color: textSecondary }]} numberOfLines={1}>
+              {message.status || 'Isha is thinking…'}
+            </Text>
+          </View>
+        )}
+
         {/* Main text bubble */}
         {!!message.content && (
           <View style={[styles.aiBubble, { backgroundColor: aiBg, borderColor: aiBorder }]}>
@@ -1175,17 +1217,6 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
           />
         )}
 
-        {/* Images row — banner-style images (on the plan card when there is one) */}
-        {!plan && message.images && message.images.length > 0 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScroll}>
-            {message.images.slice(0, 6).map((img, i) => (
-              <View key={i} style={styles.bannerImageWrap}>
-                <Image source={{ uri: img }} style={styles.bannerImage} contentFit="cover" />
-              </View>
-            ))}
-          </ScrollView>
-        )}
-
         {tripChoices.map((card, i) => (
           <TripChoicesCard key={`trip-choices-${i}`} data={card.data as TripChoicesData} isDark={isDark} onSubmit={onSuggestion} />
         ))}
@@ -1198,12 +1229,12 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
         {message.topPlaces && message.topPlaces.length > 0 && (
           <View>
             <View style={styles.sectionHeader}>
-              <LinearGradient colors={['#2EC4B6', '#0d9488']} style={styles.sectionIconBg}>
-                <Text style={{ fontSize: 16 }}>📍</Text>
-              </LinearGradient>
+              <View style={[styles.sectionIconBg, { backgroundColor: isDark ? '#292524' : '#F5F5F4' }]}>
+                <Ionicons name="location-outline" size={18} color={isDark ? '#FAFAF9' : '#0C0A09'} />
+              </View>
               <View>
-                <Text style={[styles.sectionTitle, { color: textPrimary }]}>Top Places to Visit</Text>
-                <Text style={[styles.sectionSub, { color: textSecondary }]}>Discover amazing destinations</Text>
+                <Text style={[styles.sectionTitle, { color: textPrimary }]}>Places to visit</Text>
+                <Text style={[styles.sectionSub, { color: textSecondary }]}>On the map, best first</Text>
               </View>
             </View>
             <ChatMapCard places={message.topPlaces} isDark={isDark} onPlacePress={onPlacePress} />
@@ -1217,19 +1248,19 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
         )}
 
         {/* Bookable Prayana inventory — real listings with prices, tappable to book */}
-        {message.inventory && message.inventory.length > 0 && (
+        {inventory.length > 0 && (
           <View>
             <View style={styles.sectionHeader}>
-              <LinearGradient colors={['#F59E0B', '#EA580C']} style={styles.sectionIconBg}>
-                <Text style={{ fontSize: 16 }}>🎟️</Text>
-              </LinearGradient>
+              <View style={[styles.sectionIconBg, { backgroundColor: isDark ? '#292524' : '#F5F5F4' }]}>
+                <Ionicons name="ticket-outline" size={18} color={isDark ? '#FAFAF9' : '#0C0A09'} />
+              </View>
               <View>
                 <Text style={[styles.sectionTitle, { color: textPrimary }]}>Book on Prayana</Text>
                 <Text style={[styles.sectionSub, { color: textSecondary }]}>Handpicked, bookable in-app</Text>
               </View>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingVertical: 4 }}>
-              {message.inventory.slice(0, 10).map((card, i) => (
+              {inventory.slice(0, 10).map((card, i) => (
                 <ChatInventoryCard key={`${card.kind}-${card.id || i}`} card={card} isDark={isDark} onPress={() => onInventoryPress(card)} />
               ))}
             </ScrollView>
@@ -1263,11 +1294,12 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
                 key={i}
                 onPress={() => onActionCard(card)}
                 activeOpacity={0.9}
-                style={[styles.bookCta, { backgroundColor: isDark ? 'rgba(245,158,11,0.16)' : '#FFF7ED', borderColor: isDark ? 'rgba(245,158,11,0.35)' : '#FED7AA' }]}
+                style={[styles.bookCta, i === 0
+                  ? { backgroundColor: isDark ? '#FAFAF9' : '#0C0A09', borderColor: isDark ? '#FAFAF9' : '#0C0A09' }
+                  : { backgroundColor: isDark ? '#1C1917' : '#FFFFFF', borderColor: isDark ? '#44403C' : '#D6D3D1' }]}
               >
-                <Ionicons name="flash" size={15} color="#EA580C" />
-                <Text style={[styles.bookCtaText, { color: isDark ? '#FBBF24' : '#C2410C' }]}>{card.label}</Text>
-                <Ionicons name="chevron-forward" size={15} color="#EA580C" />
+                <Text style={[styles.bookCtaText, { color: i === 0 ? (isDark ? '#0C0A09' : '#FFFFFF') : (isDark ? '#FAFAF9' : '#0C0A09') }]}>{card.label}</Text>
+                <Ionicons name="arrow-forward" size={15} color={i === 0 ? (isDark ? '#0C0A09' : '#FFFFFF') : (isDark ? '#FAFAF9' : '#0C0A09')} />
               </TouchableOpacity>
             ))}
           </View>
@@ -1284,10 +1316,10 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
               <TouchableOpacity
                 key={`sg-${i}`}
                 onPress={() => onSuggestion(sg.text)}
-                style={[styles.followUpChip, { borderColor: isDark ? '#334155' : '#cbd5e1' }]}
+                style={[styles.followUpChip, { borderColor: isDark ? '#44403C' : '#D6D3D1' }]}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.followUpText, { color: isDark ? '#cbd5e1' : '#475569' }]} numberOfLines={1}>
+                <Text style={[styles.followUpText, { color: isDark ? '#D6D3D1' : '#57534E' }]} numberOfLines={1}>
                   {sg.text}
                 </Text>
               </TouchableOpacity>
@@ -1298,14 +1330,13 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
         {message.relatedPlaces && message.relatedPlaces.length > 0 && (
           <View>
             <View style={styles.relatedRow}>
-              <Text style={{ fontSize: 12 }}>🔗</Text>
               <Text style={[styles.relatedLabel, { color: textSecondary }]}>Related places:</Text>
             </View>
             <View style={styles.chipsWrap}>
               {message.relatedPlaces.map((place, i) => (
                 <TouchableOpacity key={i} onPress={() => onPlacePress(place.name)} activeOpacity={0.7}
-                  style={[styles.relatedChip, { backgroundColor: isDark ? '#334155' : '#f0fdfa', borderColor: isDark ? '#475569' : '#99f6e4' }]}>
-                  <Text style={[styles.relatedChipText, { color: isDark ? '#e2e8f0' : '#0d9488' }]}>{place.name}</Text>
+                  style={[styles.relatedChip, { backgroundColor: isDark ? '#292524' : '#F5F5F4', borderColor: isDark ? '#44403C' : '#E7E5E4' }]}>
+                  <Text style={[styles.relatedChipText, { color: isDark ? '#D6D3D1' : '#292524' }]}>{place.name}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1317,9 +1348,8 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
           <View style={styles.actionsWrap}>
             {message.actions.map((action, i) => (
               <TouchableOpacity key={i} onPress={() => onPlacePress(action.action)} activeOpacity={0.85}
-                style={[styles.actionBtn, { backgroundColor: isDark ? 'rgba(46,196,182,0.15)' : '#f0fdfa', borderColor: isDark ? 'rgba(46,196,182,0.3)' : '#99f6e4' }]}>
-                <Text style={{ fontSize: 12 }}>🎯</Text>
-                <Text style={[styles.actionBtnText, { color: isDark ? '#5eead4' : '#0d9488' }]}>{action.text}</Text>
+                style={[styles.actionBtn, { backgroundColor: isDark ? '#1C1917' : '#FFFFFF', borderColor: isDark ? '#44403C' : '#D6D3D1' }]}>
+                <Text style={[styles.actionBtnText, { color: isDark ? '#FAFAF9' : '#0C0A09' }]}>{action.text}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -1348,24 +1378,21 @@ function WelcomeScreen({ isDark, chips, onChipPress }: {
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.welcomeContainer} bounces={false}>
       <Animated.View style={[styles.welcomeAvatarWrap, { transform: [{ scale: pulse }] }]}>
-        <LinearGradient colors={['#2EC4B6', '#0d9488', '#0891b2']} style={styles.welcomeAvatarBg}
-          start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Text style={styles.welcomeAvatarEmoji}>✨</Text>
-        </LinearGradient>
-        <View style={[styles.welcomeOnline, { borderColor: isDark ? '#0f172a' : '#f8fafc' }]} />
+        <BotAvatar size={72} />
+        <View style={[styles.welcomeOnline, { borderColor: isDark ? '#1C1917' : '#FAFAF9' }]} />
       </Animated.View>
 
-      <Text style={[styles.welcomeTitle, { color: isDark ? '#f1f5f9' : '#0f172a' }]}>Welcome! I'm Isha</Text>
-      <Text style={[styles.welcomeSubtitle, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-        Your AI travel assistant ready to help plan your next adventure.
+      <Text style={[styles.welcomeTitle, { color: isDark ? '#F5F5F4' : '#1C1917' }]}>Welcome! I'm Isha</Text>
+      <Text style={[styles.welcomeSubtitle, { color: isDark ? '#A8A29E' : '#78716C' }]}>
+        Ask me anything about a trip: where to go, what it costs, or a plan for your days.
       </Text>
 
       <View style={styles.chipsWrap}>
         {chips.map((chip, i) => (
           <TouchableOpacity key={i} onPress={() => onChipPress(chip)} activeOpacity={0.7}
-            style={[styles.chip, { backgroundColor: isDark ? '#1e293b' : '#ffffff', borderColor: isDark ? '#334155' : '#e2e8f0' }]}>
+            style={[styles.chip, { backgroundColor: isDark ? '#292524' : '#ffffff', borderColor: isDark ? '#44403C' : '#E7E5E4' }]}>
             <Text style={styles.chipEmoji}>{chip.icon}</Text>
-            <Text style={[styles.chipText, { color: isDark ? '#e2e8f0' : '#334155' }]}>{chip.text}</Text>
+            <Text style={[styles.chipText, { color: isDark ? '#E7E5E4' : '#44403C' }]}>{chip.text}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -1629,21 +1656,32 @@ export default function ChatScreen() {
         let buffer = '';
         let opened = false;
 
+        // The live bubble opens on the first sign of the reply: what Isha is
+        // doing, the place's photos (they lead), or her first words
+        const live = (patch: Partial<ChatMessage>) => {
+          if (!opened) {
+            opened = true;
+            setIsTyping(false); // the bubble itself is now the indicator
+            setMessages((prev) => [{
+              id: liveId, role: 'assistant', type: 'text',
+              content: buffer, timestamp: new Date(), streaming: true, ...patch,
+            } as ChatMessage, ...prev]);
+          } else {
+            setMessages((prev) => prev.map((m) => (m.id === liveId ? { ...m, ...patch } : m)));
+          }
+        };
+
         const handle: StreamHandle = streamChatMessage(reqBody, {
           onToken: (chunk) => {
             buffer += chunk;
-            if (!opened) {
-              opened = true;
-              setIsTyping(false); // the bubble itself is now the indicator
-              setMessages((prev) => [{
-                id: liveId, role: 'assistant', type: 'text',
-                content: buffer, timestamp: new Date(), streaming: true,
-              } as ChatMessage, ...prev]);
-            } else {
-              setMessages((prev) =>
-                prev.map((m) => (m.id === liveId ? { ...m, content: buffer } : m)),
-              );
-            }
+            live({ content: buffer, status: undefined });
+          },
+          onStatus: (text) => {
+            if (!buffer) live({ status: text });
+          },
+          onMedia: (evt) => {
+            const images = normalizeImages(evt?.images);
+            if (images.length) live({ images });
           },
           onDone: (payload) => {
             streamRef.current = null;
@@ -1672,11 +1710,18 @@ export default function ChatScreen() {
           },
           onError: (err) => {
             streamRef.current = null;
-            refused = !opened && isSessionRefused(err);
+            // Words already shown are kept; a bubble with only photos or
+            // Isha's status goes, and the reply is fetched the other way
+            const hasText = buffer.length > 0;
+            refused = !hasText && isSessionRefused(err);
             // Over a message limit or today's AI budget: retrying over
             // /send would only count the message again
-            limited = !opened && (err as any)?.status === 429;
-            if (opened) {
+            limited = !hasText && (err as any)?.status === 429;
+            if (!hasText && opened) {
+              setMessages((prev) => prev.filter((m) => m.id !== liveId));
+              setIsTyping(true); // still working on it, the other way
+            }
+            if (hasText) {
               // Partial text already shown — keep it rather than erroring.
               setMessages((prev) =>
                 prev.map((m) => (m.id === liveId ? { ...m, streaming: false } : m)),
@@ -2052,33 +2097,33 @@ export default function ChatScreen() {
   const charNearLimit = inputText.length > MAX_CHAR * 0.8;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? '#0f172a' : '#f8fafc' }]} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isDarkMode ? '#0C0A09' : '#FFFFFF' }]} edges={['top']}>
       {/* HEADER */}
       <LinearGradient
-        colors={isDarkMode ? ['#0f172a', '#0f172a'] : ['#ffffff', '#f8fafc']}
-        style={[styles.header, { borderBottomColor: isDarkMode ? '#1e293b' : '#e2e8f0' }]}
+        colors={isDarkMode ? ['#0C0A09', '#0C0A09'] : ['#FFFFFF', '#FFFFFF']}
+        style={[styles.header, { borderBottomColor: isDarkMode ? '#292524' : '#E7E5E4' }]}
       >
         <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="arrow-back" size={22} color={isDarkMode ? '#94a3b8' : '#64748b'} />
+          <Ionicons name="arrow-back" size={22} color={isDarkMode ? '#A8A29E' : '#78716C'} />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <View style={styles.headerAvatarWrap}>
             <BotAvatar size={36} animate={isTyping} />
-            <View style={[styles.statusDot, { borderColor: isDarkMode ? '#0f172a' : '#ffffff', backgroundColor: isConnected ? '#22c55e' : '#94a3b8' }]} />
+            <View style={[styles.statusDot, { borderColor: isDarkMode ? '#1C1917' : '#ffffff', backgroundColor: isConnected ? '#22c55e' : '#A8A29E' }]} />
           </View>
           <View>
-            <Text style={[styles.headerName, { color: isDarkMode ? '#f1f5f9' : '#0f172a' }]}>Isha</Text>
+            <Text style={[styles.headerName, { color: isDarkMode ? '#F5F5F4' : '#1C1917' }]}>Isha</Text>
             <View style={styles.headerStatusRow}>
               {isConnected && <View style={styles.headerStatusDot} />}
-              <Text style={[styles.headerStatus, { color: isDarkMode ? '#64748b' : '#94a3b8' }]}>
-                {isTyping ? 'Thinking…' : isConnected ? '✨ Online' : 'Connecting…'}
+              <Text style={[styles.headerStatus, { color: isDarkMode ? '#78716C' : '#A8A29E' }]}>
+                {isTyping ? 'Thinking…' : isConnected ? 'Online' : 'Connecting…'}
               </Text>
             </View>
           </View>
         </View>
         {messages.length > 0 ? (
           <TouchableOpacity onPress={handleClearChat} style={styles.headerBtn} activeOpacity={0.7}>
-            <Ionicons name="trash-outline" size={20} color={isDarkMode ? '#64748b' : '#94a3b8'} />
+            <Ionicons name="trash-outline" size={20} color={isDarkMode ? '#78716C' : '#A8A29E'} />
           </TouchableOpacity>
         ) : <View style={styles.headerBtn} />}
       </LinearGradient>
@@ -2099,7 +2144,7 @@ export default function ChatScreen() {
             keyExtractor={keyExtractor}
             inverted
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.msgList, { backgroundColor: isDarkMode ? '#0f172a' : '#f1f5f9' }]}
+            contentContainerStyle={[styles.msgList, { backgroundColor: isDarkMode ? '#0C0A09' : '#FFFFFF' }]}
             keyboardShouldPersistTaps="handled"
             ListHeaderComponent={(isTyping) ? <TypingIndicator isDark={isDarkMode} /> : null}
             initialNumToRender={20} maxToRenderPerBatch={10} windowSize={10}
@@ -2115,16 +2160,16 @@ export default function ChatScreen() {
                 ? { backgroundColor: isDarkMode ? '#064e3b' : '#ecfdf5', borderColor: isDarkMode ? '#065f46' : '#a7f3d0' }
                 : handoffMode === 'queued'
                   ? { backgroundColor: isDarkMode ? '#451a03' : '#fffbeb', borderColor: isDarkMode ? '#78350f' : '#fde68a' }
-                  : { backgroundColor: isDarkMode ? '#1e293b' : '#f1f5f9', borderColor: isDarkMode ? '#334155' : '#cbd5e1' },
+                  : { backgroundColor: isDarkMode ? '#292524' : '#F5F5F4', borderColor: isDarkMode ? '#44403C' : '#D6D3D1' },
             ]}
             accessibilityLiveRegion="polite"
           >
             <Ionicons
               name="headset-outline"
               size={16}
-              color={handoffMode === 'human' ? '#10b981' : handoffMode === 'queued' ? '#f59e0b' : '#64748b'}
+              color={handoffMode === 'human' ? '#10b981' : handoffMode === 'queued' ? '#f59e0b' : '#78716C'}
             />
-            <Text style={[styles.handoffBannerText, { color: isDarkMode ? '#f1f5f9' : '#0f172a' }]}>
+            <Text style={[styles.handoffBannerText, { color: isDarkMode ? '#F5F5F4' : '#1C1917' }]}>
               {handoffMode === 'human'
                 ? `Connected to ${assignedAgent?.name || 'support'}${agentTyping ? ' — typing…' : ''}`
                 : handoffMode === 'queued'
@@ -2135,7 +2180,7 @@ export default function ChatScreen() {
         )}
 
         {/* INPUT BAR */}
-        <View style={[styles.inputBar, { backgroundColor: isDarkMode ? '#0f172a' : '#ffffff', borderTopColor: isDarkMode ? '#1e293b' : '#e2e8f0', paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+        <View style={[styles.inputBar, { backgroundColor: isDarkMode ? '#0C0A09' : '#FFFFFF', borderTopColor: isDarkMode ? '#292524' : '#E7E5E4', paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
           {charNearLimit && (
             <Text style={[styles.charCount, { color: inputText.length >= MAX_CHAR ? '#ef4444' : '#f59e0b' }]}>
               {MAX_CHAR - inputText.length} left
@@ -2151,7 +2196,7 @@ export default function ChatScreen() {
                 disabled={isEscalating}
                 accessibilityLabel="Talk to a human"
               >
-                <Ionicons name="headset-outline" size={20} color={isEscalating ? '#94a3b8' : '#f97316'} />
+                <Ionicons name="headset-outline" size={20} color={isEscalating ? '#A8A29E' : isDarkMode ? '#D6D3D1' : '#44403C'} />
               </TouchableOpacity>
             )}
             <TouchableOpacity
@@ -2164,20 +2209,20 @@ export default function ChatScreen() {
               <Ionicons
                 name={userCity ? 'location' : 'location-outline'}
                 size={20}
-                color={locating ? '#94a3b8' : userCity ? '#10b981' : '#2EC4B6'}
+                color={locating ? '#A8A29E' : isDarkMode ? '#D6D3D1' : '#44403C'}
               />
             </TouchableOpacity>
             <TouchableOpacity style={styles.inputIconBtn} activeOpacity={0.7} onPress={showTripPlannerForm}>
-              <Ionicons name="map-outline" size={20} color="#2EC4B6" />
+              <Ionicons name="map-outline" size={20} color={isDarkMode ? '#D6D3D1' : '#44403C'} />
             </TouchableOpacity>
-            <View style={[styles.inputWrap, { backgroundColor: isDarkMode ? '#1e293b' : '#f8fafc', borderColor: isDarkMode ? '#334155' : '#e2e8f0' }]}>
+            <View style={[styles.inputWrap, { backgroundColor: isDarkMode ? '#292524' : '#FAFAF9', borderColor: isDarkMode ? '#44403C' : '#E7E5E4' }]}>
               <TextInput
                 ref={inputRef}
-                style={[styles.textInput, { color: isDarkMode ? '#f1f5f9' : '#0f172a' }]}
+                style={[styles.textInput, { color: isDarkMode ? '#F5F5F4' : '#1C1917' }]}
                 value={inputText}
                 onChangeText={(t) => setInputText(t.slice(0, MAX_CHAR))}
                 placeholder="Ask Isha anything about travel…"
-                placeholderTextColor={isDarkMode ? '#475569' : '#94a3b8'}
+                placeholderTextColor={isDarkMode ? '#57534E' : '#A8A29E'}
                 multiline returnKeyType="default" blurOnSubmit={false}
                 editable={!isTyping}
               />
@@ -2189,24 +2234,24 @@ export default function ChatScreen() {
                 onPress={handleStopStreaming}
                 activeOpacity={0.8}
                 accessibilityLabel="Stop generating"
-                style={[styles.sendBtn, styles.sendBtnActive]}
+                style={[styles.sendBtn, styles.sendBtnActive, isDarkMode && styles.sendBtnActiveDark]}
               >
-                <Ionicons name="stop" size={16} color="#ffffff" />
+                <Ionicons name="stop" size={16} color={isDarkMode ? '#0C0A09' : '#FFFFFF'} />
               </TouchableOpacity>
             ) : (
             <TouchableOpacity onPress={handleSend}
               disabled={!inputText.trim() || isTyping}
               activeOpacity={0.8}
-              style={[styles.sendBtn, inputText.trim() && !isTyping ? styles.sendBtnActive : styles.sendBtnDisabled]}>
+              style={[styles.sendBtn, inputText.trim() && !isTyping ? [styles.sendBtnActive, isDarkMode && styles.sendBtnActiveDark] : styles.sendBtnDisabled]}>
               {isTyping ? (
-                <ActivityIndicator size="small" color={isDarkMode ? '#475569' : '#94a3b8'} />
+                <ActivityIndicator size="small" color={isDarkMode ? '#57534E' : '#A8A29E'} />
               ) : (
-                <Ionicons name="send" size={18} color={inputText.trim() ? '#ffffff' : isDarkMode ? '#475569' : '#cbd5e1'} />
+                <Ionicons name="arrow-up" size={20} color={inputText.trim() ? (isDarkMode ? '#0C0A09' : '#FFFFFF') : isDarkMode ? '#57534E' : '#D6D3D1'} />
               )}
             </TouchableOpacity>
             )}
           </View>
-          <Text style={[styles.poweredBy, { color: isDarkMode ? '#1e293b' : '#e2e8f0' }]}>Powered by Prayana AI</Text>
+          <Text style={[styles.poweredBy, { color: isDarkMode ? '#292524' : '#E7E5E4' }]}>Powered by Prayana AI</Text>
         </View>
       </KeyboardAvoidingView>
 
@@ -2232,13 +2277,11 @@ const styles = StyleSheet.create({
   headerStatus: { fontSize: fontSize.xs },
 
   // Bot Avatar
-  botAvatarBg: { alignItems: 'center', justifyContent: 'center' },
+  botAvatarBg: { alignItems: 'center', justifyContent: 'center', borderColor: '#EA580C', backgroundColor: '#FFFFFF', overflow: 'hidden' },
 
   // Welcome
   welcomeContainer: { flexGrow: 1, alignItems: 'center', paddingTop: spacing.xl * 2, paddingBottom: spacing.xl * 2, paddingHorizontal: spacing.xl },
   welcomeAvatarWrap: { position: 'relative', marginBottom: spacing.lg },
-  welcomeAvatarBg: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', ...shadow.lg },
-  welcomeAvatarEmoji: { fontSize: 32 },
   welcomeOnline: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#22c55e', borderWidth: 2 },
   welcomeTitle: { fontSize: 24, fontWeight: fontWeight.bold, letterSpacing: -0.5, marginBottom: spacing.xs, textAlign: 'center' },
   welcomeSubtitle: { fontSize: fontSize.md, textAlign: 'center', lineHeight: 22, maxWidth: 280, marginBottom: spacing.xl },
@@ -2255,12 +2298,11 @@ const styles = StyleSheet.create({
   userRow: { alignSelf: 'flex-end', justifyContent: 'flex-end' },
   assistantRow: { alignSelf: 'flex-start' },
   msgAvatar: { marginRight: spacing.xs, marginBottom: 2, flexShrink: 0 },
-  userDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#2EC4B6', marginLeft: spacing.xs, marginBottom: 6 },
 
   // User bubble
   userBubble: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: 18, borderBottomRightRadius: 4, maxWidth: SCREEN_WIDTH * 0.7 },
-  userText: { color: '#ffffff', fontSize: fontSize.md, lineHeight: 22 },
-  userTime: { color: 'rgba(255,255,255,0.6)', fontSize: 10, marginTop: 4, textAlign: 'right' },
+  userText: { fontSize: fontSize.md, lineHeight: 22 },
+  userTime: { fontSize: 10, marginTop: 4, textAlign: 'right' },
 
   // AI bubble
   aiBubble: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md, borderRadius: 18, borderBottomLeftRadius: 4, borderWidth: 1, ...shadow.sm },
@@ -2272,9 +2314,9 @@ const styles = StyleSheet.create({
   esimCardNote: { fontSize: 11, lineHeight: 15 },
   esimCardBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
-    backgroundColor: '#0d9488', paddingVertical: 9, borderRadius: 10,
+    paddingVertical: 10, borderRadius: 999,
   },
-  esimCardBtnText: { color: '#ffffff', fontSize: 13, fontWeight: '700' },
+  esimCardBtnText: { fontSize: 13, fontWeight: '700' },
   followUps: { gap: 6, paddingVertical: 2, paddingRight: 8 },
   followUpChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, maxWidth: 230 },
   followUpText: { fontSize: 12.5, fontWeight: '600' },
@@ -2312,7 +2354,7 @@ const styles = StyleSheet.create({
   typingRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: spacing.md, alignSelf: 'flex-start', gap: spacing.xs },
   typingBubble: { flexDirection: 'row', alignItems: 'center', borderRadius: 18, borderBottomLeftRadius: 4, paddingHorizontal: spacing.lg, paddingVertical: spacing.md, gap: spacing.sm, borderWidth: 1 },
   dotsRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#2EC4B6' },
+  dot: { width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#A8A29E' },
   typingLabel: { fontSize: fontSize.xs, fontStyle: 'italic' },
 
   // Place cards
@@ -2323,20 +2365,23 @@ const styles = StyleSheet.create({
   placeCard: { flexDirection: 'row', padding: spacing.md, borderRadius: 16, borderWidth: 1, marginBottom: spacing.sm, ...shadow.sm },
   placeCardImageWrap: { position: 'relative', flexShrink: 0 },
   placeCardImage: { width: 80, height: 80, borderRadius: 12 },
-  placeNumBadge: { position: 'absolute', top: -6, left: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: '#ef4444', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#ffffff' },
+  placeNumBadge: { position: 'absolute', top: -6, left: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: '#0C0A09', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#ffffff' },
   placeNumText: { color: '#ffffff', fontSize: 11, fontWeight: fontWeight.bold },
   placeCardInfo: { flex: 1, marginLeft: spacing.md },
   placeCardName: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, marginBottom: 3 },
   placeCardDesc: { fontSize: fontSize.xs, lineHeight: 16, marginTop: 2 },
   starsRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 2 },
   ratingNum: { fontSize: fontSize.xs, fontWeight: fontWeight.bold, marginLeft: 3 },
-  categoryBadge: { marginTop: 4, alignSelf: 'flex-start', backgroundColor: 'rgba(46,196,182,0.1)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  categoryText: { fontSize: 10, color: '#0d9488' },
+  categoryBadge: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, backgroundColor: 'rgba(120,113,108,0.12)', marginTop: 4 },
+  categoryText: { fontSize: 10, color: '#78716C', textTransform: 'capitalize' },
 
   // Images banner
-  imagesScroll: { marginBottom: spacing.xs },
-  bannerImageWrap: { width: 160, height: 100, borderRadius: 12, overflow: 'hidden', marginRight: spacing.sm },
-  bannerImage: { width: '100%', height: '100%' },
+  collage: { flexDirection: 'row', height: 176, gap: 3, borderRadius: 16, overflow: 'hidden' },
+  collageTile: { overflow: 'hidden' },
+  collageMore: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(12,10,9,0.45)', alignItems: 'center', justifyContent: 'center' },
+  collageMoreText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  statusChip: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 8, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 18, borderBottomLeftRadius: 4, borderWidth: 1 },
+  statusText: { fontSize: fontSize.sm, flexShrink: 1 },
 
   // Related places
   relatedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: spacing.xs },
@@ -2369,18 +2414,16 @@ const styles = StyleSheet.create({
   transportLabel: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold },
   plannerActions: { flexDirection: 'row', gap: spacing.sm, paddingTop: spacing.xs },
   backBtn: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm + 2, borderRadius: borderRadius.lg },
-  nextBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm + 4, borderRadius: borderRadius.lg, backgroundColor: '#2EC4B6', ...shadow.sm },
+  nextBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: spacing.sm + 4, borderRadius: borderRadius.lg, backgroundColor: '#0C0A09', ...shadow.sm },
   nextBtnText: { color: '#ffffff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 
   // Itinerary preview card
   itineraryCard: { borderRadius: 16, borderWidth: 1, ...shadow.md, overflow: 'hidden' },
-  itineraryTopStrip: { paddingHorizontal: spacing.md, paddingVertical: 5, alignItems: 'center' },
-  itineraryStripText: { color: '#ffffff', fontSize: 10, fontWeight: fontWeight.bold, letterSpacing: 1 },
   itineraryContent: { flexDirection: 'row', padding: spacing.md, gap: spacing.sm },
   itineraryLeft: { flex: 1 },
   itineraryBadges: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs, marginBottom: spacing.xs },
-  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: borderRadius.full, borderWidth: 1, backgroundColor: 'rgba(46,196,182,0.12)', borderColor: 'rgba(46,196,182,0.3)' },
-  badgeText: { fontSize: 10, fontWeight: fontWeight.bold, color: '#2EC4B6' },
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: borderRadius.full, borderWidth: 1 },
+  badgeText: { fontSize: 11, fontWeight: fontWeight.semibold },
   itineraryTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, lineHeight: 22, marginBottom: 4 },
   itinerarySubtitle: { fontSize: fontSize.xs, lineHeight: 16 },
   generatingRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, marginTop: spacing.xs },
@@ -2409,8 +2452,9 @@ const styles = StyleSheet.create({
   inputWrap: { flex: 1, borderRadius: 20, borderWidth: 1, paddingHorizontal: spacing.lg, paddingVertical: Platform.OS === 'ios' ? spacing.sm + 2 : spacing.xs + 2, maxHeight: 110 },
   textInput: { fontSize: fontSize.md, lineHeight: 20, paddingVertical: 0, maxHeight: 90 },
   sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  sendBtnActive: { backgroundColor: '#2EC4B6' },
-  sendBtnDisabled: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#334155' },
+  sendBtnActive: { backgroundColor: '#0C0A09' },
+  sendBtnActiveDark: { backgroundColor: '#FAFAF9' },
+  sendBtnDisabled: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#44403C' },
   poweredBy: { fontSize: 10, textAlign: 'center', marginTop: spacing.xs, letterSpacing: 0.3 },
 
 });
