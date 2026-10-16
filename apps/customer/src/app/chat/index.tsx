@@ -138,6 +138,8 @@ interface TripFormData {
 // ============================================================
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const MAX_CHAR = 500;
+/** Shown when the server turns a message away for a limit and gives no reason. */
+const LIMITED_MESSAGE = 'Isha needs a short break. Try again in a little while.';
 
 type SuggestionChip = { icon?: string; text: string; action?: string; placeholder?: string };
 
@@ -1551,6 +1553,7 @@ export default function ChatScreen() {
       // what made the mobile chat feel slower than the web. Any transport
       // failure falls through to the original /chat/send path below.
       let refused = false;
+      let limited = false;
       const streamed = await new Promise<any | null>((resolve) => {
         const liveId = generateId();
         let buffer = '';
@@ -1598,6 +1601,9 @@ export default function ChatScreen() {
           onError: (err) => {
             streamRef.current = null;
             refused = !opened && isSessionRefused(err);
+            // Over a message limit or today's AI budget: retrying over
+            // /send would only count the message again
+            limited = !opened && (err as any)?.status === 429;
             if (opened) {
               // Partial text already shown — keep it rather than erroring.
               setMessages((prev) =>
@@ -1616,6 +1622,7 @@ export default function ChatScreen() {
       setIsStreaming(false);
       if (streamed) { setIsTyping(false); return; }
 
+      if (limited) throw Object.assign(new Error(LIMITED_MESSAGE), { status: 429 });
       if (refused) {
         await renewSession();
         reqBody.sessionId = sessionIdRef.current;
@@ -1660,13 +1667,16 @@ export default function ChatScreen() {
         esimPlans: aiMsgData?.esimPlans || response?.data?.esimPlans || [],
       };
       setMessages((prev) => [aiMsg, ...prev]);
-    } catch {
+    } catch (err: any) {
+      // A limit isn't a connection problem: say what the server said
+      const limitedText =
+        err?.status === 429 ? (err?.message && !/^HTTP error/.test(err.message) ? err.message : LIMITED_MESSAGE) : null;
       setMessages((prev) => [{
         id: generateId(), role: 'assistant', type: 'text',
-        content: 'I encountered an issue connecting to the server. Please check your connection and try again.',
+        content: limitedText || 'I encountered an issue connecting to the server. Please check your connection and try again.',
         timestamp: new Date(),
       }, ...prev]);
-      Toast.show({ type: 'error', text1: 'Connection error', text2: 'Could not reach Isha.' });
+      if (!limitedText) Toast.show({ type: 'error', text1: 'Connection error', text2: 'Could not reach Isha.' });
     } finally {
       setIsTyping(false);
       scrollToBottom();
