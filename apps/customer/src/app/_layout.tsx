@@ -10,15 +10,21 @@ import * as ExpoNotifications from 'expo-notifications';
 import Constants from 'expo-constants';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from '@prayana/shared-hooks';
-import { setBaseURL, saveFcmToken } from '@prayana/shared-services';
+import { setBaseURL, saveFcmToken, fetchUserProfile } from '@prayana/shared-services';
+import { auth } from '@prayana/shared-services/src/firebase';
 import { ThemeProvider, useTheme } from '@prayana/shared-ui';
 import { setImageServerOrigin } from '@prayana/shared-utils';
 import { ENV } from '../config/env';
 import { queryClient } from '../lib/queryClient';
 import { initSentry, setSentryUser } from '../lib/sentry';
 import { resolveDeepLink } from '../lib/deepLinks';
+import { useLiveNotifications, ensureNotificationPermission, alreadyShown, routeForLink } from '../lib/notifications';
+import { topUpNudges } from '../lib/nudgeScheduler';
+import { loadConsent } from '../lib/consent';
+import { ConsentSheet } from '../components/consent/ConsentSheet';
 import { setTrackingAllowed, identify } from '../lib/analytics';
 import { makeGuestUser, isGuest } from '../lib/guestSession';
+import { isPlaceholderName, isNameCompleteThisSession } from '../lib/userName';
 import { AnimatedSplash } from '../components/common/AnimatedSplash';
 
 // Initialize crash reporting before any other code can crash.
@@ -28,14 +34,20 @@ initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 // Configure how notifications appear when app is in foreground (global)
+// A server push for an inbox item the socket already showed is kept quiet.
 ExpoNotifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async (n) => {
+    const data = n.request.content.data as { notificationId?: string } | undefined;
+    const isPush = (n.request.trigger as { type?: string } | null)?.type === 'push';
+    const show = !(isPush && alreadyShown(data?.notificationId));
+    return {
+      shouldShowAlert: show,
+      shouldPlaySound: show,
+      shouldSetBadge: true,
+      shouldShowBanner: show,
+      shouldShowList: true,
+    };
+  },
 });
 
 // Set API URL immediately at module load time (before any component renders).
@@ -55,6 +67,11 @@ function PushNotificationManager() {
   const notifListener = useRef<ExpoNotifications.EventSubscription | null>(null);
   const responseListener = useRef<ExpoNotifications.EventSubscription | null>(null);
   const tokenRegistered = useRef(false);
+
+  // The bell's count and live in-app notifications.
+  useLiveNotifications();
+  // Guests get the daily travel nudges too, once notifications are allowed.
+  useEffect(() => { topUpNudges(); }, []);
 
   useEffect(() => {
     if (!isAuthenticated || !user?.uid || user.uid === 'guest-user') return;
@@ -87,8 +104,10 @@ function PushNotificationManager() {
     // In dev builds where the EAS projectId is a placeholder, skip — getExpoPushTokenAsync
     // throws if the projectId is invalid, and we want push errors out of dev noise.
     (async () => {
-      const { status } = await ExpoNotifications.getPermissionsAsync();
-      if (status !== 'granted') return;
+      // Ask once after sign-in; Android 13+ and iOS show nothing without it.
+      if (!(await ensureNotificationPermission())) return;
+      // Keep the next week of daily travel nudges scheduled on the phone.
+      topUpNudges();
 
       const projectId = (Constants as any)?.expoConfig?.extra?.eas?.projectId;
       const validProjectId =
@@ -129,15 +148,15 @@ function PushNotificationManager() {
     // run them through the same resolver as universal links to be consistent.
     responseListener.current = ExpoNotifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as { route?: string; url?: string };
-      if (data?.url) {
-        const route = resolveDeepLink(data.url);
-        if (route && route !== '/') {
-          router.push(route as never);
-          return;
-        }
-      }
+      // An app route wins; else the link, as a universal link or else mapped
+      // the way the inbox maps it (community, bookings, eSIM…).
       if (data?.route) {
         router.push(data.route as never);
+        return;
+      }
+      if (data?.url) {
+        const route = resolveDeepLink(data.url) || routeForLink(data.url);
+        if (route && route !== '/') router.push(route as never);
       }
     });
 
@@ -186,6 +205,44 @@ function AuthGuard() {
   return null;
 }
 
+// ── Name Gate ─────────────────────────────────────────────────
+// A name is mandatory on every account (web parity: AuthGate +
+// ProfileSetupModal). Phone-OTP signups arrive without one, and older accounts
+// carry placeholders, so once per signed-in account we read the profile and
+// send a nameless user to /complete-profile. Covers every sign-in path
+// (phone, Google, email) and cold starts. A failed fetch never blocks the app.
+function NameGate() {
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+  const checkedUid = useRef<string | null>(null);
+  // Read when the fetch resolves, not when it starts: phone-login may have
+  // already routed a new signup to the name screen in the meantime.
+  const onNameScreen = useRef(false);
+  onNameScreen.current = segments[0] === 'complete-profile';
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated || !user?.uid || isGuest(user)) return;
+    if (checkedUid.current === user.uid) return;
+    checkedUid.current = user.uid;
+    const uid = user.uid;
+    (async () => {
+      try {
+        const res: any = await fetchUserProfile();
+        const profile = res?.data?.profile;
+        if (!profile) return; // unreachable / unexpected shape — don't block
+        if (!isPlaceholderName(profile.name)) return;
+        if (isNameCompleteThisSession(uid) || auth.currentUser?.uid !== uid) return;
+        if (!onNameScreen.current) router.replace('/complete-profile' as never);
+      } catch {
+        // Backend unreachable: let them in; the check re-runs next launch.
+      }
+    })();
+  }, [isAuthenticated, isLoading, user, router]);
+
+  return null;
+}
+
 function RootNavigator() {
   const { isDarkMode } = useTheme();
   const { isLoading, user, isAuthenticated } = useAuth();
@@ -215,8 +272,10 @@ function RootNavigator() {
   // so it does NOT show the App Tracking Transparency prompt (showing it while
   // declaring "no tracking" in App Privacy would be an App Store mismatch).
   // Analytics stays product-only (never linked to ad networks).
+  // Analytics runs only if the person allowed it in Privacy choices (lib/consent).
   useEffect(() => {
     setTrackingAllowed(false);
+    loadConsent();
   }, []);
 
   // Deep link handling — works for both custom scheme (prayana://...) and
@@ -247,11 +306,13 @@ function RootNavigator() {
   return (
     <>
       <AuthGuard />
+      <NameGate />
       <PushNotificationManager />
       <StatusBar style={isDarkMode ? 'light' : 'dark'} />
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="complete-profile" options={{ gestureEnabled: false }} />
         <Stack.Screen name="trip" />
         <Stack.Screen name="activity" />
         <Stack.Screen name="bookings" />
@@ -300,6 +361,8 @@ function RootNavigator() {
         <Stack.Screen name="monuments/book" />
         <Stack.Screen name="monuments/my-tickets" />
       </Stack>
+      {/* First-launch privacy choice, the app's cookie banner. */}
+      <ConsentSheet />
       <Toast />
       {/* Cinematic launch animation (web/PWA parity). Sits on top until it
           fades itself out, then unmounts. Only after resources are ready so it

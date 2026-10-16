@@ -217,5 +217,5 @@ export const formatCurrency = (amount, currencyCode) => {
   const currency = Object.values(CURRENCY_MAP).find(c => c.code === currencyCode);
   if (!currency) return `${amount}`;
 
-  return `${currency.symbol}${amount.toLocaleString()}`;
+  return `${currency.symbol}${Math.round(Number(amount)).toLocaleString()}`;
 };

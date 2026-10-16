@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius, TextInput } from '@prayana/shared-ui';
 import { captainAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
+import { phoneChange } from '../../lib/phoneInput';
 
 const TEAL = '#4AC0CC';
 
@@ -287,7 +288,7 @@ export default function CaptainTourDetailScreen() {
           <Text style={[styles.h, { color: themeColors.text }]}>Lead traveller</Text>
           <TextInput label="Full name" value={name} onChangeText={setName} placeholder="As on your ID" />
           <TextInput label="Email" value={email} onChangeText={setEmail} placeholder="you@email.com" keyboardType="email-address" autoCapitalize="none" />
-          <TextInput label="Phone (optional)" value={phone} onChangeText={setPhone} placeholder="10-digit mobile" keyboardType="phone-pad" />
+          <TextInput label="Phone (optional)" value={phone} onChangeText={phoneChange(setPhone)} placeholder="10-digit mobile" keyboardType="phone-pad" />
 
           {/* Seats stepper */}
           <View style={styles.seatsRow}>

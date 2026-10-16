@@ -24,6 +24,8 @@ const queue: Array<{ name: string; props: Record<string, unknown> }> = [];
 export function setTrackingAllowed(allowed: boolean) {
   allowTracking = allowed;
   if (allowed) flush();
+  // A refusal also drops what was waiting: it must never be sent later.
+  else queue.length = 0;
 }
 
 export function setAnalyticsUser(uid: string | null) {
@@ -65,7 +67,8 @@ export function track(name: string, props: Record<string, unknown> = {}) {
     return;
   }
   if (!allowTracking) {
-    queue.push({ name, props });
+    // Held only until the first privacy choice (lib/consent); capped.
+    if (queue.length < 50) queue.push({ name, props });
     return;
   }
   void sendOne(name, props);

@@ -34,10 +34,14 @@ export default function MembershipScreen() {
   const router = useRouter();
   const { isDarkMode, themeColors } = useTheme();
 
-  // Real membership data from the backend profile — the web profile reads
-  // profile.membership.tier + loyaltyPoints, and values points at ×0.5 ₹.
+  // Real membership data from the backend profile — same fields the web
+  // profile reads: membership.tier, loyaltyPoints ("Trip Coins") and the
+  // Travel Credits wallet (membership.credits.balance, 1 credit = ₹1).
+  // Web dropped the old loyaltyPoints × 0.5 "value" — it showed ₹0 to every
+  // new user — so this screen shows the credits wallet instead.
   // (This screen previously hardcoded 1250 pts / "Premium" for everyone.)
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [creditsBalance, setCreditsBalance] = useState(0);
   const [tier, setTier] = useState('Bronze');
 
   useEffect(() => {
@@ -46,14 +50,13 @@ export default function MembershipScreen() {
         const res: any = await fetchUserProfile();
         const p = res?.data?.profile || res?.data || {};
         setLoyaltyPoints(p.membership?.loyaltyPoints ?? 0);
+        setCreditsBalance(p.membership?.credits?.balance ?? 0);
         setTier(p.membership?.tier || 'Bronze');
       } catch {
         // Not signed in / offline — keep the zero-state defaults.
       }
     })();
   }, []);
-
-  const pointsValue = Math.floor(loyaltyPoints * 0.5);
 
   // Tier ladder — the next tier + points needed, so the card reflects the REAL
   // tier instead of the old hardcoded "You're a Premium Member". Thresholds are
@@ -108,22 +111,33 @@ export default function MembershipScreen() {
           <View style={styles.tierPoints}>
             <View>
               <Text style={styles.pointsNum}>{loyaltyPoints.toLocaleString()}</Text>
-              <Text style={styles.pointsLabel}>Loyalty Points</Text>
+              <Text style={styles.pointsLabel}>Trip Coins</Text>
             </View>
             <View style={styles.pointsDivider} />
             <View>
-              <Text style={styles.pointsNum}>₹{pointsValue.toLocaleString()}</Text>
-              <Text style={styles.pointsLabel}>Points Value</Text>
+              <Text style={styles.pointsNum}>₹{creditsBalance.toLocaleString('en-IN')}</Text>
+              <Text style={styles.pointsLabel}>Travel Credits</Text>
             </View>
           </View>
 
           <TouchableOpacity
             style={styles.redeemBtn}
             activeOpacity={0.85}
+            // Web has no standalone redeem action. Travel Credits are spent at
+            // checkout — CreditsRedeemToggle on activity bookings (capped at
+            // loyaltyService.CREDITS_REDEMPTION_CAP_PCT, 10% of the order) and
+            // "Redeem & upgrade" on VIP checkout. Mobile's VIP screen already
+            // supports the latter, so point there; mobile activity checkout
+            // doesn't send creditsToApply yet, hence the web mention.
             onPress={() =>
               Alert.alert(
-                'Redeem points — coming soon',
-                'Point redemption for discounts and perks is on the way. Your points keep accruing in the meantime.'
+                'Redeem Travel Credits',
+                `You have ${creditsBalance.toLocaleString('en-IN')} Travel Credits (1 credit = ₹1). ` +
+                  'Redeem them towards VIP membership here. On the Prayana website they can also be applied at activity checkout (up to 10% of the order).',
+                [
+                  { text: 'Not now', style: 'cancel' },
+                  { text: 'Use on VIP', onPress: () => router.push('/vip' as any) },
+                ]
               )
             }
           >

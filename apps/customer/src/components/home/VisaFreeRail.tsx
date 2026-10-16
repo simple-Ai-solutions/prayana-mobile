@@ -16,7 +16,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme, spacing } from '@prayana/shared-ui';
 import { countryContentAPI, makeAPICall } from '@prayana/shared-services';
-import { useRailPlayback, useRailClock, usePhotoStep } from './HomeRails';
+import { Rail, useRailPlayback, useRailClock, usePhotoStep } from './HomeRails';
 import { RAIL_GAP, TWO_UP_W } from '../../lib/railLayout';
 
 const CARD_W = TWO_UP_W;
@@ -120,7 +120,7 @@ function PassportCard({ country, playing, tick, onPress }: {
     () => (country.images || []).filter(isValidImageUrl).map((u) => u.replace(/([^:])\/\/+/g, '$1/')),
     [country.images],
   );
-  const { photo, onLoad } = usePhotoStep(frames, playing, tick);
+  const { photo, onLoad } = usePhotoStep(frames, playing, tick, CARD_W);
   const strap = String(country.description || '').split(/,|\.|\s+and\s+/)[0];
   // The machine-readable line at the foot of a real passport page.
   const mrz = `P<IND<<${country.name.toUpperCase().replace(/[^A-Z]/g, '<')}<<${stay.toUpperCase().replace(/[^A-Z0-9]/g, '<')}`
@@ -280,13 +280,7 @@ export function VisaFreeRail({ countryCode = 'IN', countryName = 'India', onCoun
         </View>
       </ScrollView>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.rail}
-        {...scrollProps}
-        ref={setRailRef}
-      >
+      <Rail scrollProps={scrollProps} contentContainerStyle={styles.rail} refCallback={setRailRef}>
         {shown.map((c, i) => (
           <PassportCard
             key={c.countryCode || c.name}
@@ -296,7 +290,7 @@ export function VisaFreeRail({ countryCode = 'IN', countryName = 'India', onCoun
             onPress={() => onCountryPress(c)}
           />
         ))}
-      </ScrollView>
+      </Rail>
 
       <Text style={styles.note}>
         Visa rules change — always confirm with the embassy or official portal before you book.

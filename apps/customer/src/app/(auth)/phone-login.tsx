@@ -24,6 +24,8 @@ import {
   getCountryAt,
   isPlausiblePhone,
 } from '../../components/common/CountryCodePicker';
+import { isPlaceholderName } from '../../lib/userName';
+import { phoneChange } from '../../lib/phoneInput';
 
 const RESEND_TIMER_SECONDS = 60;
 const OTP_LENGTH = 6;
@@ -196,13 +198,20 @@ export default function PhoneLoginScreen() {
           setUser(userCredential.user);
           setIsAuthenticated(true);
 
+          let syncedUser: { name?: string } | null = null;
           try {
-            await syncWithBackend(userCredential.user, 'phone');
+            const synced: any = await syncWithBackend(userCredential.user, 'phone');
+            syncedUser = synced?.user ?? null;
           } catch (syncErr: any) {
             console.warn('[PhoneLogin] Backend sync failed (non-fatal):', syncErr.message);
           }
 
-          router.replace('/(tabs)');
+          // New number (or an old placeholder name) → ask for the name now,
+          // rather than flashing the home tab before NameGate redirects. If the
+          // sync failed we don't know, so go home and let NameGate decide.
+          router.replace(
+            syncedUser && isPlaceholderName(syncedUser.name) ? ('/complete-profile' as never) : '/(tabs)',
+          );
           return;
         } catch (firebaseErr: any) {
           console.warn('[PhoneLogin] Firebase custom token sign-in failed:', firebaseErr.message);
@@ -341,7 +350,7 @@ export default function PhoneLoginScreen() {
                     placeholder="Phone number"
                     placeholderTextColor="#9ca3af"
                     value={phoneNumber}
-                    onChangeText={setPhoneNumber}
+                    onChangeText={phoneChange(setPhoneNumber)}
                     keyboardType="phone-pad"
                     maxLength={15}
                   />

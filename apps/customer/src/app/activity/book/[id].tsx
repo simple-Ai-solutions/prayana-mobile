@@ -46,6 +46,8 @@ import {
 } from '../../../components/common/LegalAcceptanceBlock';
 import { AcceptedLegalDoc } from '../../../lib/legalRegistry';
 import { ENV } from '../../../config/env';
+import { DeparturePicker } from '../../../components/experiences/DeparturePicker';
+import { phoneChange } from '../../../lib/phoneInput';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const STEP_LABELS = ['Date', 'Options', 'Contact', 'Payment'];
@@ -105,7 +107,7 @@ async function openAffiliateRedirect(payload: any): Promise<void> {
 }
 
 function formatCurrency(amount: number): string {
-  return `\u20B9${amount.toLocaleString('en-IN')}`;
+  return `\u20B9${Math.round(amount).toLocaleString('en-IN')}`;
 }
 
 function formatDate(date: Date): string {
@@ -115,6 +117,17 @@ function formatDate(date: Date): string {
     month: 'short',
     year: 'numeric',
   });
+}
+
+/**
+ * "9:00 AM - 12:00 PM", or "Departs 6:00 AM" for a slot with one meeting time.
+ * Departure batches are created with endTime = startTime on purpose (the trip's
+ * length comes from its duration in days), which printed as "6:00 AM - 6:00 AM".
+ */
+function slotTimeLabel(slot: { startTime?: string; endTime?: string }): string {
+  if (!slot?.startTime) return '';
+  if (!slot.endTime || slot.endTime === slot.startTime) return `Departs ${formatTime(slot.startTime)}`;
+  return `${formatTime(slot.startTime)} - ${formatTime(slot.endTime)}`;
 }
 
 function formatTime(time: string): string {
@@ -394,6 +407,9 @@ export default function BookingFlowScreen() {
   // Step 1: Date & Participants
   const [selectedDate, setSelectedDate] = useState(tomorrowDate());
   const [showDatePicker, setShowDatePicker] = useState(Platform.OS === 'ios');
+  // Multi-day treks with fixed batches pick a departure (web's DeparturePicker)
+  // instead of a calendar date; it reports whether the trek has any.
+  const [hasDepartures, setHasDepartures] = useState(false);
   const [adults, setAdults] = useState(1);
   const [children, setChildren] = useState(0);
 
@@ -490,7 +506,14 @@ export default function BookingFlowScreen() {
       const dateISO = toLocalISODate(selectedDate);
       const res = await makeAPICall(`/activities/${activityId}/time-slots/${dateISO}`);
       if (res?.success) {
-        setTimeSlots(res.data || []);
+        const slots = res.data || [];
+        setTimeSlots(slots);
+        // A batch trek's departure already fixes when it runs; its one slot is
+        // bookkeeping the booking still needs, so pick it without asking.
+        if (hasDepartures) {
+          const open = slots.find((sl: any) => (sl.capacity?.booked ?? 0) < (sl.capacity?.total ?? Infinity));
+          setSelectedSlot(open || null);
+        }
       } else {
         setTimeSlots([]);
       }
@@ -500,7 +523,7 @@ export default function BookingFlowScreen() {
     } finally {
       setSlotsLoading(false);
     }
-  }, [activityId, selectedDate]);
+  }, [activityId, selectedDate, hasDepartures]);
 
   const fetchVariants = useCallback(async () => {
     if (!activityId) return;
@@ -616,7 +639,8 @@ export default function BookingFlowScreen() {
       return false;
     }
 
-    if (!isDateAllowed(selectedDate)) {
+    // A departure batch is its own proof the trek runs that day.
+    if (!hasDepartures && !isDateAllowed(selectedDate)) {
       Toast.show({
         type: 'error',
         text1: 'Not available on that day',
@@ -876,7 +900,7 @@ export default function BookingFlowScreen() {
   // Snap the default to the first date the operator actually runs, honouring
   // the activity's own advanceBookingDays notice.
   useEffect(() => {
-    if (!allowedDays) return;
+    if (!allowedDays || hasDepartures) return;
     if (isDateAllowed(selectedDate)) return;
     const notice = Number(activity?.advanceBookingDays) || 1;
     const d = new Date();
@@ -888,7 +912,7 @@ export default function BookingFlowScreen() {
     }
     setSelectedDate(d);
     setSelectedSlot(null);
-  }, [allowedDays, activity]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allowedDays, activity, hasDepartures]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onDateChange = (_event: any, date?: Date) => {
     if (Platform.OS === 'android') {
@@ -938,6 +962,7 @@ export default function BookingFlowScreen() {
   const basePrice = activity.pricing?.basePrice ?? activity.pricing?.adultPrice ?? activity.price ?? 0;
   const totalPrice = priceBreakdown?.total ?? priceBreakdown?.totalAmount ?? (basePrice * (adults + children));
   const maxGroupSize = activity.groupSize?.max || 20;
+  const isMultiDay = activity.duration?.unit === 'days';
 
   // =========================================================================
   // RENDER STEPS
@@ -946,10 +971,28 @@ export default function BookingFlowScreen() {
   // --------------- STEP 1: Date & Participants ---------------
   const renderStep1 = () => (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, { color: themeColors.text }]}>Select Date & Participants</Text>
+      <Text style={[styles.stepTitle, { color: themeColors.text }]}>
+        {isMultiDay && hasDepartures ? 'Select Departure & Participants' : 'Select Date & Participants'}
+      </Text>
 
-      {/* Date selector */}
+      {/* Date selector: departure batches for multi-day treks (as on the
+          web), the calendar for everything else or when a trek has none. */}
       <Card bordered style={{ marginBottom: spacing.lg, backgroundColor: themeColors.card, borderColor: themeColors.border }}>
+        {isMultiDay && (
+          <DeparturePicker
+            activityId={String(activity._id || activityId)}
+            value={toLocalISODate(selectedDate)}
+            onChange={(key) => {
+              const [y, m, d] = key.split('-').map(Number);
+              setSelectedDate(new Date(y, m - 1, d));
+              setSelectedSlot(null);
+            }}
+            onHasDepartures={setHasDepartures}
+          />
+        )}
+
+        {!(isMultiDay && hasDepartures) && (
+        <>
         <Text style={[styles.fieldLabel, { color: themeColors.text }]}>Booking Date</Text>
 
         {Platform.OS === 'android' && (
@@ -978,6 +1021,8 @@ export default function BookingFlowScreen() {
             onChange={onDateChange}
             style={Platform.OS === 'ios' ? { height: 320 } : undefined}
           />
+        )}
+        </>
         )}
       </Card>
 
@@ -1026,10 +1071,16 @@ export default function BookingFlowScreen() {
   // --------------- STEP 2: Time Slots & Variants ---------------
   const renderStep2 = () => (
     <View style={styles.stepContent}>
-      <Text style={[styles.stepTitle, { color: themeColors.text }]}>Choose Your Experience</Text>
+      <Text style={[styles.stepTitle, { color: themeColors.text }]}>
+        {/* With no slot or tier to pick, this step is just pickup and price. */}
+        {variants.length === 0 && (hasDepartures || timeSlots.length === 0)
+          ? (boardingPoints.length > 0 ? 'Choose Boarding Point' : 'Review Price')
+          : 'Choose Your Experience'}
+      </Text>
 
-      {/* Time Slots */}
-      {slotsLoading ? (
+      {/* Time Slots — not shown for batch treks: the departure picked in step 1
+          already says when it runs, and its slot is chosen automatically. */}
+      {hasDepartures ? null : slotsLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator color={colors.primary[500]} />
           <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>Loading time slots...</Text>
@@ -1053,7 +1104,7 @@ export default function BookingFlowScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.slotLabel, { color: themeColors.text }]}>{slot.label || 'Time Slot'}</Text>
                     <Text style={[styles.slotTime, { color: themeColors.textSecondary }]}>
-                      {formatTime(slot.startTime)} - {formatTime(slot.endTime)}
+                      {slotTimeLabel(slot)}
                     </Text>
                   </View>
                   <View style={{ alignItems: 'flex-end' }}>
@@ -1077,12 +1128,7 @@ export default function BookingFlowScreen() {
             );
           })}
         </View>
-      ) : (
-        <View style={[styles.emptyBox, { marginBottom: spacing.xl, backgroundColor: themeColors.surface }]}>
-          <Ionicons name="time-outline" size={24} color={themeColors.textTertiary} />
-          <Text style={[styles.emptyText, { color: themeColors.textTertiary }]}>No specific time slots - open availability</Text>
-        </View>
-      )}
+      ) : null}
 
       {/* Variants */}
       {variantsLoading ? (
@@ -1124,12 +1170,7 @@ export default function BookingFlowScreen() {
             );
           })}
         </View>
-      ) : (
-        <View style={[styles.emptyBox, { marginBottom: spacing.xl, backgroundColor: themeColors.surface }]}>
-          <Ionicons name="layers-outline" size={24} color={themeColors.textTertiary} />
-          <Text style={[styles.emptyText, { color: themeColors.textTertiary }]}>Standard experience - no variant selection needed</Text>
-        </View>
-      )}
+      ) : null /* nothing to choose: say nothing rather than "no variant needed" */}
 
       {/* Boarding point — REQUIRED by the server when the listing has pickup
           points ("Please choose a boarding point."). Mobile never collected
@@ -1294,7 +1335,7 @@ export default function BookingFlowScreen() {
           label="Phone Number"
           placeholder="+91 98765 43210"
           value={phone}
-          onChangeText={setPhone}
+          onChangeText={phoneChange(setPhone, { allowPlus: true })}
           keyboardType="phone-pad"
           leftIcon={<Ionicons name="call-outline" size={18} color={themeColors.textTertiary} />}
         />
@@ -1323,11 +1364,11 @@ export default function BookingFlowScreen() {
               {children > 0 ? `, ${children} child${children > 1 ? 'ren' : ''}` : ''}
             </Text>
           </View>
-          {selectedSlot && (
+          {selectedSlot && !hasDepartures && (
             <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
               <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
               <Text style={[styles.summaryValue, { color: themeColors.text }]}>
-                {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
+                {slotTimeLabel(selectedSlot)}
               </Text>
             </View>
           )}
@@ -1396,11 +1437,11 @@ export default function BookingFlowScreen() {
             <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Date</Text>
             <Text style={[styles.summaryValue, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
           </View>
-          {selectedSlot && (
+          {selectedSlot && !hasDepartures && (
             <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
               <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
               <Text style={[styles.summaryValue, { color: themeColors.text }]}>
-                {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
+                {slotTimeLabel(selectedSlot)}
               </Text>
             </View>
           )}
@@ -1542,11 +1583,11 @@ export default function BookingFlowScreen() {
           <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Date</Text>
           <Text style={[styles.summaryValue, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
         </View>
-        {selectedSlot && (
+        {selectedSlot && !hasDepartures && (
           <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
             <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
             <Text style={[styles.summaryValue, { color: themeColors.text }]}>
-              {formatTime(selectedSlot.startTime)} - {formatTime(selectedSlot.endTime)}
+              {slotTimeLabel(selectedSlot)}
             </Text>
           </View>
         )}

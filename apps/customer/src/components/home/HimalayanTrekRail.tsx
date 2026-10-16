@@ -6,14 +6,14 @@
 // yellow script with its summit height under it, and the region and rating
 // beneath. Photos step through the trek's gallery while it is on screen.
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Path } from 'react-native-svg';
 import { useFonts, DancingScript_700Bold } from '@expo-google-fonts/dancing-script';
 import { ArrowRight } from 'lucide-react-native';
 import { spacing } from '@prayana/shared-ui';
-import { useRailPlayback, useRailClock, usePhotoStep } from './HomeRails';
+import { Rail, useRailPlayback, useRailClock, usePhotoStep } from './HomeRails';
 import { RAIL_GAP, TWO_UP_W } from '../../lib/railLayout';
 import {
   HIMALAYAN_TREKS, TREK_FACTS, TREK_GALLERY, type HimalayanTrek,
@@ -45,7 +45,7 @@ function AltitudeCard({ trek, playing, tick, script, onPress }: {
     () => [...new Set([trek.image, ...(TREK_GALLERY[trek.id] || [])])],
     [trek],
   );
-  const { photo, onLoad } = usePhotoStep(frames, playing, tick);
+  const { photo, onLoad } = usePhotoStep(frames, playing, tick, CARD_W);
 
   return (
     <Pressable
@@ -144,12 +144,7 @@ export function HimalayanTrekRail({ onTrekPress }: {
   const { canPlay, scrollProps, inView } = useRailPlayback(CARD_W, GAP);
   const tick = useRailClock(inView);
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.rail}
-      {...scrollProps}
-    >
+    <Rail scrollProps={scrollProps} contentContainerStyle={styles.rail}>
       {HIMALAYAN_TREKS.map((trek, i) => (
         <AltitudeCard
           key={trek.id}
@@ -160,7 +155,7 @@ export function HimalayanTrekRail({ onTrekPress }: {
           onPress={() => onTrekPress(trek)}
         />
       ))}
-    </ScrollView>
+    </Rail>
   );
 }
 

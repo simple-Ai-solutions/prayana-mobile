@@ -22,6 +22,7 @@ import { cabAPI, openCheckout } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../config/env';
 import DateField from '../../components/common/DateField';
+import { phoneChange } from '../../lib/phoneInput';
 
 // PWA palette
 const ORANGE = '#f97316';   // search / success CTA
@@ -84,9 +85,9 @@ const CATEGORY_TINT: Record<string, string> = {
   muv: '#fef3c7',
 };
 
-const inr = (n?: number) => Number(n || 0).toLocaleString('en-IN');
+const inr = (n?: number) => Math.round(Number(n || 0)).toLocaleString('en-IN');
 const inr2 = (n?: number) =>
-  Number(n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  Math.round(Number(n || 0)).toLocaleString('en-IN');
 
 export default function OutstationCabsScreen() {
   const { themeColors } = useTheme();
@@ -543,7 +544,7 @@ export default function OutstationCabsScreen() {
                   );
                 })}
               </View>
-              <TextInput label="Mobile" value={tMobile} onChangeText={setTMobile} placeholder="10-digit mobile" keyboardType="phone-pad" />
+              <TextInput label="Mobile" value={tMobile} onChangeText={phoneChange(setTMobile)} placeholder="10-digit mobile" keyboardType="phone-pad" />
               <TextInput label="Email (optional)" value={tEmail} onChangeText={setTEmail} placeholder="you@email.com" keyboardType="email-address" autoCapitalize="none" />
               <TextInput label="Exact pickup address" value={pickup} onChangeText={setPickup} placeholder="Flat, building, landmark, city" />
               <TextInput label="Exact drop address" value={drop} onChangeText={setDrop} placeholder="Flat, building, landmark, city" />

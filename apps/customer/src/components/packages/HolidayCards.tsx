@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@prayana/shared-ui';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 import { FULL_W, TWO_UP_W } from '../../lib/railLayout';
+import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 export const BLUE = '#008cff';
 const NAVY = '#0b2a4a';
@@ -99,7 +100,7 @@ export function ThemeTiles({ active, onPick }: { active: string; onPick: (key: s
 
 export function DealPoster({ pkg, onPress }: { pkg: any; onPress: () => void }) {
   const { price, mrp, off } = pkgPrice(pkg);
-  const img = pkgImage(pkg);
+  const img = pkgImage(pkg) || fallbackPhoto(pkg);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pkg.title} style={({ pressed }) => [s.poster, pressed && { transform: [{ scale: 0.985 }] }]}>
       <LinearGradient colors={['#1e3a5f', NAVY]} style={StyleSheet.absoluteFill} />
@@ -132,7 +133,7 @@ export function DealPoster({ pkg, onPress }: { pkg: any; onPress: () => void }) 
 export function DealTile({ pkg, onPress }: { pkg: any; onPress: () => void }) {
   const { themeColors, isDarkMode } = useTheme();
   const { price, mrp, off } = pkgPrice(pkg);
-  const img = pkgImage(pkg);
+  const img = pkgImage(pkg) || fallbackPhoto(pkg);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pkg.title}
       style={({ pressed }) => [s.tile, { backgroundColor: themeColors.surface, borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)' }, pressed && { transform: [{ scale: 0.98 }] }]}>
@@ -159,7 +160,11 @@ export function DealTile({ pkg, onPress }: { pkg: any; onPress: () => void }) {
 
 export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void }) {
   const { themeColors, isDarkMode } = useTheme();
-  const [img, setImg] = useState(pkgImage(pkg));
+  // Worked out on every render: the list recycles cards, so a photo held in
+  // state would stay on the next package scrolled into this card.
+  const own = pkgImage(pkg);
+  const [failed, setFailed] = useState<string | null>(null);
+  const img = own && own !== failed ? own : fallbackPhoto(pkg);
   const { price, mrp, off } = pkgPrice(pkg);
   const perks = pkgPerks(pkg);
   const rating = pkg?.rating?.average || 0;
@@ -169,7 +174,7 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
       style={({ pressed }) => [s.card, { backgroundColor: themeColors.surface, borderColor: line }, pressed && { transform: [{ scale: 0.99 }] }]}>
       <View style={s.cardImg}>
         <LinearGradient colors={['#93c5fd', BLUE]} style={StyleSheet.absoluteFill} />
-        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" onError={() => setImg(undefined)} /> : null}
+        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" onError={() => own && setFailed(own)} /> : null}
         <LinearGradient colors={['rgba(0,0,0,0.25)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
         <View style={s.cardTop}>
           {nightsDays(pkg) ? <View style={s.whitePill}><Ionicons name="moon" size={10} color={BLUE} /><Text style={s.whitePillText}>{nightsDays(pkg)}</Text></View> : null}

@@ -9,6 +9,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, Pressable, Animated, Easing, AccessibilityInfo, useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +17,10 @@ import { useFonts, DancingScript_400Regular, DancingScript_700Bold } from '@expo
 import { ArrowRight, Shuffle } from 'lucide-react-native';
 import { useTheme, spacing } from '@prayana/shared-ui';
 import { REGIONS, type RegionKey, type RegionPlace } from '../../lib/regions';
+import { sizedImageUrl } from '../../lib/imageUrl';
+
+// Postcards sit two to a row.
+const POSTCARD_W = Math.round(Dimensions.get('window').width / 2);
 
 const GAP = 14;
 const FIRST_DEAL = 4; // two rows of two, then "View All in …"
@@ -65,7 +70,7 @@ function Postcard({ dest, region, index, width, deal, still, script, scriptBold,
         {/* The postcard's picture side. */}
         <View style={styles.photo}>
           <Image
-            source={{ uri: dest.image }}
+            source={{ uri: sizedImageUrl(dest.image, POSTCARD_W) }}
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"
             transition={200}

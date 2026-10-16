@@ -17,15 +17,15 @@ import { TWO_UP_W } from '../../lib/railLayout';
 export const ARCH_CARD_W = TWO_UP_W;
 const PAD = 8;
 const FRAME = 3; // the gold frame's width
-// The web's dome is an ellipse; React Native radii are circular, so a radius
-// of half the doorway's width is the closest round dome.
-const DOME = Math.floor((ARCH_CARD_W - PAD * 2) / 2);
 const FOOT = 16;
 const SERIF = Platform.select({ ios: 'Georgia', default: 'serif' });
 
-const arch = (inset: number) => ({
-  borderTopLeftRadius: DOME - inset,
-  borderTopRightRadius: DOME - inset,
+// The web's dome is an ellipse; React Native radii are circular, so a radius
+// of half the doorway's width is the closest round dome — computed per card,
+// so a wider poster (the spotlight) keeps a full dome.
+const arch = (dome: number, inset: number) => ({
+  borderTopLeftRadius: dome - inset,
+  borderTopRightRadius: dome - inset,
   borderBottomLeftRadius: FOOT - inset,
   borderBottomRightRadius: FOOT - inset,
 });
@@ -52,9 +52,10 @@ export function ArchPoster({
   width?: number;
 }) {
   const { isDarkMode } = useTheme();
-  const { photo, onLoad } = usePhotoStep(frames, playing, tick);
+  const { photo, onLoad } = usePhotoStep(frames, playing, tick, width);
   const archW = width - PAD * 2;
   const archH = Math.round((archW * 4) / 3); // the web's 3:4 doorway
+  const dome = Math.floor(archW / 2);
 
   return (
     <Pressable
@@ -73,9 +74,9 @@ export function ArchPoster({
           locations={[0, 0.4, 0.65, 1]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          style={[{ width: archW, height: archH, padding: FRAME }, arch(0)]}
+          style={[{ width: archW, height: archH, padding: FRAME }, arch(dome, 0)]}
         >
-          <View style={[styles.photo, arch(FRAME)]}>
+          <View style={[styles.photo, arch(dome, FRAME)]}>
             {photo ? (
               <Image
                 source={{ uri: photo }}
@@ -92,7 +93,7 @@ export function ArchPoster({
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
             />
-            <View style={[styles.innerLine, arch(FRAME + 7)]} pointerEvents="none" />
+            <View style={[styles.innerLine, arch(dome, FRAME + 7)]} pointerEvents="none" />
             <View style={styles.archBody}>
               {!!kind && <Text style={styles.kind}>{kind.toUpperCase()}</Text>}
               {/* Android measures italic serif narrower than it draws it, so a

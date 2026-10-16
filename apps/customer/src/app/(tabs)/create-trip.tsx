@@ -18,7 +18,7 @@ import { useCreateTripStore } from '@prayana/shared-stores';
 import { createTripAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import TemplateSelector from '../../components/trip/TemplateSelector';
-import { tripDays, tripSpots, tripTitle, editedAgo } from '../../components/trips/TripPass';
+import { tripDays, tripSpots, tripTitle, editedAgo, DEFAULT_TRIP_IMAGES } from '../../components/trips/TripPass';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -188,9 +188,13 @@ export default function CreateTripScreen() {
                     onPress={() => handleContinueDraft(draft)}
                     accessibilityRole="button"
                   >
-                    <LinearGradient colors={[ORANGE, RED]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.draftIcon}>
-                      <Ionicons name="map" size={20} color="#fff" />
-                    </LinearGradient>
+                    <Image
+                      source={{ uri: draft.coverImage || draft.destinations?.[0]?.images?.[0]?.url || DEFAULT_TRIP_IMAGES[idx % DEFAULT_TRIP_IMAGES.length] }}
+                      style={styles.draftIcon}
+                      contentFit="cover"
+                      transition={200}
+                      cachePolicy="memory-disk"
+                    />
                     <View style={styles.draftInfo}>
                       <Text style={[styles.draftName, { color: themeColors.text }]} numberOfLines={1}>{tripTitle(draft)}</Text>
                       <Text style={[styles.draftMeta, { color: themeColors.textTertiary }]} numberOfLines={1}>
@@ -316,7 +320,7 @@ const styles = StyleSheet.create({
 
   draftLoader: { marginTop: spacing['2xl'], alignItems: 'center', paddingVertical: spacing.lg },
   draftCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 18, padding: 12, borderWidth: 1 },
-  draftIcon: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  draftIcon: { width: 52, height: 52, borderRadius: 14, backgroundColor: '#f3f4f6' },
   draftInfo: { flex: 1, minWidth: 0 },
   draftName: { fontSize: 15.5, fontWeight: '800' },
   draftMeta: { fontSize: 12.5, marginTop: 3 },

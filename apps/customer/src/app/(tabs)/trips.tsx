@@ -29,7 +29,7 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { createTripAPI, makeAPICall } from '@prayana/shared-services';
-import { TripPass, NewTripTile, tripDays, tripSpots, tripPlaces } from '../../components/trips/TripPass';
+import { TripPass, NewTripTile, tripDays, tripSpots, tripPlaces, DEFAULT_TRIP_IMAGES } from '../../components/trips/TripPass';
 import { RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, TWO_UP_W, usePairSnap } from '../../lib/railLayout';
 import { useAuth } from '@prayana/shared-hooks';
 
@@ -41,17 +41,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const FILTER_TABS = ['All', 'Upcoming', 'Completed', 'Draft'] as const;
 
-// The web's stock trip photos (MyTripsPage DEFAULT_TRIP_IMAGES), the last resort.
-const DEFAULT_TRIP_IMAGES = [
-  'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80',
-  'https://images.unsplash.com/photo-1530789253388-582c481c54b0?w=800&q=80',
-  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
-  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80',
-  'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?w=800&q=80',
-  'https://images.unsplash.com/photo-1528127269322-539801943592?w=800&q=80',
-];
 type FilterTab = (typeof FILTER_TABS)[number];
 
 const BUDGET_LABELS: Record<string, string> = {

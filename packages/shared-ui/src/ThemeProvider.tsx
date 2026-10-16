@@ -46,31 +46,33 @@ const lightColors = {
   fieldBorder: '#d4d4d4',
 };
 
-// Dark colors
+// Dark colors — a cool, slightly blue-violet near-black (District-style) rather
+// than flat grey-black: cards sit one clear step above the page with a thin
+// hairline, which is what makes photos and posters glow against it.
 const darkColors = {
-  background: '#0a0a0a',
-  backgroundSecondary: '#171717',
-  surface: '#1a1a1a',
-  surfaceElevated: '#262626',
-  text: '#fafafa',
-  textSecondary: '#d4d4d4',
-  textTertiary: '#737373',
+  background: '#0B0B10',
+  backgroundSecondary: '#111118',
+  surface: '#16161E',
+  surfaceElevated: '#1E1E28',
+  text: '#F5F5F7',
+  textSecondary: '#C4C4CC',
+  textTertiary: '#7A7A86',
   textInverse: '#171717',
-  border: '#333333',
+  border: '#272731',
   borderFocused: '#06B6D4',
   overlay: 'rgba(0, 0, 0, 0.7)',
-  card: '#1a1a1a',
-  cardBorder: '#333333',
-  searchBar: '#262626',
-  searchBarBorder: '#404040',
-  tabBar: '#0a0a0a',
-  tabBarBorder: '#262626',
-  headerGradient: ['#171717', '#0a0a0a'] as const,
-  inputBackground: '#262626',
+  card: '#16161E',
+  cardBorder: '#262630',
+  searchBar: '#1E1E28',
+  searchBarBorder: '#33333F',
+  tabBar: '#0B0B10',
+  tabBarBorder: '#1E1E28',
+  headerGradient: ['#14141C', '#0B0B10'] as const,
+  inputBackground: '#1E1E28',
   // In dark mode a field lifts above the near-black background; the border adds
   // the extra definition that separates it from a static grey surface.
-  field: '#1a1a1a',
-  fieldBorder: '#404040',
+  field: '#16161E',
+  fieldBorder: '#33333F',
 };
 
 const ThemeContext = createContext<ThemeContextType>({
@@ -80,20 +82,31 @@ const ThemeContext = createContext<ThemeContextType>({
   brand: sharedColors.primary,
 });
 
+// True below the outermost ThemeProvider, so an inner one knows to inherit.
+const NestedMarker = createContext(false);
+
 export function ThemeProvider({
   children,
   brand,
+  defaultDark = false,
 }: {
   children: ReactNode;
+  /** Theme for someone who has never picked one. Customer app opens dark. */
+  defaultDark?: boolean;
   /** Optional brand ramp override. Omit for the default orange. Vendor passes blue. */
   brand?: BrandRamp;
 }) {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  // Set when this provider sits inside another one.
+  const isNested = useContext(NestedMarker);
+  const outer = useContext(ThemeContext);
+  const parent = isNested ? outer : null;
+  const [isDarkMode, setIsDarkMode] = useState(defaultDark);
 
   useEffect(() => {
+    // A saved choice always wins over the default.
     AsyncStorage.getItem(THEME_KEY).then((value) => {
       if (value === 'dark') setIsDarkMode(true);
-      // default: light — no state change needed
+      else if (value === 'light') setIsDarkMode(false);
     }).catch(() => {});
   }, []);
 
@@ -105,10 +118,23 @@ export function ThemeProvider({
 
   const themeColors = (isDarkMode ? darkColors : lightColors) as typeof lightColors;
 
+  // Nested inside another provider (e.g. a route group re-branding to blue):
+  // follow the outer one's dark/light mode instead of keeping a second copy
+  // that starts light and never hears about the toggle.
+  if (parent) {
+    return (
+      <ThemeContext.Provider value={{ ...parent, brand: brand ?? parent.brand }}>
+        {children}
+      </ThemeContext.Provider>
+    );
+  }
+
   return (
-    <ThemeContext.Provider value={{ isDarkMode, toggleTheme, themeColors, brand: brand ?? sharedColors.primary }}>
-      {children}
-    </ThemeContext.Provider>
+    <NestedMarker.Provider value>
+      <ThemeContext.Provider value={{ isDarkMode, toggleTheme, themeColors, brand: brand ?? sharedColors.primary }}>
+        {children}
+      </ThemeContext.Provider>
+    </NestedMarker.Provider>
   );
 }
 

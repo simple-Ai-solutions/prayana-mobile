@@ -36,6 +36,7 @@ import { useAuth } from '@prayana/shared-hooks';
 import { ENV } from '../../../config/env';
 import { requiredDocsFor } from '../../../lib/legalRegistry';
 import DateField from '../../../components/common/DateField';
+import { phoneChange } from '../../../lib/phoneInput';
 
 // Packages use the theme's blue accent rather than the app-wide orange, so the
 // holiday-package flow reads as its own product. Aliased once here: every
@@ -748,7 +749,7 @@ export default function PackageCheckoutScreen() {
               <TextInput
                 label="Phone"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={phoneChange(setPhone, { allowPlus: true })}
                 placeholder="+91 98xxx xxxxx"
                 keyboardType="phone-pad"
               />

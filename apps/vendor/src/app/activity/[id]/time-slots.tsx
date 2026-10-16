@@ -492,7 +492,10 @@ function SlotCard({
           <View style={styles.slotTimeRow}>
             <Ionicons name="time-outline" size={16} color={themeColors.textSecondary} />
             <Text style={[styles.slotTime, { color: themeColors.text }]}>
-              {slot.startTime} – {slot.endTime}
+              {/* Departures share one meeting time (endTime = startTime). */}
+              {slot.endTime && slot.endTime !== slot.startTime
+                ? `${slot.startTime} – ${slot.endTime}`
+                : `Departs ${slot.startTime}`}
             </Text>
           </View>
           {slot.label ? (
@@ -1222,7 +1225,7 @@ function HourlyGenerator({
                         style={[styles.hourlyChip, { backgroundColor: themeColors.inputBackground }]}
                       >
                         <Text style={[styles.hourlyChipText, { color: themeColors.text }]}>
-                          {s.startTime}–{s.endTime}
+                          {s.endTime && s.endTime !== s.startTime ? `${s.startTime}–${s.endTime}` : s.startTime}
                         </Text>
                         {s.priceModifier != null && s.priceModifier !== 1 ? (
                           <Text style={styles.hourlyChipPeak}>

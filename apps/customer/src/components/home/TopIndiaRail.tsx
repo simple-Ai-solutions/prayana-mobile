@@ -6,12 +6,12 @@
 // 20; the rating sits in a white strip beneath. While a card is on screen its
 // photos step through the place's gallery.
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight } from 'lucide-react-native';
 import { useTheme, spacing } from '@prayana/shared-ui';
-import { useRailPlayback, useRailClock, usePhotoStep } from './HomeRails';
+import { Rail, useRailPlayback, useRailClock, usePhotoStep } from './HomeRails';
 import { RAIL_GAP, TWO_UP_W } from '../../lib/railLayout';
 import { TOP_INDIA, TOP_INDIA_GALLERY, type TopPlace } from '../../lib/topIndia';
 
@@ -30,7 +30,7 @@ function RankCard({ place, rank, playing, tick, onPress }: {
     () => [...new Set([place.image, ...(TOP_INDIA_GALLERY[place.id] || [])])],
     [place],
   );
-  const { photo, onLoad } = usePhotoStep(frames, playing, tick);
+  const { photo, onLoad } = usePhotoStep(frames, playing, tick, CARD_W);
   // Where it sits in the top 20, as the web draws it.
   const barPct = Math.max(8, 100 - ((rank - 1) / 20) * 100);
 
@@ -99,12 +99,7 @@ export function TopIndiaRail({ onPlacePress }: {
   const { canPlay, scrollProps, inView } = useRailPlayback(CARD_W, GAP);
   const tick = useRailClock(inView);
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.rail}
-      {...scrollProps}
-    >
+    <Rail scrollProps={scrollProps} contentContainerStyle={styles.rail}>
       {TOP_INDIA.map((place, i) => (
         <RankCard
           key={place.id}
@@ -115,7 +110,7 @@ export function TopIndiaRail({ onPlacePress }: {
           onPress={() => onPlacePress(place)}
         />
       ))}
-    </ScrollView>
+    </Rail>
   );
 }
 

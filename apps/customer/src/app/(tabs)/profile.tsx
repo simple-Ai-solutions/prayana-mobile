@@ -70,13 +70,14 @@ function StatItem({
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
 }) {
+  const { themeColors } = useTheme();
   return (
     <View style={styles.statItem}>
       <View style={styles.statIconContainer}>
         <Ionicons name={icon} size={18} color={colors.primary[500]} />
       </View>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={[styles.statValue, { color: themeColors.text }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: themeColors.textSecondary }]}>{label}</Text>
     </View>
   );
 }
@@ -93,9 +94,10 @@ function MenuItemRow({
   isLast: boolean;
   onPress: () => void;
 }) {
+  const { themeColors } = useTheme();
   return (
     <TouchableOpacity
-      style={[styles.menuItem, !isLast && styles.menuItemBorder]}
+      style={[styles.menuItem, !isLast && [styles.menuItemBorder, { borderBottomColor: themeColors.border }]]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -113,9 +115,9 @@ function MenuItemRow({
           />
         </View>
         <View style={styles.menuTextContainer}>
-          <Text style={styles.menuLabel}>{item.label}</Text>
+          <Text style={[styles.menuLabel, { color: themeColors.text }]}>{item.label}</Text>
           {item.subtitle && (
-            <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+            <Text style={[styles.menuSubtitle, { color: themeColors.textSecondary }]}>{item.subtitle}</Text>
           )}
         </View>
       </View>
@@ -410,6 +412,14 @@ export default function ProfileScreen() {
           route: '/profile/notifications',
           iconColor: '#3b82f6',
           iconBg: '#eff6ff',
+        },
+        {
+          label: 'Privacy choices',
+          subtitle: 'Analytics and advertising consent',
+          icon: 'shield-checkmark-outline',
+          route: '/settings/privacy',
+          iconColor: '#0d9488',
+          iconBg: '#f0fdfa',
         },
       ],
     },

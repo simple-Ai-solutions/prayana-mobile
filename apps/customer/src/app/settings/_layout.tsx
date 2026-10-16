@@ -53,6 +53,10 @@ export default function SettingsLayout() {
         options={{ title: 'Help Center' }}
       />
       <Stack.Screen
+        name="privacy"
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name="country"
         options={{ title: 'Country & Currency' }}
       />

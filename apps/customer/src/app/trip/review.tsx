@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { colors, fontSize, fontWeight, spacing, borderRadius, shadow, useTheme } from '@prayana/shared-ui';
 import { useCreateTripStore } from '@prayana/shared-stores';
-import { createTripAPI } from '@prayana/shared-services';
+import { createTripAPI, makeAPICall } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 
 const P = {
@@ -300,7 +300,21 @@ export default function ReviewScreen() {
         lines.push('');
       });
 
-      if (tripId) lines.push(`\uD83D\uDD17 https://prayanaai.com/trip/${tripId}`, '');
+      // A real share link (as InviteSheet makes). The old /trip/<tripId> URL
+      // is the web's *live location* page, so recipients hit a dead page.
+      if (tripId) {
+        try {
+          const res: any = await makeAPICall(`/trips/${tripId}/share-link`, {
+            method: 'POST',
+            body: JSON.stringify({ allowEditing: false, expiresIn: null }),
+            timeout: 15000,
+          });
+          const url = res?.data?.shareUrl || res?.shareUrl;
+          if (url) lines.push(`\uD83D\uDD17 ${url}`, '');
+        } catch {
+          // No link rather than a broken one; the itinerary text still goes out.
+        }
+      }
       lines.push('\u2728 Planned with Prayana AI');
 
       await Share.share({ message: lines.join('\n'), title: name });

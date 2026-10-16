@@ -25,6 +25,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.prayanaai.customer",
       "buildNumber": "58",
+      "usesAppleSignIn": true,
       "config": {
         "googleMapsApiKey": "AIzaSyBdyvoU_7G2MLzSvi9NxPheak6USvb39VA"
       },
@@ -61,6 +62,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.prayanaai.customer",
+      "googleServicesFile": "./google-services.json",
       "versionCode": 60,
       "config": {
         "googleMaps": {
@@ -126,12 +128,20 @@
       "expo-secure-store",
       "expo-location",
       "expo-web-browser",
+      "expo-apple-authentication",
       "@sentry/react-native/expo",
       "./plugins/withSentryHermesFix",
       "./plugins/withModularHeaders",
       "./plugins/withStripPushEntitlements",
       "./plugins/withUpiQueries",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#E8341C"
+        }
+      ]
     ],
     "extra": {
       "router": {

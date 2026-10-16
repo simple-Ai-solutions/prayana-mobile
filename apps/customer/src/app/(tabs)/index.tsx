@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useTypedCity } from '../../lib/typedCity';
+import { useNotificationStore } from '../../lib/notifications';
 import {
   View,
   Text,
@@ -32,7 +33,7 @@ import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSh
 import { TrekkingRail } from '../../components/home/HomeRails';
 import { DiscoverByInterestRail } from '../../components/home/DiscoverByInterestRail';
 import { TopIndiaRail } from '../../components/home/TopIndiaRail';
-import { PilgrimageRail } from '../../components/home/PilgrimageRail';
+import { PilgrimageSection } from '../../components/home/PilgrimageRail';
 import { RegionPostcards } from '../../components/home/RegionPostcards';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -142,12 +143,12 @@ const SEASONAL = [
 // the web's ComingSoonModal. (The old mobile-only "Explore World" card is
 // dropped — it has no web equivalent.)
 const MORE_WAYS = [
-  { id: 'esim', label: 'Travel eSIM', tag: 'NEW', tagColor: '#E61417', bg: '#FDECE4', icon: require('../../../assets/hero-icons/cutout/esim.png'), route: '/esim' },
-  { id: 'things', label: 'Things to Do', tag: 'NEW', tagColor: '#E11D48', bg: '#FDE6EA', icon: require('../../../assets/hero-icons/cutout/activities.png'), route: '/activities' },
+  { id: 'esim', label: 'Travel eSIM', tag: 'NEW', tagColor: '#E61417', bg: '#FDECE4', darkBg: '#2A1612', icon: require('../../../assets/hero-icons/cutout/esim.png'), route: '/esim' },
+  { id: 'things', label: 'Things to Do', tag: 'NEW', tagColor: '#E11D48', bg: '#FDE6EA', darkBg: '#2A1219', icon: require('../../../assets/hero-icons/cutout/activities.png'), route: '/activities' },
   // Holiday Deals = the "Last-minute deals" section of the packages catalogue
   // (no separate feature on web), so it routes into /packages.
-  { id: 'deals', label: 'Holiday Deals', tag: 'DEALS', tagColor: '#F59E0B', bg: '#FDF3D8', icon: require('../../../assets/hero-icons/cutout/holiday-packages.png'), route: '/packages' },
-  { id: 'divya', label: 'Divya Darshana', tag: 'NEW', tagColor: '#E38B29', bg: '#FBEFD8', icon: require('../../../assets/hero-icons/cutout/divya-darshana.png'), route: '/divya-darshana' },
+  { id: 'deals', label: 'Holiday Deals', tag: 'DEALS', tagColor: '#F59E0B', bg: '#FDF3D8', darkBg: '#2A2110', icon: require('../../../assets/hero-icons/cutout/holiday-packages.png'), route: '/packages' },
+  { id: 'divya', label: 'Divya Darshana', tag: 'NEW', tagColor: '#E38B29', bg: '#FBEFD8', darkBg: '#291D0F', icon: require('../../../assets/hero-icons/cutout/divya-darshana.png'), route: '/divya-darshana' },
 ] as const;
 
 // ============================================================
@@ -184,6 +185,21 @@ function flagForCountry(code?: string): string {
   if (!/^[A-Z]{2}$/.test(cc) || !KNOWN.has(cc)) return '\uD83C\uDDEE\uD83C\uDDF3';
   return String.fromCodePoint(
     ...[...cc].map((ch) => 0x1f1e6 + (ch.charCodeAt(0) - 65)),
+  );
+}
+
+/** The bell, with a red count of unread notifications. */
+function NotificationBell({ color }: { color: string }) {
+  const unread = useNotificationStore((st) => st.unread);
+  return (
+    <View>
+      <Ionicons name={unread ? 'notifications' : 'notifications-outline'} size={22} color={color} />
+      {unread > 0 ? (
+        <View style={styles.bellBadge}>
+          <Text style={styles.bellBadgeText}>{unread > 9 ? '9+' : unread}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
@@ -393,8 +409,8 @@ export default function HomeScreen() {
           <TouchableOpacity onPress={toggleTheme} hitSlop={8}>
             <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={22} color={themeColors.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/notifications' as any)} hitSlop={8}>
-            <Ionicons name="notifications-outline" size={22} color={themeColors.text} />
+          <TouchableOpacity onPress={() => router.push('/notifications' as any)} hitSlop={8} accessibilityLabel="Notifications">
+            <NotificationBell color={themeColors.text} />
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(tabs)/profile' as any)} style={styles.appHeaderAvatar} hitSlop={8}>
             <Ionicons name="person" size={16} color="#ffffff" />
@@ -541,7 +557,7 @@ export default function HomeScreen() {
             {MORE_WAYS.map((m) => (
               <TouchableOpacity
                 key={m.id}
-                style={[styles.wayCard, { backgroundColor: m.bg, width: MORE_WAYS_CARD_W }]}
+                style={[styles.wayCard, { backgroundColor: isDarkMode ? m.darkBg : m.bg, width: MORE_WAYS_CARD_W }, isDarkMode && { borderWidth: 1, borderColor: `${m.tagColor}40` }]}
                 onPress={() =>
                   m.id === 'things'
                     ? setCategoriesOpen(true) // open the "All categories" sheet (web parity)
@@ -553,7 +569,7 @@ export default function HomeScreen() {
                   <Text style={styles.wayTagText}>{m.tag}</Text>
                 </View>
                 <Image source={m.icon} style={styles.wayIcon} resizeMode="contain" />
-                <Text style={styles.wayLabel} numberOfLines={2}>{m.label}</Text>
+                <Text style={[styles.wayLabel, isDarkMode && { color: '#F5F5F7' }]} numberOfLines={2}>{m.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -594,16 +610,11 @@ export default function HomeScreen() {
         {/* ============================================================ */}
         {/* SACRED PILGRIMAGE SITES (arch poster rail matching web)       */}
         {/* ============================================================ */}
-        <View style={[styles.section, { backgroundColor: themeColors.background }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Sacred Pilgrimage Sites in India</Text>
-          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>
-            Discover India's most revered spiritual destinations
-          </Text>
-          {/* Same temple-arch posters and photo reels as the web. */}
-          <PilgrimageRail
-            onPlacePress={(p) => handleDestinationPress(p.name, { image: p.image, desc: p.description })}
-          />
-        </View>
+        {/* Temple band: cream backdrop, diya divider, arch posters and the
+            yatra path that tracks the scroll. */}
+        <PilgrimageSection
+          onPlacePress={(p) => handleDestinationPress(p.name, { image: p.image, desc: p.description })}
+        />
 
         {/* ============================================================ */}
         {/* TOP 20 INDIA (matching web CollectionGrid masonry)            */}
@@ -848,6 +859,11 @@ export default function HomeScreen() {
 // STYLES
 // ============================================================
 const styles = StyleSheet.create({
+  bellBadge: {
+    position: 'absolute', top: -5, right: -7, minWidth: 17, height: 17, borderRadius: 9, paddingHorizontal: 4,
+    backgroundColor: '#E61417', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
+  },
+  bellBadgeText: { color: '#fff', fontSize: 9.5, fontWeight: '900' },
   container: { flex: 1 },
 
   // ---- HERO SECTION ----

@@ -14,10 +14,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
 import { useTheme, colors, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 import { activityMarketplaceAPI } from '@prayana/shared-services';
 import { resolveExperienceSlug, GroupCategory } from '../../lib/experienceCategoryGroups';
 import { GlobalActivityCard } from '../../components/experiences/GlobalActivityCard';
+import { NightlifeView } from '../../components/experiences/NightlifeView';
+import { MarketsView } from '../../components/experiences/MarketsView';
+import { FoodView } from '../../components/experiences/FoodView';
+import { PhotoView } from '../../components/experiences/PhotoView';
+import { ToursView } from '../../components/experiences/ToursView';
+import { CategorySearchBar, SEARCH_TONES, SearchTone } from '../../components/experiences/CategorySearchBar';
+import { ThemedCategoryView, THEMES, themeFor } from '../../components/experiences/ThemedCategoryView';
 
 const ORANGE = '#F97316';
 const PAGE = 24;
@@ -37,6 +45,14 @@ export default function ExperienceCategoryScreen() {
   const [hasMore, setHasMore] = useState(true);
   // Groups can narrow to one sub-category in place; '' = all in the group.
   const [activeSub, setActiveSub] = useState<string>('');
+  // One search box on every category page; searched on the server after a
+  // short pause in typing.
+  const [search, setSearch] = useState('');
+  const [query, setQuery] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const categoryFilter = useMemo(() => {
     if (!resolved) return undefined;
@@ -50,6 +66,7 @@ export default function ExperienceCategoryScreen() {
       try {
         const res: any = await activityMarketplaceAPI.getGlobalActivities({
           category: categoryFilter,
+          q: query || undefined,
           limit: PAGE,
           skip: nextSkip,
         });
@@ -64,7 +81,7 @@ export default function ExperienceCategoryScreen() {
         append ? setLoadingMore(false) : setLoading(false);
       }
     },
-    [resolved, categoryFilter],
+    [resolved, categoryFilter, query],
   );
 
   useEffect(() => {
@@ -95,100 +112,154 @@ export default function ExperienceCategoryScreen() {
     );
   }
 
+  const placeholder = `Search ${resolved.title.toLowerCase()} — city, place or name`;
+
+  // Nightlife gets its own after-dark layout (District-style), always dark.
+  if (resolved.categoryFilter === 'Nightlife' && resolved.kind !== 'group') {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: '#07060C' }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar style="light" />
+        <CategorySearchBar value={search} onChange={setSearch} placeholder={placeholder} tone={SEARCH_TONES.dark} busy={loading && !!query} />
+        <NightlifeView
+          items={items}
+          total={total}
+          loading={loading}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={() => !loadingMore && fetchPage(skip, true)}
+          image={resolved.image}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#FF2E88" />}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Tours gets a guided-tour marketplace layout.
+  if (resolved.categoryFilter === 'City Tours' && resolved.kind !== 'group') {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <CategorySearchBar value={search} onChange={setSearch} placeholder={placeholder} tone={SEARCH_TONES.tours} busy={loading && !!query} />
+        <ToursView
+          items={items}
+          total={total}
+          loading={loading}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={() => !loadingMore && fetchPage(skip, true)}
+          image={resolved.image}
+          title={resolved.title}
+          subtitle={resolved.subtitle}
+          onBack={() => (router.canGoBack() ? router.back() : router.replace('/activities'))}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0f766e" />}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Photo Tours gets a photographer's-gallery layout.
+  if (resolved.categoryFilter === 'Photography' && resolved.kind !== 'group') {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: '#FAFAF7' }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar style="dark" />
+        <CategorySearchBar value={search} onChange={setSearch} placeholder={placeholder} tone={SEARCH_TONES.photo} busy={loading && !!query} />
+        <PhotoView
+          items={items}
+          total={total}
+          loading={loading}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={() => !loadingMore && fetchPage(skip, true)}
+          image={resolved.image}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#111111" />}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Food & Dining gets its own menu-style layout.
+  if (resolved.categoryFilter === 'Food & Dining' && resolved.kind !== 'group') {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: '#FFFAF3' }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar style="dark" />
+        <CategorySearchBar value={search} onChange={setSearch} placeholder={placeholder} tone={SEARCH_TONES.food} busy={loading && !!query} />
+        <FoodView
+          items={items}
+          total={total}
+          loading={loading}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={() => !loadingMore && fetchPage(skip, true)}
+          image={resolved.image}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#EF3B2D" />}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Markets & Shopping gets its own bazaar layout.
+  if (resolved.categoryFilter === 'Shopping' && resolved.kind !== 'group') {
+    return (
+      <SafeAreaView style={[styles.safe, { backgroundColor: '#FFF8EE' }]} edges={['top']}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <StatusBar style="dark" />
+        <CategorySearchBar value={search} onChange={setSearch} placeholder={placeholder} tone={SEARCH_TONES.markets} busy={loading && !!query} />
+        <MarketsView
+          items={items}
+          total={total}
+          loading={loading}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          onLoadMore={() => !loadingMore && fetchPage(skip, true)}
+          image={resolved.image}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E2462B" />}
+        />
+      </SafeAreaView>
+    );
+  }
+
+  // Every other category and group page: a themed layout of its own.
+  const themeKey = themeFor(resolved.categoryFilter, resolved.kind);
+  const th = THEMES[themeKey];
+  const tone: SearchTone = th.dark
+    ? SEARCH_TONES.dark
+    : { bg: th.bg, field: th.surface, text: th.ink, muted: th.muted, tint: th.accent, border: th.line };
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: th.bg }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ORANGE} />}
-      >
-        {/* Themed hero */}
-        <View style={styles.hero}>
-          <Image source={{ uri: resolved.image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          <LinearGradient
-            colors={['rgba(3,45,54,0.35)', 'rgba(3,45,54,0.55)', 'rgba(3,45,54,0.85)']}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.heroTop}>
-            <TouchableOpacity
-              onPress={() => (router.canGoBack() ? router.back() : router.replace('/activities'))}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={styles.backBtn}
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.heroBody}>
-            <Text style={styles.heroEyebrow}>THINGS TO DO</Text>
-            <Text style={styles.heroTitle}>{resolved.title}</Text>
-            <Text style={styles.heroSub}>{resolved.subtitle}</Text>
-          </View>
-        </View>
-
-        {/* Sub-category chips (groups only) */}
-        {resolved.kind === 'group' && resolved.subCategories && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.subRow}
-          >
-            <SubChip label="All" active={activeSub === ''} onPress={() => setActiveSub('')} />
-            {resolved.subCategories.map((c: GroupCategory) => (
-              <SubChip
-                key={c.value}
-                label={c.label}
-                active={activeSub === c.value}
-                onPress={() => setActiveSub(activeSub === c.value ? '' : c.value)}
-              />
-            ))}
-          </ScrollView>
-        )}
-
-        {/* Count */}
-        {!loading && (
-          <Text style={[styles.count, { color: themeColors.textSecondary }]}>
-            {total > 0 ? `${total.toLocaleString('en-IN')} experience${total === 1 ? '' : 's'}` : ''}
-          </Text>
-        )}
-
-        {/* Results */}
-        {loading ? (
-          <View style={styles.state}>
-            <ActivityIndicator size="large" color={ORANGE} />
-          </View>
-        ) : items.length === 0 ? (
-          <View style={styles.state}>
-            <Ionicons name="search-outline" size={40} color={themeColors.textTertiary} />
-            <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
-              No {resolved.title.toLowerCase()} found yet.
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View style={styles.grid}>
-              {items.map((a, i) => (
-                <GlobalActivityCard key={a._id || i} activity={a} />
-              ))}
-            </View>
-            {hasMore && (
-              <TouchableOpacity
-                onPress={() => !loadingMore && fetchPage(skip, true)}
-                disabled={loadingMore}
-                style={[styles.loadMore, { borderColor: themeColors.border }]}
-                accessibilityRole="button"
-              >
-                {loadingMore ? (
-                  <ActivityIndicator size="small" color={ORANGE} />
-                ) : (
-                  <Text style={[styles.loadMoreText, { color: themeColors.text }]}>Show more</Text>
-                )}
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-        <View style={{ height: spacing['2xl'] }} />
-      </ScrollView>
+      {th.dark ? <StatusBar style="light" /> : <StatusBar style="dark" />}
+      <CategorySearchBar value={search} onChange={setSearch} placeholder={placeholder} tone={tone} busy={loading && !!query} />
+      <ThemedCategoryView
+        theme={themeKey}
+        items={items}
+        total={total}
+        loading={loading}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={() => !loadingMore && fetchPage(skip, true)}
+        image={resolved.image}
+        title={resolved.title}
+        subtitle={resolved.subtitle}
+        query={query}
+        onBack={() => (router.canGoBack() ? router.back() : router.replace('/activities'))}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={th.accent} />}
+        subChips={
+          resolved.kind === 'group' && resolved.subCategories
+            ? [
+                { label: 'All', value: '', active: activeSub === '', onPress: () => setActiveSub('') },
+                ...resolved.subCategories.map((c: GroupCategory) => ({
+                  label: c.label,
+                  value: c.value,
+                  active: activeSub === c.value,
+                  onPress: () => setActiveSub(activeSub === c.value ? '' : c.value),
+                })),
+              ]
+            : undefined
+        }
+      />
     </SafeAreaView>
   );
 }

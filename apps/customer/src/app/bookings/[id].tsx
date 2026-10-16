@@ -264,7 +264,7 @@ function formatTime(time: string): string {
 }
 
 function formatCurrency(amount: number): string {
-  return `\u20B9${amount.toLocaleString('en-IN')}`;
+  return `\u20B9${Math.round(amount).toLocaleString('en-IN')}`;
 }
 
 // ===== Info Row Component =====

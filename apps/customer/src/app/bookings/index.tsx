@@ -41,6 +41,9 @@ import {
 import { bookingAPI, esimAPI, holidayPackagesAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { CompleteYourTrip } from '../../components/bookings/CompleteYourTrip';
+import { CountryFlag } from '../../components/esim/CountryFlag';
+import { countryImage } from '../../lib/countryAssets';
+import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 // ===== Types =====
 
@@ -236,7 +239,7 @@ function formatTime(time: string): string {
 }
 
 function formatCurrency(amount: number): string {
-  return `\u20B9${amount.toLocaleString('en-IN')}`;
+  return `\u20B9${Math.round(amount).toLocaleString('en-IN')}`;
 }
 
 function getGradientForIndex(index: number): readonly [string, string] {
@@ -320,15 +323,6 @@ function formatDataAmount(mb?: number): string {
     return `${Number.isInteger(gb) ? gb : gb.toFixed(1)} GB`;
   }
   return `${mb} MB`;
-}
-
-/** Country code → flag emoji, same trick the web uses. */
-function countryToFlag(code?: string): string {
-  if (!code || code.length !== 2) return '🌐';
-  const base = 127397;
-  return String.fromCodePoint(
-    ...code.toUpperCase().split('').map((c) => base + c.charCodeAt(0))
-  );
 }
 
 // ===== Skeleton Card Component =====
@@ -741,7 +735,9 @@ export default function MyBookingsScreen() {
 
   const renderBookingCard = ({ item, index }: { item: Booking; index: number }) => {
     const activity = item.activity;
-    const hasImage = activity?.images && activity.images.length > 0;
+    const firstImg: any = activity?.images?.[0];
+    const photo: string | undefined =
+      (typeof firstImg === 'string' ? firstImg : firstImg?.url) || (activity ? fallbackPhoto(activity) : undefined);
     const isCancelling = cancellingId === item._id;
     const canCancel = item.status === 'pending' || item.status === 'confirmed';
     const canReview = item.status === 'completed' && !item.review;
@@ -782,9 +778,9 @@ export default function MyBookingsScreen() {
           {/* Card Body */}
           <View style={styles.cardBody}>
             {/* Activity Image */}
-            {hasImage ? (
+            {photo ? (
               <Image
-                source={{ uri: activity.images![0] }}
+                source={{ uri: photo }}
                 style={styles.activityImage}
                 resizeMode="cover"
               />
@@ -921,9 +917,18 @@ export default function MyBookingsScreen() {
             <StatusBadge status={item.status} />
           </View>
           <View style={styles.cardBody}>
-            <View style={[styles.esimFlagBox, { backgroundColor: isDarkMode ? themeColors.surfaceElevated : colors.gray[100] }]}>
-              <Text style={styles.esimFlag}>{countryToFlag(item.bundle?.country)}</Text>
-            </View>
+            {countryImage(item.bundle?.country, 240) ? (
+              <View style={styles.esimFlagBox}>
+                <Image source={{ uri: countryImage(item.bundle?.country, 240)! }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+                {item.bundle?.country ? (
+                  <View style={styles.esimFlagBadge}><CountryFlag countryCode={item.bundle.country} size={18} /></View>
+                ) : null}
+              </View>
+            ) : (
+              <View style={[styles.esimFlagBox, { backgroundColor: isDarkMode ? themeColors.surfaceElevated : colors.gray[100] }]}>
+                {item.bundle?.country ? <CountryFlag countryCode={item.bundle.country} size={40} /> : <Ionicons name="cellular" size={30} color={themeColors.textTertiary} />}
+              </View>
+            )}
             <View style={styles.cardContent}>
               <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={1}>
                 {destination}
@@ -970,7 +975,8 @@ export default function MyBookingsScreen() {
   // the card is informational (no navigation) — same fields the web card shows.
   const renderPackageCard = ({ item, index }: { item: PackageBooking; index: number }) => {
     const title = item.package?.title || item.packageSnapshot?.title || 'Holiday Package';
-    const image = item.package?.images?.[0] || item.packageSnapshot?.coverImage;
+    const first: any = item.package?.images?.[0];
+    const image = (typeof first === 'string' ? first : first?.url) || item.packageSnapshot?.coverImage || fallbackPhoto(item.package || item.packageSnapshot);
     const destination = item.package?.destination || item.packageSnapshot?.destination;
     const travellers = item.travellers ?? item.totalTravelers;
     const travelDate = item.travelDate || item.travelStartDate;
@@ -1502,16 +1508,23 @@ const styles = StyleSheet.create({
     marginLeft: spacing.md,
     paddingRight: spacing['2xl'],
   },
-  // eSIM card — flag emoji stands in for the activity photo.
+  // eSIM card — the country's photo, with its flag in the corner.
   esimFlagBox: {
     width: 80,
     height: 80,
     borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  esimFlag: {
-    fontSize: 40,
+  esimFlagBadge: {
+    position: 'absolute',
+    left: 6,
+    bottom: 6,
+    borderRadius: 4,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#fff',
   },
   activityTitle: {
     fontSize: fontSize.md,

@@ -16,6 +16,7 @@ import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/
 import { ondcAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import DateField from '../../components/common/DateField';
+import { phoneChange } from '../../lib/phoneInput';
 
 const SAFFRON = '#E38B29';
 
@@ -243,7 +244,7 @@ export default function MonumentBookScreen() {
               <Text style={[styles.label, { color: themeColors.text, marginTop: spacing.sm }]}>Email</Text>
               <TextInput value={billEmail} onChangeText={setBillEmail} placeholder="you@email.com" placeholderTextColor={themeColors.textSecondary} keyboardType="email-address" autoCapitalize="none" style={inputStyle} />
               <Text style={[styles.label, { color: themeColors.text, marginTop: spacing.sm }]}>Phone</Text>
-              <TextInput value={billPhone} onChangeText={setBillPhone} placeholder="10-digit mobile" placeholderTextColor={themeColors.textSecondary} keyboardType="phone-pad" style={inputStyle} />
+              <TextInput value={billPhone} onChangeText={phoneChange(setBillPhone)} placeholder="10-digit mobile" placeholderTextColor={themeColors.textSecondary} keyboardType="phone-pad" style={inputStyle} />
             </View>
             {quoteTotal != null && (
               <View style={[styles.totalRow, { borderColor: themeColors.border }]}>

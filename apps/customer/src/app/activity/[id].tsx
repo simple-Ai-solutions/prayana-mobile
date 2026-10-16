@@ -36,6 +36,10 @@ import {
 import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
 import { useRequireAuth } from '../../lib/useRequireAuth';
 import { trackRecentlyViewed } from '../../lib/recentlyViewedActivities';
+import { SPOTLIGHT_W } from '../../lib/railLayout';
+import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
+import { TrekPosterCard } from '../../components/home/TrekPosterCard';
+import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 280;
@@ -60,7 +64,8 @@ function formatCurrency(amount: number, currencyCode?: string): string {
   const code = (currencyCode || 'INR').toUpperCase();
   const symbol = CURRENCY_SYMBOLS[code] ?? `${code} `;
   const locale = code === 'INR' ? 'en-IN' : 'en-US';
-  return `${symbol}${amount.toLocaleString(locale)}`;
+  // Whole units: "₹2,220", never "₹2,220.44" (partner prices carry paise).
+  return `${symbol}${Math.round(amount).toLocaleString(locale)}`;
 }
 
 function formatDate(dateStr: string): string {
@@ -660,9 +665,11 @@ export default function ActivityDetailScreen() {
   // Derived data
   // ---------------------------------------------------------------------------
 
-  const images: string[] = activity.images?.map((img: any) =>
-    typeof img === 'string' ? img : img.url,
-  ) || [];
+  const ownImages: string[] = (activity.images?.map((img: any) =>
+    typeof img === 'string' ? img : img?.url,
+  ) || []).filter(Boolean);
+  // A listing with no photos still opens on a matching travel photo.
+  const images: string[] = ownImages.length ? ownImages : [fallbackPhoto(activity)];
 
   const basePrice =
     activity.pricing?.basePrice ?? activity.pricing?.adultPrice ?? activity.price ?? 0;
@@ -673,6 +680,7 @@ export default function ActivityDetailScreen() {
     activity.averageRating ?? activity.rating?.average ?? reviewMeta.averageRating ?? 0;
   const totalReviews =
     activity.totalReviews ?? activity.rating?.count ?? reviewMeta.total ?? 0;
+  const hasReviews = totalReviews > 0 || reviews.length > 0;
 
   // Highlights are the experience's selling points; inclusions/exclusions are a
   // SEPARATE thing (what the price does / doesn't cover). The old code read
@@ -788,36 +796,39 @@ export default function ActivityDetailScreen() {
             </View>
           )}
 
-          {/* Rating row */}
-          <TouchableOpacity
-            style={styles.ratingRow}
-            onPress={handleScrollToReviews}
-            activeOpacity={0.7}
-          >
-            <StarRating rating={Math.round(avgRating)} size={16} />
-            <Text style={[styles.ratingText, { color: themeColors.textSecondary }]}>
-              {avgRating.toFixed(1)} ({totalReviews} review{totalReviews !== 1 ? 's' : ''})
-            </Text>
-          </TouchableOpacity>
+          {/* Rating row — only once there's a rating to show; "0.0 (0 reviews)"
+              on a new listing reads as a bad score rather than no score. */}
+          {hasReviews && (
+            <TouchableOpacity
+              style={styles.ratingRow}
+              onPress={handleScrollToReviews}
+              activeOpacity={0.7}
+            >
+              <StarRating rating={Math.round(avgRating)} size={16} />
+              <Text style={[styles.ratingText, { color: themeColors.textSecondary }]}>
+                {avgRating.toFixed(1)} ({totalReviews} review{totalReviews !== 1 ? 's' : ''})
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Badges */}
           <View style={styles.badgeRow}>
             {duration && <Badge label={duration} variant="default" size="md" />}
             {categories.map((cat, i) => (
-              <Badge key={i} label={cat} variant="primary" size="md" style={{ marginLeft: spacing.sm }} />
+              <Badge key={i} label={cat} variant="primary" size="md" />
             ))}
             {maxGroupSize ? (
               <Badge
                 label={`Up to ${maxGroupSize}`}
                 variant="default"
                 size="md"
-                style={{ marginLeft: spacing.sm }}
+               
               />
             ) : null}
             {/* "Instant Booking" on an affiliate listing would be our claim about
                 someone else's checkout, so only badge it for our own inventory. */}
             {isInstantBooking && !affiliateDeepLink && (
-              <Badge label="Instant Booking" variant="success" size="md" style={{ marginLeft: spacing.sm }} />
+              <Badge label="Instant Booking" variant="success" size="md" />
             )}
           </View>
 
@@ -920,7 +931,8 @@ export default function ActivityDetailScreen() {
           </Section>
         )}
 
-        {/* Reviews */}
+        {/* Reviews — hidden until the listing has any. */}
+        {hasReviews && (
         <View
           onLayout={(e) => {
             reviewsSectionY.current = e.nativeEvent.layout.y;
@@ -966,6 +978,7 @@ export default function ActivityDetailScreen() {
             )}
           </Section>
         </View>
+        )}
 
         {/* Cancellation Policy */}
         <Section title="Cancellation Policy">
@@ -1053,36 +1066,24 @@ export default function ActivityDetailScreen() {
         {/* Similar activities — web parity (SimilarRail) */}
         {similar.length > 0 && (
           <Section title="You might also like">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.similarRail}>
-              {similar.map((s, i) => {
-                const img = s.images?.find((im: any) => im?.isPrimary)?.url || s.images?.[0]?.url || s.image;
-                const price = s.platformSellingPrice || s.pricing?.basePrice || 0;
-                return (
-                  <TouchableOpacity
-                    key={s._id || i}
-                    style={[styles.similarCard, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                    activeOpacity={0.9}
+            {/* The home page's trek poster cards in its spotlight carousel, so a
+                trek's "more like this" looks like the Trek Together rail. It
+                bleeds past the section's side padding to centre on the screen. */}
+            <View style={styles.similarBleed}>
+              <SpotlightCarousel
+                data={similar}
+                keyExtractor={(s, i) => String(s._id || i)}
+                itemWidth={SPOTLIGHT_W}
+                accent="#EA580C"
+                renderItem={(s, _i, width) => (
+                  <TrekPosterCard
+                    activity={s}
+                    width={width}
                     onPress={() => router.push(`/activity/${s._id}` as any)}
-                  >
-                    {img ? (
-                      <Image source={{ uri: img }} style={styles.similarImg} />
-                    ) : (
-                      <View style={[styles.similarImg, { backgroundColor: colors.primary[100] }]} />
-                    )}
-                    <View style={styles.similarBody}>
-                      <Text style={[styles.similarTitle, { color: themeColors.text }]} numberOfLines={2}>
-                        {s.title}
-                      </Text>
-                      {price > 0 && (
-                        <Text style={[styles.similarPrice, { color: themeColors.text }]}>
-                          ₹{Math.round(price).toLocaleString('en-IN')}
-                        </Text>
-                      )}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                  />
+                )}
+              />
+            </View>
           </Section>
         )}
       </Animated.ScrollView>
@@ -1208,6 +1209,10 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    // gap (not per-badge marginLeft) so a wrapped second row gets the same
+    // vertical spacing and starts flush left.
+    columnGap: spacing.sm,
+    rowGap: spacing.sm,
     marginBottom: spacing.md,
   },
   partnerNotice: {
@@ -1292,12 +1297,7 @@ const styles = StyleSheet.create({
   faqHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
   faqQ: { flex: 1, fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
   faqA: { fontSize: fontSize.sm, lineHeight: 20, marginTop: spacing.sm },
-  similarRail: { gap: spacing.md, paddingVertical: spacing.sm, paddingRight: spacing.lg },
-  similarCard: { width: 160, borderRadius: borderRadius.lg, borderWidth: 1, overflow: 'hidden' },
-  similarImg: { width: '100%', height: 100 },
-  similarBody: { padding: spacing.sm, gap: 4 },
-  similarTitle: { fontSize: fontSize.xs, fontWeight: fontWeight.semibold, lineHeight: 16 },
-  similarPrice: { fontSize: fontSize.sm, fontWeight: fontWeight.bold },
+  similarBleed: { marginHorizontal: -spacing.xl, paddingTop: spacing.sm },
 
   // Reviews
   avgRatingContainer: {

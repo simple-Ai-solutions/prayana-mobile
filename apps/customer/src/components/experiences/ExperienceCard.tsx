@@ -28,6 +28,7 @@ import {
   providerLabel,
   ratingOf,
 } from '../../lib/experiences';
+import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 const TEAL = '#4AC0CC'; // logo primary — see PRAYANA_DESIGN_SYSTEM.pdf
 
@@ -41,7 +42,7 @@ interface Props {
 export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) => {
   const { themeColors } = useTheme();
 
-  const img = imageOf(experience);
+  const img = imageOf(experience) || fallbackPhoto(experience);
   const price = priceOf(experience);
   const rating = ratingOf(experience);
   const provider = providerLabel(experience);

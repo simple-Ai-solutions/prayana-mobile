@@ -16,15 +16,18 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '@prayana/shared-ui';
 import { trekArtFor } from '../../lib/trekArt';
-import { normalizeImageUrl } from '../../lib/imageUrl';
-import { TWO_UP_W } from '../../lib/railLayout';
+import { normalizeImageUrl, sizedImageUrl } from '../../lib/imageUrl';
+import { Dimensions } from 'react-native';
+import { RAIL_GAP, RAIL_PAD, TWO_UP_W } from '../../lib/railLayout';
 import {
   displayTitle, hashOf, inclusions, isTrekking, posterName, regionOf, scheduleLine, strapFor,
   type Inclusion,
 } from '../../lib/trekPoster';
 
 export const POSTER_CARD_W = TWO_UP_W;
-const POSTER_H = Math.round((POSTER_CARD_W * 5) / 4); // the web's 4:5 poster
+// The width the poster's type was designed at (half the screen); a card of any
+// other width scales its name from here, so the type keeps its proportions.
+const DESIGN_W = Math.floor((Dimensions.get('window').width - RAIL_PAD * 2 - RAIL_GAP) / 2);
 const ORANGE = '#EA580C'; // the web's brand-600
 
 const PERK_ICONS: Record<Inclusion, React.ComponentType<any>> = {
@@ -40,11 +43,13 @@ const primaryImage = (images?: any[]): string | undefined => {
   return pick?.url ? normalizeImageUrl(pick.url) : undefined;
 };
 
-export function TrekPosterCard({ activity, video, onPress }: {
+export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W }: {
   activity: any;
   /** The playing clip, when there is one to play now; the rail decides. */
   video?: React.ReactNode;
   onPress: () => void;
+  /** Card width; the poster keeps its 4:5 shape. Defaults to the two-up size. */
+  width?: number;
 }) {
   const { isDarkMode } = useTheme();
   const trek = isTrekking(activity);
@@ -62,14 +67,18 @@ export function TrekPosterCard({ activity, video, onPress }: {
   const when = scheduleLine(activity, durationLabel);
   const { name, kind } = posterName(activity.title, trek);
   const perks = inclusions(activity);
-  // The web scales the name up 1.25× tall; sized here so the longest names fit.
-  const nameSize = name.length > 18 ? 15 : name.length > 12 ? 18 : 24;
+  // The web scales the name up 1.25× tall; sized here so the longest names fit,
+  // then grown with the card so a wider poster keeps the same proportions.
+  const nameSize = Math.round(
+    (name.length > 18 ? 15 : name.length > 12 ? 18 : 24) * (width / DESIGN_W),
+  );
 
   return (
     <Pressable
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
+        { width },
         isDarkMode && styles.cardDark,
         pressed && { transform: [{ scale: 0.98 }] },
       ]}
@@ -77,10 +86,10 @@ export function TrekPosterCard({ activity, video, onPress }: {
       accessibilityLabel={[title, region, when].filter(Boolean).join(', ')}
     >
       {/* ── The poster ─────────────────────────────────────────────── */}
-      <View style={styles.poster}>
+      <View style={[styles.poster, { height: Math.round((width * 5) / 4) }]}>
         {imageUrl ? (
           <Image
-            source={{ uri: imageUrl }}
+            source={{ uri: sizedImageUrl(imageUrl, width) }}
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"
             transition={250}
@@ -174,13 +183,13 @@ export function TrekPosterCard({ activity, video, onPress }: {
 
 const styles = StyleSheet.create({
   card: {
-    width: POSTER_CARD_W, borderRadius: 22, overflow: 'hidden', backgroundColor: '#fff',
+    borderRadius: 22, overflow: 'hidden', backgroundColor: '#fff',
     borderWidth: 1, borderColor: 'rgba(229,231,235,0.8)',
     shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
   cardDark: { backgroundColor: '#111827', borderColor: '#1F2937' },
-  poster: { height: POSTER_H, overflow: 'hidden', backgroundColor: '#111827' },
+  poster: { overflow: 'hidden', backgroundColor: '#111827' },
 
   head: { position: 'absolute', top: 14, left: 10, right: 10, alignItems: 'center' },
   kind: {

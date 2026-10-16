@@ -5,7 +5,7 @@
 //   LandRail — LandPackagesGrid + OvalCard (the temple-arch poster)
 // Each row hides itself when the catalogue has nothing for it, as on the web.
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Platform, Dimensions } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { ClipPath, Defs, Image as SvgImage, Path, Rect } from 'react-native-svg';
@@ -15,7 +15,8 @@ import {
 } from 'lucide-react-native';
 import { holidayPackagesAPI } from '@prayana/shared-services';
 import { ArchPoster, ARCH_CARD_W } from '../home/ArchPoster';
-import { useRailPlayback, useRailClock } from '../home/HomeRails';
+import { Rail, useRailPlayback, useRailClock } from '../home/HomeRails';
+import { SpotlightCarousel } from '../home/SpotlightCarousel';
 import { FULL_W, RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, TWO_UP_W, usePairSnap } from '../../lib/railLayout';
 import {
   MONTH, archPosterNames, assignExclusiveFrames, groupPosterNames, groupStrapOf, inclusionsOf, inr,
@@ -29,6 +30,9 @@ const SERIF = Platform.select({ ios: 'Georgia', default: 'serif' });
 const PERK_ICONS: Record<PackagePerk, React.ComponentType<any>> = {
   Camping: Tent, Stay: BedDouble, Meals: UtensilsCrossed, Transfers: Car, Guide: UserRound, Sightseeing: Camera,
 };
+
+// Land-only spotlight: the centre arch poster large, its neighbours peeking.
+const LAND_SPOT_W = Math.round(Dimensions.get('window').width * 0.62);
 
 const readList = (r: any): any[] =>
   Array.isArray(r?.data) ? r.data : Array.isArray(r?.data?.packages) ? r.data.packages : [];
@@ -395,15 +399,20 @@ export function LandRail({ onOpen, onViewAll, onCallExpert }: {
         </View>
       ) : (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail} {...scrollProps}>
-            {pkgs.map((p, i) => {
+          {/* Spotlight carousel, as on Trek Together: the centre yatra large,
+              neighbours peeking, looping both ways. Same arch posters. */}
+          <SpotlightCarousel
+            data={pkgs}
+            keyExtractor={(p) => String(p._id)}
+            itemWidth={LAND_SPOT_W}
+            accent={DD.saffron}
+            renderItem={(p, i, width) => {
               const { name, rest } = archPosterNames(p);
               const start = typeof p.startPoint === 'string' ? p.startPoint : p.startPoint?.name || p.startPoint?.city;
               const price = p.platformSellingPrice || p.pricing?.startingFrom || 0;
               const n = p.duration?.nights;
               return (
                 <ArchPoster
-                  key={p._id}
                   frames={frames[p._id]?.length ? frames[p._id] : photosOf(p).slice(0, 1)}
                   name={name}
                   kind={upcomingDepartures(p).length > 0 ? 'Group yatra' : 'Yatra'}
@@ -423,10 +432,11 @@ export function LandRail({ onOpen, onViewAll, onCallExpert }: {
                   tick={tick}
                   onPress={() => onOpen(p)}
                   accessibilityLabel={p.title}
+                  width={width}
                 />
               );
-            })}
-          </ScrollView>
+            }}
+          />
           <ViewAll label="View all" onPress={onViewAll} />
         </>
       )}

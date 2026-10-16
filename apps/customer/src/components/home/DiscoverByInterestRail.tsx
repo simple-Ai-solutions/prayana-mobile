@@ -5,8 +5,9 @@
 // looping clip over it, the big poster name, the mood's perks as glass chips
 // and a "15+ places" tag. The clip's first frame is the photo, so the switch
 // from picture to video cannot be seen. Keep the data in step with the web.
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Pressable, AccessibilityInfo, Dimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -15,8 +16,9 @@ import {
   UtensilsCrossed, Palmtree, Sparkles, Plane, Wallet, CalendarDays, Car, Tent,
 } from 'lucide-react-native';
 import { spacing } from '@prayana/shared-ui';
-import { CardVideo, useRailPlayback } from './HomeRails';
+import { CardVideo, Rail, useRailPlayback } from './HomeRails';
 import { RAIL_GAP, TWO_UP_W } from '../../lib/railLayout';
+import { sizedImageUrl } from '../../lib/imageUrl';
 
 const CARD_W = TWO_UP_W;
 const CARD_H = Math.round((CARD_W * 4.3) / 3); // the web's 3:4.3 poster
@@ -92,7 +94,7 @@ function MoodCard({ mood, playing }: { mood: Mood; playing: boolean }) {
       >
         <View style={styles.inner}>
           <Image
-            source={{ uri: `${CLIP_CDN}/${mood.clip}.jpg` }}
+            source={{ uri: sizedImageUrl(`${CLIP_CDN}/${mood.clip}.jpg`, CARD_W) }}
             style={StyleSheet.absoluteFillObject}
             contentFit="cover"
             transition={200}
@@ -138,19 +140,71 @@ function MoodCard({ mood, playing }: { mood: Mood; playing: boolean }) {
   );
 }
 
+// First-time hint: the rail slides a little way along and springs back, once
+// per install, the first time it comes on screen (Instagram/Spotify style).
+// Only this rail, the first two-up rail on the home page: once a user has
+// seen one rail move they know the rest do, and every rail wobbling would be
+// noise.
+const NUDGE_KEY = 'hint:discover-rail-nudged';
+const NUDGE_X = Math.round(CARD_W * 0.55);
+
 export function DiscoverByInterestRail() {
-  const { canPlay, scrollProps } = useRailPlayback(CARD_W, GAP, { video: true });
+  const { canPlay, scrollProps, inView } = useRailPlayback(CARD_W, GAP, { video: true });
+  const { ref } = scrollProps;
+  const touched = useRef(false);
+
+  // Only once the user has stopped on the rail: the whole rail on screen and
+  // the page still for a moment. Fired mid-scroll, the hint goes unseen.
+  useEffect(() => {
+    if (!inView) return;
+    let alive = true;
+    let poll: ReturnType<typeof setInterval> | null = null;
+    let back: ReturnType<typeof setTimeout> | null = null;
+    (async () => {
+      try {
+        if (await AsyncStorage.getItem(NUDGE_KEY)) return;
+        if (await AccessibilityInfo.isReduceMotionEnabled()) return;
+      } catch {
+        return;
+      }
+      if (!alive) return;
+      const screenH = Dimensions.get('window').height;
+      let lastY: number | null = null;
+      poll = setInterval(() => {
+        (ref.current as any)?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
+          if (!alive || !poll) return;
+          // The user found the swipe on their own; nothing to teach.
+          if (touched.current) { clearInterval(poll); poll = null; return; }
+          const settled = lastY !== null && Math.abs(y - lastY) < 2;
+          lastY = y;
+          if (!settled || h <= 0 || y < 0 || y + h > screenH) return;
+          clearInterval(poll);
+          poll = null;
+          AsyncStorage.setItem(NUDGE_KEY, '1').catch(() => {});
+          ref.current?.scrollTo({ x: NUDGE_X, animated: true });
+          back = setTimeout(() => {
+            if (alive && !touched.current) ref.current?.scrollTo({ x: 0, animated: true });
+          }, 650);
+        });
+      }, 400);
+    })();
+    return () => {
+      alive = false;
+      if (poll) clearInterval(poll);
+      if (back) clearTimeout(back);
+    };
+  }, [inView, ref]);
+
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
+    <Rail
+      scrollProps={scrollProps}
       contentContainerStyle={styles.rail}
-      {...scrollProps}
+      onScrollBeginDrag={() => { touched.current = true; }}
     >
       {MOODS.map((mood, i) => (
         <MoodCard key={mood.id} mood={mood} playing={canPlay(i)} />
       ))}
-    </ScrollView>
+    </Rail>
   );
 }
 

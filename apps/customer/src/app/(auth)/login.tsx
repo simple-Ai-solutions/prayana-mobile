@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,14 @@ import {
   TextInput as RNTextInput,
   ActivityIndicator,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@prayana/shared-hooks';
@@ -23,7 +26,10 @@ import { resetGuestUsage } from '@prayana/shared-utils';
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithCredential,
+  signInWithCustomToken,
+  updateProfile,
 } from 'firebase/auth';
 import { auth } from '@prayana/shared-services';
 import {
@@ -33,6 +39,19 @@ import {
   getCountryAt,
   isPlausiblePhone,
 } from '../../components/common/CountryCodePicker';
+import {
+  canUseTruecaller,
+  openTruecaller,
+  startTruecallerLogin,
+  checkTruecallerLogin,
+  isTruecallerPending,
+  TRUECALLER_POLL_MS,
+  TRUECALLER_UNACKED_WINDOW_MS,
+  TRUECALLER_ACKED_WINDOW_MS,
+  type TruecallerSession,
+} from '../../lib/truecaller';
+import { isPlaceholderName } from '../../lib/userName';
+import { cleanPhone } from '../../lib/phoneInput';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -77,9 +96,24 @@ export default function LoginScreen() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
+  // Sign in with Apple only exists on iOS (13+); elsewhere the button is hidden.
+  const [appleAvailable, setAppleAvailable] = useState(false);
   const [error, setError] = useState('');
 
   const phoneIsValid = useMemo(() => isPlausiblePhone(phone), [phone]);
+
+  // Truecaller one-tap (Android, Truecaller installed). Mirrors the web
+  // LoginModal: the sheet opens on the first tap into the number field; if the
+  // user continues they're signed in with their verified number and name, and
+  // otherwise ("use another number", dismissed, not installed) they just carry
+  // on typing for SMS OTP underneath.
+  const truecallerSessionRef = useRef<TruecallerSession | null>(null);
+  const truecallerTriedRef = useRef(false);
+  const [truecallerWaiting, setTruecallerWaiting] = useState(false);
+
+  // Leaving the screen abandons any in-flight poll.
+  useEffect(() => () => { truecallerSessionRef.current = null; }, []);
 
   // Google sign-in used expo-auth-session, which drives OAuth through a browser.
   // Google now blocks that from native apps as non-compliant with their OAuth 2.0
@@ -102,6 +136,77 @@ export default function LoginScreen() {
       offlineAccess: false,
     });
   }, []);
+
+  useEffect(() => {
+    AppleAuthentication.isAvailableAsync().then(setAppleAvailable).catch(() => {});
+  }, []);
+
+  const pollTruecaller = async (session: TruecallerSession) => {
+    let deadline = Date.now() + TRUECALLER_UNACKED_WINDOW_MS;
+    let acked = false;
+    const isCurrent = () => truecallerSessionRef.current === session;
+
+    while (isCurrent() && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, TRUECALLER_POLL_MS));
+      if (!isCurrent()) return;
+
+      const result = await checkTruecallerLogin(session);
+      if (!isCurrent()) return;
+
+      if (result.status === 'verified') {
+        truecallerSessionRef.current = null;
+        setTruecallerWaiting(false);
+        if (!result.customToken) {
+          setError('Truecaller sign-in failed. Please continue with your phone number.');
+          return;
+        }
+        try {
+          const userCredential = await signInWithCustomToken(auth, result.customToken);
+          setUser(userCredential.user);
+          setIsAuthenticated(true);
+          try { await syncWithBackend(userCredential.user, 'phone'); } catch {}
+          await resetGuestUsage();
+          // Truecaller normally supplies the name; if it didn't (or it failed
+          // validation) the user is asked for it, same as after OTP.
+          router.replace(
+            isPlaceholderName(result.user?.name) ? ('/complete-profile' as never) : '/(tabs)',
+          );
+        } catch {
+          setError('Truecaller sign-in failed. Please continue with your phone number.');
+        }
+        return;
+      }
+      if (!isTruecallerPending(result.status)) break;
+      if (result.status === 'flow_invoked' && !acked) {
+        acked = true;
+        deadline = Date.now() + TRUECALLER_ACKED_WINDOW_MS;
+        setTruecallerWaiting(true);
+      }
+    }
+
+    if (isCurrent()) {
+      truecallerSessionRef.current = null;
+      setTruecallerWaiting(false);
+    }
+  };
+
+  const tryTruecaller = async () => {
+    if (!canUseTruecaller()) return;
+    const session = await openTruecaller();
+    if (!session) return; // not installed — the user just types their number
+    Keyboard.dismiss();
+    truecallerSessionRef.current = session;
+    await startTruecallerLogin(session);
+    void pollTruecaller(session);
+  };
+
+  // Only the first tap into the field offers Truecaller; after "use another
+  // number" the user is left to type in peace.
+  const handlePhoneFieldFocus = () => {
+    if (truecallerTriedRef.current) return;
+    truecallerTriedRef.current = true;
+    void tryTruecaller();
+  };
 
   // ── Phone (primary) ─────────────────────────────────────────────
   // Hand the number straight to the OTP step so it never has to be retyped.
@@ -185,6 +290,79 @@ export default function LoginScreen() {
     }
   };
 
+  // ── Apple ───────────────────────────────────────────────────────
+  // The web signs in with Firebase's OAuthProvider('apple.com') popup. Natively
+  // the Apple sheet hands us an identity token instead, which is exchanged for
+  // the same Firebase credential. Firebase requires a nonce: Apple gets its
+  // SHA-256, Firebase gets the raw value and checks they match.
+  const handleAppleLogin = async () => {
+    setError('');
+    setIsAppleLoading(true);
+    try {
+      const rawNonce = Crypto.randomUUID();
+      const hashedNonce = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        rawNonce,
+      );
+
+      const appleCredential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+        nonce: hashedNonce,
+      });
+
+      if (!appleCredential.identityToken) {
+        setError('No token received from Apple. Please try again.');
+        return;
+      }
+
+      const credential = new OAuthProvider('apple.com').credential({
+        idToken: appleCredential.identityToken,
+        rawNonce,
+      });
+      const userCredential = await signInWithCredential(auth, credential);
+
+      // Apple shares the name only on the very first sign-in, and Firebase
+      // doesn't copy it onto the user — save it so the backend sync gets it.
+      const fullName = [appleCredential.fullName?.givenName, appleCredential.fullName?.familyName]
+        .filter(Boolean)
+        .join(' ');
+      if (fullName && !userCredential.user.displayName) {
+        try { await updateProfile(userCredential.user, { displayName: fullName }); } catch {}
+      }
+
+      setUser(userCredential.user);
+      setIsAuthenticated(true);
+      // syncWithBackend's type has no 'apple' method yet, so it's tracked as
+      // 'email' (the web sends 'apple').
+      try { await syncWithBackend(userCredential.user, 'email'); } catch {}
+      await resetGuestUsage();
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      if (err?.code === 'ERR_REQUEST_CANCELED') return; // user dismissed — stay quiet
+      let msg = 'Apple Sign-In failed. Please try again.';
+      if (err?.code === 'auth/account-exists-with-different-credential') msg = 'An account already exists with this email using a different sign-in method.';
+      else if (err?.code === 'auth/invalid-credential') msg = 'Invalid credential. Please try again.';
+      setError(msg);
+    } finally {
+      setIsAppleLoading(false);
+    }
+  };
+
+  // ── Email code (passwordless) ───────────────────────────────────
+  // Carries over whatever was typed in the email/password form, and sends the
+  // code straight away if it's already a valid address.
+  const handleEmailCode = () => {
+    setError('');
+    const typed = email.trim();
+    router.push({
+      pathname: '/(auth)/email-login',
+      params: typed ? { email: typed, autoSend: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(typed) ? '1' : '0' } : {},
+    });
+  };
+
   const handleEmailLogin = async () => {
     setError('');
     if (!email.trim()) { setError('Please enter your email address.'); return; }
@@ -226,7 +404,7 @@ export default function LoginScreen() {
     router.replace('/(tabs)');
   };
 
-  const isSubmitting = isLoading || isGoogleLoading;
+  const isSubmitting = isLoading || isGoogleLoading || isAppleLoading;
   const selectedCountry = getCountryAt(countryIndex);
 
   return (
@@ -285,7 +463,8 @@ export default function LoginScreen() {
                     placeholder="Phone number"
                     placeholderTextColor="#9ca3af"
                     value={phone}
-                    onChangeText={(t) => { setPhone(t); setError(''); }}
+                    onChangeText={(t) => { setPhone(cleanPhone(t)); setError(''); }}
+                    onFocus={handlePhoneFieldFocus}
                     keyboardType="phone-pad"
                     autoComplete="tel"
                     textContentType="telephoneNumber"
@@ -327,9 +506,16 @@ export default function LoginScreen() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              <Text style={styles.phoneHint}>
-                We'll text a 6-digit code to {selectedCountry.code} {phone || 'your number'}
-              </Text>
+              {truecallerWaiting ? (
+                <View style={styles.truecallerWaiting}>
+                  <ActivityIndicator size="small" color="#0FA697" />
+                  <Text style={[styles.phoneHint, styles.truecallerWaitingText]}>Waiting for Truecaller…</Text>
+                </View>
+              ) : (
+                <Text style={styles.phoneHint}>
+                  We'll text a 6-digit code to {selectedCountry.code} {phone || 'your number'}
+                </Text>
+              )}
             </View>
 
             {/* Error */}
@@ -366,29 +552,50 @@ export default function LoginScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* Apple */}
-              <TouchableOpacity
-                style={styles.socialBtn}
-                onPress={() => Alert.alert('Coming Soon', 'Apple Sign-In coming soon.')}
-                activeOpacity={0.85}
-                disabled={isSubmitting}
-              >
-                <AppleA />
-                <Text style={styles.socialBtnText}>Continue with Apple</Text>
-              </TouchableOpacity>
+              {/* Apple — iOS only */}
+              {appleAvailable && (
+                <TouchableOpacity
+                  style={styles.socialBtn}
+                  onPress={handleAppleLogin}
+                  activeOpacity={0.85}
+                  disabled={isSubmitting}
+                >
+                  {isAppleLoading ? (
+                    <ActivityIndicator size="small" color="#374151" />
+                  ) : (
+                    <AppleA />
+                  )}
+                  <Text style={styles.socialBtnText}>
+                    {isAppleLoading ? 'Connecting...' : 'Continue with Apple'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* ── DEMOTED: email/password, collapsed behind a link ── */}
+            {/* ── DEMOTED: email, collapsed behind links ──────────
+                A one-time code (email-login) or the old password form. */}
             {!showEmailForm ? (
-              <TouchableOpacity
-                style={styles.emailToggle}
-                onPress={() => { setShowEmailForm(true); setError(''); }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Ionicons name="mail-outline" size={15} color="#6b7280" />
-                <Text style={styles.emailToggleText}>Sign in with email instead</Text>
-              </TouchableOpacity>
+              <View>
+                <TouchableOpacity
+                  style={styles.emailToggle}
+                  onPress={handleEmailCode}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  disabled={isSubmitting}
+                >
+                  <Ionicons name="mail-outline" size={15} color="#6b7280" />
+                  <Text style={styles.emailToggleText}>Email me a sign-in code</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.emailToggle, styles.emailToggleSecond]}
+                  onPress={() => { setShowEmailForm(true); setError(''); }}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name="key-outline" size={15} color="#6b7280" />
+                  <Text style={styles.emailToggleText}>Sign in with password</Text>
+                </TouchableOpacity>
+              </View>
             ) : (
               <View style={styles.emailSection}>
                 <View style={styles.divider}>
@@ -447,6 +654,18 @@ export default function LoginScreen() {
                       <Ionicons name="arrow-forward" size={18} color="#0FA697" />
                     </>
                   )}
+                </TouchableOpacity>
+
+                {/* Forgot the password? A code works for the same address. */}
+                <TouchableOpacity
+                  style={styles.emailToggle}
+                  onPress={handleEmailCode}
+                  activeOpacity={0.7}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  disabled={isSubmitting}
+                >
+                  <Ionicons name="mail-outline" size={15} color="#6b7280" />
+                  <Text style={styles.emailToggleText}>Email me a code instead</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -616,6 +835,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
+  truecallerWaiting: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  truecallerWaitingText: { marginTop: 0 },
 
   // ── Social (secondary) ───────────────────────────────────────
   socialSection: { paddingHorizontal: 28, gap: 12 },
@@ -653,6 +880,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     textDecorationLine: 'underline',
   },
+  emailToggleSecond: { marginTop: 0 },
   emailSection: { marginTop: 4 },
   emailSignInBtn: {
     flexDirection: 'row',

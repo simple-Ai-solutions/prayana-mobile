@@ -3,8 +3,8 @@
 //
 // Web composition, top to bottom:
 //   Teal "Tours & experiences" hero (ocean photo) + "Where to?" search + city rail
-//   → Top picks (editorial rail) → Trending now → Unmissable experiences
-//   (category collections) → Pick up where you left off (recently viewed)
+//   → Top picks (spotlight) → Trending now (dark band) → All experiences
+//   → Pick up where you left off (recently viewed)
 //   → Explore more (numbered browse chips) → worldwide cross-sell.
 //
 // The category tiles + sortable "All experiences" list from the previous mobile
@@ -26,9 +26,10 @@ import {
   Image,
   ActivityIndicator,
   RefreshControl,
+  Dimensions,
 } from 'react-native';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, Stack } from 'expo-router';
 import { goBack } from '../../lib/goBack';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,15 +43,13 @@ import {
   borderRadius,
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI } from '@prayana/shared-services';
-import { Experience, isInternal } from '../../lib/experiences';
+import { Experience } from '../../lib/experiences';
 import {
   ACTIVITY_CATEGORIES,
   ACTIVITY_SORTS,
   ActivitySort,
 } from '../../lib/activityCategories';
 import {
-  EXPERIENCE_GROUPS,
-  CATEGORY_TO_GROUP,
   POPULAR_EXPERIENCES,
   TRENDING_DESTINATIONS,
   HERO_DESTINATIONS,
@@ -63,23 +62,30 @@ import {
 } from '../../lib/recentlyViewedActivities';
 import { ExperienceCard } from '../../components/experiences/ExperienceCard';
 import { FeaturedRailCard } from '../../components/experiences/FeaturedRailCard';
+import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
+import {
+  ACCENT, PlaceCard, PosterCard, SectionLabel, VibeTile,
+} from '../../components/experiences/ThingsToDoUI';
 
 const PAGE = 12;
+// Top picks spotlight: one card large in the centre, neighbours peeking.
+const SCREEN_W = Dimensions.get('window').width;
+const SPOT_W = Math.round(SCREEN_W * 0.74);
+const TREND_W = Math.round(SCREEN_W * 0.46);
+const PLACE_W = Math.round(SCREEN_W * 0.34);
+// One row of photo tiles: three across with the fourth peeking.
+const VIBE_W = Math.floor((SCREEN_W - 16 - 10 * 3) / 3.35);
 const TEAL = '#4AC0CC';
-const RED = '#E61417';
-// Vivid turquoise ocean-wave hero photo — same asset the web uses, so the hero's
-// teal comes from the water itself.
-const HERO_BG = 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?w=1200&q=80';
 
 const readList = (res: any): Experience[] =>
   Array.isArray(res?.data) ? res.data : Array.isArray(res?.data?.activities) ? res.data.activities : [];
 
 export default function ActivitiesScreen() {
   const { themeColors, isDarkMode } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const [featured, setFeatured] = useState<Experience[]>([]);
   const [trending, setTrending] = useState<Experience[]>([]);
-  const [collections, setCollections] = useState<{ group: (typeof EXPERIENCE_GROUPS)[number]; items: Experience[] }[]>([]);
   const [recent, setRecent] = useState<RecentActivity[]>([]);
 
   const [items, setItems] = useState<Experience[]>([]);
@@ -94,6 +100,9 @@ export default function ActivitiesScreen() {
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState<ActivitySort>('recommended');
   const [sortOpen, setSortOpen] = useState(false);
+  // The "All experiences" chip bar pins to the top once the grid is reached.
+  const [gridTop, setGridTop] = useState<number | null>(null);
+  const [pinChips, setPinChips] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /** The searchable list — category, sort and query all feed this one call. */
@@ -129,34 +138,16 @@ export default function ActivitiesScreen() {
     [],
   );
 
-  // Build the "Unmissable experiences" collections client-side, exactly as the
-  // web does: one wide, rating-sorted page → keep internal listings → bucket each
-  // into ONE group by its primary category → groups with ≥2 items, ≤10 each.
-  const buildCollections = useCallback((pool: Experience[]) => {
-    const internal = pool.filter((a) => isInternal(a) || !(a as any).source);
-    const buckets: Experience[][] = EXPERIENCE_GROUPS.map(() => []);
-    for (const a of internal) {
-      const raw = Array.isArray((a as any).category) ? (a as any).category[0] : (a as any).category;
-      const primary = String(raw || '').split(',')[0].trim().toLowerCase();
-      const gi = CATEGORY_TO_GROUP[primary];
-      if (gi !== undefined && buckets[gi].length < 10) buckets[gi].push(a);
-    }
-    return EXPERIENCE_GROUPS.map((group, i) => ({ group, items: buckets[i] })).filter(
-      (c) => c.items.length >= 2,
-    );
-  }, []);
-
   const loadAll = useCallback(async () => {
     setError('');
     try {
-      const [feat, trend, pool, recents] = await Promise.all([
+      const [feat, trend, recents] = await Promise.all([
         activityMarketplaceAPI.getFeaturedActivities(10).catch(() => null),
         // No dedicated trending endpoint on mobile — mirror the web's search
         // fallback: placement=trending, rating-sorted.
         activityMarketplaceAPI
           .searchActivities({ placement: 'trending', sort: 'rating', limit: 10 })
           .catch(() => null),
-        activityMarketplaceAPI.searchActivities({ limit: 60, sort: 'rating' }).catch(() => null),
         getRecentlyViewed(),
         search({ q: '', cat: 'All', sortBy: 'recommended', skip: 0, append: false }),
       ]);
@@ -173,12 +164,11 @@ export default function ActivitiesScreen() {
       });
       setFeatured(dedupedFeatured.slice(0, 10));
       setTrending(readList(trend).slice(0, 10));
-      setCollections(buildCollections(readList(pool)));
       setRecent(recents);
     } catch {
       setError("Couldn't load activities. Please try again.");
     }
-  }, [search, buildCollections]);
+  }, [search]);
 
   useEffect(() => {
     setLoading(true);
@@ -243,134 +233,90 @@ export default function ActivitiesScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.body}
+        scrollEventThrottle={32}
+        onScroll={(e: any) => {
+          const y = e.nativeEvent.contentOffset.y;
+          const pin = gridTop != null && y > gridTop;
+          if (pin !== pinChips) setPinChips(pin);
+        }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={TEAL} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />
         }
       >
-        {/* ─── TEAL OCEAN HERO — "Tours & experiences" (web parity) ─── */}
-        <View style={styles.hero}>
-          <Image source={{ uri: HERO_BG }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-          {/* Teal fallback/base + left→right legibility wash + gentle brand unifier */}
-          <View style={[StyleSheet.absoluteFill, { backgroundColor: TEAL, opacity: 0.0 }]} />
-          <LinearGradient
-            colors={['rgba(3,45,54,0.62)', 'rgba(3,45,54,0.30)', 'rgba(3,45,54,0.05)', 'transparent']}
-            locations={[0, 0.4, 0.7, 1]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0.4 }}
-            style={StyleSheet.absoluteFill}
-          />
-          <LinearGradient
-            colors={['rgba(28,120,132,0.25)', 'rgba(74,192,204,0.05)']}
-            style={StyleSheet.absoluteFill}
-          />
-
-          {/* Back button */}
-          <View style={styles.heroTop}>
-            <TouchableOpacity
-              onPress={() => goBack()}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={styles.backBtn}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-            >
-              <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.heroTitle}>Tours &amp; experiences</Text>
-          <Text style={styles.heroSub}>Explore experiences, spas, tours and more</Text>
-
-          {/* "Where to?" search pill — white with a red search button */}
-          <View style={styles.searchPill}>
-            <Ionicons name="location" size={18} color={TEAL} style={{ marginLeft: 6 }} />
-            <TextInput
-              value={query}
-              onChangeText={onSearchChange}
-              placeholder="Where to?"
-              placeholderTextColor="#9CA3AF"
-              style={styles.searchInput}
-              autoCorrect={false}
-              returnKeyType="search"
-            />
-            {query.length > 0 && (
-              <TouchableOpacity
-                onPress={() => onSearchChange('')}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                accessibilityLabel="Clear search"
-              >
-                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-            )}
-            <View style={styles.searchBtn}>
-              <Ionicons name="search" size={18} color="#FFFFFF" />
-            </View>
-          </View>
-
-          {/* Curated destination rail */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.cityRail}
+        {/* ─── GLOW HEADER (District-style) ─── */}
+        <LinearGradient
+          colors={isDarkMode
+            ? ['rgba(255,90,95,0.38)', 'rgba(168,85,247,0.16)', 'rgba(11,11,16,0)']
+            : ['rgba(255,90,95,0.22)', 'rgba(168,85,247,0.08)', 'rgba(255,255,255,0)']}
+          locations={[0, 0.45, 1]}
+          style={styles.glow}
+          pointerEvents="none"
+        />
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => goBack()}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={[styles.roundBtn, { borderColor: themeColors.border, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.8)' }]}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
           >
-            {HERO_DESTINATIONS.map((d) => (
-              <TouchableOpacity
-                key={d.label}
-                style={styles.cityCard}
-                activeOpacity={0.85}
-                onPress={() => openDestination(d.param, d.value)}
-              >
-                <Image source={{ uri: d.image }} style={styles.cityImg} resizeMode="cover" />
-                <Text style={styles.cityLabel} numberOfLines={1}>
-                  {d.label}
-                </Text>
-                <Text style={styles.citySub} numberOfLines={1}>
-                  Explore experiences
-                </Text>
-              </TouchableOpacity>
-            ))}
+            <Ionicons name="chevron-back" size={20} color={themeColors.text} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Things to do</Text>
+            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>Tours, treks &amp; experiences</Text>
+          </View>
+        </View>
+
+        <Text style={[styles.bigLine, { color: themeColors.text }]}>
+          Plans worth{'\n'}<Text style={{ color: ACCENT }}>leaving the house</Text> for.
+        </Text>
+
+        <View style={[styles.searchPill, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.07)' : '#FFFFFF', borderColor: themeColors.border }]}>
+          <Ionicons name="search" size={18} color={themeColors.textTertiary} />
+          <TextInput
+            value={query}
+            onChangeText={onSearchChange}
+            placeholder="Search treks, tours, cities…"
+            placeholderTextColor={themeColors.textTertiary}
+            style={[styles.searchInput, { color: themeColors.text }]}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+          {query.length > 0 && (
+            <TouchableOpacity
+              onPress={() => onSearchChange('')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Clear search"
+            >
+              <Ionicons name="close-circle" size={18} color={themeColors.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ─── WHAT'S THE VIBE? (category tiles, two rows) ─── */}
+        <View style={styles.block}>
+          <SectionLabel label="What's the vibe?" style={styles.padded} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.vibeRail}>
+            {ACTIVITY_CATEGORIES.map((c) => {
+              const active = category === c.value;
+              return (
+                <VibeTile
+                  key={c.value}
+                  label={c.label === 'All' ? 'Everything' : c.label}
+                  image={c.img}
+                  active={active}
+                  width={VIBE_W}
+                  onPress={() => applyFilters(active ? 'All' : c.value, sort, query)}
+                />
+              );
+            })}
           </ScrollView>
         </View>
 
-        {/* ─── CATEGORY TILES (photo tiles; emoji render as "?" on iOS) ─── */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catRail}
-        >
-          {ACTIVITY_CATEGORIES.map((c) => {
-            const active = category === c.value;
-            return (
-              <TouchableOpacity
-                key={c.value}
-                onPress={() => applyFilters(active ? 'All' : c.value, sort, query)}
-                style={styles.cat}
-                accessibilityRole="button"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={c.label}
-              >
-                <View style={[styles.catImgWrap, active && { borderColor: TEAL, borderWidth: 2 }]}>
-                  <Image source={{ uri: c.img }} style={styles.catImg} resizeMode="cover" />
-                </View>
-                <Text
-                  style={[
-                    styles.catLabel,
-                    {
-                      color: active ? TEAL : themeColors.textSecondary,
-                      fontWeight: active ? fontWeight.bold : fontWeight.medium,
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {c.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
         {loading ? (
           <View style={styles.state}>
-            <ActivityIndicator size="large" color={TEAL} />
+            <ActivityIndicator size="large" color={ACCENT} />
           </View>
         ) : error ? (
           <View style={styles.state}>
@@ -389,133 +335,60 @@ export default function ActivitiesScreen() {
           </View>
         ) : (
           <>
-            {/* ─── TOP PICKS (editorial rail) — only when not filtering ─── */}
+            {/* ─── IN THE LIMELIGHT (spotlight of big posters) ─── */}
             {!filtering && featured.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.editorPill}>
-                  <Ionicons name="flame" size={12} color="#C2410C" />
-                  <Text style={styles.editorPillText}>EDITOR&apos;S PICK</Text>
-                </View>
-                <Text style={[styles.sectionTitle, { color: themeColors.text, marginTop: 8 }]}>
-                  Top picks for you
-                </Text>
-                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                  Hand-picked favourites &amp; traveller-loved experiences, refreshed weekly.
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.rail}
-                >
-                  {featured.map((a) => (
-                    <FeaturedRailCard key={a._id} experience={a} width={260} onPress={open} />
-                  ))}
-                </ScrollView>
+              <View style={styles.block}>
+                <SectionLabel label="In the limelight" style={styles.padded} />
+                <SpotlightCarousel
+                  data={featured}
+                  keyExtractor={(a) => String(a._id)}
+                  itemWidth={SPOT_W}
+                  accent={ACCENT}
+                  renderItem={(a, _i, width) => (
+                    <PosterCard experience={a} width={width} size="lg" onPress={open} />
+                  )}
+                />
               </View>
             )}
 
-            {/* ─── TRENDING NOW ─── */}
+            {/* ─── TRENDING THIS WEEK (numbered chart) ─── */}
             {!filtering && trending.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.trendingHead}>
-                  <LinearGradient
-                    colors={['#F97316', '#F43F5E']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={styles.trendingBadge}
-                  >
-                    <Ionicons name="flame" size={16} color="#FFFFFF" />
-                  </LinearGradient>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                      Trending right now
-                    </Text>
-                    <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                      The experiences travellers can&apos;t stop booking this week.
-                    </Text>
-                  </View>
-                </View>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.rail}
-                >
+              <View style={styles.block}>
+                <SectionLabel label="Trending this week" style={styles.padded} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railPad}>
                   {trending.map((a) => (
-                    <ExperienceCard key={a._id} experience={a} width={250} onPress={open} />
+                    <PosterCard key={a._id} experience={a} width={TREND_W} onPress={open} />
                   ))}
                 </ScrollView>
               </View>
             )}
 
-            {/* ─── UNMISSABLE EXPERIENCES (category collections) ─── */}
-            {!filtering && collections.length > 0 && (
-              <View style={styles.section}>
-                <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                  Unmissable experiences
-                </Text>
-                <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
-                  Hand-picked collections for every kind of trip.
-                </Text>
-
-                {collections.map(({ group, items: gItems }) => (
-                  <LinearGradient
-                    key={group.key}
-                    colors={
-                      isDarkMode
-                        ? [`${group.accent}1F`, `${group.accent}0A`]
-                        : [`${group.accent}14`, `${group.accent}05`]
-                    }
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.collectionCard, { borderColor: `${group.accent}2E` }]}
-                  >
-                    <View style={styles.collectionHead}>
-                      <LinearGradient
-                        colors={[group.accent, `${group.accent}C0`]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.collectionIcon}
-                      >
-                        <Ionicons name={group.icon as any} size={20} color="#FFFFFF" />
-                      </LinearGradient>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.collectionTitle, { color: themeColors.text }]} numberOfLines={1}>
-                          {group.title}
-                        </Text>
-                        <Text style={[styles.collectionSub, { color: themeColors.textSecondary }]} numberOfLines={1}>
-                          {group.categories.map((c) => c.label).join(' · ')}
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={[styles.seeAll, { backgroundColor: `${group.accent}26` }]}
-                        onPress={() => router.push(`/experiences/${group.slug}` as any)}
-                        accessibilityRole="button"
-                      >
-                        <Text style={[styles.seeAllText, { color: group.accent }]}>See all</Text>
-                        <Ionicons name="arrow-forward" size={13} color={group.accent} />
-                      </TouchableOpacity>
-                    </View>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={styles.collectionRail}
-                    >
-                      {gItems.map((a) => (
-                        <ExperienceCard key={a._id} experience={a} width={230} onPress={open} />
-                      ))}
-                    </ScrollView>
-                  </LinearGradient>
-                ))}
+            {/* ─── WHERE TO NEXT (destinations) ─── */}
+            {!filtering && (
+              <View style={styles.block}>
+                <SectionLabel label="Where to next" style={styles.padded} />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railPad}>
+                  {HERO_DESTINATIONS.map((d) => (
+                    <PlaceCard
+                      key={d.label}
+                      label={d.label}
+                      image={d.image}
+                      width={PLACE_W}
+                      onPress={() => openDestination(d.param, d.value)}
+                    />
+                  ))}
+                </ScrollView>
               </View>
             )}
 
             {/* ─── ALL EXPERIENCES (filterable/sortable list) ─── */}
-            <View style={[styles.section, { zIndex: 20 }]}>
+            <View
+              style={[styles.section, { zIndex: 20 }]}
+              onLayout={(e) => setGridTop(e.nativeEvent.layout.y + 60)}
+            >
+              <SectionLabel label={filtering ? (category !== 'All' ? category : 'Results') : 'All experiences'} />
               <View style={styles.listHead}>
                 <View style={styles.listHeadText}>
-                  <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
-                    {filtering ? (category !== 'All' ? category : 'Results') : 'All experiences'}
-                  </Text>
                   <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>
                     {listLoading && !items.length
                       ? 'Loading…'
@@ -554,12 +427,12 @@ export default function ActivitiesScreen() {
                           <Text
                             style={[
                               styles.sortItemText,
-                              { color: s.value === sort ? TEAL : themeColors.text },
+                              { color: s.value === sort ? ACCENT : themeColors.text },
                             ]}
                           >
                             {s.label}
                           </Text>
-                          {s.value === sort && <Ionicons name="checkmark" size={15} color={TEAL} />}
+                          {s.value === sort && <Ionicons name="checkmark" size={15} color={ACCENT} />}
                         </TouchableOpacity>
                       ))}
                     </View>
@@ -569,7 +442,7 @@ export default function ActivitiesScreen() {
 
               {listLoading && !items.length ? (
                 <View style={styles.state}>
-                  <ActivityIndicator color={TEAL} />
+                  <ActivityIndicator color={ACCENT} />
                 </View>
               ) : items.length === 0 ? (
                 <View style={styles.state}>
@@ -585,7 +458,7 @@ export default function ActivitiesScreen() {
                   <View style={styles.grid}>
                     {items.map((a) => (
                       <View key={a._id} style={styles.gridCell}>
-                        <ExperienceCard experience={a} onPress={open} />
+                        <PosterCard experience={a} onPress={open} />
                       </View>
                     ))}
                   </View>
@@ -601,7 +474,7 @@ export default function ActivitiesScreen() {
                       accessibilityRole="button"
                     >
                       {listLoading ? (
-                        <ActivityIndicator size="small" color={TEAL} />
+                        <ActivityIndicator size="small" color={ACCENT} />
                       ) : (
                         <Text style={[styles.loadMoreText, { color: themeColors.text }]}>Load more</Text>
                       )}
@@ -756,37 +629,69 @@ export default function ActivitiesScreen() {
           </>
         )}
       </ScrollView>
+      {/* Pinned filter chips: appear once the user scrolls into the grid, so
+          the category can change without scrolling back up (Myntra/Swiggy). */}
+      {pinChips && !loading && (
+        <View
+          style={[
+            styles.pinBar,
+            {
+              // Absolute children ignore the SafeAreaView's padding — sit below
+              // the status bar ourselves.
+              paddingTop: insets.top + 8,
+              backgroundColor: themeColors.background,
+              borderBottomColor: themeColors.border,
+            },
+          ]}
+        >
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pinRail}>
+            {ACTIVITY_CATEGORIES.map((c) => {
+              const active = category === c.value;
+              return (
+                <TouchableOpacity
+                  key={c.value}
+                  onPress={() => applyFilters(active ? 'All' : c.value, sort, query)}
+                  style={[
+                    styles.pinChip,
+                    active
+                      ? { backgroundColor: ACCENT, borderColor: ACCENT }
+                      : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text style={[styles.pinChipText, { color: active ? '#FFFFFF' : themeColors.text }]}>{c.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  // District-style header: a soft coral→violet glow behind the top of the page.
+  glow: { position: 'absolute', left: 0, right: 0, top: 0, height: 420 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
+  roundBtn: {
+    width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
+  },
+  headerTitle: { fontSize: 18, fontWeight: '800', letterSpacing: -0.3 },
+  headerSub: { fontSize: 12, marginTop: 1 },
+  bigLine: {
+    paddingHorizontal: spacing.lg, marginTop: 22, fontSize: 32, lineHeight: 36,
+    fontWeight: '900', letterSpacing: -1.2,
+  },
+  block: { marginTop: 30 },
+  padded: { paddingHorizontal: spacing.lg },
+  railPad: { gap: 12, paddingHorizontal: spacing.lg },
+  vibeRail: { gap: 10, paddingHorizontal: spacing.lg },
   safe: { flex: 1 },
   body: { paddingBottom: spacing['2xl'] },
 
   // Hero
-  hero: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
-    overflow: 'hidden',
-  },
-  heroTop: { flexDirection: 'row', marginBottom: spacing.lg },
-  backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.28)',
-  },
-  heroTitle: {
-    fontSize: fontSize['3xl'],
-    fontWeight: fontWeight.bold,
-    color: '#FFFFFF',
-    letterSpacing: -0.75,
-  },
-  heroSub: { fontSize: fontSize.md, color: 'rgba(255,255,255,0.9)', marginTop: 4, fontWeight: fontWeight.medium },
 
   searchPill: {
     flexDirection: 'row',
@@ -794,50 +699,21 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: '#FFFFFF',
     borderRadius: 999,
-    padding: 6,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
     shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
   },
   searchInput: { flex: 1, minWidth: 0, fontSize: fontSize.md, color: '#111827', paddingVertical: 8 },
-  searchBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: RED,
-    shadowColor: RED,
-    shadowOpacity: 0.5,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 6 },
-  },
 
-  cityRail: { gap: spacing.md, paddingTop: spacing.lg, paddingRight: spacing.lg },
-  cityCard: {
-    width: 150,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
-  },
-  cityImg: { width: '100%', aspectRatio: 1, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  cityLabel: { fontSize: 14, fontWeight: '700', color: '#111827', marginTop: 8, paddingHorizontal: 2 },
-  citySub: { fontSize: 11.5, color: '#6B7280', marginTop: 1, paddingHorizontal: 2 },
 
   // Category tiles
-  catRail: { gap: spacing.md, paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
-  cat: { alignItems: 'center', width: 68, gap: 5 },
-  catImgWrap: { width: 60, height: 60, borderRadius: 30, overflow: 'hidden', backgroundColor: '#e5e5e5' },
-  catImg: { width: '100%', height: '100%' },
-  catLabel: { fontSize: fontSize.xs, textAlign: 'center' },
 
   // Sections
   section: { paddingHorizontal: spacing.lg, marginTop: spacing.xl },
@@ -845,43 +721,19 @@ const styles = StyleSheet.create({
   sectionSub: { fontSize: fontSize.sm, marginTop: 2 },
   rail: { gap: spacing.md, paddingVertical: spacing.md, paddingRight: spacing.lg },
 
-  editorPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 5,
-    backgroundColor: '#FFEDD5',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  editorPillText: { color: '#C2410C', fontSize: 11, fontWeight: '800', letterSpacing: 1 },
+  // Trending: full-bleed dark band (Netflix/Spotify feel) to break the page.
 
-  trendingHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  trendingBadge: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  // All experiences: chips pinned under the status bar while in the grid.
+  pinBar: {
+    position: 'absolute', left: 0, right: 0, top: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth, paddingBottom: 8,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 3 }, elevation: 4,
+  },
+  pinRail: { gap: 8, paddingHorizontal: spacing.lg },
+  pinChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, borderWidth: 1 },
+  pinChipText: { fontSize: 13, fontWeight: '600' },
 
-  // Collections
-  collectionCard: {
-    marginTop: spacing.lg,
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingVertical: spacing.md,
-    paddingLeft: spacing.md,
-  },
-  collectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, paddingRight: spacing.md },
-  collectionIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  collectionTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold },
-  collectionSub: { fontSize: fontSize.xs, marginTop: 1 },
-  seeAll: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-  },
-  seeAllText: { fontSize: fontSize.xs, fontWeight: fontWeight.bold },
-  collectionRail: { gap: spacing.md, paddingTop: spacing.md, paddingRight: spacing.md },
+
 
   // List head + sort
   listHead: {
@@ -1011,6 +863,6 @@ const styles = StyleSheet.create({
 
   state: { alignItems: 'center', paddingVertical: spacing['2xl'], gap: spacing.md },
   stateText: { fontSize: fontSize.sm, textAlign: 'center', paddingHorizontal: spacing.lg },
-  retry: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 999, backgroundColor: TEAL },
+  retry: { paddingHorizontal: spacing.xl, paddingVertical: spacing.md, borderRadius: 999, backgroundColor: ACCENT },
   retryText: { color: '#FFFFFF', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
 });

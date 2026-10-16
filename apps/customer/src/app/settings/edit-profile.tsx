@@ -29,6 +29,7 @@ import { useAuth } from '@prayana/shared-hooks';
 import { fetchUserProfile, updateUserProfile } from '@prayana/shared-services';
 import Toast from 'react-native-toast-message';
 import { DateField } from '../../components/common/DateField';
+import { cleanPhone } from '../../lib/phoneInput';
 
 // ============================================================
 // FORM FIELD COMPONENT
@@ -130,6 +131,9 @@ export default function EditProfileScreen() {
   const [gender, setGender] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState(''); // ISO "YYYY-MM-DD"
   const [location, setLocation] = useState('');
+  // Backend avatar (user.avatar in Mongo) — preferred over the Firebase
+  // photoURL, same field the web profile reads.
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [hasChanges, setHasChanges] = useState(false);
@@ -175,6 +179,8 @@ export default function EditProfileScreen() {
         setGender(g);
         setDateOfBirth(dob);
         setLocation(loc);
+        // Server only accepts http(s) avatars (User.avatar validator).
+        if (typeof p.avatar === 'string' && /^https?:\/\//.test(p.avatar)) setAvatarUrl(p.avatar);
         setInitialValues({ displayName: name, phone: ph, gender: g, dateOfBirth: dob, location: loc });
       } catch {
         // Backend unreachable — the Firebase-seeded values still let the user edit.
@@ -288,7 +294,7 @@ export default function EditProfileScreen() {
   // DISPLAY VALUES
   // ============================================================
   const avatarName = displayName || user?.displayName || 'User';
-  const avatarPhoto = user?.photoURL || undefined;
+  const avatarPhoto = avatarUrl || user?.photoURL || undefined;
 
   // ============================================================
   // RENDER
@@ -309,6 +315,11 @@ export default function EditProfileScreen() {
           <TouchableOpacity
             style={styles.avatarContainer}
             activeOpacity={0.85}
+            // No photo upload yet: the backend has no avatar-upload endpoint and
+            // PUT /auth/profile rejects anything but an http(s) URL for
+            // `avatar` (models/User.js). Web's ProfileSetupModal uploadAvatar is
+            // a mock that sends a base64 data URL, which that validator refuses —
+            // so there is nothing working to port. Keep the honest notice.
             onPress={() =>
               Toast.show({
                 type: 'info',
@@ -366,7 +377,7 @@ export default function EditProfileScreen() {
             icon="call-outline"
             value={phone}
             onChangeText={(text) => {
-              setPhone(text);
+              setPhone(cleanPhone(text, { allowPlus: true }));
               if (errors.phone) {
                 setErrors((prev) => ({ ...prev, phone: '' }));
               }

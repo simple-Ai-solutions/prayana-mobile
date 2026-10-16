@@ -15,6 +15,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius } from '@prayana/shared-ui';
 
@@ -34,7 +35,8 @@ interface PromoCardProps {
   accentColor: string;
   ctaBg: string;
   ctaText: string;
-  decorIcon: keyof typeof Ionicons.glyphMap;
+  /** A real photo behind the card; the brand gradient fades over it. */
+  image: string;
   onPress: () => void;
 }
 
@@ -50,18 +52,20 @@ const PromoCard: React.FC<PromoCardProps> = ({
   accentColor,
   ctaBg,
   ctaText,
-  decorIcon,
+  image,
   onPress,
 }) => (
   <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={styles.cardWrap}>
-    <LinearGradient
-      colors={gradient}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.card}
-    >
-      {/* Large decorative watermark icon — right side, very low opacity */}
-      <Ionicons name={decorIcon} size={150} color="rgba(255,255,255,0.05)" style={styles.decor} />
+    <View style={styles.card}>
+      <Image source={{ uri: image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" />
+      {/* Solid brand colour under the text, opening up to the photo on the right. */}
+      <LinearGradient
+        colors={[`${gradient[0]}F5`, `${gradient[1]}D9`, `${gradient[gradient.length - 1]}40`]}
+        locations={[0, 0.55, 1]}
+        start={{ x: 0, y: 0.3 }}
+        end={{ x: 1, y: 0.7 }}
+        style={StyleSheet.absoluteFill}
+      />
 
       <View style={styles.cardBody}>
         {/* Badge */}
@@ -105,7 +109,7 @@ const PromoCard: React.FC<PromoCardProps> = ({
         end={{ x: 1, y: 0 }}
         style={styles.accentLine}
       />
-    </LinearGradient>
+    </View>
   </TouchableOpacity>
 );
 
@@ -134,7 +138,7 @@ export const PromoTrio: React.FC = () => {
         accentColor={GOLD}
         ctaBg={GOLD}
         ctaText="#5C0A0E"
-        decorIcon="globe-outline"
+        image="https://images.unsplash.com/photo-1530122037265-a5f1f91d3b99?auto=format&fit=crop&w=1000&q=75"
         onPress={() => router.push('/esim')}
       />
 
@@ -150,7 +154,7 @@ export const PromoTrio: React.FC = () => {
         accentColor="#FFD86B"
         ctaBg="#FFD86B"
         ctaText="#5C1503"
-        decorIcon="business-outline"
+        image="https://prayanaai.com/images/place-specific/ChIJtbCmiuA-CDkRAu4Clouuvds/img-1_google_places_529eb6aa.jpg"
         onPress={() => router.push('/divya-darshana')}
       />
 
@@ -171,7 +175,7 @@ export const PromoTrio: React.FC = () => {
         accentColor="#FDE68A"
         ctaBg="#FDE68A"
         ctaText="#042F2E"
-        decorIcon="airplane-outline"
+        image="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=1000&q=75"
         onPress={() => router.push('/packages')}
       />
     </View>
@@ -191,8 +195,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 8,
   },
-  card: { borderRadius: 24, overflow: 'hidden', minHeight: 210 },
-  decor: { position: 'absolute', right: -18, top: '50%', marginTop: -75 },
+  card: { borderRadius: 24, overflow: 'hidden', minHeight: 210, backgroundColor: '#111827' },
 
   cardBody: { padding: spacing.xl, gap: spacing.sm },
 

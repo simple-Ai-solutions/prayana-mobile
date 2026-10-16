@@ -131,7 +131,7 @@ export default function MyTicketsScreen() {
                   key={t.transactionId}
                   activeOpacity={0.85}
                   style={[styles.card, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}
-                  onPress={() => t.qrCode && setQr(t)}
+                  onPress={() => router.push(`/monuments/ticket/${encodeURIComponent(t.ondcOrderId || t.transactionId)}` as any)}
                 >
                   <View style={styles.cardTop}>
                     <Text style={[styles.cardTitle, { color: themeColors.text }]} numberOfLines={1}>{monumentNameOf(t)}</Text>

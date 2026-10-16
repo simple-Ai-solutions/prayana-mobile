@@ -14,6 +14,7 @@ import {
   borderRadius,
   shadow,
 } from '@prayana/shared-ui';
+import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 interface Props {
   activity: any;
@@ -22,7 +23,7 @@ interface Props {
 
 export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%' }) => {
   const { themeColors } = useTheme();
-  const img = a.images?.[0]?.url || a.images?.[0] || a.heroImage || null;
+  const img = a.images?.[0]?.url || a.images?.[0] || a.heroImage || fallbackPhoto(a);
   const rating = a.rating?.average ?? a.rating ?? 0;
   const reviews = a.rating?.count ?? a.reviewCount ?? 0;
   const price =
@@ -111,7 +112,7 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
           {price != null && (
             <Text style={styles.price}>
               {currency}
-              {Number(price).toLocaleString(priceLocale)}
+              {Math.round(Number(price)).toLocaleString(priceLocale)}
             </Text>
           )}
         </View>

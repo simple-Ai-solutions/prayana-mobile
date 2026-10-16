@@ -33,6 +33,7 @@ import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
 import { Image as XImage } from 'expo-image';
 import { ExploreCard, FeaturedPoster } from '../../components/explore/ExploreCards';
 import { FULL_W, RAIL_GAP, RAIL_PAD, usePairSnap } from '../../lib/railLayout';
+import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 const HERO = require('../../../assets/hero-scenery.jpg');
 const RED = '#E61417';
@@ -111,7 +112,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
     activity.images?.[0] ||
     activity.coverImage ||
     activity.imageUrl ||
-    null;
+    fallbackPhoto(activity);
 
   const rating = activity.rating?.average || activity.averageRating || 0;
   const reviewCount = activity.rating?.count || activity.reviewCount || 0;

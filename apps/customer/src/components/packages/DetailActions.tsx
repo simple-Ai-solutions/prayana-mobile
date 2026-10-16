@@ -18,6 +18,7 @@ import { useAuth } from '@prayana/shared-hooks';
 import { holidayPackagesAPI, makeAPICall } from '@prayana/shared-services';
 import { useTheme } from '@prayana/shared-ui';
 import { sharePackagePdf, shareSchedulePdf } from '../../utils/packagePdf';
+import { cleanPhone } from '../../lib/phoneInput';
 
 const BLUE = '#2563eb';
 
@@ -331,7 +332,7 @@ export function QuoteSheet({ visible, onClose, destination, context }: {
         </View>
       )}
       <Field label="Name" required value={form.name} onChangeText={set('name')} placeholder="Your name" error={errors.name} />
-      <Field label="Phone" required value={form.phone} onChangeText={set('phone')} keyboardType="phone-pad" placeholder="Mobile number" error={errors.phone} />
+      <Field label="Phone" required value={form.phone} onChangeText={(t) => set('phone')(cleanPhone(t, { allowPlus: true }))} keyboardType="phone-pad" placeholder="Mobile number" error={errors.phone} />
       <Field label="Email" required value={form.email} onChangeText={set('email')} keyboardType="email-address" autoCapitalize="none" placeholder="you@example.com" error={errors.email} />
       <Field label="Departure city" value={form.cityOfDeparture} onChangeText={set('cityOfDeparture')} placeholder="Travelling from" />
       <Pressable onPress={submit} disabled={busy} style={({ pressed }) => [s.submit, { backgroundColor: '#ef4444' }, (pressed || busy) && { opacity: 0.85 }]}>

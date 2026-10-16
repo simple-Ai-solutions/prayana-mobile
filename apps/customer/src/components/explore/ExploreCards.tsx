@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@prayana/shared-ui';
 import { trekArtFor } from '../../lib/trekArt';
 import { FULL_W } from '../../lib/railLayout';
+import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 const RED = '#E61417';
 const ORANGE = '#f97316';
@@ -47,7 +48,7 @@ function Facts({ a }: { a: any }) {
 
 /** A wide poster for the Featured rail. */
 export function FeaturedPoster({ a, onPress }: { a: any; onPress: () => void }) {
-  const img = activityImage(a);
+  const img = activityImage(a) || fallbackPhoto(a);
   const price = priceOf(a);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a.title} style={({ pressed }) => [s.feat, pressed && { transform: [{ scale: 0.985 }] }]}>
@@ -82,7 +83,10 @@ export function FeaturedPoster({ a, onPress }: { a: any; onPress: () => void }) 
 /** The list card. */
 export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
   const { themeColors, isDarkMode } = useTheme();
-  const [img, setImg] = useState(activityImage(a));
+  // Worked out on every render so a recycled card never keeps the last photo.
+  const own = activityImage(a);
+  const [failed, setFailed] = useState<string | null>(null);
+  const img = own && own !== failed ? own : fallbackPhoto(a);
   const price = priceOf(a);
   const tags = activityTags(a).slice(0, 3);
   const incl: string[] = (a?.pricing?.includesWhat || []).map((x: string) => String(x).replace(/^[^A-Za-z0-9]+/, '').trim()).filter(Boolean);
@@ -97,7 +101,7 @@ export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
     >
       <View style={s.photo}>
         <LinearGradient colors={['#fb923c', RED]} style={StyleSheet.absoluteFill} />
-        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" onError={() => setImg(null)} /> : (
+        {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" onError={() => own && setFailed(own)} /> : (
           <View style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}><Ionicons name="compass" size={44} color="rgba(255,255,255,0.4)" /></View>
         )}
         <LinearGradient colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']} locations={[0, 0.35, 1]} style={StyleSheet.absoluteFill} />

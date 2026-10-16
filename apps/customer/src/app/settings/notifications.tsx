@@ -33,18 +33,7 @@ import {
 } from '@prayana/shared-services';
 import Toast from 'react-native-toast-message';
 
-// ============================================================
-// SETUP: Foreground notification display handler
-// ============================================================
-ExpoNotifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// The foreground display handler is set once, in app/_layout.tsx.
 
 // ============================================================
 // TYPES

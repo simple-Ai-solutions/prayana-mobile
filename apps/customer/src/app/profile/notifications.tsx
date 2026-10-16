@@ -25,6 +25,7 @@ import {
   fetchUserProfile,
   saveNotificationPreferences,
 } from '@prayana/shared-services';
+import { nudgesEnabled, setNudgesEnabled } from '../../lib/nudgeScheduler';
 
 type Channels = {
   push: boolean;
@@ -75,6 +76,9 @@ export default function NotificationSettingsScreen() {
   const { themeColors, isDarkMode } = useTheme();
   const [channels, setChannels] = useState<Channels>(DEFAULTS.channels);
   const [categories, setCategories] = useState<Categories>(DEFAULTS.categories);
+  // Daily travel nudges are scheduled on this phone, so the switch lives here too.
+  const [nudges, setNudges] = useState(true);
+  useEffect(() => { nudgesEnabled().then(setNudges); }, []);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -200,6 +204,26 @@ export default function NotificationSettingsScreen() {
                   {idx < CATEGORY_META.length - 1 ? <View style={[styles.divider, { backgroundColor: themeColors.border }]} /> : null}
                 </View>
               ))}
+            </Card>
+
+            <Card style={[styles.section, { backgroundColor: themeColors.card }]}>
+              <View style={styles.row}>
+                <View style={styles.iconBubble}>
+                  <Ionicons name="heart" size={18} color={colors.primary[600]} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowLabel, { color: themeColors.text }]}>Daily travel nudges</Text>
+                  <Text style={[styles.rowDesc, { color: themeColors.textTertiary }]}>
+                    Cheeky trip ideas at 10 am and 6 pm, in Kannada, Hindi and English.
+                  </Text>
+                </View>
+                <Switch
+                  value={nudges}
+                  onValueChange={(v) => { setNudges(v); setNudgesEnabled(v); Haptics.selectionAsync().catch(() => {}); }}
+                  trackColor={{ false: colors.gray[300], true: colors.primary[400] }}
+                  thumbColor={nudges ? colors.primary[600] : colors.gray[100]}
+                />
+              </View>
             </Card>
 
             <Text style={[styles.footnote, { color: themeColors.textTertiary }]}>

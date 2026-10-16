@@ -40,6 +40,7 @@ import { ENV } from '../../../config/env';
 import { EsimBundle, capabilityFor, coverageLabel, dataLabelFor } from '../../../lib/esim';
 import { DateField } from '../../../components/common/DateField';
 import { EsimCouponBox, type AppliedCoupon } from '../../../components/esim/EsimCouponBox';
+import { phoneChange } from '../../../lib/phoneInput';
 
 /** "Data only" / "Data + calls" etc. — the plan's real capability. */
 function capabilityLabel(b: EsimBundle): string {
@@ -736,7 +737,7 @@ export default function ESimCheckoutScreen() {
               <TextInput
                 label="Phone"
                 value={phone}
-                onChangeText={setPhone}
+                onChangeText={phoneChange(setPhone, { allowPlus: true })}
                 placeholder="+91 98xxx xxxxx"
                 keyboardType="phone-pad"
               />
@@ -885,6 +886,17 @@ export default function ESimCheckoutScreen() {
                 You'll be charged ₹
                 {payable(bundle.sellingPrice, coupon).toLocaleString('en-IN')}. The eSIM
                 QR code arrives instantly on success.
+              </Text>
+              <Text style={[styles.sectionHint, { color: themeColors.textTertiary }]}>
+                eSIMs are non-refundable once activated. See our{' '}
+                <Text
+                  style={{ color: colors.primary[600], fontWeight: fontWeight.semibold, textDecorationLine: 'underline' }}
+                  onPress={() => router.push('/esim/refund-policy')}
+                  accessibilityRole="link"
+                >
+                  Refund & Cancellation Policy
+                </Text>
+                .
               </Text>
             </View>
           )}
