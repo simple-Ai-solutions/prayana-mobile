@@ -343,7 +343,13 @@ export const makeAPICall = async (endpoint, options = {}) => {
     // Retry logic for network errors (NOT for 429 rate limits or timeouts)
     // AbortError from our own timeout should NOT be retried -- same timeout will just abort again
     const isOurTimeout = error.name === "AbortError" && !useExternalSignal;
+    // Only reads are retried. Re-sending a POST/PATCH/DELETE could repeat an
+    // action (a second order, a second booking) and, on a 500, burned through
+    // rate limits: one DigiLocker tap was four requests against a 5/hour cap.
+    const method = String(requestOptions.method || "GET").toUpperCase();
+    const isRead = method === "GET" || method === "HEAD";
     if (
+      isRead &&
       retries < API_CONFIG.RETRY.MAX_ATTEMPTS &&
       error.status !== 429 &&
       !isOurTimeout &&

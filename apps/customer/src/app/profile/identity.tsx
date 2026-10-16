@@ -193,7 +193,10 @@ export default function IdentityVaultScreen() {
     }
   };
 
+  const [linking, setLinking] = useState(false);
   const linkAadhaar = async () => {
+    if (linking) return;
+    setLinking(true);
     try {
       const res: any = await identityAPI.digilockerInitiate('aadhaar');
       const url = res?.data?.url || res?.url || res?.data?.redirectUrl;
@@ -209,7 +212,18 @@ export default function IdentityVaultScreen() {
         });
       }
     } catch (err: any) {
-      Toast.show({ type: 'error', text1: 'DigiLocker error', text2: err?.message });
+      // The server's own wording is technical (and, while DigiLocker isn't
+      // switched on, mentions "sandbox mode"); say what it means instead.
+      const status = err?.status;
+      Toast.show(
+        status === 429
+          ? { type: 'info', text1: 'Please wait a little', text2: 'Too many tries in the last hour. Try again in about an hour.' }
+          : status >= 500 || /sandbox|DIGILOCKER_/i.test(String(err?.message))
+            ? { type: 'info', text1: 'DigiLocker is not available yet', text2: "Aadhaar linking is being set up. Please try again later." }
+            : { type: 'error', text1: 'DigiLocker error', text2: err?.message || 'Please try again.' },
+      );
+    } finally {
+      setLinking(false);
     }
   };
 
@@ -334,6 +348,8 @@ export default function IdentityVaultScreen() {
                       onPress={linkAadhaar}
                       variant="outline"
                       size="sm"
+                      loading={linking}
+                      disabled={linking}
                     />
                   ) : (
                     <Button
