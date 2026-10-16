@@ -770,10 +770,6 @@ export default function MyBookingsScreen() {
         onPress={() => router.push(`/bookings/${item._id}` as any)}
       >
         <Card style={styles.bookingCard}>
-          {/* Status Badge - absolute positioned */}
-          <View style={styles.statusBadgeContainer}>
-            <StatusBadge status={item.status} />
-          </View>
 
           {/* Card Body */}
           <View style={styles.cardBody}>
@@ -797,7 +793,10 @@ export default function MyBookingsScreen() {
 
             {/* Content */}
             <View style={styles.cardContent}>
-              <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={1}>
+          <View style={styles.statusBadgeInline}>
+            <StatusBadge status={item.status} />
+          </View>
+              <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={2}>
                 {activity?.title || 'Activity'}
               </Text>
 
@@ -913,9 +912,6 @@ export default function MyBookingsScreen() {
         onPress={() => router.push(`/esim/order/${item._id}` as any)}
       >
         <Card style={styles.bookingCard}>
-          <View style={styles.statusBadgeContainer}>
-            <StatusBadge status={item.status} />
-          </View>
           <View style={styles.cardBody}>
             {countryImage(item.bundle?.country, 240) ? (
               <View style={styles.esimFlagBox}>
@@ -930,7 +926,10 @@ export default function MyBookingsScreen() {
               </View>
             )}
             <View style={styles.cardContent}>
-              <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={1}>
+          <View style={styles.statusBadgeInline}>
+            <StatusBadge status={item.status} />
+          </View>
+              <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={2}>
                 {destination}
               </Text>
               <Text style={[styles.bookingRef, { color: themeColors.textTertiary }]} numberOfLines={1}>
@@ -987,9 +986,6 @@ export default function MyBookingsScreen() {
     const walkIn = isPartnerPointBooking(item) ? bookingCustomer(item) : null;
     return (
       <Card style={styles.bookingCard}>
-        <View style={styles.statusBadgeContainer}>
-          <StatusBadge status={item.status} />
-        </View>
         <View style={styles.cardBody}>
           {image ? (
             <Image source={{ uri: image }} style={styles.activityImage} resizeMode="cover" />
@@ -1004,7 +1000,10 @@ export default function MyBookingsScreen() {
             </LinearGradient>
           )}
           <View style={styles.cardContent}>
-            <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={1}>
+          <View style={styles.statusBadgeInline}>
+            <StatusBadge status={item.status} />
+          </View>
+            <Text style={[styles.activityTitle, { color: themeColors.text }]} numberOfLines={2}>
               {title}
             </Text>
             {!!item.bookingReference && (
@@ -1418,6 +1417,7 @@ const styles = StyleSheet.create({
 
   // Status Tabs
   tabsScrollView: {
+    flexGrow: 0,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -1426,6 +1426,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     gap: spacing.sm,
+    alignItems: 'center',
   },
   tab: {
     flexDirection: 'row',
@@ -1486,11 +1487,10 @@ const styles = StyleSheet.create({
   bookingCard: {
     overflow: 'hidden',
   },
-  statusBadgeContainer: {
-    position: 'absolute',
-    top: spacing.md,
-    right: spacing.md,
-    zIndex: 1,
+  // The status sits above the title, so a long name is never hidden under it.
+  statusBadgeInline: {
+    alignSelf: 'flex-start',
+    marginBottom: 4,
   },
   cardBody: {
     flexDirection: 'row',
@@ -1506,7 +1506,6 @@ const styles = StyleSheet.create({
   cardContent: {
     flex: 1,
     marginLeft: spacing.md,
-    paddingRight: spacing['2xl'],
   },
   // eSIM card — the country's photo, with its flag in the corner.
   esimFlagBox: {
