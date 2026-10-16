@@ -46,6 +46,7 @@ import { makeChatAPICall, makeItineraryAPICall, socketService, auth } from '@pra
 import Toast from 'react-native-toast-message';
 import TripDestinationPicker from '../../components/chat/TripDestinationPicker';
 import TripChoicesCard, { type TripChoicesData } from '../../components/chat/TripChoicesCard';
+import { inkColors } from '../../components/chat/ishaInk';
 
 // ============================================================
 // TYPES
@@ -135,7 +136,15 @@ interface ChatMessage {
   };
   /** The plan Isha built in this reply, if she built one. */
   itinerary?: AgentPlan | string | null;
+  /** Real places found live near somewhere ("scuba in Andaman": its dive centres). */
+  localPlaces?: LocalPlace[];
 }
+
+// A place from Isha's live local search, as the server sends it
+type LocalPlace = {
+  name: string; address?: string; rating?: number; reviews?: number; openNow?: boolean | null;
+  lat: number; lng: number; photoUrl?: string; mapsUrl?: string; placeId?: string;
+};
 
 interface TripFormData {
   destination: string;
@@ -461,19 +470,61 @@ function parseLineSegments(line: string, isDark: boolean, tealColor: string, pla
 }
 
 // ============================================================
-// PLACE CARD  (matches web vertical card layout)
+// PLACES ON A MAP
 // ============================================================
+// A place in Maps: Apple Maps on iPhone, Google Maps elsewhere
+function openInMaps(name: string, lat?: number, lng?: number, googleUrl?: string) {
+  const ll = lat != null && lng != null ? `${lat},${lng}` : '';
+  const url = Platform.OS === 'ios'
+    ? `http://maps.apple.com/?q=${encodeURIComponent(name)}${ll ? `&ll=${ll}` : ''}`
+    : googleUrl || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ll || name)}`;
+  Linking.openURL(url).catch(() => {});
+}
+
+// Where the person is, only if they've already allowed location (a map
+// never asks), and only when it's near the places: for a trip far away it
+// would just zoom the map out
+const NEAR_KM = 60;
+function kmBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const r = Math.PI / 180;
+  const h = Math.sin(((b.lat - a.lat) * r) / 2) ** 2 + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(((b.lng - a.lng) * r) / 2) ** 2;
+  return 12742 * Math.asin(Math.sqrt(h));
+}
+function useNearbyMe(pins: Array<{ latitude?: number; longitude?: number }>) {
+  const [me, setMe] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const pos = await Location.getLastKnownPositionAsync();
+        if (alive && pos) setMe({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      } catch {}
+    })();
+    return () => { alive = false; };
+  }, []);
+  if (!me) return null;
+  const near = pins.some((p) => kmBetween(me, { lat: p.latitude as number, lng: p.longitude as number }) < NEAR_KM);
+  return near ? me : null;
+}
+
 /**
- * Inline map of the places in a reply. The server ships flat latitude/longitude
- * on topPlaces[], so no geocoding is needed here — but several places often
- * share the city-centre point, so markers are de-duplicated by coordinate to
- * avoid stacking identical pins.
+ * Places on a map: Apple Maps on iPhone (Google on Android, which has no
+ * Apple Maps), numbered ink pins matching the chips, your blue dot when
+ * you're near them, and Open in Maps. Held still so it can't take over the
+ * chat's scroll.
  */
-function ChatMapCard({ places, isDark, onPlacePress }: {
+function ChatMapCard({ places, isDark, onPlacePress, onPinPress, label }: {
   places: Place[];
   isDark: boolean;
   onPlacePress: (name: string) => void;
+  /** A chip's tap; asks Isha about the place unless given. */
+  onPinPress?: (p: Place) => void;
+  /** What the map shows, for Open in Maps ("Paris", "scuba diving in Andaman"). */
+  label?: string;
 }) {
+  const c = inkColors(isDark);
   const pins = useMemo(() => {
     const seen = new Set<string>();
     return places
@@ -487,44 +538,59 @@ function ChatMapCard({ places, isDark, onPlacePress }: {
       })
       .slice(0, 8);
   }, [places]);
-
+  const me = useNearbyMe(pins);
   if (pins.length === 0) return null;
-
-  const lats = pins.map((p) => p.latitude as number);
-  const lngs = pins.map((p) => p.longitude as number);
+  const lats = [...pins.map((p) => p.latitude as number), ...(me ? [me.lat] : [])];
+  const lngs = [...pins.map((p) => p.longitude as number), ...(me ? [me.lng] : [])];
   const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
   const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
-  const spanLat = Math.max(Math.max(...lats) - Math.min(...lats), 0.05) * 1.6;
-  const spanLng = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.05) * 1.6;
-
+  const spanLat = Math.max(Math.max(...lats) - Math.min(...lats), 0.02) * 1.5;
+  const spanLng = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.02) * 1.5;
   return (
-    <View style={[styles.mapCard, { borderColor: isDark ? '#334155' : '#e2e8f0' }]}>
-      <MapView
-        provider={PROVIDER_GOOGLE}
-        style={styles.mapCardMap}
-        initialRegion={{
-          latitude: midLat, longitude: midLng,
-          latitudeDelta: spanLat, longitudeDelta: spanLng,
-        }}
-        pointerEvents="none"
-      >
-        {pins.map((p, i) => (
-          <Marker
-            key={`${p.name}-${i}`}
-            coordinate={{ latitude: p.latitude as number, longitude: p.longitude as number }}
-            title={p.name}
-          />
-        ))}
-      </MapView>
+    <View style={[styles.mapCard, { borderColor: c.border }]}>
+      <View>
+        <MapView
+          provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
+          style={styles.mapCardMap}
+          initialRegion={{
+            latitude: midLat, longitude: midLng,
+            latitudeDelta: spanLat, longitudeDelta: spanLng,
+          }}
+          showsUserLocation={!!me}
+          pointerEvents="none"
+        >
+          {pins.map((p, i) => (
+            <Marker
+              key={`${p.name}-${i}`}
+              coordinate={{ latitude: p.latitude as number, longitude: p.longitude as number }}
+              title={p.name}
+              anchor={{ x: 0.5, y: 0.5 }}
+            >
+              <View style={[styles.mapPin, { backgroundColor: c.ink, borderColor: c.onInk }]}>
+                <Text style={[styles.mapPinText, { color: c.onInk }]}>{i + 1}</Text>
+              </View>
+            </Marker>
+          ))}
+        </MapView>
+        <TouchableOpacity
+          onPress={() => openInMaps(label || pins[0].name, midLat, midLng)}
+          accessibilityRole="link"
+          accessibilityLabel="Open in Maps"
+          style={styles.mapOpenBtn}
+        >
+          <Ionicons name="navigate" size={12} color="#fff" />
+          <Text style={styles.mapOpenText}>Open in Maps</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mapCardChips}>
         {pins.map((p, i) => (
           <TouchableOpacity
             key={`chip-${i}`}
-            onPress={() => onPlacePress(p.name)}
-            style={[styles.mapCardChip, { backgroundColor: isDark ? '#1e293b' : '#f1f5f9' }]}
+            onPress={() => (onPinPress ? onPinPress(p) : onPlacePress(p.name))}
+            style={[styles.mapCardChip, { backgroundColor: c.track }]}
             activeOpacity={0.8}
           >
-            <Text style={[styles.mapCardChipText, { color: isDark ? '#e2e8f0' : '#334155' }]} numberOfLines={1}>
+            <Text style={[styles.mapCardChipText, { color: c.text }]} numberOfLines={1}>
               {i + 1}. {p.name}
             </Text>
           </TouchableOpacity>
@@ -534,6 +600,61 @@ function ChatMapCard({ places, isDark, onPlacePress }: {
   );
 }
 
+/** Live results ("scuba in Andaman": its dive centres) as a list under their map. */
+function LocalPlacesCard({ places, isDark, label }: { places: LocalPlace[]; isDark: boolean; label?: string }) {
+  const c = inkColors(isDark);
+  const list = places.filter((p) => p?.name).slice(0, 6);
+  if (!list.length) return null;
+  const asPlaces: Place[] = list.map((p) => ({ name: p.name, latitude: p.lat, longitude: p.lng, image: p.photoUrl, rating: p.rating } as Place));
+  const open = (p: LocalPlace) => openInMaps(p.name, p.lat, p.lng, p.mapsUrl);
+  return (
+    <View>
+      <ChatMapCard
+        places={asPlaces}
+        isDark={isDark}
+        label={label}
+        onPlacePress={() => {}}
+        onPinPress={(pl) => { const lp = list.find((x) => x.name === pl.name); if (lp) open(lp); }}
+      />
+      <View style={[styles.localList, { borderColor: c.border, backgroundColor: c.surface }]}>
+        {list.map((p, i) => (
+          <TouchableOpacity
+            key={p.placeId || `${p.name}-${i}`}
+            onPress={() => open(p)}
+            accessibilityRole="link"
+            accessibilityLabel={`${p.name}, open in Maps`}
+            style={[styles.localRow, i > 0 && { borderTopWidth: 1, borderTopColor: c.border }]}
+          >
+            <View>
+              {p.photoUrl
+                ? <Image source={{ uri: p.photoUrl }} style={styles.localPhoto} contentFit="cover" />
+                : <View style={[styles.localPhoto, { backgroundColor: c.track, alignItems: 'center', justifyContent: 'center' }]}><Ionicons name="location-outline" size={20} color={c.muted} /></View>}
+              <View style={[styles.localBadge, { backgroundColor: c.ink }]}><Text style={[styles.localBadgeText, { color: c.onInk }]}>{i + 1}</Text></View>
+            </View>
+            <View style={{ flex: 1, gap: 2 }}>
+              <Text style={[styles.localName, { color: c.text }]} numberOfLines={1}>{p.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                {p.rating != null && (
+                  <Text style={{ fontSize: 12, color: '#B45309', fontWeight: '600' }}>
+                    ★ {p.rating}{p.reviews != null ? <Text style={{ color: c.muted, fontWeight: '400' }}> ({p.reviews > 999 ? `${(p.reviews / 1000).toFixed(1)}k` : p.reviews})</Text> : null}
+                  </Text>
+                )}
+                {p.openNow === true && <Text style={{ fontSize: 12, color: '#047857', fontWeight: '600' }}>Open now</Text>}
+                {p.openNow === false && <Text style={{ fontSize: 12, color: '#B91C1C', fontWeight: '600' }}>Closed</Text>}
+              </View>
+              {!!p.address && <Text style={{ fontSize: 12, color: c.muted }} numberOfLines={2}>{p.address}</Text>}
+            </View>
+            <Ionicons name="navigate-outline" size={16} color={c.muted} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// ============================================================
+// PLACE CARD  (matches web vertical card layout)
+// ============================================================
 function PlaceCard({ place, index, isDark, onPress }: {
   place: Place; index: number; isDark: boolean; onPress: (p: Place) => void;
 }) {
@@ -1069,6 +1190,10 @@ function MessageBubble({ message, isDark, onPickDestination, onViewItinerary, on
           <TripChoicesCard key={`trip-choices-${i}`} data={card.data as TripChoicesData} isDark={isDark} onSubmit={onSuggestion} />
         ))}
 
+        {message.localPlaces && message.localPlaces.length > 0 && (
+          <LocalPlacesCard places={message.localPlaces} isDark={isDark} />
+        )}
+
         {/* Top places section */}
         {message.topPlaces && message.topPlaces.length > 0 && (
           <View>
@@ -1538,6 +1663,7 @@ export default function ChatScreen() {
                 inventory: ai?.inventory || [],
                 actionCards: ai?.actionCards || [],
                 itinerary: ai?.itinerary || null,
+                localPlaces: ai?.localPlaces || [],
                 suggestions: ai?.suggestions || [],
                 esimPlans: ai?.esimPlans || [],
               } as ChatMessage : m)),
@@ -1608,6 +1734,7 @@ export default function ChatScreen() {
         inventory: aiMsgData?.inventory || response?.data?.inventory || [],
         actionCards: aiMsgData?.actionCards || response?.data?.actionCards || [],
         itinerary: aiMsgData?.itinerary || response?.data?.itinerary || null,
+        localPlaces: aiMsgData?.localPlaces || response?.data?.localPlaces || [],
         // Follow-up chips: previously dropped, so suggestions only ever
         // appeared on the empty welcome screen.
         suggestions: aiMsgData?.suggestions || response?.data?.suggestions || [],
@@ -2152,7 +2279,17 @@ const styles = StyleSheet.create({
   followUpChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, maxWidth: 230 },
   followUpText: { fontSize: 12.5, fontWeight: '600' },
   mapCard: { borderWidth: 1, borderRadius: 14, overflow: 'hidden', marginBottom: 10 },
-  mapCardMap: { width: '100%', height: 150 },
+  mapCardMap: { width: '100%', height: 170 },
+  mapPin: { minWidth: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+  mapPinText: { fontSize: 11, fontWeight: '700' },
+  mapOpenBtn: { position: 'absolute', top: 8, left: 8, flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  mapOpenText: { color: '#fff', fontSize: 11, fontWeight: '600' },
+  localList: { borderWidth: 1, borderRadius: 14, overflow: 'hidden', marginBottom: 10 },
+  localRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10 },
+  localPhoto: { width: 64, height: 64, borderRadius: 12 },
+  localBadge: { position: 'absolute', top: -4, left: -4, width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  localBadgeText: { fontSize: 11, fontWeight: '700' },
+  localName: { fontSize: 14, fontWeight: '600' },
   mapCardChips: { padding: 8, gap: 6 },
   mapCardChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, maxWidth: 190 },
   mapCardChipText: { fontSize: 12, fontWeight: '600' },
