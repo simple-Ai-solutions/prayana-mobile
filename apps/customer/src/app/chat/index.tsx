@@ -102,6 +102,13 @@ interface EsimPlan {
   speed?: string;
 }
 
+// A plan Isha built in a reply (her generate_itinerary tool), as the server
+// sends it on aiMessage.itinerary: the plan's markdown and its id.
+type AgentPlan = {
+  markdown?: string; slug?: string; urlSlug?: string; markdownItineraryId?: string; _id?: string;
+  destination?: string; duration?: number; transportMode?: string; startingPoint?: string;
+};
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -119,11 +126,13 @@ interface ChatMessage {
   inventory?: InventoryCard[];
   actionCards?: ActionCard[];
   esimPlans?: EsimPlan[];
-  itineraryData?: { markdown?: string; structured?: any };
+  itineraryData?: { markdown?: string; structured?: any; id?: string };
   requestData?: {
     destination: string; duration: number;
-    transportMode: string; startingPoint?: string;
+    transportMode?: string; startingPoint?: string;
   };
+  /** The plan Isha built in this reply, if she built one. */
+  itinerary?: AgentPlan | string | null;
 }
 
 interface TripFormData {
@@ -186,6 +195,32 @@ function normalizeImages(raw: any): string[] {
   return raw
     .map((x) => (typeof x === 'string' ? x : x?.url || x?.mediumUrl || x?.imageUrl || null))
     .filter((u): u is string => typeof u === 'string' && u.length > 0);
+}
+
+/**
+ * The plan in Isha's reply, shaped like the trip planner's own preview
+ * message, so the same card and the same itinerary screen show it. Null when
+ * the reply has no plan. (Her plans are markdown only, without the planner's
+ * structured days, so the card's photos come from the reply's places.)
+ */
+function agentPlanMessage(message: ChatMessage): ChatMessage | null {
+  const plan = message.itinerary;
+  const markdown = typeof plan === 'string' ? plan : plan?.markdown;
+  if (!markdown) return null;
+  const p: AgentPlan = typeof plan === 'object' && plan ? plan : {};
+  const card = message.actionCards?.find((c) => c.type === 'view_itinerary')?.data || {};
+  return {
+    ...message,
+    requestData: {
+      destination: p.destination || card.destination || '',
+      duration: Number(p.duration || card.duration) || 3,
+      // The server says "car_bus" when no one chose, which would label a
+      // Paris plan "Car/Bus": only a flight or bike shows
+      transportMode: p.transportMode && p.transportMode !== 'car_bus' ? p.transportMode : undefined,
+      startingPoint: p.startingPoint,
+    },
+    itineraryData: { markdown, id: p.slug || p.urlSlug || p.markdownItineraryId || p._id || card.itineraryId },
+  };
 }
 
 function getPlaceImage(place: Place): string | null {
@@ -750,13 +785,15 @@ function TripPlannerForm({ onSubmit, isGenerating, isDark }: {
 // ============================================================
 // ITINERARY PREVIEW CARD
 // ============================================================
-function ItineraryPreviewCard({ message, isDark, onViewFull }: {
+function ItineraryPreviewCard({ message, isDark, onViewFull, fallbackImages, places }: {
   message: ChatMessage; isDark: boolean; onViewFull: (m: ChatMessage) => void;
+  /** Photos to use when the plan itself has none (Isha's markdown plans). */
+  fallbackImages?: string[]; places?: Place[];
 }) {
   const { requestData, itineraryData } = message;
   const destination = requestData?.destination || 'Destination';
   const duration = requestData?.duration || 3;
-  const transport = transportLabel(requestData?.transportMode || 'car_bus');
+  const transport = requestData?.transportMode ? transportLabel(requestData.transportMode) : null;
   const hasData = !!itineraryData?.markdown || !!itineraryData?.structured;
 
   const cardBg = isDark ? '#1e293b' : '#ffffff';
@@ -776,6 +813,13 @@ function ItineraryPreviewCard({ message, isDark, onViewFull }: {
       if (images.length >= 3) break;
     }
   }
+  if (!images.length) {
+    const placePhotos = (places || []).map(getPlaceImage).filter((u): u is string => !!u);
+    for (const url of [...(fallbackImages || []), ...placePhotos]) {
+      if (!images.includes(url)) images.push(url);
+      if (images.length >= 3) break;
+    }
+  }
 
   return (
     <TouchableOpacity onPress={() => onViewFull(message)} activeOpacity={0.85}
@@ -789,7 +833,7 @@ function ItineraryPreviewCard({ message, isDark, onViewFull }: {
         <View style={styles.itineraryLeft}>
           <View style={styles.itineraryBadges}>
             <View style={styles.badge}><Text style={styles.badgeText}>📅 {duration} DAYS</Text></View>
-            <View style={styles.badge}><Text style={styles.badgeText}>{transport.emoji} {transport.name}</Text></View>
+            {transport && <View style={styles.badge}><Text style={styles.badgeText}>{transport.emoji} {transport.name}</Text></View>}
           </View>
           <Text style={[styles.itineraryTitle, { color: textPrimary }]} numberOfLines={2}>
             Trip to {destination}
@@ -1039,6 +1083,8 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
   }
 
   // ── ASSISTANT MESSAGE ────────────────────────────────────────
+  // A plan Isha built shows as its card, with the reply's place photos on it
+  const plan = message.streaming ? null : agentPlanMessage(message);
   const aiBg = isDark ? '#1e293b' : '#ffffff';
   const aiBorder = isDark ? '#334155' : '#e2e8f0';
 
@@ -1114,8 +1160,18 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
           </View>
         )}
 
-        {/* Images row — banner-style images */}
-        {message.images && message.images.length > 0 && (
+        {plan && (
+          <ItineraryPreviewCard
+            message={plan}
+            isDark={isDark}
+            onViewFull={onViewItinerary}
+            fallbackImages={message.images}
+            places={message.topPlaces}
+          />
+        )}
+
+        {/* Images row — banner-style images (on the plan card when there is one) */}
+        {!plan && message.images && message.images.length > 0 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScroll}>
             {message.images.slice(0, 6).map((img, i) => (
               <View key={i} style={styles.bannerImageWrap}>
@@ -1185,9 +1241,10 @@ function MessageBubble({ message, isDark, onPlanTrip, onViewItinerary, onPlacePr
           </View>
         )}
 
-        {message.actionCards && message.actionCards.length > 0 && (
+        {message.actionCards && message.actionCards.some((c) => !(plan && c.type === 'view_itinerary')) && (
           <View style={styles.actionsWrap}>
-            {message.actionCards.map((card, i) => (
+            {/* The plan card opens the plan: no second "Open your plan" button */}
+            {message.actionCards.filter((c) => !(plan && c.type === 'view_itinerary')).map((card, i) => (
               <TouchableOpacity
                 key={i}
                 onPress={() => onActionCard(card)}
@@ -1592,6 +1649,7 @@ export default function ChatScreen() {
                 relatedPlaces: ai?.relatedPlaces || [],
                 inventory: ai?.inventory || [],
                 actionCards: ai?.actionCards || [],
+                itinerary: ai?.itinerary || null,
                 suggestions: ai?.suggestions || [],
                 esimPlans: ai?.esimPlans || [],
               } as ChatMessage : m)),
@@ -1661,6 +1719,7 @@ export default function ChatScreen() {
         // Bookable Prayana inventory + one-tap booking prompts the agent returns.
         inventory: aiMsgData?.inventory || response?.data?.inventory || [],
         actionCards: aiMsgData?.actionCards || response?.data?.actionCards || [],
+        itinerary: aiMsgData?.itinerary || response?.data?.itinerary || null,
         // Follow-up chips: previously dropped, so suggestions only ever
         // appeared on the empty welcome screen.
         suggestions: aiMsgData?.suggestions || response?.data?.suggestions || [],
@@ -1892,9 +1951,35 @@ export default function ChatScreen() {
       case 'save_favorite':
         Toast.show({ type: 'success', text1: 'Saved' });
         break;
-      case 'view_itinerary':
-        router.push('/quick-itinerary' as any);
+      case 'view_itinerary': {
+        // The plan isn't on the message (a chat from history): fetch it by id.
+        // This used to open the generic quick planner instead of the plan.
+        const id = d.itineraryId;
+        if (!id) {
+          router.push('/quick-itinerary' as any);
+          break;
+        }
+        makeItineraryAPICall(`/itinerary/search?slug=${encodeURIComponent(String(id))}`)
+          .then((json: any) => {
+            const found = json?.data?.results?.[0] || (Array.isArray(json?.data) ? json.data[0] : null);
+            if (!found?.markdown) throw new Error('no plan');
+            const destination = d.destination || found.destination || '';
+            router.push({
+              pathname: '/trip/itinerary',
+              params: {
+                markdown: found.markdown,
+                destination,
+                duration: String(d.duration || found.duration || 3),
+                transportMode: found.transportMode || 'car_bus',
+                startingPoint: found.startingPoint || '',
+                title: `Trip to ${destination || 'your destination'}`,
+                markdownItineraryId: String(id),
+              },
+            } as any);
+          })
+          .catch(() => Toast.show({ type: 'error', text1: "Couldn't open this plan", text2: 'Ask Isha to plan the trip again.' }));
         break;
+      }
       default:
         if (d.url) router.push(String(d.url) as any);
     }
@@ -1911,6 +1996,7 @@ export default function ChatScreen() {
         transportMode: requestData?.transportMode || 'car_bus',
         startingPoint: requestData?.startingPoint || '',
         title: `Trip to ${requestData?.destination || 'Destination'}`,
+        ...(itineraryData?.id ? { markdownItineraryId: itineraryData.id } : {}),
       },
     });
   }, [router]);
