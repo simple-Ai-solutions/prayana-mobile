@@ -363,9 +363,10 @@ class SocketService {
    * @param {string|null} firebaseToken
    * @param {string} sessionId
    * @param {Object} handlers
+   * @param {string|null} [sessionKey] the session's access key, from /chat/session/start
    * @returns {Function} disconnect
    */
-  connectCustomerChat(firebaseToken, sessionId, handlers = {}) {
+  connectCustomerChat(firebaseToken, sessionId, handlers = {}, sessionKey = null) {
     const apiUrl = API_CONFIG.BASE_URL;
     const SOCKET_URL = apiUrl.replace(/\/api$/, "");
 
@@ -377,8 +378,10 @@ class SocketService {
       reconnectionAttempts: 5,
     });
 
+    // The session's key lets this client into its live room (the server
+    // refuses anyone without it, or without being the signed-in owner)
     sock.on("connect", () => {
-      sock.emit("join-chat", { sessionId });
+      sock.emit("join-chat", { sessionId, sessionKey });
     });
 
     if (handlers.onModeChanged) sock.on("mode-changed", handlers.onModeChanged);

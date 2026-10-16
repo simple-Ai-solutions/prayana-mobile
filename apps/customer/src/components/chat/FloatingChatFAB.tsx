@@ -1,292 +1,179 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  Animated,
-  Easing,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useTheme } from '@prayana/shared-ui';
+import IshaAvatar, { ISHA_AVATAR } from './IshaAvatar';
+import { FLAME, useIsha } from './ishaTheme';
+import { useChatStore } from './useChatStore';
 
+/**
+ * The launcher: Isha in the logo's flame. A reply that lands while the chat
+ * is minimised shows as a badge and its first line, the way the website's
+ * launcher does; someone mid-conversation isn't pitched the greeting again.
+ */
 export const FloatingChatFAB: React.FC = () => {
-  const { isDarkMode } = useTheme();
+  const t = useIsha();
   const router = useRouter();
+  const unreadCount = useChatStore((s) => s.unreadCount);
+  const replyPreview = useChatStore((s) => s.replyPreview);
+  const hasConversation = useChatStore((s) => s.messages.length > 0);
+  const isSending = useChatStore((s) => s.isSending);
   const [showGreeting, setShowGreeting] = useState(false);
 
-  // Animations
-  const pulseAnim = useRef(new Animated.Value(0)).current;
-  const bounceAnim = useRef(new Animated.Value(0)).current;
-  const greetingOpacity = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
+  const bob = useRef(new Animated.Value(0)).current;
+  const bubble = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Continuous pulse ring animation
-    Animated.loop(
+    const ring = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 2000,
-          easing: Easing.out(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Subtle bounce
-    Animated.loop(
+        Animated.timing(pulse, { toValue: 1, duration: 2200, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 0, useNativeDriver: true }),
+        Animated.delay(1200),
+      ]),
+    );
+    const float = Animated.loop(
       Animated.sequence([
-        Animated.timing(bounceAnim, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(bounceAnim, {
-          toValue: 0,
-          duration: 1500,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // Show greeting after 3 seconds, hide after 7
-    const showTimer = setTimeout(() => {
-      setShowGreeting(true);
-      Animated.timing(greetingOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }, 3000);
-
-    const hideTimer = setTimeout(() => {
-      Animated.timing(greetingOpacity, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }).start(() => setShowGreeting(false));
-    }, 7500);
-
+        Animated.timing(bob, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(bob, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      ]),
+    );
+    ring.start();
+    float.start();
     return () => {
-      clearTimeout(showTimer);
-      clearTimeout(hideTimer);
+      ring.stop();
+      float.stop();
     };
-  }, []);
+  }, [pulse, bob]);
 
-  const pulseScale = pulseAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.8],
-  });
-  const pulseOpacity = pulseAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.3, 0.15, 0],
-  });
-  const bounceY = bounceAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, -4],
-  });
+  // The greeting, once, a few seconds in; not for someone mid-conversation
+  useEffect(() => {
+    if (hasConversation) return undefined;
+    const show = setTimeout(() => setShowGreeting(true), 3000);
+    const hide = setTimeout(() => setShowGreeting(false), 7500);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, [hasConversation]);
 
-  const handlePress = () => {
-    router.push({
-      pathname: '/chat',
-      params: { initialMessage: '', context: 'home' },
-    });
-  };
+  const card = replyPreview ? 'reply' : showGreeting && !hasConversation ? 'greeting' : null;
+  useEffect(() => {
+    Animated.timing(bubble, { toValue: card ? 1 : 0, duration: 220, useNativeDriver: true }).start();
+  }, [card, bubble]);
+
+  const open = () => router.push({ pathname: '/chat', params: { initialMessage: '', context: 'home' } });
+
+  const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] });
+  const pulseOpacity = pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.28, 0.12, 0] });
+  const bobY = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
+  const label =
+    unreadCount > 0 ? `Open chat with Isha, ${unreadCount} new ${unreadCount === 1 ? 'reply' : 'replies'}` : 'Open Isha chat';
 
   return (
     <View style={styles.container} pointerEvents="box-none">
-      {/* Greeting Tooltip */}
-      {showGreeting && (
+      {card && (
         <Animated.View
           style={[
-            styles.greetingContainer,
-            { opacity: greetingOpacity },
+            styles.card,
+            {
+              backgroundColor: t.surface,
+              borderColor: t.border,
+              shadowColor: t.shadow,
+              opacity: bubble,
+              transform: [{ translateY: bubble.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+            },
           ]}
         >
-          <View
-            style={[
-              styles.greetingBubble,
-              {
-                backgroundColor: isDarkMode
-                  ? 'rgba(31,41,55,0.95)'
-                  : 'rgba(255,255,255,0.95)',
-                borderColor: isDarkMode ? '#374151' : '#E5E7EB',
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.greetingTitle,
-                { color: isDarkMode ? '#ffffff' : '#1F2937' },
-              ]}
+          <Pressable onPress={open} accessibilityRole="button" accessibilityLabel={card === 'reply' ? `Isha replied: ${replyPreview}` : 'Open Isha chat'} style={styles.cardBody}>
+            <Image source={ISHA_AVATAR} style={[styles.cardAvatar, { backgroundColor: t.sunken }]} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={[styles.cardTitle, { color: t.text }]}>{card === 'reply' ? 'Isha replied' : "Hi! I'm Isha"}</Text>
+              <Text style={[styles.cardText, { color: t.muted }]} numberOfLines={2}>
+                {card === 'reply' ? replyPreview : 'Plan, price and book your next trip with me.'}
+              </Text>
+            </View>
+          </Pressable>
+          {card === 'reply' && (
+            <Pressable
+              onPress={() => useChatStore.getState().dismissReplyPreview()}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Hide this preview"
+              style={styles.cardClose}
             >
-              Hi! I'm Isha
-            </Text>
-            <Text
-              style={[
-                styles.greetingSubtitle,
-                { color: isDarkMode ? '#9CA3AF' : '#6B7280' },
-              ]}
-            >
-              Your AI Travel Assistant
-            </Text>
-          </View>
-          {/* Arrow */}
-          <View
-            style={[
-              styles.greetingArrow,
-              {
-                borderTopColor: isDarkMode
-                  ? 'rgba(31,41,55,0.95)'
-                  : 'rgba(255,255,255,0.95)',
-              },
-            ]}
-          />
+              <Ionicons name="close" size={14} color={t.faint} />
+            </Pressable>
+          )}
         </Animated.View>
       )}
 
-      {/* Pulse Rings */}
       <Animated.View
-        style={[
-          styles.pulseRing,
-          {
-            transform: [{ scale: pulseScale }],
-            opacity: pulseOpacity,
-          },
-        ]}
+        pointerEvents="none"
+        style={[styles.pulse, { backgroundColor: FLAME[1], opacity: pulseOpacity, transform: [{ scale: pulseScale }] }]}
       />
 
-      {/* FAB Button */}
-      <Animated.View style={{ transform: [{ translateY: bounceY }] }}>
-        <TouchableOpacity
-          onPress={handlePress}
-          activeOpacity={0.85}
-          style={styles.fabTouchable}
+      <Animated.View style={{ transform: [{ translateY: bobY }] }}>
+        <Pressable
+          onPress={open}
+          accessibilityRole="button"
+          accessibilityLabel={label}
+          style={({ pressed }) => [styles.fab, { shadowColor: FLAME[0], backgroundColor: t.bg }, pressed && { transform: [{ scale: 0.94 }] }]}
         >
-          <LinearGradient
-            colors={['#0EA5E9', '#2563EB']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.fabGradient}
-          >
-            {/* Inner bot circle */}
-            <View style={styles.botCircle}>
-              <Ionicons name="chatbubble-ellipses" size={26} color="#0EA5E9" />
-            </View>
-
-            {/* Sparkle badge */}
-            <View style={styles.sparkleBadge}>
-              <LinearGradient
-                colors={['#FFE66D', '#FBBF24', '#FFE66D']}
-                style={styles.sparkleBadgeGradient}
-              >
-                <Ionicons name="sparkles" size={10} color="#92400E" />
-              </LinearGradient>
-            </View>
-          </LinearGradient>
-        </TouchableOpacity>
+          <IshaAvatar size={62} ring={3} working={isSending} />
+        </Pressable>
+        {unreadCount > 0 && (
+          <View pointerEvents="none" style={[styles.badge, { borderColor: t.bg, backgroundColor: FLAME[0] }]}>
+            <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+          </View>
+        )}
       </Animated.View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 24,
-    right: 20,
-    alignItems: 'flex-end',
-    zIndex: 200,
-  },
-  greetingContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 8,
-    paddingRight: 4,
-  },
-  greetingBubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 12,
+  container: { position: 'absolute', bottom: 24, right: 20, alignItems: 'flex-end', zIndex: 200 },
+  card: {
+    width: 260,
+    marginBottom: 10,
     borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    borderRadius: 18,
+    paddingVertical: 10,
+    paddingLeft: 10,
+    paddingRight: 30,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 10,
   },
-  greetingTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  greetingSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  greetingArrow: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderTopWidth: 8,
-    borderLeftColor: 'transparent',
-    borderRightColor: 'transparent',
-    marginRight: 20,
-  },
-  pulseRing: {
-    position: 'absolute',
-    bottom: 6,
-    right: 6,
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#0EA5E9',
-  },
-  fabTouchable: {
-    borderRadius: 32,
-    shadowColor: '#0EA5E9',
+  cardBody: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  cardAvatar: { width: 32, height: 32, borderRadius: 16 },
+  cardTitle: { fontSize: 13.5, fontWeight: '600' },
+  cardText: { fontSize: 12.5, lineHeight: 17, marginTop: 1 },
+  cardClose: { position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  pulse: { position: 'absolute', bottom: 4, right: 4, width: 54, height: 54, borderRadius: 27 },
+  fab: {
+    borderRadius: 31,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.32,
     shadowRadius: 12,
-    elevation: 12,
+    elevation: 10,
   },
-  fabGradient: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  botCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sparkleBadge: {
+  badge: {
     position: 'absolute',
-    top: 2,
-    right: 0,
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  sparkleBadgeGradient: {
-    width: 20,
+    top: -3,
+    right: -3,
+    minWidth: 20,
     height: 20,
     borderRadius: 10,
-    justifyContent: 'center',
+    borderWidth: 2,
+    paddingHorizontal: 4,
     alignItems: 'center',
+    justifyContent: 'center',
   },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
 });
 
 export default FloatingChatFAB;
