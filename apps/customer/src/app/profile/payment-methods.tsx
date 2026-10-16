@@ -120,8 +120,9 @@ export default function PaymentMethodsScreen() {
   };
 
   const saveUpi = async () => {
-    const trimmed = vpa.trim();
-    if (!/^[\w.\-]+@[\w]+$/.test(trimmed)) {
+    const trimmed = vpa.trim().toLowerCase();
+    // Same rule as the server: name@bank, the bank part letters only.
+    if (!/^[\w.\-]{2,}@[a-z]{2,}$/.test(trimmed)) {
       Toast.show({ type: 'error', text1: 'Invalid VPA', text2: 'Format: name@upi' });
       return;
     }
@@ -249,7 +250,8 @@ export default function PaymentMethodsScreen() {
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
             <ScrollView contentContainerStyle={styles.modalScroll}>
               <Text style={[styles.helperText, { color: themeColors.textSecondary }]}>
-                One-tap UPI payments at checkout. We'll send a collect request to this VPA.
+                One-tap UPI payments at checkout. We'll send a collect request to this UPI ID. By saving, you agree to
+                Prayana storing it for faster checkout; you can remove it any time.
               </Text>
               <TextInput
                 label="UPI VPA"
