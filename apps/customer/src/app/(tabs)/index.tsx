@@ -53,8 +53,10 @@ const HERO_TABS = [
   { id: 'global-experiences', label: 'Global Experiences', icon: require('../../../assets/hero-icons/global-experiences.png'), route: '/global-experiences' },
 ];
 
-// Hidden behind "More" (matches PWA overflow sheet).
-const HERO_TABS_MORE = [
+// Hidden behind "More" (matches PWA overflow sheet). Stays has no brand PNG
+// yet, so it draws an Ionicon on a tile the size of the others.
+const HERO_TABS_MORE: { id: string; label: string; route: string; icon?: number; ionicon?: keyof typeof Ionicons.glyphMap }[] = [
+  { id: 'stays', label: 'Stays', ionicon: 'bed', route: '/stays' },
   { id: 'activities', label: 'Activities', icon: require('../../../assets/hero-icons/activities.png'), route: '/activities' },
   { id: 'holiday-packages', label: 'Holiday Packages', icon: require('../../../assets/hero-icons/holiday-packages.png'), route: '/packages' },
   { id: 'divya-darshana', label: 'Divya Darshana', icon: require('../../../assets/hero-icons/divya-darshana.png'), route: '/divya-darshana' },
@@ -693,9 +695,22 @@ export default function HomeScreen() {
                     router.push(tab.route as any);
                   }}
                 >
-                  <Image source={tab.icon} style={styles.heroTabIcon} resizeMode="contain" />
+                  {tab.icon ? (
+                    <Image source={tab.icon} style={styles.heroTabIcon} resizeMode="contain" />
+                  ) : (
+                    <View
+                      style={[
+                        styles.heroTabIcon,
+                        styles.sheetGlyph,
+                        { backgroundColor: isDarkMode ? 'rgba(74,192,204,0.2)' : '#E6F7F8' },
+                      ]}
+                    >
+                      <Ionicons name={tab.ionicon || 'apps'} size={28} color={isDarkMode ? BRAND.tealLight : '#0D9488'} />
+                    </View>
+                  )}
+                  {/* White labels vanished on the light sheet; follow the sheet. */}
                   <Text
-                    style={[styles.heroTabLabel, { color: '#FFFFFF' }]}
+                    style={[styles.heroTabLabel, { color: isDarkMode ? '#FFFFFF' : '#111827' }]}
                     numberOfLines={2}
                   >
                     {tab.label}
@@ -1217,6 +1232,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 13,
+  },
+  sheetGlyph: {
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sheetBackdrop: {
     flex: 1,

@@ -1,7 +1,7 @@
 // CompleteYourTrip — post-booking cross-sell rail shown on the bookings screen.
 // After someone has booked one thing, nudge the complementary Prayana inventory
-// they can add to the same trip (activities, packages, outstation cabs, eSIM,
-// monument tickets). Static category cards → deep links; no API calls, so it's
+// they can add to the same trip (activities, stays, packages, outstation cabs,
+// eSIM, monument tickets). Static category cards → deep links; no API calls, so it's
 // always available and never blocks the list. `exclude` hides the category the
 // current tab is about (don't cross-sell packages on the Packages tab).
 import React from 'react';
@@ -22,6 +22,7 @@ type Item = {
 
 const ITEMS: Item[] = [
   { key: 'activity', label: 'Things to do', sub: 'Tours & experiences', icon: 'balloon', color: '#0D9488', route: '/activities' },
+  { key: 'stay', label: 'Stays', sub: 'Hotels & homestays', icon: 'bed', color: '#2563EB', route: '/stays' },
   { key: 'package', label: 'Holiday packages', sub: 'Ready-made trips', icon: 'airplane', color: '#7C3AED', route: '/packages' },
   { key: 'cab', label: 'Outstation cabs', sub: 'Intercity rides', icon: 'car-sport', color: '#F59E0B', route: '/outstation-cabs' },
   { key: 'esim', label: 'Travel eSIM', sub: 'Stay connected', icon: 'wifi', color: '#E11D48', route: '/esim' },

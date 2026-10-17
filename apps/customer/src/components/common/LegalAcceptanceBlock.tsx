@@ -21,7 +21,7 @@ import { openInApp, SITE_URL } from '../../lib/openInApp';
 
 interface Props {
   /** Registry context, e.g. "booking:activity". */
-  vertical: 'activity' | 'package' | 'transport_self_drive' | 'transport_chauffeur';
+  vertical: 'activity' | 'package' | 'transport_self_drive' | 'transport_chauffeur' | 'stay';
   waiverRequired?: boolean;
   value: AcceptedLegalDoc[];
   onChange: (docs: AcceptedLegalDoc[]) => void;

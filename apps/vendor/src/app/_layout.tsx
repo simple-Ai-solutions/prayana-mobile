@@ -162,6 +162,7 @@ function RootNavigator() {
         <Stack.Screen name="verification" />
         <Stack.Screen name="packages" />
         <Stack.Screen name="transport" />
+        <Stack.Screen name="stays" />
         <Stack.Screen name="drivers" />
       </Stack>
       <Toast />

@@ -23,6 +23,7 @@ import {
   activityMarketplaceAPI,
   packageAPI,
   vehicleAPI,
+  staysAPI,
 } from '@prayana/shared-services';
 
 // ─── Listing types ──────────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ import {
 // manage, then proceeds into that type's own screen. Order/labels mirror the
 // More menu's Listings section.
 
-type ListingKey = 'activities' | 'packages' | 'transport';
+type ListingKey = 'activities' | 'packages' | 'transport' | 'stays';
 
 interface ListingType {
   key: ListingKey;
@@ -62,12 +63,19 @@ const LISTING_TYPES: ListingType[] = [
     subtitle: 'Vehicle rentals & drivers',
     route: '/transport',
   },
+  {
+    key: 'stays',
+    icon: 'bed-outline',
+    label: 'Stays',
+    subtitle: 'Hotels, homestays, hostels & villas',
+    route: '/stays',
+  },
 ];
 
 const ICON_COLOR = colors.primary[700];
 const ICON_TILE_GRADIENT = [colors.primary[50], colors.primary[100]] as const;
 
-// Normalise the various list-response shapes the three APIs return into a count.
+// Normalise the various list-response shapes the APIs return into a count.
 function countOf(res: any): number | null {
   if (res == null) return null;
   const list = Array.isArray(res)
@@ -121,19 +129,22 @@ export default function ListingsScreen() {
     activities: null,
     packages: null,
     transport: null,
+    stays: null,
   });
   const [refreshing, setRefreshing] = useState(false);
 
   const loadCounts = useCallback(async () => {
-    const [a, p, t] = await Promise.all([
+    const [a, p, t, s] = await Promise.all([
       activityMarketplaceAPI.getMyListings().catch(() => null),
       packageAPI.getMyPackages().catch(() => null),
       vehicleAPI.getMyVehicleListings().catch(() => null),
+      staysAPI.listMine().catch(() => null),
     ]);
     setCounts({
       activities: countOf(a),
       packages: countOf(p),
       transport: countOf(t),
+      stays: countOf(s),
     });
   }, []);
 

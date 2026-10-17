@@ -38,12 +38,14 @@ import {
   isPartnerPointBooking,
   bookingCustomer,
 } from '@prayana/shared-ui';
-import { bookingAPI, esimAPI, holidayPackagesAPI } from '@prayana/shared-services';
+import { bookingAPI, esimAPI, holidayPackagesAPI, staysAPI } from '@prayana/shared-services';
 import { useAuth } from '@prayana/shared-hooks';
 import { CompleteYourTrip } from '../../components/bookings/CompleteYourTrip';
 import { CountryFlag } from '../../components/esim/CountryFlag';
 import { countryImage } from '../../lib/countryAssets';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
+import { StayBookingCard } from '../../components/stays/StayBookingCard';
+import { todayIST, type StayBooking } from '../../lib/stays';
 
 // ===== Types =====
 
@@ -174,12 +176,13 @@ interface PackageBooking {
 
 // ===== Constants =====
 
-// Top-level product pills, same trio and order as the web my-bookings page:
-// a turf booking must not surface under Holiday Packages, and eSIMs are their
-// own section so the three never mix.
+// Top-level product pills, same set and order as the web my-bookings page:
+// a turf booking must not surface under Holiday Packages, and eSIMs and
+// stays are their own sections so the products never mix.
 const CATEGORIES = [
   { key: 'esim', label: 'eSIMs' },
   { key: 'activities', label: 'Activities' },
+  { key: 'stays', label: 'Stays' },
   { key: 'packages', label: 'Packages' },
 ] as const;
 
@@ -315,6 +318,33 @@ function filterPackageBookings(items: PackageBooking[], tab: TabKey): PackageBoo
   }
 }
 
+// Stay bookings (server/models/StayBooking.js). An unpaid hold still inside
+// its 20 minutes is upcoming, like a stay not yet checked out of; a no-show
+// is a stay that didn't happen, so it sits with the cancelled ones (web parity).
+function filterStayBookings(items: StayBooking[], tab: TabKey): StayBooking[] {
+  switch (tab) {
+    case 'all':
+      return items;
+    case 'upcoming': {
+      const today = todayIST();
+      const now = Date.now();
+      return items.filter(
+        (b) =>
+          (b.status === 'payment_pending' && !!b.payBy && Date.parse(b.payBy) > now) ||
+          (b.status === 'confirmed' && b.checkOut >= today)
+      );
+    }
+    case 'confirmed':
+      return items.filter((b) => b.status === 'confirmed');
+    case 'completed':
+      return items.filter((b) => b.status === 'completed');
+    case 'cancelled':
+      return items.filter((b) => b.status === 'cancelled' || b.status === 'no_show');
+    default:
+      return items;
+  }
+}
+
 /** "1.5 GB" / "500 MB" from a megabyte count. */
 function formatDataAmount(mb?: number): string {
   if (mb == null) return '';
@@ -409,6 +439,9 @@ export default function MyBookingsScreen() {
   const [packageBookings, setPackageBookings] = useState<PackageBooking[]>([]);
   const [packageLoading, setPackageLoading] = useState(false);
   const [packageLoaded, setPackageLoaded] = useState(false);
+  const [stayBookings, setStayBookings] = useState<StayBooking[]>([]);
+  const [stayLoading, setStayLoading] = useState(false);
+  const [stayLoaded, setStayLoaded] = useState(false);
 
   // Review modal state
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
@@ -507,6 +540,31 @@ export default function MyBookingsScreen() {
     if (category === 'packages' && !packageLoaded) fetchPackageBookings();
   }, [category, packageLoaded, fetchPackageBookings]);
 
+  // Fetch stay bookings (hotels, homestays…) the first time that pill is opened.
+  const fetchStayBookings = useCallback(async () => {
+    if (isGuest) return;
+    setStayLoading(true);
+    try {
+      const res = await staysAPI.myBookings();
+      const list = res?.data ?? [];
+      setStayBookings(Array.isArray(list) ? list : []);
+    } catch (error: any) {
+      Toast.show({
+        type: 'error',
+        text1: "Couldn't load your stays",
+        text2: error?.message || 'Please try again later',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setStayLoading(false);
+      setStayLoaded(true);
+    }
+  }, [isGuest]);
+
+  useEffect(() => {
+    if (category === 'stays' && !stayLoaded) fetchStayBookings();
+  }, [category, stayLoaded, fetchStayBookings]);
+
   // Deep-link: ?reviewBookingId=xxx auto-opens the review modal.
   // Used by booking detail's "Write Review" button.
   useEffect(() => {
@@ -525,7 +583,8 @@ export default function MyBookingsScreen() {
     // Also refresh whichever secondary list the user is looking at.
     if (category === 'esim' && esimLoaded) fetchEsimOrders();
     if (category === 'packages' && packageLoaded) fetchPackageBookings();
-  }, [fetchBookings, category, esimLoaded, packageLoaded, fetchEsimOrders, fetchPackageBookings]);
+    if (category === 'stays' && stayLoaded) fetchStayBookings();
+  }, [fetchBookings, category, esimLoaded, packageLoaded, stayLoaded, fetchEsimOrders, fetchPackageBookings, fetchStayBookings]);
 
   // ===== Cancel Booking =====
 
@@ -640,6 +699,7 @@ export default function MyBookingsScreen() {
   const filteredBookings = filterBookings(bookings, activeTab);
   const filteredEsimOrders = filterEsimOrders(esimOrders, activeTab);
   const filteredPackageBookings = filterPackageBookings(packageBookings, activeTab);
+  const filteredStayBookings = filterStayBookings(stayBookings, activeTab);
 
   // ===== Render Functions =====
 
@@ -664,6 +724,9 @@ export default function MyBookingsScreen() {
                 { color: themeColors.textSecondary },
                 isActive && styles.categoryPillTextActive,
               ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
             >
               {cat.label}
             </Text>
@@ -688,6 +751,8 @@ export default function MyBookingsScreen() {
             ? filterEsimOrders(esimOrders, tab.key).length
             : category === 'packages'
             ? filterPackageBookings(packageBookings, tab.key).length
+            : category === 'stays'
+            ? filterStayBookings(stayBookings, tab.key).length
             : filterBookings(bookings, tab.key).length;
 
         return (
@@ -1066,6 +1131,15 @@ export default function MyBookingsScreen() {
     );
   };
 
+  // Stay booking card — opens the booking screen (voucher, pay, cancel, review).
+  const renderStayCard = ({ item }: { item: StayBooking }) => (
+    <StayBookingCard
+      booking={item}
+      onPress={() => router.push(`/stays/booking/${item._id}` as any)}
+      onReview={() => router.push(`/stays/booking/${item._id}?review=1` as any)}
+    />
+  );
+
   const renderEmptyState = () => {
     if (isLoading) return null;
 
@@ -1105,6 +1179,13 @@ export default function MyBookingsScreen() {
         actionLabel: 'Explore Activities',
         onAction: () => router.push('/(tabs)/explore' as any),
       },
+      stays: {
+        icon: 'bed-outline',
+        title: 'No stays booked yet',
+        description: 'Hotels, homestays and villas you book show up here with their vouchers.',
+        actionLabel: 'Find a stay',
+        onAction: () => router.push('/stays' as any),
+      },
       packages: {
         icon: 'airplane-outline',
         title: 'No package bookings yet',
@@ -1127,7 +1208,7 @@ export default function MyBookingsScreen() {
         }
         title={
           isFiltered
-            ? `No ${STATUS_TABS.find((t) => t.key === activeTab)?.label?.toLowerCase()} ${category === 'esim' ? 'eSIMs' : 'bookings'}`
+            ? `No ${STATUS_TABS.find((t) => t.key === activeTab)?.label?.toLowerCase()} ${category === 'esim' ? 'eSIMs' : category === 'stays' ? 'stays' : 'bookings'}`
             : meta.title
         }
         description={
@@ -1263,13 +1344,14 @@ export default function MyBookingsScreen() {
         <View style={styles.headerSpacer} />
       </View>
 
-      {/* Category pills — eSIMs · Activities · Packages, like the web page */}
+      {/* Category pills — eSIMs · Activities · Stays · Packages, like the web page */}
       {!isGuest && renderCategoryPills()}
 
       {/* Status Tabs */}
       {((category === 'activities' && !isLoading && bookings.length > 0) ||
         (category === 'esim' && esimLoaded && esimOrders.length > 0) ||
-        (category === 'packages' && packageLoaded && packageBookings.length > 0)) &&
+        (category === 'packages' && packageLoaded && packageBookings.length > 0) ||
+        (category === 'stays' && stayLoaded && stayBookings.length > 0)) &&
         renderStatusTabs()}
 
       {/* Content */}
@@ -1279,6 +1361,30 @@ export default function MyBookingsScreen() {
         renderSkeletonList()
       ) : category === 'packages' && (packageLoading || !packageLoaded) && !isGuest ? (
         renderSkeletonList()
+      ) : category === 'stays' && (stayLoading || !stayLoaded) && !isGuest ? (
+        renderSkeletonList()
+      ) : category === 'stays' ? (
+        <FlatList
+          data={filteredStayBookings}
+          keyExtractor={(item) => item._id}
+          renderItem={renderStayCard}
+          contentContainerStyle={[
+            styles.listContent,
+            filteredStayBookings.length === 0 && styles.listContentEmpty,
+          ]}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={renderEmptyState}
+          ListFooterComponent={filteredStayBookings.length > 0 ? <CompleteYourTrip exclude="stay" /> : null}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshing}
+              onRefresh={onRefresh}
+              tintColor={colors.primary[500]}
+              colors={[colors.primary[500]]}
+            />
+          }
+          ItemSeparatorComponent={() => <View style={styles.listSeparator} />}
+        />
       ) : category === 'esim' ? (
         <FlatList
           data={filteredEsimOrders}
@@ -1390,7 +1496,7 @@ const styles = StyleSheet.create({
     width: 36,
   },
 
-  // Category pills (eSIMs · Activities · Packages)
+  // Category pills (eSIMs · Activities · Stays · Packages)
   categoryRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -1402,6 +1508,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: spacing.sm + 2,
+    paddingHorizontal: 4,
     borderRadius: borderRadius.full,
   },
   categoryPillActive: {

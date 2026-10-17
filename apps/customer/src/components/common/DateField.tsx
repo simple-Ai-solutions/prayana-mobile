@@ -66,7 +66,10 @@ export const DateField: React.FC<Props> = ({
 
   const openPicker = () => {
     if (!editable) return;
-    setDraft(parseISO(value) ?? maximumDate ?? new Date());
+    // An empty field opens on its earliest allowed day when that is still
+    // ahead (a check-out date), so Done can't hand back a day before it.
+    const earliest = minimumDate && minimumDate.getTime() > Date.now() ? minimumDate : null;
+    setDraft(parseISO(value) ?? earliest ?? maximumDate ?? new Date());
     setOpen(true);
   };
 

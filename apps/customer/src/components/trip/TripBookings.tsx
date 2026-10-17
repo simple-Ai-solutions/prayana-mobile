@@ -18,7 +18,7 @@ export const TripBookings: React.FC<Props> = ({ destination }) => {
   const city = encodeURIComponent(destination || '');
 
   const rows = [
-    { id: 'stay', icon: Bed, color: '#3B82F6', title: 'Book a Stay', sub: `Hotels & homestays in ${destination}`, go: () => router.push(`/hotels?city=${city}` as any) },
+    { id: 'stay', icon: Bed, color: '#3B82F6', title: 'Book a Stay', sub: `Hotels & homestays in ${destination}`, go: () => router.push(`/stays${city ? `?q=${city}` : ''}` as any) },
     { id: 'activities', icon: Ticket, color: '#F97316', title: 'Things to Do', sub: 'Tours, tickets & experiences', go: () => router.push(`/global-experiences?city=${city}` as any) },
     { id: 'transport', icon: Car, color: '#10B981', title: 'Rent a Vehicle', sub: 'Cars, bikes & self-drive', go: () => router.push('/transport' as any) },
     { id: 'esim', icon: Wifi, color: '#6366F1', title: 'Travel eSIM', sub: 'Stay connected on your trip', go: () => router.push('/esim' as any) },

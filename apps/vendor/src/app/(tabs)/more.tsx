@@ -85,6 +85,12 @@ export default function MoreScreen() {
           subtitle: 'Vehicle rentals & drivers',
           route: '/transport',
         },
+        {
+          icon: 'bed-outline',
+          label: 'Stays',
+          subtitle: 'Hotels, homestays, hostels & villas',
+          route: '/stays',
+        },
       ],
     },
     {

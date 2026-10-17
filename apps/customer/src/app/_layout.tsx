@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Linking } from 'react-native';
-import { Stack, useRouter, useSegments } from 'expo-router';
+import { Stack, useGlobalSearchParams, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ import { ConsentSheet } from '../components/consent/ConsentSheet';
 import { setTrackingAllowed, identify } from '../lib/analytics';
 import { makeGuestUser, isGuest } from '../lib/guestSession';
 import { isPlaceholderName, isNameCompleteThisSession } from '../lib/userName';
+import { readRedirect } from '../lib/authRedirect';
 import { AnimatedSplash } from '../components/common/AnimatedSplash';
 
 // Initialize crash reporting before any other code can crash.
@@ -179,6 +180,9 @@ function AuthGuard() {
   const { isAuthenticated, isLoading, user, setUser, setIsAuthenticated } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  // The sign-in screen's `redirectTo` (useRequireAuth's redirectAfter), so a
+  // guest asked to sign in mid-booking lands back on that booking.
+  const { redirectTo } = useGlobalSearchParams<{ redirectTo?: string }>();
 
   useEffect(() => {
     if (isLoading) return;
@@ -196,11 +200,13 @@ function AuthGuard() {
       return;
     }
 
-    // Real (non-guest) signed-in user lands on auth screen → push them home.
+    // Real (non-guest) signed-in user on an auth screen → on to where sign-in
+    // was asked for, else home. This is the one place that navigates after
+    // sign-in with a redirect; the sign-in screens leave it to this.
     if (!isGuest(user) && inAuthGroup) {
-      router.replace('/(tabs)');
+      router.replace((readRedirect(redirectTo) ?? '/(tabs)') as any);
     }
-  }, [isAuthenticated, isLoading, segments, user, setUser, setIsAuthenticated, router]);
+  }, [isAuthenticated, isLoading, segments, user, setUser, setIsAuthenticated, router, redirectTo]);
 
   return null;
 }
@@ -327,6 +333,9 @@ function RootNavigator() {
         <Stack.Screen name="esim/checkout/[bundle]" />
         <Stack.Screen name="esim/my-orders/index" />
         <Stack.Screen name="hotels/index" />
+        {/* stays/_layout.tsx owns this group (search, property, checkout,
+            booking), so the root registers the group, not each screen. */}
+        <Stack.Screen name="stays" />
         {/* packages/_layout.tsx owns this group (it scopes the blue brand
             ramp), so the root registers the group, not each screen. */}
         <Stack.Screen name="packages" />

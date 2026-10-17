@@ -14,7 +14,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -32,6 +32,7 @@ import {
   updateProfile,
 } from 'firebase/auth';
 import { auth } from '@prayana/shared-services';
+import { readRedirect } from '../../lib/authRedirect';
 import {
   CountryCodeButton,
   CountryCodeList,
@@ -81,6 +82,11 @@ function AppleA() {
 
 export default function LoginScreen() {
   const { setUser, setIsAuthenticated, syncWithBackend } = useAuth();
+  // Where sign-in was asked for (e.g. a stay's Reserve). AuthGuard in
+  // app/_layout.tsx routes there once the user is set, so with a redirect the
+  // handlers below don't navigate themselves — doing both opened it twice.
+  const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
+  const redirect = readRedirect(redirectTo);
 
   // Phone is the primary path — it leads the screen, entered inline here and
   // handed to the OTP step already filled in.
@@ -224,6 +230,7 @@ export default function LoginScreen() {
         phone: phone.replace(/[^\d]/g, ''),
         countryIndex: String(countryIndex),
         autoSend: '1',
+        ...(redirect ? { redirectTo: redirect } : {}),
       },
     });
   };
@@ -238,7 +245,7 @@ export default function LoginScreen() {
       setIsAuthenticated(true);
       try { await syncWithBackend(userCredential.user, 'google'); } catch {}
       await resetGuestUsage();
-      router.replace('/(tabs)');
+      if (!redirect) router.replace('/(tabs)');
     } catch (err: any) {
       let msg = 'Google Sign-In failed. Please try again.';
       if (err.code === 'auth/account-exists-with-different-credential') msg = 'An account already exists with this email using a different sign-in method.';
@@ -374,7 +381,7 @@ export default function LoginScreen() {
       setIsAuthenticated(true);
       try { await syncWithBackend(userCredential.user, 'email'); } catch {}
       await resetGuestUsage();
-      router.replace('/(tabs)');
+      if (!redirect) router.replace('/(tabs)');
     } catch (err: any) {
       let msg = 'An unexpected error occurred. Please try again.';
       switch (err.code) {

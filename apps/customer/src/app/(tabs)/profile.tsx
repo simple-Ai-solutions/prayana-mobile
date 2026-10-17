@@ -331,7 +331,7 @@ export default function ProfileScreen() {
           // screen was only reachable right after checkout, so purchases
           // "disappeared" from the app.
           label: 'My Bookings',
-          subtitle: 'Activities, eSIMs & holiday packages',
+          subtitle: 'Activities, stays, eSIMs & holiday packages',
           icon: 'receipt-outline',
           route: '/bookings',
           iconColor: '#0ea5e9',

@@ -17,6 +17,7 @@ import { useAuth } from '@prayana/shared-hooks';
 import { signInWithCustomToken } from 'firebase/auth';
 import { auth } from '@prayana/shared-services/src/firebase';
 import { makeAPICall } from '@prayana/shared-services';
+import { readRedirect } from '../../lib/authRedirect';
 import {
   CountryCodeButton,
   CountryCodeList,
@@ -40,7 +41,11 @@ export default function PhoneLoginScreen() {
     phone?: string;
     countryIndex?: string;
     autoSend?: string;
+    redirectTo?: string;
   }>();
+  // Passed on by the login screen. AuthGuard (app/_layout.tsx) routes there
+  // once the user is set, so with a redirect this screen doesn't navigate.
+  const redirect = readRedirect(params.redirectTo);
 
   const initialPhone = typeof params.phone === 'string' ? params.phone : '';
   const parsedCountryIndex = Number(params.countryIndex);
@@ -206,12 +211,16 @@ export default function PhoneLoginScreen() {
             console.warn('[PhoneLogin] Backend sync failed (non-fatal):', syncErr.message);
           }
 
-          // New number (or an old placeholder name) → ask for the name now,
+          // With a redirectTo, AuthGuard (_layout) takes the user back there,
+          // and NameGate still asks a new number for its name. Otherwise a new
+          // number (or an old placeholder name) is asked for the name now,
           // rather than flashing the home tab before NameGate redirects. If the
           // sync failed we don't know, so go home and let NameGate decide.
-          router.replace(
-            syncedUser && isPlaceholderName(syncedUser.name) ? ('/complete-profile' as never) : '/(tabs)',
-          );
+          if (!redirect) {
+            router.replace(
+              syncedUser && isPlaceholderName(syncedUser.name) ? ('/complete-profile' as never) : '/(tabs)',
+            );
+          }
           return;
         } catch (firebaseErr: any) {
           console.warn('[PhoneLogin] Firebase custom token sign-in failed:', firebaseErr.message);
@@ -230,7 +239,7 @@ export default function PhoneLoginScreen() {
           getIdToken: async () => 'phone-verified-token',
         } as any);
         setIsAuthenticated(true);
-        router.replace('/(tabs)');
+        if (!redirect) router.replace('/(tabs)');
       } else {
         Alert.alert('Error', 'Verification succeeded but failed to create session.');
       }

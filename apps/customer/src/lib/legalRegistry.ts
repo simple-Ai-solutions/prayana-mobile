@@ -15,6 +15,7 @@
 //   booking:package_overseas        — additionally surfaces TCS disclosure
 //   booking:transport_self_drive    — accepted at self-drive transport checkout
 //   booking:transport_chauffeur     — accepted at chauffeur transport checkout
+//   booking:stay                    — accepted at hotel / homestay checkout
 //   vendor_onboarding:activity      — vendor lists activities
 //   vendor_onboarding:package       — vendor lists holiday packages
 //   vendor_onboarding:transport_self_drive — vendor lists self-drive vehicles
@@ -33,6 +34,7 @@ export const LEGAL_DOCS = {
       "booking:package",
       "booking:transport_self_drive",
       "booking:transport_chauffeur",
+      "booking:stay",
       "vendor_onboarding:activity",
       "vendor_onboarding:package",
       "vendor_onboarding:transport_self_drive",
@@ -50,6 +52,7 @@ export const LEGAL_DOCS = {
       "booking:package",
       "booking:transport_self_drive",
       "booking:transport_chauffeur",
+      "booking:stay",
     ],
   },
   "privacy-policy": {
@@ -64,6 +67,7 @@ export const LEGAL_DOCS = {
       "booking:package",
       "booking:transport_self_drive",
       "booking:transport_chauffeur",
+      "booking:stay",
     ],
   },
   "cancellation-refund": {
@@ -77,6 +81,7 @@ export const LEGAL_DOCS = {
       "booking:package",
       "booking:transport_self_drive",
       "booking:transport_chauffeur",
+      "booking:stay",
     ],
   },
   "grievance-redressal": {

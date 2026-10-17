@@ -97,6 +97,9 @@ export { holidayPackagesAPI } from './api/holidayPackagesAPI';
 // Transport Rentals (taxi, self-drive 2W/4W, airport transfer)
 export { transportAPI } from './api/transportAPI';
 
+// Stays (hotels, homestays, hostels, resorts) — guest booking + vendor listing
+export { staysAPI } from './api/staysAPI';
+
 // Support tickets (shared by vendor + customer)
 export { supportAPI } from './api/supportAPI';
 
