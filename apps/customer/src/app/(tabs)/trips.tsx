@@ -710,6 +710,9 @@ export default function TripsScreen() {
           </View>
 
           {/* ======= FILTER TABS ======= */}
+          {/* Only once there's something to filter; on an empty account the
+              tabs just add noise above the "No trips yet" card. */}
+          {myTrips.length > 0 && (
           <View style={[styles.filterContainer, { borderBottomColor: themeColors.border }]}>
             <FlatList
               data={FILTER_TABS as unknown as FilterTab[]}
@@ -735,24 +738,7 @@ export default function TripsScreen() {
               }}
             />
           </View>
-
-          {/* ====== TRAVEL GUIDES CAROUSEL ====== */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Travel Guides</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -16 }}
-              contentContainerStyle={styles.guidesScroll}
-              decelerationRate="fast"
-              ref={guidesSnap.setRef}
-              {...guidesSnap.props}
-            >
-              {TRAVEL_GUIDES.map(renderGuideCard)}
-            </ScrollView>
-          </View>
+          )}
 
           {/* ====== MY TRIPS ====== */}
           <View style={styles.sectionContainer}>
@@ -844,19 +830,44 @@ export default function TripsScreen() {
             </View>
           )}
 
+          {/* ====== TRAVEL GUIDES CAROUSEL ====== */}
+          {/* Below your own trips: the page is about your plans first. */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Travel Guides</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
+              contentContainerStyle={styles.guidesScroll}
+              decelerationRate="fast"
+              ref={guidesSnap.setRef}
+              {...guidesSnap.props}
+            >
+              {TRAVEL_GUIDES.map(renderGuideCard)}
+            </ScrollView>
+          </View>
+
           {/* Bottom spacing */}
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
 
       {/* ======= FAB ======= */}
-      <TouchableOpacity
-        style={[styles.fab, shadow.lg]}
-        activeOpacity={0.85}
-        onPress={() => router.push('/trip/setup' as any)}
-      >
-        <Ionicons name="add" size={28} color="#ffffff" />
-      </TouchableOpacity>
+      {/* With no trips the empty card already carries "Create First Trip";
+          two create buttons on one screen is one too many. */}
+      {!loading && myTrips.length > 0 && (
+        <TouchableOpacity
+          style={[styles.fab, shadow.lg]}
+          activeOpacity={0.85}
+          onPress={() => router.push('/trip/setup' as any)}
+          accessibilityRole="button"
+          accessibilityLabel="Plan a new trip"
+        >
+          <Ionicons name="add" size={28} color="#ffffff" />
+        </TouchableOpacity>
+      )}
 
       {/* ======= GUIDE MODAL ======= */}
       <GuideModal

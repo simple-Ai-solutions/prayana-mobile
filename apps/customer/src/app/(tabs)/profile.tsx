@@ -533,7 +533,8 @@ export default function ProfileScreen() {
   // ============================================================
   // Prefer the backend name/email (reflects edit-profile saves) over Firebase.
   const displayName = backendName || user?.displayName || 'Prayana User';
-  const displayEmail = backendEmail || user?.email || 'No email linked';
+  // No email on file reads like an error inside the card; offer to add one.
+  const displayEmail = backendEmail || user?.email || null;
   const displayPhoto = user?.photoURL || undefined;
   const initials = displayName
     .split(' ')
@@ -584,9 +585,19 @@ export default function ProfileScreen() {
                 <Text style={styles.profileName} numberOfLines={1}>
                   {displayName}
                 </Text>
-                <Text style={styles.profileEmail} numberOfLines={1}>
-                  {displayEmail}
-                </Text>
+                {displayEmail ? (
+                  <Text style={styles.profileEmail} numberOfLines={1}>
+                    {displayEmail}
+                  </Text>
+                ) : (
+                  <TouchableOpacity
+                    onPress={() => router.push('/settings/edit-profile' as any)}
+                    hitSlop={8}
+                    accessibilityRole="button"
+                  >
+                    <Text style={[styles.profileEmail, styles.addEmail]}>+ Add your email</Text>
+                  </TouchableOpacity>
+                )}
                 {stats.memberSince ? (
                   <Text style={styles.profileMemberSince}>
                     Member since {formatMemberSince(stats.memberSince)}
@@ -617,6 +628,28 @@ export default function ProfileScreen() {
             <View style={styles.statsLoading}>
               <ActivityIndicator size="small" color={colors.primary[500]} />
               <Text style={[styles.statsLoadingText, { color: themeColors.textSecondary }]}>Loading stats...</Text>
+            </View>
+          ) : stats.totalTrips === 0 && stats.totalBookings === 0 && !stats.loyaltyPoints ? (
+            // A new account: a row of zeros looks empty and a little sad.
+            // Invite the first trip instead; the stats appear once there are some.
+            <View style={styles.firstTrip}>
+              <View style={[styles.firstTripIcon, isDarkMode && { backgroundColor: 'rgba(249,115,22,0.15)' }]}>
+                <Ionicons name="airplane" size={20} color={colors.primary[500]} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.firstTripTitle, { color: themeColors.text }]}>Plan your first trip</Text>
+                <Text style={[styles.firstTripText, { color: themeColors.textSecondary }]}>
+                  Your trips, bookings and reward points will show up here.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.firstTripBtn}
+                onPress={() => router.push('/trip/setup' as any)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+              >
+                <Text style={styles.firstTripBtnText}>Start</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.statsRow}>
@@ -884,6 +917,25 @@ const styles = StyleSheet.create({
   },
 
   // --- Stats Card ---
+  addEmail: { textDecorationLine: 'underline', fontWeight: '600' },
+  firstTrip: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.sm },
+  firstTripIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary[50],
+  },
+  firstTripTitle: { fontSize: 15, fontWeight: '700' },
+  firstTripText: { fontSize: 12.5, lineHeight: 17, marginTop: 2 },
+  firstTripBtn: {
+    backgroundColor: colors.primary[500],
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  firstTripBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   statsCard: {
     marginHorizontal: spacing.xl,
     marginBottom: spacing.lg,
