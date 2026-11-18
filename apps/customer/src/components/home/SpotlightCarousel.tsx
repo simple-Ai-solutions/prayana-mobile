@@ -53,6 +53,10 @@ export function SpotlightCarousel<T>({
   const activeRef = useRef(0);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const placed = useRef(false);
+  // One object for the life of the carousel. A fresh literal on every render
+  // made Android re-apply the offset each time the active dot changed, which
+  // threw a swipe back to the first card.
+  const initialOffset = useRef({ x: startX, y: 0 }).current;
 
   useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
@@ -64,9 +68,17 @@ export function SpotlightCarousel<T>({
     snap.ref.current?.scrollTo({ x: startX, animated: false });
   };
 
+  const dragging = useRef(false);
+
   const recentre = (x: number) => {
+    if (dragging.current) return; // finger still down; let the user hold
     const slot = Math.round(x / step);
-    if (Math.abs(slot * step - x) > 1) return; // not resting on a card yet
+    if (Math.abs(slot * step - x) > 1) {
+      // Stopped between two cards: Android sometimes ends a swipe without
+      // the momentum event the snap waits for. Settle it here instead.
+      snap.ref.current?.scrollTo({ x: slot * step, animated: true });
+      return;
+    }
     if (slot >= n && slot < 2 * n) return; // already in the middle copy
     const target = (((slot % n) + n) % n) + n;
     snap.ref.current?.scrollTo({ x: target * step, animated: false });
@@ -104,9 +116,19 @@ export function SpotlightCarousel<T>({
         decelerationRate="fast"
         scrollEventThrottle={16}
         onScroll={onScroll}
-        contentOffset={{ x: startX, y: 0 }}
+        contentOffset={initialOffset}
         onContentSizeChange={placeAtStart}
         {...snap.props}
+        onScrollBeginDrag={() => { dragging.current = true; }}
+        onScrollEndDrag={(e: any) => {
+          dragging.current = false;
+          snap.props.onScrollEndDrag(e);
+          // If the finger was held still, no further scroll event will come
+          // to arm the settle timer, so arm it here.
+          const x = e.nativeEvent.contentOffset.x;
+          if (settleTimer.current) clearTimeout(settleTimer.current);
+          settleTimer.current = setTimeout(() => recentre(x), SETTLE_MS);
+        }}
         contentContainerStyle={{ paddingHorizontal: sidePad, alignItems: 'center' }}
       >
         {slots.map((s) => {

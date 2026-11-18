@@ -12,6 +12,8 @@
 // scrolls, lighting the stops it has passed and naming the one it's on.
 import React, { useEffect, useState } from 'react';
 import { Animated, Platform, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { SectionHeader } from './SectionHeader';
+import { router } from 'expo-router';
 import Svg, { Circle, G, Line } from 'react-native-svg';
 import {
   Building2, Church, Flame, Footprints, Landmark, Mountain, Music, Palette,
@@ -47,12 +49,12 @@ export function PilgrimageSection({ onPlacePress }: {
       onLayout={(e) => setBandH(e.nativeEvent.layout.height)}
     >
       {bandH > 0 && <Mandalas width={width} height={bandH} color={isDarkMode ? DD.gold : DD.maroon} />}
-      <Text style={styles.eyebrow}>॥  TIRTH YATRA  ॥</Text>
-      <Text style={[styles.title, { color: ink }]}>Sacred Pilgrimage Sites</Text>
-      <Text style={[styles.subtitle, { color: isDarkMode ? 'rgba(255,248,231,0.7)' : '#7C5A44' }]}>
-        India's most revered places, one stop at a time
-      </Text>
-      <DiyaDivider />
+      <SectionHeader
+        eyebrow="TIRTH YATRA"
+        title="Sacred Pilgrimage Sites"
+        color={ink}
+        onSeeAll={() => router.push('/divya-darshana' as any)}
+      />
       <PilgrimageRail onPlacePress={onPlacePress} />
     </View>
   );
@@ -228,7 +230,7 @@ function YatraPath({ scrollX, contentW, viewW }: RailProgressProps) {
 }
 
 const styles = StyleSheet.create({
-  band: { paddingTop: 28, paddingBottom: 20, marginTop: 12, overflow: 'hidden' },
+  band: { paddingTop: 36, paddingBottom: 12, overflow: 'hidden' },
   eyebrow: {
     textAlign: 'center', color: DD.saffron, fontSize: 11, fontWeight: '700', letterSpacing: 3,
   },

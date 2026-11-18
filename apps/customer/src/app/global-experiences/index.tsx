@@ -303,7 +303,7 @@ export default function GlobalExperiencesScreen() {
 
   const heroTitle = isFiltered
     ? query.trim()
-      ? `Search: “${query.trim()}”`
+      ? query.trim().replace(/^./, (c) => c.toUpperCase())
       : selection
         ? `Things to do in ${selection.label}`
         : 'Search results'
@@ -333,7 +333,7 @@ export default function GlobalExperiencesScreen() {
           }
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
-          style={styles.hero}
+          style={[styles.hero, isFiltered && styles.heroCompact]}
         >
           <View style={styles.heroTop}>
             <TouchableOpacity
@@ -356,8 +356,11 @@ export default function GlobalExperiencesScreen() {
             </View>
           )}
 
+          {isFiltered && !!query.trim() && (
+            <Text style={[styles.heroLabel, { color: themeColors.textSecondary }]}>Results for</Text>
+          )}
           {isFiltered ? (
-            <Text style={[styles.heroTitle, { color: themeColors.text }]} numberOfLines={2}>
+            <Text style={[styles.heroTitle, styles.heroTitleCompact, { color: themeColors.text }]} numberOfLines={2}>
               {heroTitle}
             </Text>
           ) : (
@@ -367,11 +370,12 @@ export default function GlobalExperiencesScreen() {
             </Text>
           )}
 
-          <Text style={[styles.heroSub, { color: themeColors.textSecondary }]}>
-            {isFiltered
-              ? 'Skip-the-line entry and guided tours.'
-              : 'Skip-the-line tickets, expert-led tours and bucket-list moments — hand-picked across 90+ countries.'}
-          </Text>
+          {/* Results get a compact header: the title and the search say enough. */}
+          {!isFiltered && (
+            <Text style={[styles.heroSub, { color: themeColors.textSecondary }]}>
+              Skip-the-line tickets, expert-led tours and bucket-list moments — hand-picked across 90+ countries.
+            </Text>
+          )}
 
           {!isFiltered && (
             <View style={styles.trust}>
@@ -738,6 +742,9 @@ const styles = StyleSheet.create({
     paddingTop: spacing.md,
     paddingBottom: spacing['2xl'] + spacing.lg,
   },
+  heroCompact: { paddingBottom: spacing['2xl'] + spacing.xs },
+  heroTitleCompact: { fontSize: 26, lineHeight: 32, letterSpacing: -0.6 },
+  heroLabel: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   heroTop: { flexDirection: 'row', marginBottom: spacing.lg },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   eyebrow: {
@@ -861,8 +868,10 @@ const styles = StyleSheet.create({
   },
   sortItemText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
-  gridCell: { width: '47.5%', flexGrow: 1 },
+  // Two even columns; a lone last card keeps its column width instead of
+  // stretching across the row.
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 22, marginTop: spacing.md },
+  gridCell: { width: '48%' },
   viewMore: {
     marginTop: spacing.lg,
     paddingVertical: spacing.md,

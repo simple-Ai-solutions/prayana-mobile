@@ -11,6 +11,7 @@ import {
   View, Text, StyleSheet, Pressable, Animated, Easing, AccessibilityInfo, useWindowDimensions,
   Dimensions,
 } from 'react-native';
+import { PressableScale } from '../ui/PressableScale';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFonts, DancingScript_400Regular, DancingScript_700Bold } from '@expo-google-fonts/dancing-script';
@@ -57,13 +58,16 @@ function Postcard({ dest, region, index, width, deal, still, script, scriptBold,
   const translateY = t.interpolate({ inputRange: [0, 1], outputRange: [46, 0] });
   const scale = t.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] });
   const opacity = t.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] });
-  const long = dest.name.length > 11;
+  const long = dest.name.length > 8;
+  // A one-word name ("Leh-Ladakh") stays on one line and shrinks to fit
+  // instead of breaking mid-word.
+  const nameLines = /\s/.test(dest.name.trim()) ? 2 : 1;
 
   return (
     <Animated.View style={{ width, opacity, transform: [{ translateY }, { scale }, { rotate }] }}>
-      <Pressable
+      <PressableScale
         onPress={onPress}
-        style={({ pressed }) => [styles.card, pressed && { transform: [{ scale: 0.97 }] }]}
+        style={() => [styles.card]}
         accessibilityRole="link"
         accessibilityLabel={`${dest.name}, ${dest.state}`}
       >
@@ -94,7 +98,9 @@ function Postcard({ dest, region, index, width, deal, still, script, scriptBold,
               { fontSize: long ? 24 : 30, lineHeight: long ? 26 : 32, transform: [{ rotate: '-3deg' }] },
               scriptBold ? { fontFamily: scriptBold } : styles.nameFallback,
             ]}
-            numberOfLines={2}
+            numberOfLines={nameLines}
+            adjustsFontSizeToFit
+            minimumFontScale={0.6}
           >
             {dest.name}
           </Text>
@@ -110,7 +116,7 @@ function Postcard({ dest, region, index, width, deal, still, script, scriptBold,
             <ArrowRight size={14} color="#fff" />
           </View>
         </View>
-      </Pressable>
+      </PressableScale>
     </Animated.View>
   );
 }

@@ -28,9 +28,13 @@ import { FloatingChatFAB } from '../../components/chat/FloatingChatFAB';
 import { QuickItineraryModal } from '../../components/trip/QuickItineraryModal';
 import { RecentItineraries } from '../../components/home/RecentItineraries';
 import DynamicHomeContent from '../../components/home/DynamicHomeContent';
-import { PromoTrio } from '../../components/home/PromoTrio';
+import { SectionHeader } from '../../components/home/SectionHeader';
+import { PressableScale } from '../../components/ui/PressableScale';
+import { PlacesStrip } from '../../components/home/PlacesStrip';
+import { ThingsToDoRail } from '../../components/home/ThingsToDoRail';
+import { VisaFreeRail } from '../../components/home/VisaFreeRail';
 import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSheet';
-import { TrekkingRail } from '../../components/home/HomeRails';
+import { TrekkingRail, ValueDealsRail } from '../../components/home/HomeRails';
 import { DiscoverByInterestRail } from '../../components/home/DiscoverByInterestRail';
 import { TopIndiaRail } from '../../components/home/TopIndiaRail';
 import { PilgrimageSection } from '../../components/home/PilgrimageRail';
@@ -119,18 +123,6 @@ const PLAN_CHOICES = [
 // rotating remote photos and now uses /icons/hero-scenery.jpg with a Ken Burns drift).
 const HERO_SCENERY = require('../../../assets/hero-scenery.jpg');
 
-// Seasonal eyebrow — mirrors the web HeroSection SEASONAL array, month-indexed.
-// The web uses an emoji per season, but emoji don't render in this RN build
-// (they came out as "?" boxes), so each season carries an Ionicon + tint
-// instead — same meaning, renders on every device.
-const SEASONAL = [
-  { m: [0, 1], icon: 'snow-outline', iconColor: '#BAE6FD', title: 'Winter Escapes Await', sub: 'Crisp air, cozy stays & clear skies' }, // Jan–Feb
-  { m: [2], icon: 'flower-outline', iconColor: '#FDA4AF', title: 'Spring Is Calling', sub: 'Perfect weather for a getaway' }, // Mar
-  { m: [3, 4, 5], icon: 'sunny-outline', iconColor: '#FCD34D', title: 'Beat the Summer Heat', sub: 'Cool hill-station escapes await' }, // Apr–Jun
-  { m: [6, 7, 8], icon: 'rainy-outline', iconColor: '#7FE0E9', title: 'Monsoon Magic Awaits', sub: 'Green trails, misty views & peaceful escapes' }, // Jul–Sep
-  { m: [9, 10], icon: 'sparkles-outline', iconColor: '#FDBA74', title: 'Festive-Season Escapes', sub: 'Celebrate with a trip to remember' }, // Oct–Nov
-  { m: [11], icon: 'snow-outline', iconColor: '#BAE6FD', title: 'Winter Wonderland Awaits', sub: 'Snowy peaks & cozy retreats' }, // Dec
-] as const;
 
 // Typewriter destinations inside the H1 ("perfect escape to <city>") — web parity.
 
@@ -293,17 +285,12 @@ export default function HomeScreen() {
     return () => { cancelled = true; sub?.remove?.(); };
   }, []);
 
-  // Seasonal eyebrow — picked by the real current month (web parity).
-  const seasonal = SEASONAL.find((s) => (s.m as readonly number[]).includes(new Date().getMonth())) || SEASONAL[0];
 
   // Typewriter: see lib/typedCity — only the two words below re-render per letter.
 
   // Ken Burns (slow zoom + drift), eyebrow shimmer sweep, CTA halo pulse,
   // Sparkles spin, blinking caret — all looping Animated values.
   const kenBurns = useRef(new Animated.Value(0)).current;
-  const shimmer = useRef(new Animated.Value(0)).current;
-  const ctaHalo = useRef(new Animated.Value(0)).current;
-  const sparkleSpin = useRef(new Animated.Value(0)).current;
   const caret = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -317,21 +304,6 @@ export default function HomeScreen() {
       ),
       Animated.loop(
         Animated.sequence([
-          Animated.timing(shimmer, { toValue: 1, duration: 1800, useNativeDriver: true }),
-          Animated.delay(1400),
-        ])
-      ),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(ctaHalo, { toValue: 1, duration: 1200, useNativeDriver: true }),
-          Animated.timing(ctaHalo, { toValue: 0, duration: 1200, useNativeDriver: true }),
-        ])
-      ),
-      Animated.loop(
-        Animated.timing(sparkleSpin, { toValue: 1, duration: 3000, useNativeDriver: true })
-      ),
-      Animated.loop(
-        Animated.sequence([
           Animated.timing(caret, { toValue: 0, duration: 550, useNativeDriver: true }),
           Animated.timing(caret, { toValue: 1, duration: 550, useNativeDriver: true }),
         ])
@@ -339,15 +311,40 @@ export default function HomeScreen() {
     ];
     loops.forEach((l) => l.start());
     return () => loops.forEach((l) => l.stop());
-  }, [reduceMotion, kenBurns, shimmer, ctaHalo, sparkleSpin, caret]);
+  }, [reduceMotion, kenBurns, caret]);
 
   const kenScale = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
   const kenX = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
   const kenY = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [0, 8] });
-  const shimmerX = shimmer.interpolate({ inputRange: [0, 1], outputRange: [-140, SCREEN_WIDTH] });
-  const haloScale = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [1, 1.12] });
-  const haloOpacity = ctaHalo.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0] });
-  const spin = sparkleSpin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
+  // ── Page scroll ──────────────────────────────────────────────────────────
+  // One native-driven value drives the hero parallax, the pull-down zoom
+  // (iOS overscroll) and the header hairline, so they track the finger
+  // without touching JS. The JS listener only flips the chat button when the
+  // scroll direction changes.
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [fabHidden, setFabHidden] = useState(false);
+  const fabHiddenRef = useRef(false);
+  const lastY = useRef(0);
+  const onPageScroll = useRef(
+    Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
+      useNativeDriver: true,
+      listener: (e: any) => {
+        const y = e.nativeEvent.contentOffset.y;
+        const dy = y - lastY.current;
+        if (Math.abs(dy) < 8) return;
+        lastY.current = y;
+        const hide = dy > 0 && y > 160;
+        if (hide !== fabHiddenRef.current) {
+          fabHiddenRef.current = hide;
+          setFabHidden(hide);
+        }
+      },
+    }),
+  ).current;
+  const heroParallax = scrollY.interpolate({ inputRange: [-200, 0, 400], outputRange: [-100, 0, 160], extrapolate: 'clamp' });
+  const heroPull = scrollY.interpolate({ inputRange: [-200, 0], outputRange: [1.35, 1], extrapolateRight: 'clamp' });
+  const headerLine = scrollY.interpolate({ inputRange: [0, 24], outputRange: [0, 1], extrapolate: 'clamp' });
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
@@ -376,39 +373,19 @@ export default function HomeScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       {/* Top header bar — logo + brand + quick actions (matches web) */}
-      <View style={[styles.appHeader, { backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
+      <View style={[styles.appHeader, { backgroundColor: themeColors.background }]}>
+        {/* Hairline fades in once the page scrolls under the header. */}
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.appHeaderLine, { backgroundColor: themeColors.border, opacity: headerLine }]}
+        />
         <View style={styles.appHeaderLeft}>
           <PrayanaLogo size={26} />
           <Text style={styles.appHeaderBrand}>PrayanaAI</Text>
         </View>
         <View style={styles.appHeaderRight}>
-          {/* Community — web-parity header nav entry point */}
-          <TouchableOpacity onPress={() => router.push('/community' as any)} hitSlop={8}>
-            <Ionicons name="people-outline" size={22} color={themeColors.text} />
-          </TouchableOpacity>
-          {/* Country + currency selector (web parity: the TopNavigation flag +
-              currency pill that opens LocationPreferences). Taps into the country
-              settings screen. The India flag is drawn — the 🇮🇳 emoji renders as
-              "?" boxes in this RN build (regional-indicator pairs have no glyph). */}
-          <TouchableOpacity
-            style={[styles.countryPill, { borderColor: themeColors.border }]}
-            onPress={() => router.push('/settings/country' as any)}
-            hitSlop={6}
-            accessibilityRole="button"
-            accessibilityLabel="Country and currency"
-          >
-            {/* Was a hardcoded Indian tricolour drawn as three flat bars: it
-                stayed Indian whatever country you picked, and without the
-                Ashoka Chakra it read as generic stripes. Derive the real flag
-                from the selected country code instead. */}
-            <Text style={styles.appHeaderFlag}>{flagForCountry(userPreferences.country)}</Text>
-            <Text style={[styles.countryPillText, { color: themeColors.textSecondary }]}>
-              {userPreferences.currency || 'INR'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={toggleTheme} hitSlop={8}>
-            <Ionicons name={isDarkMode ? 'sunny-outline' : 'moon-outline'} size={22} color={themeColors.text} />
-          </TouchableOpacity>
+          {/* Community, country/currency and the theme switch live in
+              Profile now: the header keeps only what people reach for daily. */}
           <TouchableOpacity onPress={() => router.push('/notifications' as any)} hitSlop={8} accessibilityLabel="Notifications">
             <NotificationBell color={themeColors.text} />
           </TouchableOpacity>
@@ -417,8 +394,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
-      <ScrollView
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onScroll={onPageScroll}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary[500]} />}
       >
         {/* ============================================================ */}
@@ -428,6 +407,7 @@ export default function HomeScreen() {
           {/* Background — ONE fixed scenic photo with a slow Ken Burns zoom/drift.
               Kept in its own clipped layer so the transform never moves the content. */}
           <View style={styles.heroBgClip} pointerEvents="none">
+            <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateY: heroParallax }, { scale: heroPull }] }]}>
             <Animated.Image
               source={HERO_SCENERY}
               style={[
@@ -436,6 +416,7 @@ export default function HomeScreen() {
               ]}
               resizeMode="cover"
             />
+            </Animated.View>
 
             {/* Cinematic scrim — the web's vertical ramp (0.60 → 0.50 → 0.34 → 0.30 → 0.48). */}
             <LinearGradient
@@ -467,27 +448,6 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* Glass badge — seasonal context, auto-picked from the current month */}
-          <View style={styles.heroBadge}>
-            {/* light sweep across the glass (web's hero-eyebrow-shimmer) */}
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.heroBadgeShimmer, { transform: [{ translateX: shimmerX }] }]}
-            >
-              <LinearGradient
-                colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.35)', 'rgba(255,255,255,0)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-              />
-            </Animated.View>
-            <Ionicons name={seasonal.icon} size={17} color={seasonal.iconColor} style={styles.heroBadgeEmoji} />
-            <View style={styles.heroBadgeText}>
-              <Text style={styles.heroBadgeTitle}>{seasonal.title}</Text>
-              <Text style={styles.heroBadgeSub}>{seasonal.sub}</Text>
-            </View>
-          </View>
-
           {/* Headline — script + serif, typed destination in teal + blinking caret */}
           <Text style={styles.heroScript}>Plan your</Text>
           <Text style={styles.heroSerif}>
@@ -498,21 +458,10 @@ export default function HomeScreen() {
 
           {/* Primary CTA — red→orange logo gradient pill, pulsing halo + spinning sparkles */}
           <View style={styles.ctaWrap}>
-            <Animated.View
-              pointerEvents="none"
-              style={[styles.ctaHalo, { opacity: haloOpacity, transform: [{ scale: haloScale }] }]}
-            >
-              <LinearGradient
-                colors={[BRAND.flame, BRAND.red]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.ctaHaloFill}
-              />
-            </Animated.View>
-            <TouchableOpacity
-              activeOpacity={0.88}
+            <PressableScale
               onPress={() => setShowPlanChoice(true)}
               style={styles.ctaButton}
+              accessibilityRole="button"
             >
               <LinearGradient
                 colors={[BRAND.red, BRAND.flame]}
@@ -520,57 +469,56 @@ export default function HomeScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.ctaGradient}
               >
-                <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                  <Ionicons name="sparkles" size={18} color="#FFFFFF" />
-                </Animated.View>
+                <Ionicons name="sparkles" size={18} color="#FFFFFF" />
                 <Text style={styles.ctaText}>Plan a Trip with AI</Text>
                 <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
               </LinearGradient>
-            </TouchableOpacity>
+            </PressableScale>
           </View>
 
           {/* Search — white pill with teal ring */}
-          <TouchableOpacity
+          <PressableScale
             style={styles.searchBar}
             onPress={() => router.push('/search')}
-            activeOpacity={0.85}
+            haptic={false}
+            accessibilityRole="search"
           >
             <Ionicons name="search-outline" size={20} color="#71717A" />
             <TypedCity style={styles.searchPlaceholder} prefix="Search for " still={reduceMotion} />
             <View style={styles.searchSparkle}>
               <Ionicons name="sparkles" size={16} color="#71717A" />
             </View>
-          </TouchableOpacity>
+          </PressableScale>
         </View>
 
         {/* ============================================================ */}
         {/* MORE WAYS TO EXPLORE — pastel cards with NEW/SOON badges      */}
         {/* ============================================================ */}
         <View style={styles.moreWays}>
-          <Text style={[styles.moreWaysTitle, { color: themeColors.text }]}>
-            <Text style={styles.moreWaysAccent}>More ways</Text> to explore
-          </Text>
-          <View style={styles.moreWaysRule} />
-          {/* All 4 cards fit the screen at once (web-mobile parity) — a 4-up
-              grid sized to the viewport, not a horizontal scroll. */}
+          {/* Quick actions: four round icons, no heading. They say what the
+              app does in half the height the old cards took. */}
           <View style={styles.moreWaysGrid}>
             {MORE_WAYS.map((m) => (
-              <TouchableOpacity
+              <PressableScale
                 key={m.id}
-                style={[styles.wayCard, { backgroundColor: isDarkMode ? m.darkBg : m.bg, width: MORE_WAYS_CARD_W }, isDarkMode && { borderWidth: 1, borderColor: `${m.tagColor}40` }]}
+                scaleTo={0.92}
+                style={styles.wayItem}
                 onPress={() =>
                   m.id === 'things'
                     ? setCategoriesOpen(true) // open the "All categories" sheet (web parity)
                     : router.push((m as { route: string }).route as any)
                 }
-                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={m.label}
               >
-                <View style={[styles.wayTag, { backgroundColor: m.tagColor }]}>
-                  <Text style={styles.wayTagText}>{m.tag}</Text>
+                <View style={[styles.wayCircle, { backgroundColor: isDarkMode ? m.darkBg : m.bg }, isDarkMode && { borderWidth: 1, borderColor: `${m.tagColor}40` }]}>
+                  <Image source={m.icon} style={styles.wayIcon} resizeMode="contain" />
+                  <View style={[styles.wayTag, { backgroundColor: m.tagColor, borderColor: themeColors.background }]}>
+                    <Text style={styles.wayTagText}>{m.tag}</Text>
+                  </View>
                 </View>
-                <Image source={m.icon} style={styles.wayIcon} resizeMode="contain" />
-                <Text style={[styles.wayLabel, isDarkMode && { color: '#F5F5F7' }]} numberOfLines={2}>{m.label}</Text>
-              </TouchableOpacity>
+                <Text style={[styles.wayLabel, { color: themeColors.text }]} numberOfLines={2}>{m.label}</Text>
+              </PressableScale>
             ))}
           </View>
         </View>
@@ -592,17 +540,17 @@ export default function HomeScreen() {
           />
         ) : (
         <>
-        {/* Between "More ways" and "Discover by Interest", same as the web. */}
+        {/* First screen: quick actions, hotspots as round photos, then the
+            big trek cards and the bookable island deals. */}
+        <PlacesStrip />
         <TrekkingRail />
+        <ValueDealsRail />
 
         {/* ============================================================ */}
         {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
         {/* ============================================================ */}
         <View style={[styles.section, { backgroundColor: themeColors.background }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Discover by Interest</Text>
-          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>
-            Find your perfect destination based on what you love most
-          </Text>
+          <SectionHeader title="Discover by Interest" />
           {/* Same mood posters and clips as the web. */}
           <DiscoverByInterestRail />
         </View>
@@ -620,17 +568,22 @@ export default function HomeScreen() {
         {/* TOP 20 INDIA (matching web CollectionGrid masonry)            */}
         {/* ============================================================ */}
         <View style={[styles.section, { backgroundColor: themeColors.background }]}>
-          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Top 20 Destinations to visit in India</Text>
-          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>
-            Discover India's most captivating destinations
-          </Text>
-
+          <SectionHeader title="Top 20 in India" />
           {/* Same ranked posters and photo reels as the web. */}
           <TopIndiaRail
             onPlacePress={(p) => handleDestinationPress(p.name, { image: p.image, desc: p.description })}
           />
         </View>
 
+        {/* Visa-free countries for an Indian passport. */}
+        <View style={styles.section}>
+          <SectionHeader title="Visa-free for Indians" />
+          <VisaFreeRail
+            countryCode={userPreferences.country}
+            countryName={userPreferences.countryName}
+            onCountryPress={(c) => handleDestinationPress(c.name, { image: c.images?.[0], desc: c.description })}
+          />
+        </View>
         </>
         )}
 
@@ -644,12 +597,7 @@ export default function HomeScreen() {
           }
           style={styles.regionSection}
         >
-          <Text style={[styles.sectionTitle, { color: themeColors.text, textAlign: 'center' }]}>
-            Explore India by Region
-          </Text>
-          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary, textAlign: 'center' }]}>
-            Discover the diverse beauty of India, one region at a time.
-          </Text>
+          <SectionHeader title="Explore India by Region" />
 
           {/* Same postcards, sliding tabs and Shuffle as the web. */}
           <RegionPostcards
@@ -657,13 +605,13 @@ export default function HomeScreen() {
           />
         </LinearGradient>
 
-        {/* Promo trio — eSIM / Divya Darshana / Holiday Packages (web parity:
-            EsimHomepageSection + DivyaDarshanaPromoCard + HolidayPackagesPromoCard). */}
-        <PromoTrio />
+        {/* Things to do by kind: Tours, Wildlife, Food Tours… */}
+        {isIndiaUser && <ThingsToDoRail />}
+
 
         {/* Bottom spacer for tab bar */}
-        <View style={{ height: 32 }} />
-      </ScrollView>
+        <View style={{ height: 96 }} />
+      </Animated.ScrollView>
 
       {/* More services bottom sheet — at root so the Modal portals correctly on Android */}
       <Modal
@@ -844,7 +792,7 @@ export default function HomeScreen() {
       {/* Floating AI Chat Button (matching web FloatingChatButton) */}
       {/* Hide the floating chat FAB while the Quick Itinerary popup is open
           so it doesn't overlap the form/keyboard. */}
-      {!showQuickItinerary && <FloatingChatFAB />}
+      {!showQuickItinerary && <FloatingChatFAB hidden={fabHidden} />}
 
       {/* Quick Itinerary generate popup (opens from the hero tab) */}
       <QuickItineraryModal visible={showQuickItinerary} onClose={() => setShowQuickItinerary(false)} />
@@ -868,8 +816,8 @@ const styles = StyleSheet.create({
 
   // ---- HERO SECTION ----
   hero: {
-    paddingTop: 24,
-    paddingBottom: 20,
+    paddingTop: 28,
+    paddingBottom: 22,
     paddingHorizontal: 20,
     position: 'relative',
     overflow: 'hidden',
@@ -977,9 +925,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    zIndex: 2,
+  },
+  appHeaderLine: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: StyleSheet.hairlineWidth,
   },
   appHeaderLeft: {
     flexDirection: 'row',
@@ -1023,46 +978,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   // Glass badge — translucent pill over the hero photo
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: 7,
-    maxWidth: '90%',
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.28)',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginBottom: 18,
-    position: 'relative',
-    overflow: 'hidden',
-  },
   // Translucent light strip that sweeps across the glass pill.
-  heroBadgeShimmer: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 90,
-  },
-  heroBadgeEmoji: {
-    fontSize: 17,
-    lineHeight: 22,
-  },
-  heroBadgeText: {
-    flexShrink: 1,
-  },
-  heroBadgeTitle: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  heroBadgeSub: {
-    color: 'rgba(255,255,255,0.80)',
-    fontSize: 10,
-    marginTop: 1,
-  },
   // Headline — script + serif, mirroring the web hero
   heroScript: {
     fontFamily: 'Snell Roundhand',
@@ -1094,8 +1010,8 @@ const styles = StyleSheet.create({
   // Primary CTA — red→orange logo gradient pill, with a pulsing gradient halo
   ctaWrap: {
     alignSelf: 'center',
-    marginTop: 24,
-    marginBottom: 24,
+    marginTop: 18,
+    marginBottom: 16,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1146,8 +1062,8 @@ const styles = StyleSheet.create({
 
   // "More ways to explore" — pastel cards
   moreWays: {
-    paddingTop: 24,
-    paddingBottom: 8,
+    paddingTop: 20,
+    paddingBottom: 4,
   },
   moreWaysTitle: {
     fontSize: 20,
@@ -1169,20 +1085,24 @@ const styles = StyleSheet.create({
   moreWaysGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
-  wayCard: {
-    // width set inline (MORE_WAYS_CARD_W) so all 4 fit the viewport
-    aspectRatio: 0.78,
-    borderRadius: 14,
-    padding: 8,
-    justifyContent: 'space-between',
+  wayItem: { width: MORE_WAYS_CARD_W, alignItems: 'center' },
+  wayCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   wayTag: {
-    alignSelf: 'flex-start',
-    borderRadius: 5,
+    position: 'absolute',
+    top: -6,
+    right: -10,
+    borderRadius: 999,
+    borderWidth: 2,
     paddingHorizontal: 5,
-    paddingVertical: 1.5,
+    paddingVertical: 1,
   },
   wayTagText: {
     color: '#FFFFFF',
@@ -1191,15 +1111,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   wayIcon: {
-    width: 34,
-    height: 34,
-    alignSelf: 'flex-start',
+    width: 36,
+    height: 36,
   },
   wayLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#18181B',
-    lineHeight: 14,
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 15,
+    textAlign: 'center',
   },
 
   // Hero Service Tabs (PWA-style: 4 brand icons + More)
@@ -1438,7 +1358,7 @@ const styles = StyleSheet.create({
 
   // ---- SECTIONS ----
   section: {
-    paddingTop: 28,
+    paddingTop: 36,
     paddingBottom: 4,
   },
   sectionTitle: {
@@ -1479,7 +1399,8 @@ const styles = StyleSheet.create({
 
   // ---- EXPLORE INDIA BY REGION ----
   regionSection: {
+    marginTop: 36,
     paddingTop: 32,
-    paddingBottom: 20,
+    paddingBottom: 24,
   },
 });

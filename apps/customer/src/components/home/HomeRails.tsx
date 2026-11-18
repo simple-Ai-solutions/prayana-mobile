@@ -21,6 +21,7 @@ import { useTheme, spacing, fontWeight } from '@prayana/shared-ui';
 import { activityMarketplaceAPI, holidayPackagesAPI } from '@prayana/shared-services';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 import { TrekPosterCard } from './TrekPosterCard';
+import { SectionHeader } from './SectionHeader';
 import { SpotlightCarousel } from './SpotlightCarousel';
 import { TWO_UP_W, RAIL_GAP, SPOTLIGHT_W, usePairSnap } from '../../lib/railLayout';
 import { assignDealClips } from '../../lib/dealClips';
@@ -109,28 +110,11 @@ function OverlayCard({
 }
 
 function RailHeader({
-  icon, tint, title, subtitle, onSeeAll,
-}: { icon: any; tint: string; title: string; subtitle: string; onSeeAll: () => void }) {
-  const { themeColors } = useTheme();
-  return (
-    <View style={styles.header}>
-      <View style={[styles.headerIcon, { backgroundColor: tint }]}>
-        <Ionicons name={icon} size={20} color="#fff" />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={[styles.headerTitle, { color: themeColors.text }]}>{title}</Text>
-        <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>{subtitle}</Text>
-      </View>
-      <Pressable
-        onPress={onSeeAll}
-        style={[styles.seeAll, { borderColor: themeColors.border }]}
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        accessibilityLabel="See all"
-      >
-        <Ionicons name="arrow-forward" size={16} color={themeColors.textSecondary} />
-      </Pressable>
-    </View>
-  );
+  title, onSeeAll,
+}: { icon?: any; tint?: string; title: string; subtitle?: string; onSeeAll: () => void }) {
+  // Every rail shares the one home section header; the icon tile and the
+  // subtitle line are gone so the page reads as one app.
+  return <SectionHeader title={title} onSeeAll={onSeeAll} />;
 }
 
 /**
@@ -499,12 +483,7 @@ const styles = StyleSheet.create({
   },
   progressThumb: { height: 4, borderRadius: 2, backgroundColor: '#2EC4B6' },
   progressSpacer: { height: 12 },
-  section: { paddingVertical: spacing.lg },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.lg, marginBottom: spacing.md },
-  headerIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: fontWeight.bold, letterSpacing: -0.3 },
-  headerSub: { fontSize: 12, marginTop: 2, lineHeight: 16 },
-  seeAll: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  section: { paddingTop: 36, paddingBottom: 4 },
   rail: { gap: RAIL_GAP, paddingHorizontal: spacing.lg },
 
   card: { width: CARD_W, height: CARD_H, borderRadius: 16, overflow: 'hidden', backgroundColor: '#e5e7eb' },

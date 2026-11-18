@@ -27,7 +27,6 @@ import {
   spacing,
   borderRadius,
   shadow,
-  Badge,
   Button,
   StarRating,
   LoadingSpinner,
@@ -42,6 +41,7 @@ import { SPOTLIGHT_W } from '../../lib/railLayout';
 import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
 import { TrekPosterCard } from '../../components/home/TrekPosterCard';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
+import { scheduleLine } from '../../lib/trekPoster';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const HERO_HEIGHT = 280;
@@ -477,6 +477,8 @@ export default function ActivityDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
+  const [allHighlights, setAllHighlights] = useState(false);
+  const [allIncluded, setAllIncluded] = useState(false);
   const [similar, setSimilar] = useState<any[]>([]);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [fullscreenVisible, setFullscreenVisible] = useState(false);
@@ -738,14 +740,46 @@ export default function ActivityDetailScreen() {
       ? `${activity.duration.value} ${activity.duration.unit || 'hours'}`
       : null);
 
-  // Partner-supplied detail the screen was dropping entirely.
-  const maxGroupSize: number | null =
-    activity.groupSize?.max ?? activity.maxParticipants ?? null;
-
   const isInstantBooking = activity.instantBooking?.enabled ?? false;
+
+  // When it runs: "Every Friday" from the weekly schedule, or the next date.
+  // The list endpoint sends weeklySchedule; the detail endpoint sends the raw
+  // availabilitySchedule rows, so rebuild the weekdays from the open ones.
+  const openDays: number[] = Array.isArray(activity.availabilitySchedule)
+    ? [...new Set<number>(
+        activity.availabilitySchedule
+          .filter((r: any) => !r?.isBlocked && !r?.specificDate && typeof r?.dayOfWeek === 'number')
+          .map((r: any) => r.dayOfWeek),
+      )].sort((x, y) => x - y)
+    : [];
+  const runs: string | null = scheduleLine(
+    activity.weeklySchedule?.days?.length || !openDays.length
+      ? activity
+      : { ...activity, weeklySchedule: { days: openDays } },
+    null,
+  );
 
   const safetyInfo = activity.safetyRequirements || activity.requirements || null;
   const meetingPoint = activity.meetingPoint || activity.location?.meetingPoint || null;
+
+  // Key facts under the title, as icon tiles. Only facts the listing actually
+  // has; at most four so they fit one row.
+  const city = activity.location?.city || activity.city;
+  const facts = [
+    duration && { icon: 'time-outline', value: duration, label: 'Duration' },
+    runs && { icon: 'calendar-outline', value: runs, label: 'Runs' },
+    typeof safetyInfo === 'object' && safetyInfo?.fitnessLevel &&
+      { icon: 'fitness-outline', value: String(safetyInfo.fitnessLevel), label: 'Fitness' },
+    isInstantBooking && !affiliateDeepLink && { icon: 'flash-outline', value: 'Instant', label: 'Confirmation' },
+    city && { icon: 'location-outline', value: city, label: 'Where' },
+  ].filter(Boolean).slice(0, 4) as { icon: any; value: string; label: string }[];
+
+  const HIGHLIGHTS_SHOWN = 4;
+  const INCLUDED_SHOWN = 5;
+  const shownHighlights = allHighlights ? highlights : highlights.slice(0, HIGHLIGHTS_SHOWN);
+  const shownIncluded = allIncluded ? includesWhat : includesWhat.slice(0, INCLUDED_SHOWN);
+  const shownExcluded = allIncluded ? excludesWhat : excludesWhat.slice(0, 3);
+  const includedHidden = includesWhat.length - shownIncluded.length + excludesWhat.length - shownExcluded.length;
 
   // ---------------------------------------------------------------------------
   // Render
@@ -812,6 +846,9 @@ export default function ActivityDetailScreen() {
 
         {/* Info section */}
         <View style={[styles.infoSection, { borderBottomColor: themeColors.border }]}>
+          {categories.length > 0 && (
+            <Text style={styles.eyebrow}>{categories.slice(0, 2).join(' · ').toUpperCase()}</Text>
+          )}
           <Text style={[styles.title, { color: themeColors.text }]}>{activity.title}</Text>
 
           {/* Location */}
@@ -842,33 +879,22 @@ export default function ActivityDetailScreen() {
             </TouchableOpacity>
           )}
 
-          {/* Badges */}
-          <View style={styles.badgeRow}>
-            {duration && <Badge label={duration} variant="default" size="md" />}
-            {categories.map((cat, i) => (
-              <Badge key={i} label={cat} variant="primary" size="md" />
-            ))}
-            {maxGroupSize ? (
-              <Badge
-                label={`Up to ${maxGroupSize}`}
-                variant="default"
-                size="md"
-               
-              />
-            ) : null}
-            {/* "Instant Booking" on an affiliate listing would be our claim about
-                someone else's checkout, so only badge it for our own inventory. */}
-            {isInstantBooking && !affiliateDeepLink && (
-              <Badge label="Instant Booking" variant="success" size="md" />
-            )}
-          </View>
-
-          {/* Price */}
-          <View style={styles.priceRow}>
-            <Text style={[styles.priceLabel, { color: themeColors.textSecondary }]}>From </Text>
-            <Text style={styles.priceValue}>{formatCurrency(basePrice, priceCurrency)}</Text>
-            <Text style={[styles.priceUnit, { color: themeColors.textSecondary }]}> per person</Text>
-          </View>
+          {/* Key facts: duration, when it runs, fitness, instant, where.
+              The price lives in the sticky bar, so it isn't repeated here. */}
+          {facts.length > 0 && (
+            <View style={styles.factsRow}>
+              {facts.map((f) => (
+                <View
+                  key={f.label}
+                  style={[styles.fact, { backgroundColor: themeColors.surfaceElevated, borderColor: themeColors.border }]}
+                >
+                  <Ionicons name={f.icon} size={18} color={colors.primary[500]} />
+                  <Text style={[styles.factValue, { color: themeColors.text }]} numberOfLines={2}>{f.value}</Text>
+                  <Text style={[styles.factLabel, { color: themeColors.textTertiary }]}>{f.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Tell the user before they tap that checkout happens on the partner
               site — otherwise leaving the app looks like a bug. */}
@@ -903,19 +929,26 @@ export default function ActivityDetailScreen() {
         {/* Highlights — the experience's selling points */}
         {highlights.length > 0 && (
           <Section title="Highlights">
-            {highlights.map((item, idx) => (
+            {shownHighlights.map((item, idx) => (
               <View key={idx} style={styles.highlightRow}>
                 <Ionicons name="sparkles" size={16} color={colors.primary[500]} style={{ marginRight: spacing.sm, marginTop: 1 }} />
                 <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
               </View>
             ))}
+            {highlights.length > HIGHLIGHTS_SHOWN && (
+              <TouchableOpacity onPress={() => setAllHighlights(!allHighlights)} hitSlop={8}>
+                <Text style={styles.readMore}>
+                  {allHighlights ? 'Show less' : `Show all ${highlights.length} highlights`}
+                </Text>
+              </TouchableOpacity>
+            )}
           </Section>
         )}
 
         {/* What's included / Not included — split, web parity */}
         {(includesWhat.length > 0 || excludesWhat.length > 0) && (
           <Section title="What's included">
-            {includesWhat.map((item, idx) => (
+            {shownIncluded.map((item, idx) => (
               <View key={`inc-${idx}`} style={styles.highlightRow}>
                 <Ionicons name="checkmark-circle" size={18} color={colors.success} style={{ marginRight: spacing.sm, marginTop: 1 }} />
                 <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
@@ -924,13 +957,20 @@ export default function ActivityDetailScreen() {
             {excludesWhat.length > 0 && (
               <>
                 <Text style={[styles.notIncludedLabel, { color: themeColors.textTertiary }]}>Not included</Text>
-                {excludesWhat.map((item, idx) => (
+                {shownExcluded.map((item, idx) => (
                   <View key={`exc-${idx}`} style={styles.highlightRow}>
                     <Ionicons name="close-circle" size={18} color="#EF4444" style={{ marginRight: spacing.sm, marginTop: 1 }} />
                     <Text style={[styles.highlightText, { color: themeColors.textSecondary }]}>{item}</Text>
                   </View>
                 ))}
               </>
+            )}
+            {(includedHidden > 0 || allIncluded) && (
+              <TouchableOpacity onPress={() => setAllIncluded(!allIncluded)} hitSlop={8}>
+                <Text style={styles.readMore}>
+                  {allIncluded ? 'Show less' : `Show ${includedHidden} more`}
+                </Text>
+              </TouchableOpacity>
             )}
           </Section>
         )}
@@ -1123,9 +1163,16 @@ export default function ActivityDetailScreen() {
       <SafeAreaView edges={['bottom']} style={[styles.bottomBarSafe, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
         <View style={styles.bottomBar}>
           <View>
-            <Text style={[styles.bottomPriceLabel, { color: themeColors.textTertiary }]}>From</Text>
-            <Text style={[styles.bottomPrice, { color: themeColors.text }]}>{formatCurrency(basePrice, priceCurrency)}</Text>
-            <Text style={[styles.bottomPriceUnit, { color: themeColors.textTertiary }]}>per person</Text>
+            {/* When it runs sells the date; otherwise the usual "From". */}
+            {runs ? (
+              <Text style={styles.bottomRuns} numberOfLines={1}>{runs.toUpperCase()}</Text>
+            ) : (
+              <Text style={[styles.bottomPriceLabel, { color: themeColors.textTertiary }]}>From</Text>
+            )}
+            <Text style={[styles.bottomPrice, { color: themeColors.text }]}>
+              {formatCurrency(basePrice, priceCurrency)}
+              <Text style={[styles.bottomPriceUnit, { color: themeColors.textTertiary }]}> / person</Text>
+            </Text>
           </View>
           <Button
             title={
@@ -1243,6 +1290,26 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginLeft: spacing.sm,
   },
+  eyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: colors.primary[600],
+    marginBottom: 6,
+  },
+  factsRow: { flexDirection: 'row', gap: 8, marginTop: spacing.lg, marginBottom: spacing.sm },
+  fact: {
+    flex: 1,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    gap: 3,
+  },
+  factValue: { fontSize: 12.5, fontWeight: '700', textAlign: 'center', lineHeight: 16 },
+  factLabel: { fontSize: 10.5, textAlign: 'center' },
+  bottomRuns: { fontSize: 10.5, fontWeight: '800', letterSpacing: 0.6, color: colors.primary[600], marginBottom: 1 },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',

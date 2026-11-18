@@ -7,6 +7,7 @@
 // from picture to video cannot be seen. Keep the data in step with the web.
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, AccessibilityInfo, Dimensions } from 'react-native';
+import { PressableScale } from '../ui/PressableScale';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -79,9 +80,9 @@ const MOODS: Mood[] = [
 
 function MoodCard({ mood, playing }: { mood: Mood; playing: boolean }) {
   return (
-    <Pressable
+    <PressableScale
       onPress={() => router.push(`/interest/${mood.id}` as any)}
-      style={({ pressed }) => [styles.shadow, pressed && { transform: [{ scale: 0.98 }] }]}
+      style={() => [styles.shadow]}
       accessibilityRole="link"
       accessibilityLabel={`${mood.name} ${mood.kind}`}
     >
@@ -136,7 +137,7 @@ function MoodCard({ mood, playing }: { mood: Mood; playing: boolean }) {
           </View>
         </View>
       </LinearGradient>
-    </Pressable>
+    </PressableScale>
   );
 }
 

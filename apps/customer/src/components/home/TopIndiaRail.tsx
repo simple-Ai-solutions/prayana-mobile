@@ -7,6 +7,7 @@
 // photos step through the place's gallery.
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { PressableScale } from '../ui/PressableScale';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight } from 'lucide-react-native';
@@ -35,15 +36,14 @@ function RankCard({ place, rank, playing, tick, onPress }: {
   const barPct = Math.max(8, 100 - ((rank - 1) / 20) * 100);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
-      style={({ pressed }) => [
+      style={() => [
         styles.card,
         {
           backgroundColor: isDarkMode ? '#111827' : '#fff',
           borderColor: isDarkMode ? 'rgba(255,255,255,0.1)' : 'rgba(229,231,235,0.8)',
         },
-        pressed && { transform: [{ scale: 0.98 }] },
       ]}
       accessibilityRole="link"
       accessibilityLabel={`Number ${rank}, ${place.name}`}
@@ -89,7 +89,7 @@ function RankCard({ place, rank, playing, tick, onPress }: {
           <ArrowRight size={16} color={isDarkMode ? '#111827' : '#fff'} />
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 

@@ -371,6 +371,15 @@ export default function ProfileScreen() {
           iconColor: '#e11d48',
           iconBg: '#fff1f2',
         },
+        {
+          // Moved here from the home header, which keeps only bell and avatar.
+          label: 'Community',
+          subtitle: 'Ask travellers, share tips',
+          icon: 'people-outline',
+          route: '/community',
+          iconColor: '#0D9488',
+          iconBg: '#f0fdfa',
+        },
       ],
     },
     {

@@ -12,7 +12,10 @@ import { useChatStore } from './useChatStore';
  * is minimised shows as a badge and its first line, the way the website's
  * launcher does; someone mid-conversation isn't pitched the greeting again.
  */
-export const FloatingChatFAB: React.FC = () => {
+export const FloatingChatFAB: React.FC<{
+  /** Slide out of the way (the home page sets this while scrolling down). */
+  hidden?: boolean;
+}> = ({ hidden = false }) => {
   const t = useIsha();
   const router = useRouter();
   const unreadCount = useChatStore((s) => s.unreadCount);
@@ -22,8 +25,12 @@ export const FloatingChatFAB: React.FC = () => {
   const [showGreeting, setShowGreeting] = useState(false);
 
   const pulse = useRef(new Animated.Value(0)).current;
-  const bob = useRef(new Animated.Value(0)).current;
   const bubble = useRef(new Animated.Value(0)).current;
+  const away = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.spring(away, { toValue: hidden ? 1 : 0, useNativeDriver: true, speed: 18, bounciness: hidden ? 0 : 5 }).start();
+  }, [hidden, away]);
 
   useEffect(() => {
     const ring = Animated.loop(
@@ -33,19 +40,9 @@ export const FloatingChatFAB: React.FC = () => {
         Animated.delay(1200),
       ]),
     );
-    const float = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 0, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      ]),
-    );
     ring.start();
-    float.start();
-    return () => {
-      ring.stop();
-      float.stop();
-    };
-  }, [pulse, bob]);
+    return () => ring.stop();
+  }, [pulse]);
 
   // The greeting, once, a few seconds in; not for someone mid-conversation
   useEffect(() => {
@@ -67,12 +64,16 @@ export const FloatingChatFAB: React.FC = () => {
 
   const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.7] });
   const pulseOpacity = pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.28, 0.12, 0] });
-  const bobY = bob.interpolate({ inputRange: [0, 1], outputRange: [0, -3] });
+  const awayY = away.interpolate({ inputRange: [0, 1], outputRange: [0, 120] });
+  const awayOpacity = away.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 0.3, 0] });
   const label =
     unreadCount > 0 ? `Open chat with Isha, ${unreadCount} new ${unreadCount === 1 ? 'reply' : 'replies'}` : 'Open Isha chat';
 
   return (
-    <View style={styles.container} pointerEvents="box-none">
+    <Animated.View
+      style={[styles.container, { opacity: awayOpacity, transform: [{ translateY: awayY }] }]}
+      pointerEvents={hidden ? 'none' : 'box-none'}
+    >
       {card && (
         <Animated.View
           style={[
@@ -114,22 +115,22 @@ export const FloatingChatFAB: React.FC = () => {
         style={[styles.pulse, { backgroundColor: FLAME[1], opacity: pulseOpacity, transform: [{ scale: pulseScale }] }]}
       />
 
-      <Animated.View style={{ transform: [{ translateY: bobY }] }}>
+      <View>
         <Pressable
           onPress={open}
           accessibilityRole="button"
           accessibilityLabel={label}
           style={({ pressed }) => [styles.fab, { shadowColor: FLAME[0], backgroundColor: t.bg }, pressed && { transform: [{ scale: 0.94 }] }]}
         >
-          <IshaAvatar size={62} ring={3} working={isSending} />
+          <IshaAvatar size={54} ring={3} working={isSending} />
         </Pressable>
         {unreadCount > 0 && (
           <View pointerEvents="none" style={[styles.badge, { borderColor: t.bg, backgroundColor: FLAME[0] }]}>
             <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
           </View>
         )}
-      </Animated.View>
-    </View>
+      </View>
+    </Animated.View>
   );
 };
 
@@ -153,9 +154,9 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 13.5, fontWeight: '600' },
   cardText: { fontSize: 12.5, lineHeight: 17, marginTop: 1 },
   cardClose: { position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  pulse: { position: 'absolute', bottom: 4, right: 4, width: 54, height: 54, borderRadius: 27 },
+  pulse: { position: 'absolute', bottom: 4, right: 4, width: 46, height: 46, borderRadius: 23 },
   fab: {
-    borderRadius: 31,
+    borderRadius: 27,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.32,
     shadowRadius: 12,
