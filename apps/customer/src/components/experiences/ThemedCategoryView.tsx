@@ -15,6 +15,7 @@
 // and price. Quick filters match words in the listing's own title.
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
+import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -546,7 +547,7 @@ export function ThemedCategoryView({
       ) : <View style={{ height: 8 }} />}
 
       {loading ? (
-        <View style={s.state}><ActivityIndicator size="large" color={t.accent} /></View>
+        <SkeletonCardGrid padded />
       ) : (
         <>
           {spot.length ? (

@@ -62,6 +62,7 @@ import {
   GLOBAL_SORTS,
 } from '../../lib/globalExperiencesData';
 import { ExperienceCard } from '../../components/experiences/ExperienceCard';
+import { SkeletonCardGrid } from '../../components/ui/Skeleton';
 import { CountryExperiences } from '../../components/experiences/CountryExperiences';
 import { DestinationTile } from '../../components/experiences/DestinationTile';
 import { CityRail } from '../../components/experiences/CityRail';
@@ -430,8 +431,8 @@ export default function GlobalExperiencesScreen() {
         </View>
 
         {loading ? (
-          <View style={styles.state}>
-            <ActivityIndicator size="large" color={ORANGE} />
+          <View style={styles.section}>
+            <SkeletonCardGrid />
           </View>
         ) : error ? (
           <View style={styles.state}>
@@ -535,8 +536,8 @@ export default function GlobalExperiencesScreen() {
 
             {/* Results grid */}
             {resultsLoading && !results.length ? (
-              <View style={styles.state}>
-                <ActivityIndicator size="large" color={ORANGE} />
+              <View style={styles.section}>
+                <SkeletonCardGrid />
               </View>
             ) : results.length === 0 ? (
               <View style={styles.state}>

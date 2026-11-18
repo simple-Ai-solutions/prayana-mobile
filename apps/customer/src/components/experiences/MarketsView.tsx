@@ -5,6 +5,7 @@
 // this is a daytime, colourful page (Nightlife is the dark one).
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, Dimensions, ActivityIndicator } from 'react-native';
+import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -183,7 +184,7 @@ export function MarketsView({
 
       <View>
         {loading ? (
-          <View style={styles.state}><ActivityIndicator size="large" color={CHILLI} /></View>
+          <SkeletonCardGrid padded />
         ) : shown.length === 0 ? (
           <View style={styles.state}>
             <Ionicons name="bag-outline" size={40} color="rgba(43,26,16,0.35)" />

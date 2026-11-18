@@ -1397,7 +1397,8 @@ export default function BookingFlowScreen() {
 
         <View style={styles.stepFooter}>
           <Button
-            title="Create Booking"
+            // It holds the booking; payment is the next step, so say so.
+            title="Continue to payment"
             onPress={handleCreateBooking}
             loading={bookingLoading}
             disabled={
@@ -1516,7 +1517,7 @@ export default function BookingFlowScreen() {
 
         <View style={styles.stepFooter}>
           <Button
-            title={paymentMethod === 'online' ? 'Pay Now' : 'Confirm Booking'}
+            title={paymentMethod === 'online' ? `Pay ${formatCurrency(totalPrice)}` : 'Confirm Booking'}
             onPress={handleConfirmPayment}
             loading={paymentLoading}
             disabled={paymentLoading}

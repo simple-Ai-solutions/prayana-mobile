@@ -91,7 +91,7 @@ export function ThingsToDoRail() {
               </View>
               <Text style={[styles.name, { color: isDarkMode ? '#fff' : '#111827' }]} numberOfLines={2}>{k.name}</Text>
               <Text style={[styles.count, { color: isDarkMode ? '#9CA3AF' : '#6B7280' }]}>
-                {k.count.toLocaleString('en-IN')}+
+                {k.count.toLocaleString('en-IN')}+ experiences
               </Text>
             </PressableScale>
           );

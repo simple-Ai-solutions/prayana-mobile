@@ -29,7 +29,6 @@ import {
   shadow,
   Button,
   StarRating,
-  LoadingSpinner,
   ErrorView,
   useTheme,
 } from '@prayana/shared-ui';
@@ -41,6 +40,7 @@ import { SPOTLIGHT_W } from '../../lib/railLayout';
 import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
 import { TrekPosterCard } from '../../components/home/TrekPosterCard';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
+import { SkeletonDetailPage } from '../../components/ui/Skeleton';
 import { scheduleLine } from '../../lib/trekPoster';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -661,9 +661,10 @@ export default function ActivityDetailScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={[styles.loadingContainer, { backgroundColor: themeColors.background }]} edges={['top']}>
-        <LoadingSpinner fullScreen message="Loading activity..." />
-      </SafeAreaView>
+      // The page's outline at once, filled in as the data lands.
+      <View style={[styles.screen, { backgroundColor: themeColors.background }]}>
+        <SkeletonDetailPage />
+      </View>
     );
   }
 

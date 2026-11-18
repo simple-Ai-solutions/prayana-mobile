@@ -3,12 +3,17 @@ import {
   View,
   Text,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
+import { router } from 'expo-router';
+import { Skeleton } from '../ui/Skeleton';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, useTheme } from '@prayana/shared-ui';
 
 interface OverviewTabProps {
   placeData: any;
+  /** Fuller details are still loading; show placeholders, not an empty page. */
+  enriching?: boolean;
 }
 
 // Section color themes — matches PWA's gradient cards
@@ -25,7 +30,7 @@ const SECTION_COLORS = {
   tips: { icon: '#10B981', bg: '#ECFDF5', border: '#A7F3D0', darkBg: '#1E293B', darkBorder: '#065F46' },
 };
 
-export const OverviewTab: React.FC<OverviewTabProps> = ({ placeData }) => {
+export const OverviewTab: React.FC<OverviewTabProps> = ({ placeData, enriching = false }) => {
   const { themeColors, isDarkMode } = useTheme();
 
   const detailedInfo = placeData?.detailedInfo || {};
@@ -56,6 +61,16 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ placeData }) => {
       ? detailedInfo.practicalInfo.facilities
       : [];
   const visitingInfo = placeData?.visitingInfo || {};
+
+  // Everything beyond the short About. With none of it, the page used to end
+  // in a long white gap; now it shows placeholders while details load, and
+  // a way to ask Isha once they're done and there's still nothing more.
+  const extras =
+    [historicalBackground, culturalSignificance, architecture, significance, localLegends, festivals, localCustoms]
+      .filter(Boolean).length +
+    highlights.length + bestExperiences.length + hiddenGems.length + uniqueFeatures.length +
+    tips.length + localFood.length + nearbyAttractions.length + facilities.length;
+  const placeName: string = placeData?.name || '';
 
   const sectionCard = (theme: typeof SECTION_COLORS.about) => ({
     backgroundColor: isDarkMode ? theme.darkBg : theme.bg,
@@ -355,12 +370,53 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ placeData }) => {
           ))}
         </View>
       )}
+
+      {extras === 0 && (enriching ? (
+        <View style={styles.sparse}>
+          {[0, 1].map((i) => (
+            <View key={i} style={styles.sparseCard}>
+              <Skeleton width={120} height={16} />
+              <Skeleton height={12} style={{ marginTop: 14 }} />
+              <Skeleton width="92%" height={12} style={{ marginTop: 8 }} />
+              <Skeleton width="70%" height={12} style={{ marginTop: 8 }} />
+            </View>
+          ))}
+        </View>
+      ) : (
+        <View style={[styles.askCard, { backgroundColor: isDarkMode ? '#1F2937' : '#FFF7ED' }]}>
+          <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.primary[500]} />
+          <Text style={[styles.askTitle, { color: themeColors.text }]}>That's all we have on this one so far</Text>
+          <Text style={[styles.askText, { color: themeColors.textSecondary }]}>
+            Ask Isha for timings, what it costs and what's nearby.
+          </Text>
+          <TouchableOpacity
+            style={styles.askBtn}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            onPress={() =>
+              router.push({
+                pathname: '/chat',
+                params: { initialMessage: placeName ? `Tell me about ${placeName}` : '', context: 'place' },
+              } as any)
+            }
+          >
+            <Text style={styles.askBtnText}>Ask Isha</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg },
+  sparse: { gap: spacing.lg },
+  sparseCard: { padding: spacing.lg, borderRadius: 16, borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(127,127,140,0.2)' },
+  askCard: { alignItems: 'center', padding: spacing.xl, borderRadius: 18, gap: 6 },
+  askTitle: { fontSize: 15, fontWeight: '700', textAlign: 'center', marginTop: 4 },
+  askText: { fontSize: 13, textAlign: 'center', lineHeight: 18 },
+  askBtn: { marginTop: 8, backgroundColor: colors.primary[500], borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 },
+  askBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 
   section: { marginBottom: spacing.xl },
   sectionCard: {

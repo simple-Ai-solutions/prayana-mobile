@@ -220,6 +220,8 @@ export default function ExploreScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
+  // A failed fetch is not an empty catalogue; say which one it was.
+  const [loadError, setLoadError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState(params.query || '');
@@ -248,6 +250,7 @@ export default function ExploreScreen() {
     ) => {
       if (pageNum === 1 && !append) {
         setLoading(true);
+        setLoadError(false);
       } else {
         setLoadingMore(true);
       }
@@ -288,6 +291,7 @@ export default function ExploreScreen() {
         if (!append) {
           setActivities([]);
           setHasMore(false);
+          setLoadError(true);
         }
       } finally {
         setLoading(false);
@@ -445,12 +449,9 @@ export default function ExploreScreen() {
         <View style={styles.hero}>
           <XImage source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} contentFit="cover" blurRadius={36} />
           <LinearGradient colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.55)', themeColors.background]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-          <View style={styles.heroPill}>
-            <Ionicons name="compass" size={12} color={RED} />
-            <Text style={styles.heroPillText}>EXPERIENCES & TREKS</Text>
-          </View>
+          <Text style={[styles.heroEyebrow, { color: themeColors.textSecondary }]}>Experiences & treks</Text>
           <Text style={[styles.heroTitle, { color: themeColors.text }]}>
-            Find your next{'\n'}<Text style={{ color: RED }}>adventure</Text>
+            Find your next{'\n'}adventure
           </Text>
           <View style={[styles.searchBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
             <Ionicons name="search" size={19} color={themeColors.textTertiary} />
@@ -507,7 +508,6 @@ export default function ExploreScreen() {
         {featured.length > 0 ? (
           <View style={{ marginBottom: 6 }}>
             <View style={styles.secHead}>
-              <LinearGradient colors={[ORANGE, RED]} style={styles.secIcon}><Ionicons name="flame" size={14} color="#fff" /></LinearGradient>
               <Text style={[styles.secTitle, { color: themeColors.text }]}>Trending this week</Text>
             </View>
             <ScrollView
@@ -589,6 +589,25 @@ export default function ExploreScreen() {
         </View>
       );
     }
+    if (loadError) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="cloud-offline-outline" size={64} color={colors.gray[300]} />
+          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>Couldn't load experiences</Text>
+          <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
+            Check your connection and try again.
+          </Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={() => fetchActivities(1, searchQuery, selectedCategory, sortBy, false)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh-outline" size={18} color="#ffffff" />
+            <Text style={styles.retryButtonText}>Try again</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
     return (
       <View style={styles.emptyState}>
         <Ionicons name="search-outline" size={64} color={colors.gray[300]} />
@@ -613,7 +632,7 @@ export default function ExploreScreen() {
         </TouchableOpacity>
       </View>
     );
-  }, [loading, searchQuery, themeColors, fetchActivities]);
+  }, [loading, loadError, searchQuery, selectedCategory, sortBy, themeColors, fetchActivities]);
 
   // ============================================================
   // RENDER
@@ -717,11 +736,13 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(230,20,23,0.18)',
   },
   heroPillText: { color: RED, fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
-  heroTitle: { fontSize: 32, fontWeight: '900', letterSpacing: -1, lineHeight: 37, marginTop: 10 },
+  heroEyebrow: { fontSize: 13, fontWeight: '600' },
+  heroTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -0.8, lineHeight: 35, marginTop: 4 },
   catIcon: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 12 },
   secIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  secTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
+  // Same as the home section header.
+  secTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.5 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(148,163,184,0.5)' },
   dotOn: { width: 18, backgroundColor: RED },

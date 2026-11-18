@@ -678,15 +678,10 @@ export default function TripsScreen() {
           {/* Header and filters scroll away with the list, so trips get the screen. */}
           {/* ======= HEADER ======= */}
           <View style={styles.header}>
-            <View style={styles.welcome}>
-              <Ionicons name="airplane" size={12} color="#E61417" />
-              <Text style={styles.welcomeText} numberOfLines={1}>
-                {user?.displayName && user.uid !== 'guest-user' ? `WELCOME BACK, ${String(user.displayName).split(' ')[0].toUpperCase()}` : 'YOUR TRAVEL COLLECTION'}
-              </Text>
-            </View>
-            <Text style={[styles.title, { color: themeColors.text }]}>
-              My <Text style={{ color: '#E61417' }}>trips</Text>
+            <Text style={[styles.welcomeLine, { color: themeColors.textSecondary }]} numberOfLines={1}>
+              {user?.displayName && user.uid !== 'guest-user' ? `Welcome back, ${String(user.displayName).split(' ')[0]}` : 'Your travel collection'}
             </Text>
+            <Text style={[styles.title, { color: themeColors.text }]}>My trips</Text>
             {myTrips.length + sharedTrips.length > 0 ? (
               <View style={styles.heroStats}>
                 {([
@@ -702,11 +697,7 @@ export default function TripsScreen() {
                   </View>
                 ))}
               </View>
-            ) : (
-              <Text style={[styles.heroSub, { color: themeColors.textSecondary }]}>
-                Itineraries you've built, drafts in progress and plans you share with friends.
-              </Text>
-            )}
+            ) : null}
           </View>
 
           {/* ======= FILTER TABS ======= */}
@@ -883,6 +874,7 @@ export default function TripsScreen() {
 // STYLES
 // ============================================================
 const styles = StyleSheet.create({
+  welcomeLine: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -916,10 +908,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: -1,
-    marginTop: 8,
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    marginTop: 0,
     color: colors.text,
   },
   countBadge: {

@@ -12,6 +12,7 @@ import {
   Dimensions,
   Linking,
 } from 'react-native';
+import { SkeletonDetailPage } from '../components/ui/Skeleton';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -255,12 +256,7 @@ function PlaceDetailContent() {
           </Text>
           <View style={{ width: 40 }} />
         </View>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary[500]} />
-          <Text style={[styles.loadingText, { color: themeColors.textSecondary }]}>
-            Loading details...
-          </Text>
-        </View>
+        <SkeletonDetailPage facts={false} />
       </SafeAreaView>
     );
   }
@@ -310,7 +306,7 @@ function PlaceDetailContent() {
     try {
       switch (activeTab) {
         case 'overview':
-          return <OverviewTab placeData={placeData} />;
+          return <OverviewTab placeData={placeData} enriching={enriching} />;
         case 'visit':
           return <VisitInfoTab placeData={placeData} />;
         case 'reach':

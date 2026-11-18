@@ -6,6 +6,7 @@
 // currency — prices keep their own symbol (€119, ฿800), never a forced ₹.
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, Dimensions, ActivityIndicator } from 'react-native';
+import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -191,7 +192,7 @@ export function NightlifeView({
 
       <View>
       {loading ? (
-        <View style={styles.state}><ActivityIndicator size="large" color={PINK} /></View>
+        <SkeletonCardGrid padded />
       ) : shown.length === 0 ? (
         <View style={styles.state}>
           <Ionicons name="moon-outline" size={40} color="rgba(255,255,255,0.4)" />

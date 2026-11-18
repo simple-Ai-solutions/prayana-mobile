@@ -175,7 +175,6 @@ export default function CreateTripScreen() {
         ) : recentDrafts.length > 0 ? (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Continue planning</Text>
-            <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>Pick up where you left off</Text>
             <View style={{ gap: 10 }}>
               {recentDrafts.map((draft, idx) => {
                 const days = tripDays(draft);
@@ -214,7 +213,6 @@ export default function CreateTripScreen() {
         {/* ======= TRIP STYLES ======= */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Start with a trip style</Text>
-          <Text style={[styles.sectionSubtitle, { color: themeColors.textSecondary }]}>We set the pace and budget — you pick the places</Text>
           <View style={styles.templateGrid}>
             {TEMPLATES.map((t) => (
               <Pressable
@@ -300,7 +298,8 @@ const styles = StyleSheet.create({
   stepLine: { flex: 1, height: 1.5, marginHorizontal: 6, marginBottom: 20 },
 
   section: { marginTop: 28, paddingHorizontal: 16 },
-  sectionTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4, color: colors.text },
+  // Same as the home section header.
+  sectionTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.5, color: colors.text, marginBottom: 14 },
   sectionSubtitle: { fontSize: 13, color: colors.textSecondary, marginTop: 2, marginBottom: 12 },
 
   templateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
