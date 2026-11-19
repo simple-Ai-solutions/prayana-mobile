@@ -3,8 +3,8 @@
 // days chip (and Draft / role), the trip's name and places over it; then a
 // perforated tear and a stub with spots, days and when it was last edited, or
 // who it's shared with, and an Open button.
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +52,50 @@ export function editedAgo(value: any) {
   return new Date(t).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
 }
 
+/**
+ * Where the trip is in time: "Leaving in 3 days", "Tomorrow", "Today", or
+ * "Day 2 of 4" while it's on. Nothing for trips with no start date, far-off
+ * trips (more than 60 days) or ones that are over.
+ */
+export function tripCountdown(t: any): { text: string; live: boolean } | null {
+  const raw = t?.startDate;
+  const start = raw ? new Date(raw?._seconds ? raw._seconds * 1000 : raw) : null;
+  if (!start || Number.isNaN(start.getTime())) return null;
+  start.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = Math.round((start.getTime() - today.getTime()) / 86400000);
+  const len = Math.max(1, tripDays(t));
+  if (diff > 60) return null;
+  if (diff > 1) return { text: `Leaving in ${diff} days`, live: false };
+  if (diff === 1) return { text: 'Leaving tomorrow', live: true };
+  if (diff === 0) return { text: 'Leaving today ✈️', live: true };
+  const day = -diff + 1;
+  if (day <= len) return { text: `Day ${day} of ${len}`, live: true };
+  return null;
+}
+
+/** A soft pulsing dot, for a trip that's today, tomorrow or under way. */
+function LiveDot() {
+  const pulse = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 900, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <View style={s.liveWrap}>
+      <Animated.View style={[s.liveHalo, { opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }), transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] }) }] }]} />
+      <View style={s.liveDot} />
+    </View>
+  );
+}
+
 export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
   trip: any;
   image?: string | null;
@@ -71,6 +115,7 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
   const edited = editedAgo(trip.updatedAt || trip.createdAt);
   const isDraft = !spots && !places.length;
   const crew: any[] = trip.collaborators || [];
+  const countdown = tripCountdown(trip);
   const role = shared
     ? ({ owner: { icon: 'person' as const, label: 'Owner', bg: '#f97316', fg: '#fff' },
         editor: { icon: 'create' as const, label: 'Editor', bg: '#10b981', fg: '#fff' },
@@ -104,7 +149,7 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
         )}
         <LinearGradient colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.82)']} locations={[0, 0.3, 0.45, 1]} style={StyleSheet.absoluteFill} />
 
-        <View style={s.chips}>
+        <View style={[s.chips, countdown && { right: 170 }]}>
           {days > 0 ? (
             <View style={s.chip}>
               <Ionicons name="time" size={11} color="#f97316" />
@@ -119,6 +164,14 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
           ) : null}
           {isDraft && !shared ? <View style={[s.chip, { backgroundColor: '#fbbf24' }]}><Text style={[s.chipText, { color: '#451a03' }]}>Draft</Text></View> : null}
         </View>
+
+        {/* Countdown: the boarding pass tells you when you leave. */}
+        {countdown && (
+          <View style={[s.countdown, countdown.live && s.countdownLive]}>
+            {countdown.live ? <LiveDot /> : <Ionicons name="airplane" size={12} color="#f97316" />}
+            <Text style={[s.countdownText, countdown.live && { color: '#fff' }]}>{countdown.text}</Text>
+          </View>
+        )}
 
         <View style={s.caption}>
           <Text style={s.name} numberOfLines={2}>{tripTitle(trip)}</Text>
@@ -205,6 +258,15 @@ export function NewTripTile({ onPress }: { onPress: () => void }) {
 }
 
 const s = StyleSheet.create({
+  countdown: {
+    position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  countdownLive: { backgroundColor: '#16A34A' },
+  countdownText: { fontSize: 12, fontWeight: '800', color: '#111827' },
+  liveWrap: { width: 8, height: 8, alignItems: 'center', justifyContent: 'center' },
+  liveHalo: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' },
   card: {
     borderRadius: 22, borderWidth: 1, overflow: 'hidden',
     shadowColor: '#0f172a', shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
