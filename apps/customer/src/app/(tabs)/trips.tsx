@@ -12,6 +12,7 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FriendlyEmpty } from '../../components/ui/FriendlyEmpty';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -754,40 +755,22 @@ export default function TripsScreen() {
                   </Text>
                 </View>
               ) : (
-                <View style={[styles.emptyTripsCard, { borderColor: themeColors.border }]}>
-                  <Ionicons
-                    name={user?.uid === 'guest-user' ? 'lock-closed-outline' : 'airplane-outline'}
-                    size={40}
-                    color={themeColors.textTertiary}
-                  />
-                  <Text style={[styles.emptyTripsTitle, { color: themeColors.text }]}>
-                    {user?.uid === 'guest-user' ? 'Sign in to see your trips' : 'No trips yet'}
-                  </Text>
-                  <Text style={[styles.emptyTripsSubtitle, { color: themeColors.textTertiary }]}>
-                    {user?.uid === 'guest-user'
+                <FriendlyEmpty
+                  kind={user?.uid === 'guest-user' ? 'tickets' : 'trips'}
+                  compact
+                  title={user?.uid === 'guest-user' ? 'Sign in to see your trips' : 'Your next adventure starts here'}
+                  text={
+                    user?.uid === 'guest-user'
                       ? 'Saved itineraries and collaborator invites live in your account.'
-                      : 'Start planning your first adventure'}
-                  </Text>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() =>
-                      user?.uid === 'guest-user'
-                        ? router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/trips' } } as any)
-                        : router.push('/trip/setup' as any)
-                    }
-                  >
-                    <LinearGradient
-                      colors={[colors.primary[500], colors.primary[600]]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.emptyTripsCTA}
-                    >
-                      <Text style={styles.emptyTripsCTAText}>
-                        {user?.uid === 'guest-user' ? 'Sign in' : 'Create First Trip'}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
+                      : 'Tell us where and when, and get a day-by-day plan in a minute.'
+                  }
+                  actionLabel={user?.uid === 'guest-user' ? 'Sign in' : 'Plan my first trip'}
+                  onAction={() =>
+                    user?.uid === 'guest-user'
+                      ? router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/trips' } } as any)
+                      : router.push('/trip/setup' as any)
+                  }
+                />
               )
             ) : (
               <View style={styles.tripsListInline}>

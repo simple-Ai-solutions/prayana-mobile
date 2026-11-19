@@ -9,6 +9,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@prayana/shared-ui';
+import { TripExtras } from './TripExtras';
 
 // The web's stock trip photos (MyTripsPage DEFAULT_TRIP_IMAGES), the last resort.
 export const DEFAULT_TRIP_IMAGES = [
@@ -57,6 +58,20 @@ export function editedAgo(value: any) {
  * "Day 2 of 4" while it's on. Nothing for trips with no start date, far-off
  * trips (more than 60 days) or ones that are over.
  */
+/** The trip's start day at midnight, or null. */
+export function tripStart(t: any): Date | null {
+  const raw = t?.startDate;
+  const d = raw ? new Date(raw?._seconds ? raw._seconds * 1000 : raw) : null;
+  if (!d || Number.isNaN(d.getTime())) return null;
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function daysUntil(d: Date) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((d.getTime() - today.getTime()) / 86400000);
+}
+
 export function tripCountdown(t: any): { text: string; live: boolean } | null {
   const raw = t?.startDate;
   const start = raw ? new Date(raw?._seconds ? raw._seconds * 1000 : raw) : null;
@@ -183,6 +198,12 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
           ) : null}
         </View>
       </View>
+
+      {/* Weather for the day you leave + packing progress, for trips
+          leaving within the forecast window or under way. */}
+      {countdown && places[0] && tripStart(trip) && daysUntil(tripStart(trip)!) <= 15 && (
+        <TripExtras place={places[0]} start={tripStart(trip)!} />
+      )}
 
       {/* The tear between photo and stub. */}
       <View style={s.tear}>

@@ -63,6 +63,7 @@ import {
 } from '../../lib/globalExperiencesData';
 import { ExperienceCard } from '../../components/experiences/ExperienceCard';
 import { SkeletonCardGrid } from '../../components/ui/Skeleton';
+import { FriendlyEmpty } from '../../components/ui/FriendlyEmpty';
 import { CountryExperiences } from '../../components/experiences/CountryExperiences';
 import { DestinationTile } from '../../components/experiences/DestinationTile';
 import { CityRail } from '../../components/experiences/CityRail';
@@ -598,17 +599,14 @@ export default function GlobalExperiencesScreen() {
                 <SkeletonCardGrid />
               </View>
             ) : results.length === 0 ? (
-              <View style={styles.state}>
-                <Ionicons name="search-outline" size={40} color={themeColors.textTertiary} />
-                <Text style={[styles.stateText, { color: themeColors.textSecondary }]}>
-                  {query.trim() ? `Nothing matches “${query.trim()}”.` : 'No experiences here yet.'}
-                </Text>
-                {category !== '' && (
-                  <TouchableOpacity onPress={() => applyFilter({ cat: '' })} style={styles.retry}>
-                    <Text style={styles.retryText}>Clear category</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
+              <FriendlyEmpty
+                kind="search"
+                compact
+                title={query.trim() ? `Nothing for “${query.trim()}” yet` : 'No experiences here yet'}
+                text={category !== '' ? 'Try clearing the category.' : 'Try a nearby town or a different word, like “trek” or “rafting”.'}
+                actionLabel={category !== '' ? 'Clear category' : undefined}
+                onAction={category !== '' ? () => applyFilter({ cat: '' }) : undefined}
+              />
             ) : (
               <View style={styles.section}>
                 <View style={styles.grid}>

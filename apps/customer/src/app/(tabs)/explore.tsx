@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FriendlyEmpty } from '../../components/ui/FriendlyEmpty';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -590,46 +591,28 @@ export default function ExploreScreen() {
     }
     if (loadError) {
       return (
-        <View style={styles.emptyState}>
-          <Ionicons name="cloud-offline-outline" size={64} color={colors.gray[300]} />
-          <Text style={[styles.emptyTitle, { color: themeColors.text }]}>Couldn't load experiences</Text>
-          <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
-            Check your connection and try again.
-          </Text>
-          <TouchableOpacity
-            style={styles.retryButton}
-            onPress={() => fetchActivities(1, searchQuery, selectedCategory, sortBy, false)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh-outline" size={18} color="#ffffff" />
-            <Text style={styles.retryButtonText}>Try again</Text>
-          </TouchableOpacity>
-        </View>
+        <FriendlyEmpty
+          kind="offline"
+          title="Couldn't load experiences"
+          text="Check your connection and try again."
+          actionLabel="Try again"
+          onAction={() => fetchActivities(1, searchQuery, selectedCategory, sortBy, false)}
+        />
       );
     }
     return (
-      <View style={styles.emptyState}>
-        <Ionicons name="search-outline" size={64} color={colors.gray[300]} />
-        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No activities found</Text>
-        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
-          {searchQuery
-            ? `No results for "${searchQuery}". Try a different search.`
-            : 'Try changing your filters or category.'}
-        </Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => {
-            setSearchQuery('');
-            setSelectedCategory('all');
-            setSortBy('recommended');
-            fetchActivities(1, '', 'all', 'recommended', false);
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh-outline" size={18} color="#ffffff" />
-          <Text style={styles.retryButtonText}>Reset & Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <FriendlyEmpty
+        kind="search"
+        title={searchQuery ? `Nothing for “${searchQuery}” yet` : 'Nothing in this category yet'}
+        text={searchQuery ? 'Try a different word, like “trek” or “rafting”.' : 'Try another category, or see everything.'}
+        actionLabel="Show everything"
+        onAction={() => {
+          setSearchQuery('');
+          setSelectedCategory('all');
+          setSortBy('recommended');
+          fetchActivities(1, '', 'all', 'recommended', false);
+        }}
+      />
     );
   }, [loading, loadError, searchQuery, selectedCategory, sortBy, themeColors, fetchActivities]);
 

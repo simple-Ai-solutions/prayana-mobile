@@ -9,6 +9,7 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@prayana/shared-hooks';
 import { locationDetectionService } from '@prayana/shared-services';
+import { geocodePlace } from '../../lib/geocode';
 
 type Weather = { temp: number; icon: any; city: string };
 
@@ -35,10 +36,7 @@ function loadWeather(): Promise<Weather | null> {
         const loc: any = await locationDetectionService.detectUserCountry();
         const city: string | undefined = loc?.city;
         if (!city) return null;
-        const geo = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en`,
-        ).then((r) => r.json());
-        const g = geo?.results?.[0];
+        const g = await geocodePlace(city);
         if (!g) return null;
         const w = await fetch(
           `https://api.open-meteo.com/v1/forecast?latitude=${g.latitude}&longitude=${g.longitude}&current=temperature_2m,weather_code,is_day`,

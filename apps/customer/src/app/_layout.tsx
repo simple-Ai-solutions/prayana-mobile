@@ -3,6 +3,7 @@ import { Platform, Linking } from 'react-native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { OfflineBanner } from '../components/ui/OfflineBanner';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import * as SplashScreen from 'expo-splash-screen';
@@ -380,6 +381,7 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>
               <RootNavigator />
+              <OfflineBanner />
             </SafeAreaProvider>
           </GestureHandlerRootView>
         </AuthProvider>

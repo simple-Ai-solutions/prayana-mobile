@@ -15,6 +15,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FriendlyEmpty } from '../../components/ui/FriendlyEmpty';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -1114,6 +1115,17 @@ export default function MyBookingsScreen() {
       },
     };
     const meta = emptyMeta[category];
+    if (!isFiltered) {
+      return (
+        <FriendlyEmpty
+          kind="tickets"
+          title={meta.title}
+          text={meta.description}
+          actionLabel={meta.actionLabel}
+          onAction={meta.onAction}
+        />
+      );
+    }
     return (
       <EmptyState
         icon={

@@ -21,13 +21,18 @@ const CATEGORIES: { id: string; title: string; emoji: string; items: string[] }[
   { id: 'essentials', title: 'Travel Essentials', emoji: '🎒', items: ['Reusable water bottle', 'Sunglasses', 'Umbrella / Raincoat', 'Snacks', 'First-aid kit', 'Day backpack'] },
 ];
 
+/** Where a destination's ticks are kept, and how many items there are, so a
+ *  trip card can show "Packing 8/28" without rendering the list. */
+export const packingKey = (destination: string) => `packing:${(destination || 'trip').toLowerCase()}`;
+export const PACKING_TOTAL = CATEGORIES.reduce((n, c) => n + c.items.length, 0);
+
 interface Props {
   destination: string;
 }
 
 export const PackingList: React.FC<Props> = ({ destination }) => {
   const { themeColors, isDarkMode } = useTheme();
-  const storageKey = `packing:${(destination || 'trip').toLowerCase()}`;
+  const storageKey = packingKey(destination);
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
