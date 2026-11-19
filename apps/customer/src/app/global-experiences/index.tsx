@@ -155,6 +155,16 @@ export default function GlobalExperiencesScreen() {
     setOpenCountry((cur) => (cur === c ? null : c));
   }, []);
 
+  // ── Refinements: price ceiling and instant confirmation ─────────────────────
+  // Kept in a ref too, so every fetch path picks them up without threading
+  // them through each call. `refineOn` turns true once the server echoes
+  // `refine`, i.e. it understands them; until then chips and sort stay hidden
+  // rather than looking like they work.
+  const [maxPrice, setMaxPrice] = useState<number | null>(null);
+  const [instantOnly, setInstantOnly] = useState(false);
+  const refineRef = useRef<{ maxPrice: number | null; instant: boolean }>({ maxPrice: null, instant: false });
+  const [refineOn, setRefineOn] = useState(false);
+
   // ── Filtered-view fetch ─────────────────────────────────────────────────────
   const fetchResults = useCallback(
     async (opts: { sel: Selection | null; q: string; cat: string; sortBy: string; skip: number; append: boolean }) => {
@@ -165,9 +175,13 @@ export default function GlobalExperiencesScreen() {
           country: opts.sel?.city ? undefined : opts.sel?.country,
           q: opts.q.trim() || undefined,
           category: opts.cat || undefined,
+          sort: opts.sortBy,
+          maxPrice: refineRef.current.maxPrice || undefined,
+          instant: refineRef.current.instant || undefined,
           limit: PAGE,
           skip: opts.skip,
         });
+        if (res && res.refine !== undefined) setRefineOn(true);
         const data: Experience[] = res?.data || res?.activities || [];
         setResults((prev) => (opts.append ? [...prev, ...data] : data));
         setResultsTotal(Number(res?.total ?? data.length));
@@ -197,6 +211,17 @@ export default function GlobalExperiencesScreen() {
       fetchResults({ sel, q, cat, sortBy, skip: 0, append: false });
     },
     [selection, query, category, sort, fetchResults],
+  );
+
+  const toggleRefine = useCallback(
+    (next: { maxPrice?: number | null; instant?: boolean }) => {
+      const r = { ...refineRef.current, ...next };
+      refineRef.current = r;
+      setMaxPrice(r.maxPrice);
+      setInstantOnly(r.instant);
+      applyFilter({});
+    },
+    [applyFilter],
   );
 
   const onSearchChange = useCallback(
@@ -481,6 +506,36 @@ export default function GlobalExperiencesScreen() {
               })}
             </ScrollView>
 
+            {/* Quick refinements — only once the server understands them. */}
+            {refineOn && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickChips}>
+                {([
+                  { key: 'instant', label: 'Instant', icon: 'flash' as const, on: instantOnly, press: () => toggleRefine({ instant: !instantOnly }) },
+                  { key: 'p1000', label: 'Under ₹1,000', on: maxPrice === 1000, press: () => toggleRefine({ maxPrice: maxPrice === 1000 ? null : 1000 }) },
+                  { key: 'p2500', label: 'Under ₹2,500', on: maxPrice === 2500, press: () => toggleRefine({ maxPrice: maxPrice === 2500 ? null : 2500 }) },
+                  { key: 'p5000', label: 'Under ₹5,000', on: maxPrice === 5000, press: () => toggleRefine({ maxPrice: maxPrice === 5000 ? null : 5000 }) },
+                ]).map((c) => (
+                  <TouchableOpacity
+                    key={c.key}
+                    onPress={c.press}
+                    style={[
+                      styles.quickChip,
+                      c.on
+                        ? { backgroundColor: themeColors.text, borderColor: themeColors.text }
+                        : { backgroundColor: themeColors.surface, borderColor: themeColors.border },
+                    ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: c.on }}
+                  >
+                    {'icon' in c && c.icon ? (
+                      <Ionicons name={c.icon} size={13} color={c.on ? themeColors.background : ORANGE} />
+                    ) : null}
+                    <Text style={[styles.quickChipText, { color: c.on ? themeColors.background : themeColors.text }]}>{c.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+
             {/* Results header — count + Filters + Sort */}
             <View style={styles.resultsHead}>
               <Text style={[styles.resultsCount, { color: themeColors.text }]}>
@@ -502,6 +557,8 @@ export default function GlobalExperiencesScreen() {
                     </View>
                   )}
                 </TouchableOpacity>
+                {/* Sort only does something on a server that supports it. */}
+                {refineOn && (
                 <View>
                   <TouchableOpacity
                     onPress={() => setSortOpen((v) => !v)}
@@ -531,6 +588,7 @@ export default function GlobalExperiencesScreen() {
                     </View>
                   )}
                 </View>
+                )}
               </View>
             </View>
 
@@ -871,6 +929,9 @@ const styles = StyleSheet.create({
 
   // Two even columns; a lone last card keeps its column width instead of
   // stretching across the row.
+  quickChips: { paddingHorizontal: spacing.lg, gap: 8, paddingTop: 2, paddingBottom: 4 },
+  quickChip: { flexDirection: 'row', alignItems: 'center', gap: 4, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
+  quickChipText: { fontSize: 13, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 22, marginTop: spacing.md },
   gridCell: { width: '48%' },
   viewMore: {

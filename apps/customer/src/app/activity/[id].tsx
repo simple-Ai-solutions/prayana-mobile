@@ -41,6 +41,7 @@ import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
 import { TrekPosterCard } from '../../components/home/TrekPosterCard';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 import { SkeletonDetailPage } from '../../components/ui/Skeleton';
+import { handedOffPhoto } from '../../lib/photoHandoff';
 import { scheduleLine } from '../../lib/trekPoster';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -663,7 +664,7 @@ export default function ActivityDetailScreen() {
     return (
       // The page's outline at once, filled in as the data lands.
       <View style={[styles.screen, { backgroundColor: themeColors.background }]}>
-        <SkeletonDetailPage />
+        <SkeletonDetailPage photo={handedOffPhoto(id)} />
       </View>
     );
   }

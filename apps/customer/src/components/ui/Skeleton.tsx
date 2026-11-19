@@ -7,6 +7,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View, ViewStyle, StyleProp, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 
 // One clock for every placeholder on screen, so they sweep together.
 const sweep = new Animated.Value(0);
@@ -81,10 +82,32 @@ export function SkeletonCardGrid({ count = 4, padded = false }: { count?: number
 }
 
 /** A detail page: big photo, title, a row of fact tiles and some text. */
-export function SkeletonDetailPage({ facts = true }: { facts?: boolean }) {
+export function SkeletonDetailPage({ facts = true, photo }: {
+  facts?: boolean;
+  /** The photo the tapped card was showing; shown at once in place of the grey hero. */
+  photo?: string | null;
+}) {
+  const settle = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!photo) return;
+    Animated.timing(settle, { toValue: 1, duration: 420, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, [photo, settle]);
   return (
     <View>
-      <Skeleton height={300} radius={0} />
+      {photo ? (
+        <Animated.View
+          style={{
+            height: 300,
+            overflow: 'hidden',
+            opacity: settle.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }),
+            transform: [{ scale: settle.interpolate({ inputRange: [0, 1], outputRange: [1.08, 1] }) }],
+          }}
+        >
+          <Image source={{ uri: photo }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" />
+        </Animated.View>
+      ) : (
+        <Skeleton height={300} radius={0} />
+      )}
       <View style={styles.detailBody}>
         <Skeleton width={110} height={11} />
         <Skeleton width="85%" height={24} style={{ marginTop: 12 }} />

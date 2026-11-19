@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { router } from 'expo-router';
 import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
+import { handOffPhoto } from '../../lib/photoHandoff';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -123,7 +124,7 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
 
   return (
     <PressableScale
-      onPress={onPress}
+      onPress={() => { handOffPhoto(activity?._id, imageUrl ? sizedImageUrl(imageUrl, width) : null); onPress(); }}
       style={() => [
         styles.card,
         { width },

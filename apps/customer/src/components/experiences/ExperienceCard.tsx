@@ -27,6 +27,7 @@ import {
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 import { PressableScale } from '../ui/PressableScale';
 import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
+import { handOffPhoto } from '../../lib/photoHandoff';
 
 const TEAL = '#4AC0CC'; // logo primary — see PRAYANA_DESIGN_SYSTEM.pdf
 
@@ -80,7 +81,7 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
 
   return (
     <PressableScale
-      onPress={() => onPress(experience)}
+      onPress={() => { handOffPhoto(experience._id, img); onPress(experience); }}
       accessibilityRole="button"
       accessibilityLabel={experience.title}
       wrapperStyle={width ? { width } : styles.fill}
