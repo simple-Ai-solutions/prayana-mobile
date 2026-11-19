@@ -31,6 +31,7 @@ import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 import { SectionHeader } from '../../components/home/SectionHeader';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { PlacesStrip } from '../../components/home/PlacesStrip';
+import { HomeGreeting } from '../../components/home/HomeGreeting';
 import { RecentlyViewedRail } from '../../components/home/RecentlyViewedRail';
 import { ThingsToDoRail } from '../../components/home/ThingsToDoRail';
 import { VisaFreeRail } from '../../components/home/VisaFreeRail';
@@ -448,6 +449,9 @@ export default function HomeScreen() {
               style={styles.heroFade}
             />
           </View>
+
+          {/* Greeting + live weather for the detected city. */}
+          <HomeGreeting />
 
           {/* Headline — script + serif, typed destination in teal + blinking caret */}
           <Text style={styles.heroScript}>Plan your</Text>
