@@ -12,8 +12,6 @@ import React from 'react';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import Toast from 'react-native-toast-message';
-import { router } from 'expo-router';
 import { useTheme, colors, spacing, fontWeight } from '@prayana/shared-ui';
 import {
   Experience,
@@ -26,7 +24,7 @@ import {
 } from '../../lib/experiences';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 import { PressableScale } from '../ui/PressableScale';
-import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
+import { HeartButton } from '../ui/HeartButton';
 import { handOffPhoto } from '../../lib/photoHandoff';
 
 const TEAL = '#4AC0CC'; // logo primary — see PRAYANA_DESIGN_SYSTEM.pdf
@@ -36,33 +34,6 @@ interface Props {
   /** Fixed width for the horizontal rails; omit to fill the parent (grid). */
   width?: number;
   onPress: (e: Experience) => void;
-}
-
-/** Save-to-wishlist heart, for Prayana's own listings (the wishlist holds those). */
-function Heart({ id }: { id: string }) {
-  const saved = useIsSaved(id);
-  return (
-    <PressableScale
-      scaleTo={0.85}
-      wrapperStyle={styles.heartWrap}
-      style={styles.heart}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={saved ? 'Remove from Wishlist' : 'Save to Wishlist'}
-      onPress={() => {
-        const now = toggleSaved(id);
-        Toast.show({
-          type: now ? 'success' : 'info',
-          text1: now ? 'Saved to Wishlist' : 'Removed',
-          text2: now ? 'Find it under My Wishlist.' : undefined,
-          visibilityTime: 1800,
-          onPress: now ? () => { Toast.hide(); router.push('/wishlist' as any); } : undefined,
-        });
-      }}
-    >
-      <Ionicons name={saved ? 'heart' : 'heart-outline'} size={17} color={saved ? '#F43F5E' : '#fff'} />
-    </PressableScale>
-  );
 }
 
 // Photo first: a big rounded picture carrying the badge, rating and heart,
@@ -116,7 +87,7 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
           )
         )}
 
-        {!provider && !!experience._id && <Heart id={String(experience._id)} />}
+        {!provider && !!experience._id && <HeartButton id={String(experience._id)} size={17} style={styles.heartPos} />}
 
         {!!rating && (
           <View style={styles.rating}>
@@ -191,15 +162,7 @@ const styles = StyleSheet.create({
   },
   chipText: { color: '#FFFFFF', fontSize: 10.5, fontWeight: fontWeight.bold, letterSpacing: 0.3 },
 
-  heartWrap: { position: 'absolute', top: 8, right: 8 },
-  heart: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-  },
+  heartPos: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16 },
 
   rating: {
     position: 'absolute',

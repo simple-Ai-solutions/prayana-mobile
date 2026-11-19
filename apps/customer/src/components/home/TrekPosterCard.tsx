@@ -10,9 +10,8 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { PressableScale } from '../ui/PressableScale';
 import { Ionicons } from '@expo/vector-icons';
-import Toast from 'react-native-toast-message';
-import { router } from 'expo-router';
-import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
+import { HeartButton } from '../ui/HeartButton';
+import { seatsBadge, useSeats } from '../../lib/seats';
 import { handOffPhoto } from '../../lib/photoHandoff';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -49,46 +48,17 @@ const primaryImage = (images?: any[]): string | undefined => {
   return pick?.url ? normalizeImageUrl(pick.url) : undefined;
 };
 
-/** Save-to-wishlist heart on the poster, the same device wishlist as the trek page. */
-function SaveHeart({ id }: { id: string }) {
-  const saved = useIsSaved(id);
-  return (
-    <PressableScale
-      scaleTo={0.85}
-      wrapperStyle={heartStyles.wrap}
-      style={heartStyles.button}
-      hitSlop={8}
-      accessibilityRole="button"
-      accessibilityLabel={saved ? 'Remove from Wishlist' : 'Save to Wishlist'}
-      onPress={() => {
-        const now = toggleSaved(id);
-        Toast.show({
-          type: now ? 'success' : 'info',
-          text1: now ? 'Saved to Wishlist' : 'Removed',
-          text2: now ? 'Find it under My Wishlist.' : undefined,
-          visibilityTime: 1800,
-          onPress: now ? () => { Toast.hide(); router.push('/wishlist' as any); } : undefined,
-        });
-      }}
-    >
-      <Ionicons name={saved ? 'heart' : 'heart-outline'} size={18} color={saved ? '#F43F5E' : '#fff'} />
-    </PressableScale>
-  );
+/** "Today", "Tomorrow", or "Fri, 20 Nov". */
+function nextLabel(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
 }
-
-const heartStyles = StyleSheet.create({
-  wrap: { position: 'absolute', top: 10, right: 10, zIndex: 3 },
-  button: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.35)',
-  },
-});
 
 export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W }: {
   activity: any;
@@ -111,7 +81,10 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
     || (activity.duration?.value ? `${activity.duration.value} ${activity.duration.unit || 'days'}` : null);
   const region = regionOf(activity, trek);
   const title = displayTitle(activity.title, trek ? region : null);
-  const when = scheduleLine(activity, durationLabel);
+  // The next real departure ("Fri, 20 Nov"), else the weekly pattern.
+  const nextDate: string | null = Array.isArray(activity.upcomingDates) ? activity.upcomingDates[0] || null : null;
+  const when = nextDate ? [nextLabel(nextDate), durationLabel].filter(Boolean).join(' · ') : scheduleLine(activity, durationLabel);
+  const badge = seatsBadge(useSeats(activity?._id ? String(activity._id) : null, nextDate));
   const { name, kind } = posterName(activity.title, trek);
   const perks = inclusions(activity);
   // The web scales the name up 1.25× tall; sized here so the longest names fit,
@@ -157,7 +130,16 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
           pointerEvents="none"
         />
 
-        {!!activity?._id && <SaveHeart id={String(activity._id)} />}
+        {!!activity?._id && <HeartButton id={String(activity._id)} style={styles.heart} />}
+        {/* Just above the perks strip, so it reads with the price info. */}
+        {!!badge && (
+          <View style={styles.seatsWrap} pointerEvents="none">
+            <View style={[styles.seats, badge.tone === 'gone' ? styles.seatsGone : badge.tone === 'warm' ? styles.seatsWarm : styles.seatsHot]}>
+              <Ionicons name={badge.tone === 'gone' ? 'close-circle' : 'flame'} size={11} color="#fff" />
+              <Text style={styles.seatsText}>{badge.text}</Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.head}>
           {!!kind && <Text style={styles.kind}>{kind.toUpperCase()}</Text>}
@@ -233,6 +215,20 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
 }
 
 const styles = StyleSheet.create({
+  heart: { position: 'absolute', top: 10, right: 10, zIndex: 3 },
+  seatsWrap: { position: 'absolute', left: 0, right: 0, bottom: 58, alignItems: 'center', zIndex: 3 },
+  seats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  seatsHot: { backgroundColor: '#E11D48' },
+  seatsWarm: { backgroundColor: '#EA580C' },
+  seatsGone: { backgroundColor: 'rgba(17,24,39,0.85)' },
+  seatsText: { color: '#fff', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.2 },
   card: {
     borderRadius: 22, overflow: 'hidden', backgroundColor: '#fff',
     borderWidth: 1, borderColor: 'rgba(229,231,235,0.8)',

@@ -31,6 +31,7 @@ import DynamicHomeContent from '../../components/home/DynamicHomeContent';
 import { SectionHeader } from '../../components/home/SectionHeader';
 import { PressableScale } from '../../components/ui/PressableScale';
 import { PlacesStrip } from '../../components/home/PlacesStrip';
+import { RecentlyViewedRail, BecauseYouSavedRail } from '../../components/home/PersonalRails';
 import { ThingsToDoRail } from '../../components/home/ThingsToDoRail';
 import { VisaFreeRail } from '../../components/home/VisaFreeRail';
 import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSheet';
@@ -543,7 +544,10 @@ export default function HomeScreen() {
         {/* First screen: quick actions, hotspots as round photos, then the
             big trek cards and the bookable island deals. */}
         <PlacesStrip />
+        {/* Personal rows: hidden until there's history or a saved item. */}
+        <RecentlyViewedRail />
         <TrekkingRail />
+        <BecauseYouSavedRail />
         <ValueDealsRail />
 
         {/* ============================================================ */}
