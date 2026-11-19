@@ -94,7 +94,12 @@ function MenuItemRow({
   isLast: boolean;
   onPress: () => void;
 }) {
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
+  // The pastel tiles are for a white page; in dark mode use the icon's own
+  // colour, faint, so each row keeps its hue without a bright square.
+  const tileBg = isDarkMode
+    ? `${item.iconColor || colors.primary[500]}26`
+    : item.iconBg || colors.primary[50];
   return (
     <TouchableOpacity
       style={[styles.menuItem, !isLast && [styles.menuItemBorder, { borderBottomColor: themeColors.border }]]}
@@ -105,7 +110,7 @@ function MenuItemRow({
         <View
           style={[
             styles.menuIconContainer,
-            { backgroundColor: item.iconBg || colors.primary[50] },
+            { backgroundColor: tileBg },
           ]}
         >
           <Ionicons
@@ -421,14 +426,6 @@ export default function ProfileScreen() {
           route: '/profile/identity',
           iconColor: '#7c3aed',
           iconBg: '#f5f3ff',
-        },
-        {
-          label: 'Notification settings',
-          subtitle: 'Bookings, trips, marketing emails',
-          icon: 'notifications-outline',
-          route: '/profile/notifications',
-          iconColor: '#3b82f6',
-          iconBg: '#eff6ff',
         },
         {
           label: 'Privacy choices',
