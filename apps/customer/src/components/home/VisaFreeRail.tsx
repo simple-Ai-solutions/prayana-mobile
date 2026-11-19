@@ -9,6 +9,7 @@
 // /country-content/:code/visa-free endpoint the web uses.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable, Platform } from 'react-native';
+import { retryOnce } from '../../lib/retryOnce';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -213,8 +214,7 @@ export function VisaFreeRail({ countryCode = 'IN', countryName = 'India', onCoun
 
   useEffect(() => {
     let alive = true;
-    countryContentAPI
-      .getVisaFreeCountries(countryCode, countryName)
+    retryOnce(() => countryContentAPI.getVisaFreeCountries(countryCode, countryName))
       .then((data: any) => withImages(data?.visaFreeCountries || []))
       .then((list) => alive && setItems(list))
       .catch(() => alive && setItems([]));

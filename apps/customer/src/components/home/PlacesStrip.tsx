@@ -5,6 +5,7 @@
 // until there are at least two places.
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { retryOnce } from '../../lib/retryOnce';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -24,7 +25,7 @@ export function PlacesStrip() {
 
   useEffect(() => {
     let alive = true;
-    makeAPICall('/activities/places')
+    retryOnce(() => makeAPICall('/activities/places'))
       .then((res: any) => alive && setPlaces(Array.isArray(res?.data) ? res.data : []))
       .catch(() => alive && setPlaces([]));
     return () => { alive = false; };

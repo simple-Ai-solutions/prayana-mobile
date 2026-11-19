@@ -5,6 +5,7 @@
 // the web's ActivityKindsRail. It hides itself with fewer than three kinds.
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { retryOnce } from '../../lib/retryOnce';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -30,7 +31,7 @@ export function ThingsToDoRail() {
 
   useEffect(() => {
     let alive = true;
-    makeAPICall('/activities/kinds')
+    retryOnce(() => makeAPICall('/activities/kinds'))
       .then((res: any) => alive && setKinds(Array.isArray(res?.data) ? res.data.filter((k: Kind) => k.photos?.length) : []))
       .catch(() => alive && setKinds([]));
     return () => { alive = false; };

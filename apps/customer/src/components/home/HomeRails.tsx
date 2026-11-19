@@ -11,6 +11,7 @@ import {
   View, Text, StyleSheet, ScrollView, Pressable, AccessibilityInfo, useWindowDimensions,
   Animated, type StyleProp, type ViewStyle,
 } from 'react-native';
+import { retryOnce } from '../../lib/retryOnce';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -351,8 +352,7 @@ export function TrekkingRail() {
 
   useEffect(() => {
     let alive = true;
-    activityMarketplaceAPI
-      .searchActivities({ category: 'Trekking', limit: 12, page: 1, sort: 'rating' })
+    retryOnce(() => activityMarketplaceAPI.searchActivities({ category: 'Trekking', limit: 12, page: 1, sort: 'rating' }))
       .then((res: any) => {
         if (!alive) return;
         const raw = Array.isArray(res?.data) ? res.data : res?.data?.activities || [];
@@ -400,8 +400,7 @@ export function ValueDealsRail() {
 
   useEffect(() => {
     let alive = true;
-    holidayPackagesAPI
-      .getValueDeals({ maxPrice: 25000, limit: 12, only: 'Thailand,Indonesia,Andaman & Nicobar Islands' })
+    retryOnce(() => holidayPackagesAPI.getValueDeals({ maxPrice: 25000, limit: 12, only: 'Thailand,Indonesia,Andaman & Nicobar Islands' }))
       .then((res: any) => alive && setDeals(res?.data || []))
       .catch(() => alive && setDeals([]));
     return () => { alive = false; };

@@ -15,8 +15,10 @@ import {
   Alert,
   Modal,
   AccessibilityInfo,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -355,11 +357,15 @@ export default function HomeScreen() {
   // The hero CTA no longer jumps straight into the full planner; it asks first.
   const [showPlanChoice, setShowPlanChoice] = useState(false);
 
-  // The home rails load their own data on mount; there is nothing left for a
-  // pull to re-fetch here, so it just settles the spinner.
+  // Pull to refresh: every section below the hero loads its own data when it
+  // mounts, so bumping this key remounts them all and they fetch afresh.
+  // Sections that failed (and hid) on a bad connection come back this way.
+  const [refreshKey, setRefreshKey] = useState(0);
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 400);
+    setRefreshKey((k) => k + 1);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setTimeout(() => setRefreshing(false), 900);
   }, []);
 
   const handleDestinationPress = useCallback((name: string, preview?: { image?: string; desc?: string }) => {
@@ -400,7 +406,15 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={onPageScroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary[500]} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.primary[500]}
+            colors={[colors.primary[500], '#E61417', '#4AC0CC']}
+            progressBackgroundColor={themeColors.surface}
+          />
+        }
       >
         {/* ============================================================ */}
         {/* HERO SECTION (matching web HeroSection)                       */}
@@ -529,6 +543,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Recent AI-generated itineraries (Plan-a-Trip + Quick Itinerary) */}
+        <View key={`sections-${refreshKey}`}>
         <RecentItineraries />
 
         {/* ============================================================ */}
@@ -614,6 +629,7 @@ export default function HomeScreen() {
 
         {/* Things to do by kind: Tours, Wildlife, Food Tours… */}
         {isIndiaUser && <ThingsToDoRail />}
+        </View>
 
 
         {/* Bottom spacer for tab bar */}
