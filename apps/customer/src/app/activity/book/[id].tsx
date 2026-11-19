@@ -12,6 +12,8 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BookingSuccess } from '../../../components/booking/BookingSuccess';
+import { normalizeImageUrl } from '../../../lib/imageUrl';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -1537,85 +1539,28 @@ export default function BookingFlowScreen() {
   };
 
   // --------------- Success Screen ---------------
-  const renderSuccessScreen = () => (
-    <View style={styles.successContainer}>
-      <View style={styles.successIconCircle}>
-        <Ionicons name="checkmark" size={48} color="#ffffff" />
-      </View>
-
-      <Text style={[styles.successTitle, { color: themeColors.text }]}>Booking Confirmed!</Text>
-      <Text style={[styles.successSubtext, { color: themeColors.textSecondary }]}>
-        Your booking has been {bookingData?.isInstantBooking ? 'instantly confirmed' : 'created successfully'}.
-      </Text>
-
-      {bookingRef && (
-        <View style={[styles.refContainer, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-          <Text style={[styles.refLabel, { color: themeColors.textTertiary }]}>Booking Reference</Text>
-          <Text style={styles.refValue}>{bookingRef}</Text>
-        </View>
-      )}
-
-      {bookingData?.isInstantBooking && (
-        <Badge
-          label="Instantly Confirmed"
-          variant="success"
-          size="md"
-          style={{ marginBottom: spacing.xl, alignSelf: 'center' }}
-        />
-      )}
-
-      {paymentMethod === 'venue' && (
-        <View style={styles.venuePayNote}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.info} />
-          <Text style={styles.venuePayNoteText}>
-            Please pay at the venue on the day of the activity.
-          </Text>
-        </View>
-      )}
-
-      <Card bordered style={{ marginBottom: spacing.xl, width: '100%', backgroundColor: themeColors.card, borderColor: themeColors.border }}>
-        <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
-          <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Activity</Text>
-          <Text style={[styles.summaryValue, { flex: 1, textAlign: 'right', color: themeColors.text }]} numberOfLines={2}>
-            {activity.title}
-          </Text>
-        </View>
-        <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
-          <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Date</Text>
-          <Text style={[styles.summaryValue, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
-        </View>
-        {selectedSlot && !hasDepartures && (
-          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
-            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
-            <Text style={[styles.summaryValue, { color: themeColors.text }]}>
-              {slotTimeLabel(selectedSlot)}
-            </Text>
-          </View>
-        )}
-        <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
-          <Text style={[styles.summaryLabel, { fontWeight: fontWeight.bold, color: themeColors.text }]}>Total</Text>
-          <Text style={[styles.summaryValue, { color: colors.primary[500], fontWeight: fontWeight.bold, fontSize: fontSize.lg }]}>
-            {formatCurrency(totalPrice)}
-          </Text>
-        </View>
-      </Card>
-
-      <Button
-        title="View My Bookings"
-        onPress={() => router.replace('/bookings')}
-        size="lg"
-        fullWidth
-        style={{ marginBottom: spacing.md }}
+  const renderSuccessScreen = () => {
+    const imgs: any[] = Array.isArray(activity?.images) ? activity.images : [];
+    const raw = imgs.find((i) => i?.isPrimary)?.url || imgs[0]?.url || (typeof imgs[0] === 'string' ? imgs[0] : null);
+    const place = [activity?.location?.city, activity?.location?.state].filter(Boolean).join(', ');
+    return (
+      <BookingSuccess
+        title={activity.title}
+        image={raw ? normalizeImageUrl(raw) || raw : null}
+        place={place || undefined}
+        date={selectedDate}
+        dateLabel={formatDate(selectedDate)}
+        timeLabel={selectedSlot && !hasDepartures ? slotTimeLabel(selectedSlot) : null}
+        guestsLabel={`${adults} adult${adults > 1 ? 's' : ''}${children > 0 ? `, ${children} child${children > 1 ? 'ren' : ''}` : ''}`}
+        totalLabel={formatCurrency(totalPrice)}
+        bookingRef={bookingRef}
+        instant={!!bookingData?.isInstantBooking}
+        payAtVenue={paymentMethod === 'venue'}
+        onViewBookings={() => router.replace('/bookings')}
+        onBackToActivity={() => router.replace(`/activity/${activityId}`)}
       />
-      <Button
-        title="Back to Activity"
-        onPress={() => router.replace(`/activity/${activityId}`)}
-        variant="outline"
-        size="lg"
-        fullWidth
-      />
-    </View>
-  );
+    );
+  };
 
   // =========================================================================
   // MAIN RENDER
