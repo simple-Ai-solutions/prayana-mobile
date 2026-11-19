@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
-  Modal,
   FlatList,
   ActivityIndicator,
   Animated,
@@ -41,6 +40,7 @@ import { fallbackPhoto } from '../../lib/fallbackPhoto';
 import { SkeletonDetailPage } from '../../components/ui/Skeleton';
 import { handedOffPhoto } from '../../lib/photoHandoff';
 import { HeartButton } from '../../components/ui/HeartButton';
+import { PhotoViewer } from '../../components/ui/PhotoViewer';
 import { scheduleLine } from '../../lib/trekPoster';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -190,6 +190,17 @@ function ImageGallery({
           </TouchableOpacity>
         )}
       />
+      {/* Photo count, and a hint that tapping opens them full screen. */}
+      <TouchableOpacity
+        style={galleryStyles.countPill}
+        onPress={() => onOpenFullscreen(activeIndex)}
+        activeOpacity={0.8}
+        accessibilityRole="button"
+        accessibilityLabel={`Open photos, ${activeIndex + 1} of ${images.length}`}
+      >
+        <Ionicons name="images-outline" size={13} color="#fff" />
+        <Text style={galleryStyles.countText}>{activeIndex + 1} / {images.length}</Text>
+      </TouchableOpacity>
       {images.length > 1 && (
         <View style={galleryStyles.dotsContainer}>
           {images.map((_, i) => (
@@ -205,6 +216,11 @@ function ImageGallery({
 }
 
 const galleryStyles = StyleSheet.create({
+  countPill: {
+    position: 'absolute', right: 14, bottom: 14, flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
+  },
+  countText: { color: '#fff', fontSize: 12, fontWeight: '700', fontVariant: ['tabular-nums'] },
   heroImage: {
     width: SCREEN_WIDTH,
     height: HERO_HEIGHT,
@@ -245,98 +261,7 @@ const galleryStyles = StyleSheet.create({
 });
 
 /** Fullscreen image modal */
-function FullscreenImageModal({
-  visible,
-  images,
-  initialIndex,
-  onClose,
-}: {
-  visible: boolean;
-  images: string[];
-  initialIndex: number;
-  onClose: () => void;
-}) {
-  const [currentIndex, setCurrentIndex] = useState(initialIndex);
 
-  useEffect(() => {
-    setCurrentIndex(initialIndex);
-  }, [initialIndex]);
-
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={fullscreenStyles.container}>
-        <FlatList
-          data={images}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          initialScrollIndex={initialIndex}
-          getItemLayout={(_, index) => ({
-            length: SCREEN_WIDTH,
-            offset: SCREEN_WIDTH * index,
-            index,
-          })}
-          onScroll={(e) => {
-            const idx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
-            if (idx !== currentIndex) setCurrentIndex(idx);
-          }}
-          scrollEventThrottle={16}
-          keyExtractor={(_, i) => `fs-${i}`}
-          renderItem={({ item }) => (
-            <Image
-              source={{ uri: item }}
-              style={fullscreenStyles.image}
-              resizeMode="contain"
-            />
-          )}
-        />
-        <SafeAreaView style={fullscreenStyles.header} edges={['top']}>
-          <TouchableOpacity onPress={onClose} style={fullscreenStyles.closeBtn}>
-            <Ionicons name="close" size={28} color="#ffffff" />
-          </TouchableOpacity>
-          <Text style={fullscreenStyles.counter}>
-            {currentIndex + 1} / {images.length}
-          </Text>
-        </SafeAreaView>
-      </View>
-    </Modal>
-  );
-}
-
-const fullscreenStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
-  },
-  closeBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  counter: {
-    color: '#ffffff',
-    fontSize: fontSize.md,
-    fontWeight: fontWeight.medium,
-  },
-  image: {
-    width: SCREEN_WIDTH,
-    height: '100%',
-  },
-});
 
 /** Single review card */
 function ReviewCard({ review }: { review: any }) {
@@ -1167,7 +1092,7 @@ export default function ActivityDetailScreen() {
       </SafeAreaView>
 
       {/* Fullscreen image modal */}
-      <FullscreenImageModal
+      <PhotoViewer
         visible={fullscreenVisible}
         images={images}
         initialIndex={fullscreenIndex}

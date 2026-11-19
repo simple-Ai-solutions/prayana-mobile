@@ -282,66 +282,47 @@ export default function ProfileScreen() {
   // ============================================================
   // MENU SECTIONS
   // ============================================================
-  const menuSections: MenuSection[] = [
-    {
-      title: 'Account',
-      items: [
+  // Shortcuts at the top for what people open most; the rest in four
+  // short groups. Subtitles only where the label doesn't say it all.
+  const quickItems: MenuItem[] = [
         {
-          label: 'Edit Profile',
-          subtitle: 'Update your name, email, and phone',
-          icon: 'person-outline',
-          route: '/settings/edit-profile',
-          iconColor: colors.primary[500],
-          iconBg: colors.primary[50],
+          // Activities, eSIMs and holiday packages — previously the bookings
+          // screen was only reachable right after checkout, so purchases
+          // "disappeared" from the app.
+          label: 'My Bookings',
+          icon: 'receipt-outline',
+          route: '/bookings',
+          iconColor: '#0ea5e9',
+          iconBg: '#f0f9ff',
         },
-        {
-          label: 'Travel Preferences',
-          subtitle: 'Interests, travel style & budget',
-          icon: 'options-outline',
-          route: '/profile/travel-preferences',
-          iconColor: '#8b5cf6',
-          iconBg: '#f3f0ff',
-        },
-        {
-          label: 'Notification Preferences',
-          subtitle: 'Manage push and email notifications',
-          icon: 'notifications-outline',
-          route: '/settings/notifications',
-          iconColor: '#f59e0b',
-          iconBg: '#fffbeb',
-        },
-        {
-          label: 'Country & Currency',
-          subtitle: `${userPreferences.countryName} (${userPreferences.currencySymbol}${userPreferences.currency})`,
-          icon: 'globe-outline',
-          route: '/settings/country',
-          iconColor: '#3b82f6',
-          iconBg: '#eff6ff',
-        },
-      ],
-    },
-    {
-      title: 'Travel',
-      items: [
         {
           label: 'My Trips',
-          subtitle: 'View and manage your trips',
           icon: 'map-outline',
           route: '/(tabs)/trips',
           iconColor: '#059669',
           iconBg: '#ecfdf5',
         },
         {
-          // Activities, eSIMs and holiday packages — previously the bookings
-          // screen was only reachable right after checkout, so purchases
-          // "disappeared" from the app.
-          label: 'My Bookings',
-          subtitle: 'Activities, eSIMs & holiday packages',
-          icon: 'receipt-outline',
-          route: '/bookings',
-          iconColor: '#0ea5e9',
-          iconBg: '#f0f9ff',
+          label: 'My Wishlist',
+          icon: 'bookmark-outline',
+          route: '/wishlist',
+          iconColor: '#e11d48',
+          iconBg: '#fff1f2',
         },
+        {
+          label: 'Membership & Rewards',
+          subtitle: `${stats.loyaltyPoints.toLocaleString()} points · ${stats.tier} Member`,
+          icon: 'ribbon-outline',
+          route: '/profile/membership',
+          iconColor: '#f97316',
+          iconBg: '#fff7ed',
+        },
+  ];
+
+  const menuSections: MenuSection[] = [
+    {
+      title: 'Your travel',
+      items: [
         {
           // Splitwise-style aggregate of open balances across every trip you
           // share an expense in — settle up from one place.
@@ -362,24 +343,14 @@ export default function ProfileScreen() {
         },
         {
           label: 'My Favorites',
-          subtitle: 'Saved destinations & places',
           icon: 'heart-outline',
           route: '/profile/favorites',
           iconColor: '#ef4444',
           iconBg: '#fef2f2',
         },
         {
-          label: 'My Wishlist',
-          subtitle: 'Activities you saved with the heart',
-          icon: 'bookmark-outline',
-          route: '/wishlist',
-          iconColor: '#e11d48',
-          iconBg: '#fff1f2',
-        },
-        {
           // Moved here from the home header, which keeps only bell and avatar.
           label: 'Community',
-          subtitle: 'Ask travellers, share tips',
           icon: 'people-outline',
           route: '/community',
           iconColor: '#0D9488',
@@ -388,32 +359,51 @@ export default function ProfileScreen() {
       ],
     },
     {
-      title: 'Membership',
+      title: 'Account & settings',
       items: [
         {
-          label: 'Membership & Rewards',
-          subtitle: `${stats.loyaltyPoints.toLocaleString()} points · ${stats.tier} Member`,
-          icon: 'ribbon-outline',
-          route: '/profile/membership',
-          iconColor: '#f97316',
-          iconBg: '#fff7ed',
+          label: 'Edit Profile',
+          icon: 'person-outline',
+          route: '/settings/edit-profile',
+          iconColor: colors.primary[500],
+          iconBg: colors.primary[50],
         },
         {
-          label: 'Refer & Earn',
-          subtitle: 'Invite friends — you both earn credits',
-          icon: 'gift-outline',
-          route: '/profile/refer',
-          iconColor: '#059669',
-          iconBg: '#ecfdf5',
+          label: 'Travel Preferences',
+          icon: 'options-outline',
+          route: '/profile/travel-preferences',
+          iconColor: '#8b5cf6',
+          iconBg: '#f3f0ff',
+        },
+        {
+          label: 'Notification Preferences',
+          icon: 'notifications-outline',
+          route: '/settings/notifications',
+          iconColor: '#f59e0b',
+          iconBg: '#fffbeb',
+        },
+        {
+          label: 'Country & Currency',
+          subtitle: `${userPreferences.countryName} (${userPreferences.currencySymbol}${userPreferences.currency})`,
+          icon: 'globe-outline',
+          route: '/settings/country',
+          iconColor: '#3b82f6',
+          iconBg: '#eff6ff',
+        },
+        {
+          label: 'Privacy choices',
+          icon: 'shield-checkmark-outline',
+          route: '/settings/privacy',
+          iconColor: '#0d9488',
+          iconBg: '#f0fdfa',
         },
       ],
     },
     {
-      title: 'Wallet & Identity',
+      title: 'Wallet & rewards',
       items: [
         {
           label: 'Saved payment methods',
-          subtitle: 'Cards, UPI, net banking — one-tap pay',
           icon: 'card-outline',
           route: '/profile/payment-methods',
           iconColor: '#10b981',
@@ -428,57 +418,52 @@ export default function ProfileScreen() {
           iconBg: '#f5f3ff',
         },
         {
-          label: 'Privacy choices',
-          subtitle: 'Analytics and advertising consent',
-          icon: 'shield-checkmark-outline',
-          route: '/settings/privacy',
-          iconColor: '#0d9488',
-          iconBg: '#f0fdfa',
+          label: 'Refer & Earn',
+          subtitle: 'Invite friends — you both earn credits',
+          icon: 'gift-outline',
+          route: '/profile/refer',
+          iconColor: '#059669',
+          iconBg: '#ecfdf5',
         },
       ],
     },
     {
-      title: 'Support',
+      title: 'Help & about',
       items: [
         {
-          label: 'Send Feedback',
-          subtitle: 'Share your experience with us',
-          icon: 'chatbubble-ellipses-outline',
-          route: '/profile/feedback',
-          iconColor: '#0ea5e9',
-          iconBg: '#f0f9ff',
-        },
-        {
           label: 'Help & Support',
-          subtitle: 'Call, WhatsApp, email and FAQs',
           icon: 'help-circle-outline',
           route: '/support',
           iconColor: '#6366f1',
           iconBg: '#eef2ff',
         },
         {
-          label: 'Legal & Policies',
-          subtitle: 'Terms, privacy and booking policies',
-          icon: 'document-text-outline',
-          route: '/legal',
-          iconColor: '#0d9488',
-          iconBg: '#f0fdfa',
+          label: 'Send Feedback',
+          icon: 'chatbubble-ellipses-outline',
+          route: '/profile/feedback',
+          iconColor: '#0ea5e9',
+          iconBg: '#f0f9ff',
+        },
+        {
+          label: 'About Prayana',
+          icon: 'information-circle-outline',
+          route: '/about',
+          iconColor: colors.textSecondary,
+          iconBg: colors.backgroundSecondary,
         },
         {
           label: 'Careers',
-          subtitle: "We're hiring — join Prayana",
           icon: 'briefcase-outline',
           route: '/careers',
           iconColor: '#f97316',
           iconBg: '#fff7ed',
         },
         {
-          label: 'About Prayana',
-          subtitle: 'Our story, app version',
-          icon: 'information-circle-outline',
-          route: '/about',
-          iconColor: colors.textSecondary,
-          iconBg: colors.backgroundSecondary,
+          label: 'Legal & Policies',
+          icon: 'document-text-outline',
+          route: '/legal',
+          iconColor: '#0d9488',
+          iconBg: '#f0fdfa',
         },
       ],
     },
@@ -671,6 +656,26 @@ export default function ProfileScreen() {
           )}
         </Card>
 
+        {/* ====== SHORTCUTS ====== */}
+        <View style={styles.quickGrid}>
+          {quickItems.map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              style={[styles.quickTile, { backgroundColor: themeColors.card }]}
+              onPress={() => handleMenuPress(item)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <View style={[styles.quickIcon, { backgroundColor: `${item.iconColor || colors.primary[500]}${isDarkMode ? '26' : '1A'}` }]}>
+                <Ionicons name={item.icon} size={22} color={item.iconColor || colors.primary[500]} />
+              </View>
+              <Text style={[styles.quickLabel, { color: themeColors.text }]} numberOfLines={2}>
+                {item.label.replace(/^My /, '').replace(' & Rewards', '')}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* ====== DARK MODE TOGGLE ====== */}
         <View style={styles.menuSection}>
           <Text style={[styles.menuSectionTitle, { color: themeColors.textSecondary }]}>
@@ -703,7 +708,7 @@ export default function ProfileScreen() {
               <Switch
                 value={isDarkMode}
                 onValueChange={toggleTheme}
-                trackColor={{ false: '#d4d4d4', true: '#06B6D4' }}
+                trackColor={{ false: '#d4d4d4', true: colors.primary[500] }}
                 thumbColor={isDarkMode ? '#ffffff' : '#fafafa'}
                 ios_backgroundColor="#d4d4d4"
               />
@@ -817,6 +822,13 @@ export default function ProfileScreen() {
 // STYLES
 // ============================================================
 const styles = StyleSheet.create({
+  quickGrid: { flexDirection: 'row', gap: 10, marginHorizontal: spacing.xl, marginBottom: spacing.lg },
+  quickTile: {
+    flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 16, gap: 8,
+    shadowColor: '#0F172A', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1,
+  },
+  quickIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  quickLabel: { fontSize: 12, fontWeight: '700', textAlign: 'center' },
   container: {
     flex: 1,
     backgroundColor: colors.backgroundSecondary,

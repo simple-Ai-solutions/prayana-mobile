@@ -24,6 +24,8 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { makeAPICall } from '@prayana/shared-services';
+import { TOP_INDIA } from '../../lib/topIndia';
+import { sizedImageUrl } from '../../lib/imageUrl';
 import { resolveImageUrl } from '@prayana/shared-utils';
 
 // ============================================================
@@ -144,22 +146,22 @@ async function searchDB(query: string): Promise<Suggestion[]> {
 }
 
 // ============================================================
-// POPULAR DESTINATIONS (shown when search is empty)
+// SHOWN BEFORE TYPING: popular searches and trending places
 // ============================================================
-const POPULAR = [
-  { name: 'Goa', emoji: '🏖️' },
-  { name: 'Jaipur', emoji: '🏰' },
-  { name: 'Kerala', emoji: '🌴' },
-  { name: 'Manali', emoji: '🏔️' },
-  { name: 'Hampi', emoji: '🏛️' },
-  { name: 'Rishikesh', emoji: '🧘' },
-  { name: 'Udaipur', emoji: '🏯' },
-  { name: 'Andaman', emoji: '🏝️' },
-  { name: 'Kashmir', emoji: '❄️' },
-  { name: 'Darjeeling', emoji: '🍵' },
-  { name: 'Ooty', emoji: '🌿' },
-  { name: 'Ladakh', emoji: '🗻' },
+// What people actually search for on Prayana: things to do, not just places.
+// Each opens the experiences search for that phrase.
+const POPULAR_SEARCHES: { term: string; icon: any }[] = [
+  { term: 'Rishikesh rafting', icon: 'water-outline' },
+  { term: 'Coorg trek', icon: 'footsteps-outline' },
+  { term: 'Bungee jumping', icon: 'flash-outline' },
+  { term: 'Goa water sports', icon: 'boat-outline' },
+  { term: 'Hampi heritage', icon: 'business-outline' },
+  { term: 'Paragliding', icon: 'airplane-outline' },
 ];
+
+// Trending places as photo tiles: the top of the web's Top 20 India list.
+const TRENDING = TOP_INDIA.slice(0, 6);
+
 
 // ============================================================
 // MAIN SEARCH SCREEN
@@ -341,6 +343,16 @@ export default function SearchScreen() {
       navigateFromSearch(`/destination/${encodeURIComponent(trimmed)}`);
     }
   }, [query, router, saveRecent, navigateFromSearch]);
+
+  // A phrase like "Coorg trek" is about things to do, so it opens the
+  // experiences search rather than a destination page.
+  const handleExperienceSearch = useCallback((term: string) => {
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    setTimeout(() => { isNavigatingRef.current = false; }, 1500);
+    saveRecent(term);
+    navigateFromSearch(`/global-experiences?q=${encodeURIComponent(term)}`);
+  }, [saveRecent, navigateFromSearch]);
 
   const handleQuickSearch = useCallback((term: string) => {
     if (isNavigatingRef.current) return;
@@ -569,46 +581,68 @@ export default function SearchScreen() {
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
             <View style={styles.defaultContainer}>
-              {/* Recent Searches */}
+              {/* Recent searches: chips you can tap again. */}
               {recentSearches.length > 0 && (
                 <View style={styles.defaultSection}>
                   <View style={styles.defaultSectionHeader}>
-                    <Text style={[styles.defaultSectionTitle, { color: themeColors.text }]}>Recent Searches</Text>
-                    <TouchableOpacity onPress={clearRecentSearches}>
+                    <Text style={[styles.defaultSectionTitle, { color: themeColors.text }]}>Recent</Text>
+                    <TouchableOpacity onPress={clearRecentSearches} hitSlop={10}>
                       <Text style={styles.clearBtn}>Clear</Text>
                     </TouchableOpacity>
                   </View>
-                  {recentSearches.slice(0, 5).map((term) => (
-                    <TouchableOpacity
-                      key={term}
-                      style={[styles.recentRow, { borderBottomColor: themeColors.border }]}
-                      onPress={() => handleQuickSearch(term)}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="time-outline" size={18} color={colors.gray[400]} />
-                      <Text style={[styles.recentText, { color: themeColors.text }]}>{term}</Text>
-                      <Ionicons name="arrow-forward-outline" size={14} color={colors.gray[400]} />
-                    </TouchableOpacity>
-                  ))}
+                  <View style={styles.chipWrap}>
+                    {recentSearches.slice(0, 8).map((term) => (
+                      <TouchableOpacity
+                        key={term}
+                        style={[styles.chip, { backgroundColor: isDarkMode ? '#1F2937' : '#F3F4F6' }]}
+                        onPress={() => handleQuickSearch(term)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="time-outline" size={14} color={themeColors.textTertiary} />
+                        <Text style={[styles.chipText, { color: themeColors.text }]} numberOfLines={1}>{term}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
               )}
 
-              {/* Popular Destinations */}
+              {/* Popular searches: things to do. */}
               <View style={styles.defaultSection}>
-                <Text style={[styles.defaultSectionTitle, { color: themeColors.text }]}>Popular Destinations</Text>
-                <View style={styles.popularGrid}>
-                  {POPULAR.map((dest) => (
+                <Text style={[styles.defaultSectionTitle, { color: themeColors.text }]}>Popular searches</Text>
+                <View style={styles.chipWrap}>
+                  {POPULAR_SEARCHES.map((p) => (
                     <TouchableOpacity
-                      key={dest.name}
-                      style={[styles.popularChip, {
-                        backgroundColor: isDarkMode ? '#1F2937' : '#ffffff',
+                      key={p.term}
+                      style={[styles.chip, styles.chipOutline, {
+                        backgroundColor: isDarkMode ? '#111827' : '#FFFFFF',
                         borderColor: isDarkMode ? '#374151' : '#E5E7EB',
                       }]}
-                      onPress={() => handleQuickSearch(dest.name)}
+                      onPress={() => handleExperienceSearch(p.term)}
                       activeOpacity={0.7}
                     >
-                      <Text style={styles.popularEmoji}>{dest.emoji}</Text>
-                      <Text style={[styles.popularName, { color: themeColors.text }]}>{dest.name}</Text>
+                      <Ionicons name={p.icon} size={14} color={colors.primary[500]} />
+                      <Text style={[styles.chipText, { color: themeColors.text }]}>{p.term}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Trending places: photo tiles. */}
+              <View style={styles.defaultSection}>
+                <Text style={[styles.defaultSectionTitle, { color: themeColors.text }]}>Trending places</Text>
+                <View style={styles.trendGrid}>
+                  {TRENDING.map((p, i) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.trendTile}
+                      onPress={() => handleQuickSearch(p.name)}
+                      activeOpacity={0.85}
+                      accessibilityLabel={p.name}
+                    >
+                      <Image source={{ uri: sizedImageUrl(p.image, 180) }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+                      <View style={styles.trendShade} />
+                      <Text style={styles.trendRank}>#{i + 1}</Text>
+                      <Text style={styles.trendName} numberOfLines={1}>{p.name}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -625,6 +659,15 @@ export default function SearchScreen() {
 // STYLES
 // ============================================================
 const styles = StyleSheet.create({
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8, maxWidth: '100%' },
+  chipOutline: { borderWidth: 1 },
+  chipText: { fontSize: 13.5, fontWeight: '600', flexShrink: 1 },
+  trendGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10, marginTop: 4 },
+  trendTile: { width: '31.5%', aspectRatio: 0.85, borderRadius: 16, overflow: 'hidden', justifyContent: 'flex-end', backgroundColor: '#1F2937' },
+  trendShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.28)' },
+  trendRank: { position: 'absolute', top: 8, left: 8, color: '#fff', fontSize: 11, fontWeight: '800', backgroundColor: 'rgba(0,0,0,0.45)', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, overflow: 'hidden' },
+  trendName: { color: '#fff', fontSize: 14, fontWeight: '800', padding: 10 },
   container: { flex: 1 },
 
   // Header

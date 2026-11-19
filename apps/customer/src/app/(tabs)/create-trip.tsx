@@ -47,7 +47,6 @@ const TEMPLATES = [
 ];
 
 const HERO = require('../../../assets/hero-scenery.jpg');
-const RED = '#E61417';
 const ORANGE = '#f97316';
 
 export default function CreateTripScreen() {
@@ -132,7 +131,7 @@ export default function CreateTripScreen() {
             <Image source={HERO} style={StyleSheet.absoluteFill} contentFit="cover" />
             <LinearGradient colors={['rgba(0,0,0,0.15)', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.85)']} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
             <View style={styles.heroPill}>
-              <Ionicons name="sparkles" size={11} color={RED} />
+              <Ionicons name="sparkles" size={11} color={ORANGE} />
               <Text style={styles.heroPillText}>AI TRIP PLANNER</Text>
             </View>
             <View style={styles.heroBody}>
@@ -140,7 +139,7 @@ export default function CreateTripScreen() {
               <Text style={styles.heroSub}>Tell us where and when — get a day-by-day plan with routes, timings and budget.</Text>
               <View style={styles.heroCta}>
                 <Text style={styles.heroCtaText}>Start a new trip</Text>
-                <LinearGradient colors={[ORANGE, RED]} style={styles.heroCtaIcon}>
+                <LinearGradient colors={[ORANGE, '#EA580C']} style={styles.heroCtaIcon}>
                   <Ionicons name="arrow-forward" size={16} color="#fff" />
                 </LinearGradient>
               </View>
@@ -280,7 +279,7 @@ const styles = StyleSheet.create({
     position: 'absolute', top: 16, left: 16, flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
   },
-  heroPillText: { color: RED, fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
+  heroPillText: { color: '#EA580C', fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
   heroBody: { padding: 20 },
   heroTitle: { color: '#fff', fontSize: 30, fontWeight: '900', letterSpacing: -0.8, lineHeight: 35 },
   heroSub: { color: 'rgba(255,255,255,0.88)', fontSize: 13.5, lineHeight: 19, marginTop: 8 },

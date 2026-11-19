@@ -36,7 +36,6 @@ import { FULL_W, RAIL_GAP, RAIL_PAD, usePairSnap } from '../../lib/railLayout';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 const HERO = require('../../../assets/hero-scenery.jpg');
-const RED = '#E61417';
 const ORANGE = '#f97316';
 const FEATURED_COUNT = 5;
 // A colour per category chip, so the row reads at a glance.
@@ -735,7 +734,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 1, borderColor: 'rgba(230,20,23,0.18)',
   },
-  heroPillText: { color: RED, fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
+  heroPillText: { color: '#EA580C', fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
   heroEyebrow: { fontSize: 13, fontWeight: '600' },
   heroTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -0.8, lineHeight: 35, marginTop: 4 },
   catIcon: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
@@ -745,7 +744,7 @@ const styles = StyleSheet.create({
   secTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.5 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(148,163,184,0.5)' },
-  dotOn: { width: 18, backgroundColor: RED },
+  dotOn: { width: 18, backgroundColor: ORANGE },
   container: {
     flex: 1,
     backgroundColor: colors.background,
