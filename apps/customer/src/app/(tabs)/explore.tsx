@@ -212,7 +212,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
 // ============================================================
 export default function ExploreScreen() {
   const router = useRouter();
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
   const params = useLocalSearchParams<{ category?: string; query?: string }>();
 
   // --- State ---
@@ -448,7 +448,13 @@ export default function ExploreScreen() {
         {/* Hero: a soft travel-photo wash behind the title and search. */}
         <View style={styles.hero}>
           <XImage source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} contentFit="cover" blurRadius={36} />
-          <LinearGradient colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.55)', themeColors.background]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
+          <LinearGradient
+            colors={isDarkMode
+              ? ['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.55)', themeColors.background]
+              : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.55)', themeColors.background]}
+            locations={[0, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+          />
           <Text style={[styles.heroEyebrow, { color: themeColors.textSecondary }]}>Experiences & treks</Text>
           <Text style={[styles.heroTitle, { color: themeColors.text }]}>
             Find your next{'\n'}adventure
@@ -558,6 +564,7 @@ export default function ExploreScreen() {
       totalResults,
       loading,
       themeColors,
+      isDarkMode,
       handleSearchChange,
       handleSearchSubmit,
       handleSearchClear,

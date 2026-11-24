@@ -792,7 +792,15 @@ export default function ActivityDetailScreen() {
                   style={[styles.fact, { backgroundColor: themeColors.surfaceElevated, borderColor: themeColors.border }]}
                 >
                   <Ionicons name={f.icon} size={18} color={colors.primary[500]} />
-                  <Text style={[styles.factValue, { color: themeColors.text }]} numberOfLines={2}>{f.value}</Text>
+                  {/* A single long word ("Chikkamagaluru") would break mid-word over two lines */}
+                  <Text
+                    style={[styles.factValue, { color: themeColors.text }]}
+                    numberOfLines={f.value.includes(' ') ? 2 : 1}
+                    adjustsFontSizeToFit={!f.value.includes(' ')}
+                    minimumFontScale={0.7}
+                  >
+                    {f.value}
+                  </Text>
                   <Text style={[styles.factLabel, { color: themeColors.textTertiary }]}>{f.label}</Text>
                 </View>
               ))}
