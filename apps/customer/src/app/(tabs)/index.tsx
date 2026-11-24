@@ -200,6 +200,15 @@ function NotificationBell({ color }: { color: string }) {
 }
 
 /** The typed city as its own leaf, so typing never re-renders the page. */
+function HomeChatFAB({ setterRef }: { setterRef: React.MutableRefObject<((hidden: boolean) => void) | null> }) {
+  const [hidden, setHidden] = useState(false);
+  useEffect(() => {
+    setterRef.current = setHidden;
+    return () => { setterRef.current = null; };
+  }, [setterRef]);
+  return <FloatingChatFAB hidden={hidden} />;
+}
+
 function TypedCity({ style, prefix = '', still }: { style: any; prefix?: string; still: boolean }) {
   const city = useTypedCity(still);
   return <Text style={style}>{prefix}{city}</Text>;
@@ -327,7 +336,9 @@ export default function HomeScreen() {
   // without touching JS. The JS listener only flips the chat button when the
   // scroll direction changes.
   const scrollY = useRef(new Animated.Value(0)).current;
-  const [fabHidden, setFabHidden] = useState(false);
+  // The chat button owns its hidden state: held here, every change of scroll
+  // direction re-rendered the whole home page mid-scroll.
+  const setFabHidden = useRef<((hidden: boolean) => void) | null>(null);
   const fabHiddenRef = useRef(false);
   const lastY = useRef(0);
   const onPageScroll = useRef(
@@ -341,7 +352,7 @@ export default function HomeScreen() {
         const hide = dy > 0 && y > 160;
         if (hide !== fabHiddenRef.current) {
           fabHiddenRef.current = hide;
-          setFabHidden(hide);
+          setFabHidden.current?.(hide);
         }
       },
     }),
@@ -815,7 +826,7 @@ export default function HomeScreen() {
       {/* Floating AI Chat Button (matching web FloatingChatButton) */}
       {/* Hide the floating chat FAB while the Quick Itinerary popup is open
           so it doesn't overlap the form/keyboard. */}
-      {!showQuickItinerary && <FloatingChatFAB hidden={fabHidden} />}
+      {!showQuickItinerary && <HomeChatFAB setterRef={setFabHidden} />}
 
       {/* Quick Itinerary generate popup (opens from the hero tab) */}
       <QuickItineraryModal visible={showQuickItinerary} onClose={() => setShowQuickItinerary(false)} />
