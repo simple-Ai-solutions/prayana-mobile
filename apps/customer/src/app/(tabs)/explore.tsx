@@ -15,6 +15,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FriendlyEmpty } from '../../components/ui/FriendlyEmpty';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +37,6 @@ import { FULL_W, RAIL_GAP, RAIL_PAD, usePairSnap } from '../../lib/railLayout';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 const HERO = require('../../../assets/hero-scenery.jpg');
-const RED = '#E61417';
 const ORANGE = '#f97316';
 const FEATURED_COUNT = 5;
 // A colour per category chip, so the row reads at a glance.
@@ -212,7 +212,7 @@ function ActivityCard({ activity, onPress }: ActivityCardProps) {
 // ============================================================
 export default function ExploreScreen() {
   const router = useRouter();
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
   const params = useLocalSearchParams<{ category?: string; query?: string }>();
 
   // --- State ---
@@ -220,6 +220,8 @@ export default function ExploreScreen() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(true);
+  // A failed fetch is not an empty catalogue; say which one it was.
+  const [loadError, setLoadError] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState(params.query || '');
@@ -248,6 +250,7 @@ export default function ExploreScreen() {
     ) => {
       if (pageNum === 1 && !append) {
         setLoading(true);
+        setLoadError(false);
       } else {
         setLoadingMore(true);
       }
@@ -288,6 +291,7 @@ export default function ExploreScreen() {
         if (!append) {
           setActivities([]);
           setHasMore(false);
+          setLoadError(true);
         }
       } finally {
         setLoading(false);
@@ -444,13 +448,16 @@ export default function ExploreScreen() {
         {/* Hero: a soft travel-photo wash behind the title and search. */}
         <View style={styles.hero}>
           <XImage source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} contentFit="cover" blurRadius={36} />
-          <LinearGradient colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.55)', themeColors.background]} locations={[0, 0.55, 1]} style={StyleSheet.absoluteFill} />
-          <View style={styles.heroPill}>
-            <Ionicons name="compass" size={12} color={RED} />
-            <Text style={styles.heroPillText}>EXPERIENCES & TREKS</Text>
-          </View>
+          <LinearGradient
+            colors={isDarkMode
+              ? ['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.55)', themeColors.background]
+              : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.55)', themeColors.background]}
+            locations={[0, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+          <Text style={[styles.heroEyebrow, { color: themeColors.textSecondary }]}>Experiences & treks</Text>
           <Text style={[styles.heroTitle, { color: themeColors.text }]}>
-            Find your next{'\n'}<Text style={{ color: RED }}>adventure</Text>
+            Find your next{'\n'}adventure
           </Text>
           <View style={[styles.searchBar, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
             <Ionicons name="search" size={19} color={themeColors.textTertiary} />
@@ -507,7 +514,6 @@ export default function ExploreScreen() {
         {featured.length > 0 ? (
           <View style={{ marginBottom: 6 }}>
             <View style={styles.secHead}>
-              <LinearGradient colors={[ORANGE, RED]} style={styles.secIcon}><Ionicons name="flame" size={14} color="#fff" /></LinearGradient>
               <Text style={[styles.secTitle, { color: themeColors.text }]}>Trending this week</Text>
             </View>
             <ScrollView
@@ -558,6 +564,7 @@ export default function ExploreScreen() {
       totalResults,
       loading,
       themeColors,
+      isDarkMode,
       handleSearchChange,
       handleSearchSubmit,
       handleSearchClear,
@@ -589,31 +596,32 @@ export default function ExploreScreen() {
         </View>
       );
     }
+    if (loadError) {
+      return (
+        <FriendlyEmpty
+          kind="offline"
+          title="Couldn't load experiences"
+          text="Check your connection and try again."
+          actionLabel="Try again"
+          onAction={() => fetchActivities(1, searchQuery, selectedCategory, sortBy, false)}
+        />
+      );
+    }
     return (
-      <View style={styles.emptyState}>
-        <Ionicons name="search-outline" size={64} color={colors.gray[300]} />
-        <Text style={[styles.emptyTitle, { color: themeColors.text }]}>No activities found</Text>
-        <Text style={[styles.emptySubtitle, { color: themeColors.textSecondary }]}>
-          {searchQuery
-            ? `No results for "${searchQuery}". Try a different search.`
-            : 'Try changing your filters or category.'}
-        </Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => {
-            setSearchQuery('');
-            setSelectedCategory('all');
-            setSortBy('recommended');
-            fetchActivities(1, '', 'all', 'recommended', false);
-          }}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh-outline" size={18} color="#ffffff" />
-          <Text style={styles.retryButtonText}>Reset & Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <FriendlyEmpty
+        kind="search"
+        title={searchQuery ? `Nothing for “${searchQuery}” yet` : 'Nothing in this category yet'}
+        text={searchQuery ? 'Try a different word, like “trek” or “rafting”.' : 'Try another category, or see everything.'}
+        actionLabel="Show everything"
+        onAction={() => {
+          setSearchQuery('');
+          setSelectedCategory('all');
+          setSortBy('recommended');
+          fetchActivities(1, '', 'all', 'recommended', false);
+        }}
+      />
     );
-  }, [loading, searchQuery, themeColors, fetchActivities]);
+  }, [loading, loadError, searchQuery, selectedCategory, sortBy, themeColors, fetchActivities]);
 
   // ============================================================
   // RENDER
@@ -716,15 +724,17 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5,
     borderWidth: 1, borderColor: 'rgba(230,20,23,0.18)',
   },
-  heroPillText: { color: RED, fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
-  heroTitle: { fontSize: 32, fontWeight: '900', letterSpacing: -1, lineHeight: 37, marginTop: 10 },
+  heroPillText: { color: '#EA580C', fontSize: 10.5, fontWeight: '900', letterSpacing: 1.4 },
+  heroEyebrow: { fontSize: 13, fontWeight: '600' },
+  heroTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -0.8, lineHeight: 35, marginTop: 4 },
   catIcon: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', marginRight: 6 },
   secHead: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, marginBottom: 12 },
   secIcon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
-  secTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.4 },
+  // Same as the home section header.
+  secTitle: { fontSize: 22, lineHeight: 28, fontWeight: '800', letterSpacing: -0.5 },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 10 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: 'rgba(148,163,184,0.5)' },
-  dotOn: { width: 18, backgroundColor: RED },
+  dotOn: { width: 18, backgroundColor: ORANGE },
   container: {
     flex: 1,
     backgroundColor: colors.background,

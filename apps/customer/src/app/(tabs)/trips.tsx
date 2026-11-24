@@ -12,6 +12,7 @@ import {
   Animated as RNAnimated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { FriendlyEmpty } from '../../components/ui/FriendlyEmpty';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Image } from 'expo-image';
@@ -678,15 +679,10 @@ export default function TripsScreen() {
           {/* Header and filters scroll away with the list, so trips get the screen. */}
           {/* ======= HEADER ======= */}
           <View style={styles.header}>
-            <View style={styles.welcome}>
-              <Ionicons name="airplane" size={12} color="#E61417" />
-              <Text style={styles.welcomeText} numberOfLines={1}>
-                {user?.displayName && user.uid !== 'guest-user' ? `WELCOME BACK, ${String(user.displayName).split(' ')[0].toUpperCase()}` : 'YOUR TRAVEL COLLECTION'}
-              </Text>
-            </View>
-            <Text style={[styles.title, { color: themeColors.text }]}>
-              My <Text style={{ color: '#E61417' }}>trips</Text>
+            <Text style={[styles.welcomeLine, { color: themeColors.textSecondary }]} numberOfLines={1}>
+              {user?.displayName && user.uid !== 'guest-user' ? `Welcome back, ${String(user.displayName).split(' ')[0]}` : 'Your travel collection'}
             </Text>
+            <Text style={[styles.title, { color: themeColors.text }]}>My trips</Text>
             {myTrips.length + sharedTrips.length > 0 ? (
               <View style={styles.heroStats}>
                 {([
@@ -702,14 +698,13 @@ export default function TripsScreen() {
                   </View>
                 ))}
               </View>
-            ) : (
-              <Text style={[styles.heroSub, { color: themeColors.textSecondary }]}>
-                Itineraries you've built, drafts in progress and plans you share with friends.
-              </Text>
-            )}
+            ) : null}
           </View>
 
           {/* ======= FILTER TABS ======= */}
+          {/* Only once there's something to filter; on an empty account the
+              tabs just add noise above the "No trips yet" card. */}
+          {myTrips.length > 0 && (
           <View style={[styles.filterContainer, { borderBottomColor: themeColors.border }]}>
             <FlatList
               data={FILTER_TABS as unknown as FilterTab[]}
@@ -735,24 +730,7 @@ export default function TripsScreen() {
               }}
             />
           </View>
-
-          {/* ====== TRAVEL GUIDES CAROUSEL ====== */}
-          <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Travel Guides</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -16 }}
-              contentContainerStyle={styles.guidesScroll}
-              decelerationRate="fast"
-              ref={guidesSnap.setRef}
-              {...guidesSnap.props}
-            >
-              {TRAVEL_GUIDES.map(renderGuideCard)}
-            </ScrollView>
-          </View>
+          )}
 
           {/* ====== MY TRIPS ====== */}
           <View style={styles.sectionContainer}>
@@ -777,40 +755,22 @@ export default function TripsScreen() {
                   </Text>
                 </View>
               ) : (
-                <View style={[styles.emptyTripsCard, { borderColor: themeColors.border }]}>
-                  <Ionicons
-                    name={user?.uid === 'guest-user' ? 'lock-closed-outline' : 'airplane-outline'}
-                    size={40}
-                    color={themeColors.textTertiary}
-                  />
-                  <Text style={[styles.emptyTripsTitle, { color: themeColors.text }]}>
-                    {user?.uid === 'guest-user' ? 'Sign in to see your trips' : 'No trips yet'}
-                  </Text>
-                  <Text style={[styles.emptyTripsSubtitle, { color: themeColors.textTertiary }]}>
-                    {user?.uid === 'guest-user'
+                <FriendlyEmpty
+                  kind={user?.uid === 'guest-user' ? 'tickets' : 'trips'}
+                  compact
+                  title={user?.uid === 'guest-user' ? 'Sign in to see your trips' : 'Your next adventure starts here'}
+                  text={
+                    user?.uid === 'guest-user'
                       ? 'Saved itineraries and collaborator invites live in your account.'
-                      : 'Start planning your first adventure'}
-                  </Text>
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() =>
-                      user?.uid === 'guest-user'
-                        ? router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/trips' } } as any)
-                        : router.push('/trip/setup' as any)
-                    }
-                  >
-                    <LinearGradient
-                      colors={[colors.primary[500], colors.primary[600]]}
-                      start={{ x: 0, y: 0 }}
-                      end={{ x: 1, y: 0 }}
-                      style={styles.emptyTripsCTA}
-                    >
-                      <Text style={styles.emptyTripsCTAText}>
-                        {user?.uid === 'guest-user' ? 'Sign in' : 'Create First Trip'}
-                      </Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
+                      : 'Tell us where and when, and get a day-by-day plan in a minute.'
+                  }
+                  actionLabel={user?.uid === 'guest-user' ? 'Sign in' : 'Plan my first trip'}
+                  onAction={() =>
+                    user?.uid === 'guest-user'
+                      ? router.push({ pathname: '/(auth)/login', params: { redirectTo: '/(tabs)/trips' } } as any)
+                      : router.push('/trip/setup' as any)
+                  }
+                />
               )
             ) : (
               <View style={styles.tripsListInline}>
@@ -844,19 +804,44 @@ export default function TripsScreen() {
             </View>
           )}
 
+          {/* ====== TRAVEL GUIDES CAROUSEL ====== */}
+          {/* Below your own trips: the page is about your plans first. */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Travel Guides</Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ marginHorizontal: -16 }}
+              contentContainerStyle={styles.guidesScroll}
+              decelerationRate="fast"
+              ref={guidesSnap.setRef}
+              {...guidesSnap.props}
+            >
+              {TRAVEL_GUIDES.map(renderGuideCard)}
+            </ScrollView>
+          </View>
+
           {/* Bottom spacing */}
           <View style={{ height: 100 }} />
         </ScrollView>
       )}
 
       {/* ======= FAB ======= */}
-      <TouchableOpacity
-        style={[styles.fab, shadow.lg]}
-        activeOpacity={0.85}
-        onPress={() => router.push('/trip/setup' as any)}
-      >
-        <Ionicons name="add" size={28} color="#ffffff" />
-      </TouchableOpacity>
+      {/* With no trips the empty card already carries "Create First Trip";
+          two create buttons on one screen is one too many. */}
+      {!loading && myTrips.length > 0 && (
+        <TouchableOpacity
+          style={[styles.fab, shadow.lg]}
+          activeOpacity={0.85}
+          onPress={() => router.push('/trip/setup' as any)}
+          accessibilityRole="button"
+          accessibilityLabel="Plan a new trip"
+        >
+          <Ionicons name="add" size={28} color="#ffffff" />
+        </TouchableOpacity>
+      )}
 
       {/* ======= GUIDE MODAL ======= */}
       <GuideModal
@@ -872,6 +857,7 @@ export default function TripsScreen() {
 // STYLES
 // ============================================================
 const styles = StyleSheet.create({
+  welcomeLine: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -905,10 +891,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: -1,
-    marginTop: 8,
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.8,
+    marginTop: 0,
     color: colors.text,
   },
   countBadge: {

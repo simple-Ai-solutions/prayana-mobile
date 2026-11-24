@@ -7,7 +7,8 @@
     "base": {
       "node": "20.18.0",
       "env": {
-        "EXPO_PUBLIC_ENV": "development"
+        "EXPO_PUBLIC_ENV": "development",
+        "EXPO_PUBLIC_IMAGE_RESIZE": "0"
       }
     },
     "development": {
@@ -29,7 +30,8 @@
       "distribution": "internal",
       "channel": "preview",
       "env": {
-        "EXPO_PUBLIC_ENV": "staging"
+        "EXPO_PUBLIC_ENV": "staging",
+        "EXPO_PUBLIC_IMAGE_RESIZE": "0"
       },
       "ios": {
         "resourceClass": "m-medium"
@@ -46,7 +48,8 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_ENV": "production",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_IMAGE_RESIZE": "0"
       },
       "android": {
         "buildType": "apk",
@@ -59,7 +62,8 @@
       "environment": "production",
       "env": {
         "EXPO_PUBLIC_ENV": "production",
-        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
+        "EXPO_PUBLIC_IMAGE_RESIZE": "0"
       },
       "ios": {
         "resourceClass": "m-medium",

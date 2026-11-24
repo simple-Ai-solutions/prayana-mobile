@@ -1,24 +1,18 @@
 // ExperienceCard — the Viator/Headout card from the PWA's Explore World.
 //
 // Theme note: this is the app's standard surface, so it uses the shared orange
-// primary (colors.primary[500] = #f97316) for the price CTA and the location
-// pin, and the logo teal (#4AC0CC) for the provider chip — exactly as the web's
+// primary (colors.primary[500] = #f97316) for the Instant badge, and the logo
+// teal (#4AC0CC) for the provider chip, as the web's
 // ActivityCard does. It is NOT the brand-red of the eSIM screens.
 //
 // Nothing here is invented: the API sends no `isFeatured` and no `alsoOn`, so
 // there is no "Bestseller" ribbon and no multi-provider badge. A badge the data
 // cannot support is a lie, however good it looks.
 import React from 'react';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  useTheme,
-  colors,
-  spacing,
-  fontSize,
-  fontWeight,
-  borderRadius,
-} from '@prayana/shared-ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useTheme, colors, spacing, fontWeight } from '@prayana/shared-ui';
 import {
   Experience,
   formatPrice,
@@ -29,6 +23,9 @@ import {
   ratingOf,
 } from '../../lib/experiences';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
+import { PressableScale } from '../ui/PressableScale';
+import { HeartButton } from '../ui/HeartButton';
+import { handOffPhoto } from '../../lib/photoHandoff';
 
 const TEAL = '#4AC0CC'; // logo primary — see PRAYANA_DESIGN_SYSTEM.pdf
 
@@ -39,6 +36,9 @@ interface Props {
   onPress: (e: Experience) => void;
 }
 
+// Photo first: a big rounded picture carrying the badge, rating and heart,
+// then the title, where and how long, and the price. No box, no divider and
+// no arrow button; the whole card is the button.
 export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) => {
   const { themeColors } = useTheme();
 
@@ -48,34 +48,33 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
   const provider = providerLabel(experience);
   const city = experience.location?.city;
   const duration = experience.duration?.label;
+  const meta = [duration, city].filter(Boolean).join(' · ');
 
   return (
-    <Pressable
-      onPress={() => onPress(experience)}
+    <PressableScale
+      onPress={() => { handOffPhoto(experience._id, img); onPress(experience); }}
       accessibilityRole="button"
       accessibilityLabel={experience.title}
-      style={({ pressed }) => [
-        styles.card,
-        width ? { width } : styles.fill,
-        {
-          backgroundColor: themeColors.surface,
-          borderColor: themeColors.border,
-          opacity: pressed ? 0.9 : 1,
-        },
-      ]}
+      wrapperStyle={width ? { width } : styles.fill}
     >
-      <View style={styles.imgWrap}>
+      <View style={[styles.imgWrap, { backgroundColor: themeColors.backgroundSecondary }]}>
         {img ? (
           <Image source={{ uri: img }} style={styles.img} resizeMode="cover" />
         ) : (
-          <View style={[styles.img, { backgroundColor: themeColors.backgroundSecondary }]}>
+          <View style={styles.img}>
             <Ionicons name="image-outline" size={26} color={themeColors.textTertiary} />
           </View>
         )}
+        <LinearGradient
+          colors={['rgba(0,0,0,0.28)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.45)']}
+          locations={[0, 0.3, 0.65, 1]}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
 
         {provider ? (
           <View style={styles.providerChip}>
-            <Text style={styles.providerText}>{provider}</Text>
+            <Text style={styles.chipText}>{provider}</Text>
           </View>
         ) : (
           // Prayana's own listings carry no third-party badge. Where the host
@@ -83,43 +82,16 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
           isInstant(experience) && (
             <View style={styles.instantChip}>
               <Ionicons name="flash" size={10} color="#FFFFFF" />
-              <Text style={styles.providerText}>Instant</Text>
+              <Text style={styles.chipText}>Instant</Text>
             </View>
           )
         )}
-      </View>
 
-      <View style={styles.body}>
-        {/* Meta line: city · duration */}
-        <View style={styles.meta}>
-          {!!city && (
-            <>
-              <Ionicons name="location" size={12} color={colors.primary[500]} />
-              <Text style={[styles.metaText, { color: themeColors.textSecondary }]} numberOfLines={1}>
-                {city}
-              </Text>
-            </>
-          )}
-          {!!city && !!duration && (
-            <Text style={[styles.dot, { color: themeColors.textTertiary }]}>·</Text>
-          )}
-          {!!duration && (
-            <>
-              <Ionicons name="time-outline" size={12} color={themeColors.textTertiary} />
-              <Text style={[styles.metaText, { color: themeColors.textSecondary }]} numberOfLines={1}>
-                {duration}
-              </Text>
-            </>
-          )}
-        </View>
-
-        <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={2}>
-          {experience.title}
-        </Text>
+        {!provider && !!experience._id && <HeartButton id={String(experience._id)} size={17} style={styles.heartPos} />}
 
         {!!rating && (
-          <View style={styles.ratingPill}>
-            <Ionicons name="star" size={11} color="#15803D" />
+          <View style={styles.rating}>
+            <Ionicons name="star" size={11} color="#FBBF24" />
             <Text style={styles.ratingText}>
               {rating.average.toFixed(1)}
               {rating.count > 0 && (
@@ -128,112 +100,90 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
             </Text>
           </View>
         )}
-
-        <View style={[styles.footer, { borderTopColor: themeColors.border }]}>
-          {price ? (
-            <View>
-              <Text style={[styles.price, { color: themeColors.text }]}>{formatPrice(price)}</Text>
-              {experience.pricing?.priceType === 'per_person' && (
-                <Text style={[styles.per, { color: themeColors.textTertiary }]}>per person</Text>
-              )}
-            </View>
-          ) : (
-            // No price on the wire — say so rather than printing ₹0.
-            <Text style={[styles.per, { color: themeColors.textTertiary }]}>Price on request</Text>
-          )}
-
-          <View style={styles.cta}>
-            <Ionicons name="arrow-forward" size={15} color="#FFFFFF" />
-          </View>
-        </View>
       </View>
-    </Pressable>
+
+      <View style={styles.body}>
+        <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={2}>
+          {experience.title}
+        </Text>
+        {!!meta && (
+          <Text style={[styles.meta, { color: themeColors.textSecondary }]} numberOfLines={1}>
+            {meta}
+          </Text>
+        )}
+        {price ? (
+          <Text style={[styles.price, { color: themeColors.text }]}>
+            {formatPrice(price)}
+            {experience.pricing?.priceType === 'per_person' && (
+              <Text style={[styles.per, { color: themeColors.textSecondary }]}> / person</Text>
+            )}
+          </Text>
+        ) : (
+          // No price on the wire — say so rather than printing ₹0.
+          <Text style={[styles.per, { color: themeColors.textSecondary }]}>Price on request</Text>
+        )}
+      </View>
+    </PressableScale>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { borderRadius: borderRadius.xl, borderWidth: 1, overflow: 'hidden' },
   fill: { flex: 1 },
 
-  imgWrap: { position: 'relative' },
-  // 3:2, matching the source images (Viator/TripAdvisor serve 720x480). Some of
-  // those photos are marketing composites with a thumbnail strip in them — that
-  // is the supplier's artwork, not a crop bug, and the PWA shows it too.
+  imgWrap: { borderRadius: 18, overflow: 'hidden' },
+  // Square: big enough to sell the moment, and two fit side by side.
   img: {
     width: '100%',
-    aspectRatio: 3 / 2,
+    aspectRatio: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
   providerChip: {
     position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
+    top: 10,
+    left: 10,
     backgroundColor: TEAL,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: borderRadius.sm,
+    borderRadius: 999,
   },
   instantChip: {
     position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
+    top: 10,
+    left: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
     backgroundColor: colors.primary[500],
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: borderRadius.sm,
+    borderRadius: 999,
   },
-  providerText: {
-    color: '#FFFFFF',
-    fontSize: fontSize.xs,
-    fontWeight: fontWeight.bold,
-    letterSpacing: 0.6,
-  },
+  chipText: { color: '#FFFFFF', fontSize: 10.5, fontWeight: fontWeight.bold, letterSpacing: 0.3 },
 
-  body: { padding: spacing.md, gap: 6 },
+  heartPos: { position: 'absolute', top: 8, right: 8, width: 32, height: 32, borderRadius: 16 },
 
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  metaText: { fontSize: fontSize.xs, flexShrink: 1 },
-  dot: { fontSize: fontSize.xs, marginHorizontal: 2 },
-
-  title: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, lineHeight: 19 },
-
-  ratingPill: {
+  rating: {
+    position: 'absolute',
+    left: 10,
+    bottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
     gap: 3,
-    backgroundColor: 'rgba(22,163,74,0.10)',
-    paddingHorizontal: spacing.sm,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: borderRadius.sm,
+    borderRadius: 999,
   },
-  ratingText: { color: '#15803D', fontSize: fontSize.xs, fontWeight: fontWeight.bold },
-  ratingCount: { fontWeight: fontWeight.medium },
+  ratingText: { color: '#fff', fontSize: 11, fontWeight: fontWeight.bold },
+  ratingCount: { fontWeight: fontWeight.medium, color: 'rgba(255,255,255,0.85)' },
 
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
-    paddingTop: spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  price: { fontSize: fontSize.lg, fontWeight: fontWeight.bold, letterSpacing: -0.4 },
-  per: { fontSize: fontSize.xs },
-
-  cta: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary[500],
-  },
+  body: { paddingTop: 10, paddingHorizontal: 2, gap: 3 },
+  title: { fontSize: 14, fontWeight: fontWeight.bold, lineHeight: 19, letterSpacing: -0.2 },
+  meta: { fontSize: 12 },
+  price: { marginTop: 3, fontSize: 15, fontWeight: '800', letterSpacing: -0.3 },
+  per: { fontSize: 12, fontWeight: '500' },
 });
 
 export default ExperienceCard;

@@ -5,6 +5,7 @@
 // instead of plain meta, so the page reads like a contact sheet.
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Image, Pressable, Dimensions, ActivityIndicator, Platform } from 'react-native';
+import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -228,7 +229,7 @@ export function PhotoView({
 
       <View>
         {loading ? (
-          <View style={styles.state}><ActivityIndicator size="large" color={INK} /></View>
+          <SkeletonCardGrid padded />
         ) : shown.length === 0 ? (
           <View style={styles.state}>
             <Ionicons name="aperture-outline" size={40} color="rgba(0,0,0,0.3)" />

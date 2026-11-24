@@ -24,13 +24,18 @@ class ActivityMarketplaceAPI {
   // Global (Headout + Viator) experiences for a city/country — powers the
   // "Activities" tab and the Global Experiences screen (mirrors PWA).
   async getGlobalActivities(opts = {}) {
-    const { city, state, country, limit = 20, skip = 0, q, category } = opts;
+    const { city, state, country, limit = 20, skip = 0, q, category, sort, maxPrice, instant } = opts;
     const params = new URLSearchParams();
     if (city) params.append("city", city);
     if (state) params.append("state", state);
     if (country) params.append("country", country);
     if (q) params.append("q", q);
     if (category) params.append("category", category);
+    // Refinements; a server that doesn't know them ignores them (and doesn't
+    // echo `refine` in its reply, which is how the app knows to hide them).
+    if (sort && sort !== "recommended") params.append("sort", sort);
+    if (maxPrice) params.append("maxPrice", String(maxPrice));
+    if (instant) params.append("instant", "1");
     params.append("limit", String(limit));
     params.append("skip", String(skip));
     return makeAPICall(`/activities/global?${params.toString()}`);

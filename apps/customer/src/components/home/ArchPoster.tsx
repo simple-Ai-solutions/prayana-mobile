@@ -7,6 +7,7 @@
 // yatra cards, as on the web, so a pilgrim sees one card in both places.
 import React from 'react';
 import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
+import { PressableScale } from '../ui/PressableScale';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ArrowRight } from 'lucide-react-native';
@@ -58,9 +59,9 @@ export function ArchPoster({
   const dome = Math.floor(archW / 2);
 
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
-      style={({ pressed }) => [styles.shadow, pressed && { transform: [{ scale: 0.98 }] }]}
+      style={() => [styles.shadow]}
       accessibilityRole="link"
       accessibilityLabel={accessibilityLabel || name}
     >
@@ -139,7 +140,7 @@ export function ArchPoster({
           </View>
         </View>
       </LinearGradient>
-    </Pressable>
+    </PressableScale>
   );
 }
 

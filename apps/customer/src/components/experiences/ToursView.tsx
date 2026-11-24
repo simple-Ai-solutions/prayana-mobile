@@ -6,6 +6,7 @@
 // Every figure is the partner's own (rating, review count, duration, price).
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
+import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Image } from 'expo-image';
 import { router } from 'expo-router';
@@ -196,7 +197,7 @@ export function ToursView({ items, total, loading, hasMore, loadingMore, onLoadM
       ) : null}
 
       {loading ? (
-        <View style={s.state}><ActivityIndicator size="large" color={TEAL} /></View>
+        <SkeletonCardGrid padded />
       ) : (
         <>
           {loved.length ? (

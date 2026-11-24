@@ -8,6 +8,11 @@
 // The commissioned clip plays over the poster on Wi-Fi only.
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { PressableScale } from '../ui/PressableScale';
+import { Ionicons } from '@expo/vector-icons';
+import { HeartButton } from '../ui/HeartButton';
+import { seatsBadge, useSeats } from '../../lib/seats';
+import { handOffPhoto } from '../../lib/photoHandoff';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -43,6 +48,18 @@ const primaryImage = (images?: any[]): string | undefined => {
   return pick?.url ? normalizeImageUrl(pick.url) : undefined;
 };
 
+/** "Today", "Tomorrow", or "Fri, 20 Nov". */
+function nextLabel(iso: string): string {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return '';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Tomorrow';
+  return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W }: {
   activity: any;
   /** The playing clip, when there is one to play now; the rail decides. */
@@ -64,29 +81,33 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
     || (activity.duration?.value ? `${activity.duration.value} ${activity.duration.unit || 'days'}` : null);
   const region = regionOf(activity, trek);
   const title = displayTitle(activity.title, trek ? region : null);
-  const when = scheduleLine(activity, durationLabel);
+  // The next real departure ("Fri, 20 Nov"), else the weekly pattern.
+  const nextDate: string | null = Array.isArray(activity.upcomingDates) ? activity.upcomingDates[0] || null : null;
+  const when = nextDate ? [nextLabel(nextDate), durationLabel].filter(Boolean).join(' · ') : scheduleLine(activity, durationLabel);
+  const badge = seatsBadge(useSeats(activity?._id ? String(activity._id) : null, nextDate));
   const { name, kind } = posterName(activity.title, trek);
   const perks = inclusions(activity);
   // The web scales the name up 1.25× tall; sized here so the longest names fit,
   // then grown with the card so a wider poster keeps the same proportions.
-  const nameSize = Math.round(
-    (name.length > 18 ? 15 : name.length > 12 ? 18 : 24) * (width / DESIGN_W),
-  );
+  // Stepped by length so a long name never splits mid-word ("CHIKMAGALU/R").
+  const base = name.length > 18 ? 14 : name.length > 12 ? 16 : name.length > 8 ? 19 : 22;
+  const nameSize = Math.round(base * (width / DESIGN_W));
+  // A one-word name stays on one line and shrinks to fit rather than breaking.
+  const nameLines = /\s/.test(name.trim()) ? 2 : 1;
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
+    <PressableScale
+      onPress={() => { handOffPhoto(activity?._id, imageUrl ? sizedImageUrl(imageUrl, width) : null); onPress(); }}
+      style={() => [
         styles.card,
         { width },
         isDarkMode && styles.cardDark,
-        pressed && { transform: [{ scale: 0.98 }] },
       ]}
       accessibilityRole="link"
       accessibilityLabel={[title, region, when].filter(Boolean).join(', ')}
     >
       {/* ── The poster ─────────────────────────────────────────────── */}
-      <View style={[styles.poster, { height: Math.round((width * 5) / 4) }]}>
+      <View style={[styles.poster, { height: width /* square: about a fifth shorter than the old 5:4 */ }]}>
         {imageUrl ? (
           <Image
             source={{ uri: sizedImageUrl(imageUrl, width) }}
@@ -109,12 +130,24 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
           pointerEvents="none"
         />
 
+        {!!activity?._id && <HeartButton id={String(activity._id)} style={styles.heart} />}
+        {/* Just above the perks strip, so it reads with the price info. */}
+        {!!badge && (
+          <View style={styles.seatsWrap} pointerEvents="none">
+            <View style={[styles.seats, badge.tone === 'gone' ? styles.seatsGone : badge.tone === 'warm' ? styles.seatsWarm : styles.seatsHot]}>
+              <Ionicons name={badge.tone === 'gone' ? 'close-circle' : 'flame'} size={11} color="#fff" />
+              <Text style={styles.seatsText}>{badge.text}</Text>
+            </View>
+          </View>
+        )}
+
         <View style={styles.head}>
           {!!kind && <Text style={styles.kind}>{kind.toUpperCase()}</Text>}
           <Text
-            style={[styles.name, { fontSize: nameSize, lineHeight: nameSize }]}
-            numberOfLines={2}
+            style={[styles.name, { fontSize: nameSize, lineHeight: Math.round(nameSize * 1.05) }]}
+            numberOfLines={nameLines}
             adjustsFontSizeToFit
+            minimumFontScale={0.6}
           >
             {name.toUpperCase()}
           </Text>
@@ -177,11 +210,25 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
           </View>
         )}
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
 const styles = StyleSheet.create({
+  heart: { position: 'absolute', top: 10, right: 10, zIndex: 3 },
+  seatsWrap: { position: 'absolute', left: 0, right: 0, bottom: 58, alignItems: 'center', zIndex: 3 },
+  seats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  seatsHot: { backgroundColor: '#E11D48' },
+  seatsWarm: { backgroundColor: '#EA580C' },
+  seatsGone: { backgroundColor: 'rgba(17,24,39,0.85)' },
+  seatsText: { color: '#fff', fontSize: 10.5, fontWeight: '800', letterSpacing: 0.2 },
   card: {
     borderRadius: 22, overflow: 'hidden', backgroundColor: '#fff',
     borderWidth: 1, borderColor: 'rgba(229,231,235,0.8)',

@@ -12,6 +12,8 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BookingSuccess } from '../../../components/booking/BookingSuccess';
+import { normalizeImageUrl } from '../../../lib/imageUrl';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -273,6 +275,7 @@ function SelectableCard({
         selectableStyles.card,
         { backgroundColor: themeColors.surface, borderColor: themeColors.border },
         selected && selectableStyles.selected,
+        selected && isDarkMode && { backgroundColor: 'rgba(249,115,22,0.12)' },
         disabled && selectableStyles.disabled,
       ]}
     >
@@ -317,38 +320,163 @@ const selectableStyles = StyleSheet.create({
 
 function BreakdownRow({
   label,
+  hint,
   amount,
   isTotal,
   isDiscount,
+  isSubtotal,
+  color,
+  sign = '',
+  struckAmount,
 }: {
   label: string;
+  hint?: string;
   amount: number;
   isTotal?: boolean;
   isDiscount?: boolean;
+  isSubtotal?: boolean;
+  color?: string;
+  sign?: string;
+  struckAmount?: number;
 }) {
-  const { themeColors, isDarkMode } = useTheme();
+  const { themeColors } = useTheme();
+  const tone = color ?? (isDiscount ? colors.success : undefined);
   return (
     <View style={breakdownStyles.row}>
       <Text
         style={[
           breakdownStyles.label,
-          { color: themeColors.textSecondary },
+          { color: tone ?? (isSubtotal ? themeColors.text : themeColors.textSecondary), flex: 1 },
+          isSubtotal && { fontWeight: fontWeight.semibold },
           isTotal && breakdownStyles.totalLabel,
           isTotal && { color: themeColors.text },
         ]}
       >
         {label}
+        {!!hint && <Text style={{ color: themeColors.textTertiary }}>{` ${hint}`}</Text>}
       </Text>
       <Text
         style={[
           breakdownStyles.amount,
-          { color: themeColors.text },
+          { color: tone ?? themeColors.text },
           isTotal && breakdownStyles.totalAmount,
-          isDiscount && breakdownStyles.discount,
         ]}
       >
-        {isDiscount ? `- ${formatCurrency(Math.abs(amount))}` : formatCurrency(amount)}
+        {struckAmount != null && (
+          <Text style={{ textDecorationLine: 'line-through', color: themeColors.textTertiary }}>
+            {`${formatCurrency(struckAmount)} `}
+          </Text>
+        )}
+        {isDiscount ? `-${formatCurrency(Math.abs(amount))}` : `${sign}${formatCurrency(amount)}`}
       </Text>
+    </View>
+  );
+}
+
+// Same lines, labels and order as the website's PriceBreakdown (checkout):
+// collapsed to the total, tap to see the details.
+function PriceDetails({ breakdown: b }: { breakdown: any }) {
+  const { themeColors, isDarkMode } = useTheme();
+  const [expanded, setExpanded] = useState(false);
+
+  const adults = b.breakdown?.adults ?? {};
+  const kids = b.breakdown?.children ?? {};
+  const participants = (adults.count || 0) + (kids.count || 0);
+  const inclusive = b.gst?.priceMode === 'inclusive';
+  const gw = b.paymentGatewayFee;
+  const gatewayTotal = gw?.applied ? (gw.amount || 0) + (gw.gstOnFee || 0) : 0;
+  const gstLine = (b.gst?.computed ? b.gst.amount : 0) + gatewayTotal;
+  const bulk = b.modifiers?.bulkDiscount;
+  const season = b.modifiers?.seasonalPricing;
+  const fee = b.convenienceFee;
+  const dashed = [breakdownStyles.dashed, { borderColor: themeColors.border }];
+
+  return (
+    <View>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => setExpanded((e) => !e)}
+        style={breakdownStyles.toggle}
+        accessibilityRole="button"
+        accessibilityState={{ expanded }}
+      >
+        <Ionicons name="receipt-outline" size={16} color={themeColors.textTertiary} />
+        <Text style={[breakdownStyles.toggleText, { color: themeColors.textSecondary }]}>
+          {expanded ? 'Price Details' : 'View price details'}
+        </Text>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={14} color={themeColors.textTertiary} />
+        <Text style={breakdownStyles.toggleTotal}>{formatCurrency(b.totalPayable)}</Text>
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={{ marginTop: spacing.sm }}>
+          {adults.count > 0 && (
+            <BreakdownRow
+              label={`Adults (${adults.count} × ${formatCurrency(adults.pricePerPerson)})`}
+              hint={inclusive ? 'incl. GST' : undefined}
+              amount={adults.total}
+            />
+          )}
+          {kids.count > 0 && (
+            <BreakdownRow
+              label={`Children (${kids.count} × ${formatCurrency(kids.pricePerPerson)})`}
+              amount={kids.total}
+            />
+          )}
+          {bulk?.applied && (
+            <BreakdownRow label={`Group Discount (${bulk.discountPercent}%)`} amount={bulk.discountAmount} isDiscount />
+          )}
+          {season?.applied && (
+            <BreakdownRow
+              label={season.seasonName || 'Seasonal pricing'}
+              amount={Math.abs(season.increaseAmount)}
+              sign={season.increaseAmount > 0 ? '+' : ''}
+              color={colors.warning}
+            />
+          )}
+
+          <View style={dashed} />
+
+          <BreakdownRow label={inclusive ? 'Price before GST' : 'Subtotal'} amount={b.subtotal} isSubtotal />
+          {(b.gst?.computed || gatewayTotal > 0) && <BreakdownRow label="GST" amount={gstLine} />}
+          {fee?.applied && (
+            <BreakdownRow
+              label={fee.label || 'Convenience Fee'}
+              hint={fee.perPerson > 0 ? `(${participants} × ${formatCurrency(fee.perPerson)})` : undefined}
+              amount={fee.amount}
+            />
+          )}
+          {fee?.waived && (
+            <BreakdownRow label={fee.label || 'Convenience Fee'} amount={0} struckAmount={fee.originalAmount} color={colors.success} />
+          )}
+          {b.platformFee?.applied && <BreakdownRow label={b.platformFee.label || 'Platform Fee'} amount={b.platformFee.amount} />}
+
+          {b.coupon?.discountAmount > 0 && (
+            <>
+              <View style={dashed} />
+              <BreakdownRow label={`Coupon (${b.coupon.code})`} amount={b.coupon.discountAmount} isDiscount />
+            </>
+          )}
+
+          <View style={[breakdownStyles.totalDivider, { backgroundColor: themeColors.border }]} />
+          <BreakdownRow label="Total Payable" amount={b.totalPayable} isTotal />
+
+          {b.savings?.totalSaved > 0 && (
+            <View
+              style={[
+                breakdownStyles.savings,
+                isDarkMode
+                  ? { backgroundColor: 'rgba(34,197,94,0.12)', borderColor: 'rgba(34,197,94,0.35)' }
+                  : { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0' },
+              ]}
+            >
+              <Text style={[breakdownStyles.savingsText, { color: isDarkMode ? '#4ade80' : '#15803d' }]}>
+                You save {formatCurrency(b.savings.totalSaved)} on this booking!
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -379,8 +507,42 @@ const breakdownStyles = StyleSheet.create({
     fontWeight: fontWeight.bold,
     color: colors.primary[500],
   },
-  discount: {
-    color: colors.success,
+  toggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: spacing.xs,
+  },
+  toggleText: {
+    fontSize: fontSize.sm,
+    fontWeight: fontWeight.medium,
+  },
+  toggleTotal: {
+    marginLeft: 'auto',
+    fontSize: fontSize.xl,
+    fontWeight: fontWeight.bold,
+    color: colors.primary[500],
+  },
+  dashed: {
+    borderTopWidth: 1,
+    borderStyle: 'dashed',
+    marginVertical: spacing.xs,
+  },
+  totalDivider: {
+    height: 2,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  savings: {
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.md,
+  },
+  savingsText: {
+    fontSize: fontSize.xs,
+    fontWeight: fontWeight.semibold,
+    textAlign: 'center',
   },
 });
 
@@ -568,7 +730,7 @@ export default function BookingFlowScreen() {
         setPriceBreakdown(res.data || res);
         // If a coupon was applied but the server reports no discount, surface it.
         const bd = res.data || res;
-        if (appliedCoupon && !(bd.couponDiscount > 0 || bd.discount > 0)) {
+        if (appliedCoupon && !(bd.coupon?.discountAmount > 0)) {
           setCouponError('This code could not be applied.');
         } else {
           setCouponError('');
@@ -656,7 +818,13 @@ export default function BookingFlowScreen() {
   // Step 2 validation
   // -------------------------------------------------------------------------
 
+  const boardingPoints: any[] = (activity as any)?.boardingPoints ?? [];
+
   const validateStep2 = (): boolean => {
+    if (boardingPoints.length > 0 && !boardingPointId) {
+      Toast.show({ type: 'error', text1: 'Choose a boarding point', text2: 'Pick where you will board the bus.' });
+      return false;
+    }
     // Time slots are optional if the activity doesn't have them
     if (timeSlots.length > 0 && !selectedSlot) {
       Toast.show({ type: 'error', text1: 'Select a time slot', text2: 'Please choose a time for your booking.' });
@@ -689,8 +857,6 @@ export default function BookingFlowScreen() {
     }
     return true;
   };
-
-  const boardingPoints: any[] = (activity as any)?.boardingPoints ?? [];
 
   const handleCreateBooking = async () => {
     if (boardingPoints.length > 0 && !boardingPointId) {
@@ -960,7 +1126,18 @@ export default function BookingFlowScreen() {
 
   // Derived
   const basePrice = activity.pricing?.basePrice ?? activity.pricing?.adultPrice ?? activity.price ?? 0;
-  const totalPrice = priceBreakdown?.total ?? priceBreakdown?.totalAmount ?? (basePrice * (adults + children));
+  const totalPrice = priceBreakdown?.totalPayable ?? (basePrice * (adults + children));
+
+  const chosenBoardingPoint = boardingPoints.find((bp) => bp._id === boardingPointId);
+  const boardingSummaryRow = chosenBoardingPoint ? (
+    <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
+      <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Boarding</Text>
+      <Text style={[styles.summaryValue, { flex: 1, textAlign: 'right', color: themeColors.text }]} numberOfLines={2}>
+        {chosenBoardingPoint.name}
+        {chosenBoardingPoint.pickupTime ? ` · ${formatTime(chosenBoardingPoint.pickupTime)}` : ''}
+      </Text>
+    </View>
+  ) : null;
   const maxGroupSize = activity.groupSize?.max || 20;
   const isMultiDay = activity.duration?.unit === 'days';
 
@@ -1250,37 +1427,8 @@ export default function BookingFlowScreen() {
 
         {priceLoading ? (
           <ActivityIndicator color={colors.primary[500]} style={{ paddingVertical: spacing.md }} />
-        ) : priceBreakdown ? (
-          <View>
-            {priceBreakdown.baseAmount != null && (
-              <BreakdownRow
-                label={`${adults} adult${adults > 1 ? 's' : ''}${children > 0 ? ` + ${children} child${children > 1 ? 'ren' : ''}` : ''}`}
-                amount={priceBreakdown.baseAmount}
-              />
-            )}
-            {priceBreakdown.bulkDiscount > 0 && (
-              <BreakdownRow label="Group discount" amount={priceBreakdown.bulkDiscount} isDiscount />
-            )}
-            {(priceBreakdown.couponDiscount > 0 || priceBreakdown.discount > 0) && (
-              <BreakdownRow
-                label={`Coupon${appliedCoupon ? ` (${appliedCoupon})` : ''}`}
-                amount={priceBreakdown.couponDiscount || priceBreakdown.discount}
-                isDiscount
-              />
-            )}
-            {priceBreakdown.seasonalAdjustment != null && priceBreakdown.seasonalAdjustment !== 0 && (
-              <BreakdownRow
-                label="Seasonal pricing"
-                amount={Math.abs(priceBreakdown.seasonalAdjustment)}
-                isDiscount={priceBreakdown.seasonalAdjustment < 0}
-              />
-            )}
-            {priceBreakdown.tax > 0 && (
-              <BreakdownRow label="Tax & fees" amount={priceBreakdown.tax} />
-            )}
-            <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-            <BreakdownRow label="Total" amount={priceBreakdown.total ?? priceBreakdown.totalAmount ?? totalPrice} isTotal />
-          </View>
+        ) : priceBreakdown?.totalPayable != null ? (
+          <PriceDetails breakdown={priceBreakdown} />
         ) : (
           <View style={styles.priceSimple}>
             <Text style={[styles.priceSimpleLabel, { color: themeColors.textSecondary }]}>Estimated total</Text>
@@ -1378,6 +1526,7 @@ export default function BookingFlowScreen() {
               <Text style={[styles.summaryValue, { color: themeColors.text }]}>{selectedVariant.name}</Text>
             </View>
           )}
+          {boardingSummaryRow}
           <View style={[styles.summaryRow, { borderBottomWidth: 0, paddingBottom: 0 }]}>
             <Text style={[styles.summaryLabel, { fontWeight: fontWeight.bold, color: themeColors.text }]}>Total</Text>
             <Text style={[styles.summaryValue, { color: colors.primary[500], fontWeight: fontWeight.bold }]}>
@@ -1397,7 +1546,8 @@ export default function BookingFlowScreen() {
 
         <View style={styles.stepFooter}>
           <Button
-            title="Create Booking"
+            // It holds the booking; payment is the next step, so say so.
+            title="Continue to payment"
             onPress={handleCreateBooking}
             loading={bookingLoading}
             disabled={
@@ -1458,6 +1608,7 @@ export default function BookingFlowScreen() {
               <Text style={[styles.summaryValue, { color: themeColors.text }]}>{selectedVariant.name}</Text>
             </View>
           )}
+          {boardingSummaryRow}
           {bookingRef && (
             <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
               <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Reference</Text>
@@ -1469,7 +1620,7 @@ export default function BookingFlowScreen() {
         </Card>
 
         {/* Total */}
-        <View style={styles.paymentTotalRow}>
+        <View style={[styles.paymentTotalRow, isDarkMode && { backgroundColor: 'rgba(249,115,22,0.12)' }]}>
           <Text style={[styles.paymentTotalLabel, { color: themeColors.text }]}>Amount to Pay</Text>
           <Text style={styles.paymentTotalAmount}>{formatCurrency(totalPrice)}</Text>
         </View>
@@ -1516,7 +1667,7 @@ export default function BookingFlowScreen() {
 
         <View style={styles.stepFooter}>
           <Button
-            title={paymentMethod === 'online' ? 'Pay Now' : 'Confirm Booking'}
+            title={paymentMethod === 'online' ? `Pay ${formatCurrency(totalPrice)}` : 'Confirm Booking'}
             onPress={handleConfirmPayment}
             loading={paymentLoading}
             disabled={paymentLoading}
@@ -1536,85 +1687,28 @@ export default function BookingFlowScreen() {
   };
 
   // --------------- Success Screen ---------------
-  const renderSuccessScreen = () => (
-    <View style={styles.successContainer}>
-      <View style={styles.successIconCircle}>
-        <Ionicons name="checkmark" size={48} color="#ffffff" />
-      </View>
-
-      <Text style={[styles.successTitle, { color: themeColors.text }]}>Booking Confirmed!</Text>
-      <Text style={[styles.successSubtext, { color: themeColors.textSecondary }]}>
-        Your booking has been {bookingData?.isInstantBooking ? 'instantly confirmed' : 'created successfully'}.
-      </Text>
-
-      {bookingRef && (
-        <View style={[styles.refContainer, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
-          <Text style={[styles.refLabel, { color: themeColors.textTertiary }]}>Booking Reference</Text>
-          <Text style={styles.refValue}>{bookingRef}</Text>
-        </View>
-      )}
-
-      {bookingData?.isInstantBooking && (
-        <Badge
-          label="Instantly Confirmed"
-          variant="success"
-          size="md"
-          style={{ marginBottom: spacing.xl, alignSelf: 'center' }}
-        />
-      )}
-
-      {paymentMethod === 'venue' && (
-        <View style={styles.venuePayNote}>
-          <Ionicons name="information-circle-outline" size={18} color={colors.info} />
-          <Text style={styles.venuePayNoteText}>
-            Please pay at the venue on the day of the activity.
-          </Text>
-        </View>
-      )}
-
-      <Card bordered style={{ marginBottom: spacing.xl, width: '100%', backgroundColor: themeColors.card, borderColor: themeColors.border }}>
-        <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
-          <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Activity</Text>
-          <Text style={[styles.summaryValue, { flex: 1, textAlign: 'right', color: themeColors.text }]} numberOfLines={2}>
-            {activity.title}
-          </Text>
-        </View>
-        <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
-          <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Date</Text>
-          <Text style={[styles.summaryValue, { color: themeColors.text }]}>{formatDate(selectedDate)}</Text>
-        </View>
-        {selectedSlot && !hasDepartures && (
-          <View style={[styles.summaryRow, { borderBottomColor: themeColors.border }]}>
-            <Text style={[styles.summaryLabel, { color: themeColors.textSecondary }]}>Time</Text>
-            <Text style={[styles.summaryValue, { color: themeColors.text }]}>
-              {slotTimeLabel(selectedSlot)}
-            </Text>
-          </View>
-        )}
-        <View style={[styles.summaryRow, { borderBottomWidth: 0 }]}>
-          <Text style={[styles.summaryLabel, { fontWeight: fontWeight.bold, color: themeColors.text }]}>Total</Text>
-          <Text style={[styles.summaryValue, { color: colors.primary[500], fontWeight: fontWeight.bold, fontSize: fontSize.lg }]}>
-            {formatCurrency(totalPrice)}
-          </Text>
-        </View>
-      </Card>
-
-      <Button
-        title="View My Bookings"
-        onPress={() => router.replace('/bookings')}
-        size="lg"
-        fullWidth
-        style={{ marginBottom: spacing.md }}
+  const renderSuccessScreen = () => {
+    const imgs: any[] = Array.isArray(activity?.images) ? activity.images : [];
+    const raw = imgs.find((i) => i?.isPrimary)?.url || imgs[0]?.url || (typeof imgs[0] === 'string' ? imgs[0] : null);
+    const place = [activity?.location?.city, activity?.location?.state].filter(Boolean).join(', ');
+    return (
+      <BookingSuccess
+        title={activity.title}
+        image={raw ? normalizeImageUrl(raw) || raw : null}
+        place={place || undefined}
+        date={selectedDate}
+        dateLabel={formatDate(selectedDate)}
+        timeLabel={selectedSlot && !hasDepartures ? slotTimeLabel(selectedSlot) : null}
+        guestsLabel={`${adults} adult${adults > 1 ? 's' : ''}${children > 0 ? `, ${children} child${children > 1 ? 'ren' : ''}` : ''}`}
+        totalLabel={formatCurrency(totalPrice)}
+        bookingRef={bookingRef}
+        instant={!!bookingData?.isInstantBooking}
+        payAtVenue={paymentMethod === 'venue'}
+        onViewBookings={() => router.replace('/bookings')}
+        onBackToActivity={() => router.replace(`/activity/${activityId}`)}
       />
-      <Button
-        title="Back to Activity"
-        onPress={() => router.replace(`/activity/${activityId}`)}
-        variant="outline"
-        size="lg"
-        fullWidth
-      />
-    </View>
-  );
+    );
+  };
 
   // =========================================================================
   // MAIN RENDER
