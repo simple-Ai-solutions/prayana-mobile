@@ -14,6 +14,7 @@ import { makeAPICall } from '@prayana/shared-services';
 import { PressableScale } from '../ui/PressableScale';
 import { SectionHeader, SECTION_PAD } from './SectionHeader';
 import { sizedImageUrl } from '../../lib/imageUrl';
+import { RailPlaceholder } from './HomeRails';
 
 type Place = { city: string; state?: string; count: number; image?: string; photos?: string[] };
 
@@ -31,7 +32,8 @@ export function PlacesStrip() {
     return () => { alive = false; };
   }, []);
 
-  if (!places || places.length < 2) return null;
+  if (places === null) return <RailPlaceholder cardW={SIZE + 8} round paddingTop={32} />;
+  if (places.length < 2) return null;
 
   return (
     <View style={styles.section}>

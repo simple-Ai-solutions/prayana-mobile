@@ -27,6 +27,51 @@ import { SpotlightCarousel } from './SpotlightCarousel';
 import { TWO_UP_W, RAIL_GAP, SPOTLIGHT_W, usePairSnap } from '../../lib/railLayout';
 import { assignDealClips } from '../../lib/dealClips';
 import { sizedImageUrl } from '../../lib/imageUrl';
+import { Skeleton } from '../ui/Skeleton';
+
+/**
+ * Holds a rail's space while its data loads. Rails used to render nothing
+ * until then and pop in seconds later, pushing the page down under the finger.
+ */
+export function RailPlaceholder({ cardW, cardH = cardW, round = false, centered = false, subtitleLines = 0, paddingTop = 36 }: {
+  cardW: number;
+  cardH?: number;
+  round?: boolean;
+  centered?: boolean;
+  subtitleLines?: number;
+  paddingTop?: number;
+}) {
+  return (
+    <View style={{ paddingTop, paddingBottom: 4 }} importantForAccessibility="no-hide-descendants" accessibilityElementsHidden>
+      <View style={{ paddingHorizontal: spacing.lg, marginBottom: 14, gap: 8 }}>
+        <Skeleton width={170} height={22} radius={6} />
+        {Array.from({ length: subtitleLines }, (_, i) => (
+          <Skeleton key={i} width={i === subtitleLines - 1 ? '60%' : '90%'} height={12} />
+        ))}
+      </View>
+      <View
+        style={{
+          flexDirection: 'row',
+          gap: RAIL_GAP,
+          overflow: 'hidden',
+          justifyContent: centered ? 'center' : 'flex-start',
+          paddingHorizontal: centered ? 0 : spacing.lg,
+        }}
+      >
+        {[0, 1, 2, 3].map((i) =>
+          round ? (
+            <View key={i} style={{ alignItems: 'center' }}>
+              <Skeleton width={cardW} height={cardW} radius={cardW / 2} />
+              <Skeleton width={56} height={10} style={{ marginTop: 10 }} />
+            </View>
+          ) : (
+            <Skeleton key={i} width={cardW} height={cardH} radius={16} />
+          ),
+        )}
+      </View>
+    </View>
+  );
+}
 
 const TREK_ACCENT = '#16A34A';   // green icon tile on the trekking rail
 const DEALS_ACCENT = '#10B981';  // emerald icon tile on the deals rail
@@ -365,8 +410,10 @@ export function TrekkingRail() {
     return () => { alive = false; };
   }, []);
 
+  // Poster = square photo + ~130pt of text, plus the dots under the carousel.
+  if (items === null) return <RailPlaceholder cardW={SPOTLIGHT_W} cardH={SPOTLIGHT_W + 150} centered subtitleLines={1} />;
   // The web hides this below two results rather than showing a lone card.
-  if (!items || items.length < 2) return null;
+  if (items.length < 2) return null;
 
   // Spotlight layout: one poster large in the middle, its neighbours peeking
   // in smaller at the edges. Posters only — HOME_VIDEOS keeps clips off the
@@ -413,7 +460,8 @@ export function ValueDealsRail() {
   const clips = useMemo(() => assignDealClips(deals || []), [deals]);
   const { canPlay, scrollProps } = useRailPlayback(CARD_W, RAIL_GAP, { video: true });
 
-  if (!deals || deals.length === 0) return null;
+  if (deals === null) return <RailPlaceholder cardW={CARD_W} cardH={CARD_H} subtitleLines={2} />;
+  if (deals.length === 0) return null;
 
   return (
     <View style={styles.section}>
