@@ -281,6 +281,9 @@ function RailProgress({ scrollX, contentW, viewW }: {
 const PHOTO_STEP_MS = 3200; // the web's touch-screen pace for photo reels
 /** Clips on home rails. Off: posters only, for a smooth home scroll. */
 export const HOME_VIDEOS = false;
+/** Photo reels on home rails. Off: each card keeps its main photo — every step
+ *  re-rendered the rail and pulled another photo while the page scrolled. */
+export const HOME_PHOTO_REELS = false;
 
 /**
  * One clock for a whole rail of photo reels: a counter that ticks every
@@ -291,7 +294,7 @@ export function useRailClock(active = true) {
   // Stopped while the rail is off screen: a tick re-renders the whole rail,
   // and a dozen rails ticking out of sight made the home page scroll unevenly.
   useEffect(() => {
-    if (!active) return;
+    if (!active || !HOME_PHOTO_REELS) return;
     const id = setInterval(() => setTick((t) => t + 1), PHOTO_STEP_MS);
     return () => clearInterval(id);
   }, [active]);
