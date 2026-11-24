@@ -378,7 +378,7 @@ export function TrekkingRail() {
         tint={TREK_ACCENT}
         title="Trek Together"
         subtitle="Join a group or bring your crew"
-        onSeeAll={() => router.push('/experiences/trekking-hikes' as any)}
+        onSeeAll={() => router.push('/experiences/trekking' as any)}
       />
       <SpotlightCarousel
         data={items}
