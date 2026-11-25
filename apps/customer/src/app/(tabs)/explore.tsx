@@ -576,7 +576,7 @@ export default function ExploreScreen() {
           </View>
           <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity
-            style={styles.sortButton}
+            style={[styles.sortButton, isDarkMode && { backgroundColor: 'rgba(249,115,22,0.14)', borderColor: 'rgba(249,115,22,0.4)' }]}
             onPress={() => setFiltersOpen(true)}
             activeOpacity={0.7}
             accessibilityLabel={`Filters${activeFilterCount(filters) ? `, ${activeFilterCount(filters)} on` : ''}`}
@@ -587,7 +587,7 @@ export default function ExploreScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.sortButton}
+            style={[styles.sortButton, isDarkMode && { backgroundColor: 'rgba(249,115,22,0.14)', borderColor: 'rgba(249,115,22,0.4)' }]}
             onPress={() => setSortModalVisible(true)}
             activeOpacity={0.7}
           >

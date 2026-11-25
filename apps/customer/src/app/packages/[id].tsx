@@ -2392,9 +2392,13 @@ export default function PackageDetailScreen() {
               {pkg.pricing?.perPerson === false ? ' total' : ' / person'}
             </Text>
           </Text>
+          {/* The figure checkout will show, so the jump to GST isn't a surprise. */}
+          {live && Number(live.display?.finalPrice ?? live.finalPrice) > 0 ? (
+            <Text style={[styles.priceMeta, { color: themeColors.textSecondary }]} numberOfLines={1}>
+              ₹{Number(live.display?.finalPrice ?? live.finalPrice).toLocaleString('en-IN')} total incl. taxes
+            </Text>
+          ) : null}
         </View>
-        {/* blue-600 to match the web CTA — the shared Button's primary is the
-            orange brand colour, which this page never uses. */}
         <TouchableOpacity
           style={styles.bookBtn}
           activeOpacity={0.9}

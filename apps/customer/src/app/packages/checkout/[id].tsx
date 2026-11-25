@@ -39,6 +39,8 @@ import DateField from '../../../components/common/DateField';
 import { phoneChange } from '../../../lib/phoneInput';
 import { openInApp, SITE_URL } from '../../../lib/openInApp';
 import { isPlaceholderName } from '../../../lib/userName';
+import { BookingSuccess } from '../../../components/booking/BookingSuccess';
+import { normalizeImageUrl } from '../../../lib/imageUrl';
 
 // Packages use the theme's blue accent rather than the app-wide orange, so the
 // holiday-package flow reads as its own product. Aliased once here: every
@@ -145,6 +147,10 @@ export default function PackageCheckoutScreen() {
   }, []);
   const [step, setStep] = useState<Step>('travelers');
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [bookingRef, setBookingRef] = useState<string | null>(null);
+  // Set once payment is verified: the screen becomes the celebration (as
+  // activities have) instead of a toast and a jump to My Bookings.
+  const [confirmed, setConfirmed] = useState(false);
 
   // Step 1: variant + travelers
   const [variantName, setVariantName] = useState<string | null>(null);
@@ -457,6 +463,7 @@ export default function PackageCheckoutScreen() {
         }
         currentBookingId = createRes.data._id;
         setBookingId(currentBookingId);
+        setBookingRef(createRes.data.bookingReference || null);
       }
 
       // Pay the first (due-now) installment. For "full" this is the whole amount.
@@ -512,14 +519,8 @@ export default function PackageCheckoutScreen() {
       });
 
       if (verifyRes?.success) {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Toast.show({
-          type: 'success',
-          text1: 'Booking confirmed',
-          text2: 'See it under My Bookings.',
-        });
         tripReq.reset();
-        router.replace('/bookings');
+        setConfirmed(true);
       } else {
         Toast.show({
           type: 'error',
@@ -557,6 +558,27 @@ export default function PackageCheckoutScreen() {
           <Button title="Browse" onPress={() => router.replace('/packages')} variant="primary" size="md" />
         </View>
       </SafeAreaView>
+    );
+  }
+
+  if (confirmed) {
+    const start = startDate ? new Date(`${startDate}T00:00:00`) : new Date();
+    const cover = (pkg as any).images?.[0];
+    return (
+      <BookingSuccess
+        title={pkg.title}
+        image={cover ? normalizeImageUrl(typeof cover === 'string' ? cover : (cover as any).url) : null}
+        place={(pkg as any).destination || undefined}
+        date={start}
+        dateLabel={startDate ? `${fmtDepDate(startDate)}${endDate ? ` → ${fmtDepDate(endDate)}` : ''}` : 'Dates to confirm'}
+        guestsLabel={`${adults} adult${adults === 1 ? '' : 's'}${children ? `, ${children} child${children === 1 ? '' : 'ren'}` : ''}`}
+        totalLabel={`₹${estimatedTotal.toLocaleString('en-IN')}`}
+        bookingRef={bookingRef}
+        instant
+        onViewBookings={() => router.replace('/bookings?category=packages' as any)}
+        onBackToActivity={() => router.replace(`/packages/${pkg._id}` as any)}
+        backLabel="Back to package"
+      />
     );
   }
 
@@ -834,8 +856,8 @@ export default function PackageCheckoutScreen() {
               </Card>
 
               <Text style={styles.hint}>
-                You'll be charged ₹{estimatedTotal.toLocaleString('en-IN')} now. Final
-                price may adjust based on operator confirmation.
+                You'll be charged ₹{estimatedTotal.toLocaleString('en-IN')} now, including taxes.
+                Any extras you requested are confirmed by our team before you travel.
               </Text>
 
               {/* Legal acceptance — required by the server before booking */}
