@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { postAuthRoute } from '../../lib/authRedirect';
 import {
   View,
   Text,
@@ -82,7 +83,7 @@ export default function SignUpScreen() {
 
       setUser(userCredential.user);
       setIsAuthenticated(true);
-      router.replace('/(tabs)');
+      router.replace(postAuthRoute() as never);
     } catch (error: any) {
       let message = 'An unexpected error occurred. Please try again.';
       switch (error.code) {

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { postAuthRoute } from '../../lib/authRedirect';
 import {
   View,
   Text,
@@ -181,7 +182,7 @@ export default function EmailLoginScreen() {
       // failed, the verify response still tells us the account's name.
       const name = syncedUser ? syncedUser.name : response.user?.name;
       router.replace(
-        isPlaceholderName(name) ? ('/complete-profile' as never) : '/(tabs)',
+        isPlaceholderName(name) ? ('/complete-profile' as never) : (postAuthRoute() as never),
       );
     } catch (error: any) {
       console.error('[EmailLogin] Verify OTP error:', error);

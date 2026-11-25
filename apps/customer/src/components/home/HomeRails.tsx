@@ -194,9 +194,15 @@ export function useRailPlayback(cardW = CARD_W, gap = RAIL_GAP, { video = false 
     return () => { alive = false; sub.remove(); };
   }, []);
 
+  // With clips and photo reels off nothing on the rail plays, so there is no
+  // need to know where it scrolled to or whether it is on screen — tracking
+  // that re-rendered the whole rail every 100 ms of a swipe.
+  const tracks = video ? HOME_VIDEOS : HOME_PHOTO_REELS;
+
   // The page's own scroll is not ours to listen to, so check where the rail
   // sits a few times a second; a state update only happens when it changes.
   useEffect(() => {
+    if (!tracks) return;
     const check = () => {
       (ref.current as any)?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
         setInView(h > 0 && y < screenH && y + h > 0);
@@ -205,14 +211,14 @@ export function useRailPlayback(cardW = CARD_W, gap = RAIL_GAP, { video = false 
     check();
     const id = setInterval(check, 700);
     return () => clearInterval(id);
-  }, [screenH]);
+  }, [screenH, tracks]);
 
   const leftOf = (i: number) => spacing.lg + i * (cardW + gap) - scrollX;
   // A video rail plays only its lead card — the first one at least half on
   // screen — since several decoders at once are too much for a slower phone.
   const lead = Math.max(0, Math.ceil((scrollX - spacing.lg - cardW / 2) / (cardW + gap)));
   const canPlay = (i: number) => {
-    if (reduceMotion || !inView || !onWifi) return false;
+    if (!tracks || reduceMotion || !inView || !onWifi) return false;
     // Video rails show posters only: decoding clips while the page scrolls
     // made the home screen stutter. The clips play on the detail pages.
     if (video) return HOME_VIDEOS && i === lead;
@@ -221,7 +227,7 @@ export function useRailPlayback(cardW = CARD_W, gap = RAIL_GAP, { video = false 
   };
   const scrollProps = {
     ref,
-    onScroll: (e: any) => setScrollX(e.nativeEvent.contentOffset.x),
+    onScroll: (e: any) => { if (tracks) setScrollX(e.nativeEvent.contentOffset.x); },
     scrollEventThrottle: 100,
     ...snap.props,
   };

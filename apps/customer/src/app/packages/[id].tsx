@@ -60,7 +60,8 @@ import {
 // holiday-package flow reads as its own product. Aliased once here: every
 // `packageColors.primary[n]` below resolves to accent[n] via this object, which keeps
 // the shade ramp (50..900) and the rest of the palette untouched.
-const packageColors = { ...colors, primary: colors.accent };
+// One accent across the app: packages used to be themed blue.
+const packageColors = colors;
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -272,7 +273,7 @@ const SCHED_ROUTE_W = 200;
 const SCHED_STAY_W = 130;
 
 // Numbered route-pill colours, cycling like the web's city strip.
-const CITY_COLORS = ['#2563eb', '#059669', '#ea580c', '#dc2626', '#7e22ce'];
+const CITY_COLORS = ['#ea580c', '#059669', '#ea580c', '#dc2626', '#7e22ce'];
 
 // Rough per-person DIY costs for travel in India, mirroring the web's
 // DIY_COSTS table. Rupee amounts per night / per day / per leg.
@@ -305,7 +306,7 @@ const ASSURED = [
 // Trust badges — the web TrustStrip's four pastel pills, same colour pairs.
 const TRUST_BADGES = [
   { label: 'Verified Vendor', icon: 'shield-checkmark', bg: '#f0fdf4', fg: '#15803d' },
-  { label: 'Free Cancellation', icon: 'calendar-outline', bg: '#eff6ff', fg: '#1d4ed8' },
+  { label: 'Free Cancellation', icon: 'calendar-outline', bg: '#fff7ed', fg: '#c2410c' },
   { label: 'Pay in Parts', icon: 'card-outline', bg: '#faf5ff', fg: '#7e22ce' },
   { label: 'Local Expert Guide', icon: 'person-outline', bg: '#fffbeb', fg: '#b45309' },
 ];
@@ -1155,14 +1156,14 @@ export default function PackageDetailScreen() {
                     key={v._id || v.name}
                     style={[
                       styles.variantCard,
-                      { borderColor: active ? '#3b82f6' : themeColors.border, backgroundColor: active ? '#3b82f620' : themeColors.surface },
+                      { borderColor: active ? '#f97316' : themeColors.border, backgroundColor: active ? '#f9731620' : themeColors.surface },
                     ]}
                     activeOpacity={0.85}
                     onPress={() => setVariantName(v.name)}
                   >
                     {/* One badge only: Best value (cheapest) wins over Most Popular. */}
                     {isCheapest || v.isDefault ? (
-                      <View style={[styles.popularBadge, { backgroundColor: isCheapest ? '#059669' : '#2563eb' }]}>
+                      <View style={[styles.popularBadge, { backgroundColor: isCheapest ? '#059669' : '#ea580c' }]}>
                         <Ionicons name={isCheapest ? 'trending-up' : 'ribbon'} size={9} color="#fff" />
                         <Text style={styles.popularText}>{isCheapest ? 'BEST VALUE' : 'MOST POPULAR'}</Text>
                       </View>
@@ -1181,7 +1182,8 @@ export default function PackageDetailScreen() {
                     )}
 
                     {/* Price delta vs the cheapest option. */}
-                    {!onReq ? (
+                    {/* Nothing to compare with one option ("+₹0" read as an error). */}
+                    {!onReq && (isCheapest || vp > cheapestPrice) ? (
                       <Text style={[styles.variantDelta, { color: isCheapest ? '#059669' : themeColors.textTertiary }]}>
                         {isCheapest ? 'Lowest price' : `+₹${Number(vp - cheapestPrice).toLocaleString('en-IN')}`}
                       </Text>
@@ -1195,7 +1197,7 @@ export default function PackageDetailScreen() {
                             styles.spreadFill,
                             {
                               width: `${Math.max(4, ((vp - cheapestPrice) / spread) * 100)}%`,
-                              backgroundColor: active ? '#3b82f6' : '#d1d5db',
+                              backgroundColor: active ? '#f97316' : '#d1d5db',
                             },
                           ]}
                         />
@@ -1286,7 +1288,7 @@ export default function PackageDetailScreen() {
                       </View>
                     ) : null}
 
-                    <View style={[styles.variantSelect, active && { backgroundColor: '#2563eb' }]}>
+                    <View style={[styles.variantSelect, active && { backgroundColor: '#ea580c' }]}>
                       <Text style={[styles.variantSelectText, { color: active ? '#fff' : themeColors.textSecondary }]}>
                         {onReq ? (active ? 'Selected — ask for a quote' : 'Get a quote') : active ? 'Selected' : 'Select'}
                       </Text>
@@ -1323,8 +1325,8 @@ export default function PackageDetailScreen() {
         {activeAddOns(pkg.addOns).length > 0 ? (
           <Card style={styles.section}>
             <View style={styles.aoHead}>
-              <View style={[styles.aoHeadIcon, { backgroundColor: '#eff6ff' }]}>
-                <Ionicons name="add-circle" size={15} color="#2563eb" />
+              <View style={[styles.aoHeadIcon, { backgroundColor: '#fff7ed' }]}>
+                <Ionicons name="add-circle" size={15} color="#ea580c" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.aoTitle, { color: themeColors.text }]}>Optional add-ons</Text>
@@ -1349,8 +1351,8 @@ export default function PackageDetailScreen() {
                   style={[
                     styles.aoCard,
                     {
-                      backgroundColor: selected ? '#eff6ff' : themeColors.surface,
-                      borderColor: selected ? '#2563eb' : themeColors.border,
+                      backgroundColor: selected ? '#fff7ed' : themeColors.surface,
+                      borderColor: selected ? '#ea580c' : themeColors.border,
                     },
                   ]}
                 >
@@ -1369,7 +1371,7 @@ export default function PackageDetailScreen() {
                             style={[
                               styles.aoCheck,
                               selected
-                                ? { backgroundColor: '#2563eb', borderColor: '#2563eb' }
+                                ? { backgroundColor: '#ea580c', borderColor: '#ea580c' }
                                 : { borderColor: themeColors.border },
                             ]}
                           >
@@ -1431,7 +1433,7 @@ export default function PackageDetailScreen() {
           </View>
           <View style={styles.qfGrid}>
             {days > 0 ? (
-              <QuickFact icon="calendar-outline" tint="#eff6ff" fg="#3b82f6" label="Duration" value={`${days}D / ${nights}N`} c={themeColors} />
+              <QuickFact icon="calendar-outline" tint="#fff7ed" fg="#f97316" label="Duration" value={`${days}D / ${nights}N`} c={themeColors} />
             ) : null}
             {(pkg.destinations || []).length > 0 ? (
               <QuickFact icon="location-outline" tint="#ecfdf5" fg="#10b981" label="Destinations" value={`${pkg.destinations!.length} Place${pkg.destinations!.length === 1 ? '' : 's'}`} c={themeColors} />
@@ -1463,7 +1465,7 @@ export default function PackageDetailScreen() {
           <Card style={[styles.section, styles.aboutCard]}>
             <View style={styles.aboutHead}>
               <LinearGradient
-                colors={['#3b82f6', '#4f46e5']}
+                colors={['#f97316', '#4f46e5']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.aboutIcon}
@@ -1516,7 +1518,7 @@ export default function PackageDetailScreen() {
                     {/* "DAY 1" pill — the web uses a full label, not a "D1" chip.
                         Filled blue when open, outlined when collapsed. */}
                     <View style={[styles.dayBadge, open ? styles.dayBadgeOpen : styles.dayBadgeClosed]}>
-                      <Text style={[styles.dayBadgeText, { color: open ? '#fff' : '#2563eb' }]}>DAY {dayNo}</Text>
+                      <Text style={[styles.dayBadgeText, { color: open ? '#fff' : '#ea580c' }]}>DAY {dayNo}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.dayTitle, { color: themeColors.text }]} numberOfLines={open ? undefined : 1}>
@@ -1587,7 +1589,7 @@ export default function PackageDetailScreen() {
                                 {a.placeName ? (
                                   <TouchableOpacity onPress={() => openPlace(a)} activeOpacity={0.6} style={styles.actTitleRow}>
                                     <Text style={[styles.actTitle, styles.actTitleLink]}>{a.title}</Text>
-                                    <Ionicons name="arrow-forward" size={13} color="#2563eb" />
+                                    <Ionicons name="arrow-forward" size={13} color="#ea580c" />
                                   </TouchableOpacity>
                                 ) : (
                                   <Text style={[styles.actTitle, { color: themeColors.text }]}>{a.title}</Text>
@@ -1648,7 +1650,7 @@ export default function PackageDetailScreen() {
           <Card style={[styles.section, { padding: 0, overflow: 'hidden' }]}>
             <View style={styles.mapHead}>
               <View style={styles.sectionAccentRow}>
-                <Ionicons name="map" size={16} color="#2563eb" />
+                <Ionicons name="map" size={16} color="#ea580c" />
                 <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Your route</Text>
               </View>
               <Text style={[styles.aboutSub, { color: themeColors.textSecondary }]}>
@@ -1708,7 +1710,7 @@ export default function PackageDetailScreen() {
                 } as any)
               }
             >
-              <Ionicons name="expand-outline" size={14} color="#2563eb" />
+              <Ionicons name="expand-outline" size={14} color="#ea580c" />
               <Text style={styles.mapExpandText}>Open map</Text>
             </TouchableOpacity>
           </Card>
@@ -1763,10 +1765,10 @@ export default function PackageDetailScreen() {
           <Card style={styles.section}>
             <View style={styles.qaHead}>
               <View style={styles.qaHeadIcon}>
-                <Ionicons name="chatbubble-ellipses" size={15} color="#2563eb" />
+                <Ionicons name="chatbubble-ellipses" size={15} color="#ea580c" />
               </View>
               <Text style={[styles.qaTitle, { color: themeColors.text }]} numberOfLines={1}>
-                Travelers asked about <Text style={{ color: '#2563eb' }}>{qaDestination}</Text>
+                Travelers asked about <Text style={{ color: '#ea580c' }}>{qaDestination}</Text>
               </Text>
             </View>
             <View style={[styles.qaList, { borderTopColor: themeColors.border }]}>
@@ -1799,7 +1801,7 @@ export default function PackageDetailScreen() {
               onPress={() => router.push(`/community/ask?destination=${encodeURIComponent(qaDestination)}` as any)}
             >
               <Text style={styles.qaAskText}>Ask your own question</Text>
-              <Ionicons name="arrow-forward" size={14} color="#2563eb" />
+              <Ionicons name="arrow-forward" size={14} color="#ea580c" />
             </TouchableOpacity>
           </Card>
         ) : null}
@@ -1836,7 +1838,7 @@ export default function PackageDetailScreen() {
                         cachePolicy="memory-disk"
                       />
                     ) : (
-                      <LinearGradient colors={['#93c5fd', '#2563eb']} style={StyleSheet.absoluteFill} />
+                      <LinearGradient colors={['#fdba74', '#ea580c']} style={StyleSheet.absoluteFill} />
                     )}
                     <LinearGradient
                       colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.2)', 'rgba(0,0,0,0.8)']}
@@ -2042,7 +2044,7 @@ export default function PackageDetailScreen() {
         {diy ? (
           <Card style={[styles.section, { padding: 0, overflow: 'hidden' }]}>
             <LinearGradient
-              colors={['#2563eb', '#4f46e5']}
+              colors={['#ea580c', '#4f46e5']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.diyHeader}
@@ -2065,7 +2067,7 @@ export default function PackageDetailScreen() {
             {diy.rows.map((r, i) => (
               <View key={i} style={[styles.diyItemRow, { borderBottomColor: themeColors.border }]}>
                 <View style={styles.diyIcon}>
-                  <Ionicons name={r.icon as any} size={12} color="#2563eb" />
+                  <Ionicons name={r.icon as any} size={12} color="#ea580c" />
                 </View>
                 <Text style={[styles.diyLabel, { color: themeColors.text }]} numberOfLines={1}>{r.label}</Text>
                 <Text style={[styles.diyAmount, { width: 80, color: themeColors.text }]}>
@@ -2169,7 +2171,7 @@ export default function PackageDetailScreen() {
             <View style={styles.schedHeadWrap}>
               <View style={[styles.sectionAccentRow, { justifyContent: 'space-between' }]}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <Ionicons name="calendar" size={16} color="#2563eb" />
+                  <Ionicons name="calendar" size={16} color="#ea580c" />
                   <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Trip schedule</Text>
                 </View>
                 <DownloadButton kind="schedule" pkg={pkg} compact />
@@ -2289,6 +2291,20 @@ export default function PackageDetailScreen() {
         onLayout={(e) => { tabBarH.current = e.nativeEvent.layout.height; }}
         style={[styles.tabBar, { top: insets.top + stripH, backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}
       >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {/* The floating back button hides while the tabs are pinned (it sat on
+            top of "Itinerary"); this one takes its place. */}
+        {!fromDarshana ? (
+          <TouchableOpacity
+            onPress={goBackToPackages}
+            style={styles.tabBack}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="chevron-back" size={22} color={themeColors.text} />
+          </TouchableOpacity>
+        ) : null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarRow}>
           {SECTION_TABS.map((t) => {
             const active = activeSection === t.id;
@@ -2318,6 +2334,7 @@ export default function PackageDetailScreen() {
             );
           })}
         </ScrollView>
+        </View>
       </View>
       ) : null}
 
@@ -2335,7 +2352,7 @@ export default function PackageDetailScreen() {
       {/* Floating back button. Rendered AFTER the ScrollView so the image
           carousel cannot paint over it, and positioned against the real
           safe-area inset so it never lands in the status bar. */}
-      {!fromDarshana ? (
+      {!fromDarshana && !showTabs ? (
       <Pressable
         onPress={goBackToPackages}
         style={({ pressed }) => [
@@ -2483,6 +2500,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   tabBarRow: { paddingHorizontal: spacing.md },
+  tabBack: { paddingLeft: spacing.md, paddingRight: 2, paddingVertical: 10 },
   tabItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2565,7 +2583,7 @@ const styles = StyleSheet.create({
   },
   // Section accent pill (web parity: 4×20 blue→indigo bar before the title)
   sectionAccentRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.sm },
-  sectionAccent: { width: 4, height: 20, borderRadius: 2, backgroundColor: '#3b82f6' },
+  sectionAccent: { width: 4, height: 20, borderRadius: 2, backgroundColor: '#f97316' },
   variantHint: { fontSize: fontSize.xs, marginBottom: 2 },
   // 78% of the viewport, matching the web carousel — the card carries hotel
   // rows, feature rows and highlights, so a 168px chip could never hold it.
@@ -2644,7 +2662,7 @@ const styles = StyleSheet.create({
   playerDoneText: { color: '#fff', fontSize: 13, fontWeight: fontWeight.bold },
   playerWeb: { flex: 1, backgroundColor: '#000' },
   qaHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  qaHeadIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  qaHeadIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center' },
   qaTitle: { flex: 1, fontSize: fontSize.md, fontWeight: fontWeight.bold },
   qaList: { marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: StyleSheet.hairlineWidth },
   qaItem: { paddingVertical: 12 },
@@ -2653,8 +2671,8 @@ const styles = StyleSheet.create({
   qaMetaText: { fontSize: 12 },
   qaResolved: { flexDirection: 'row', alignItems: 'center', gap: 3, marginLeft: 10 },
   qaResolvedText: { fontSize: 12, color: '#059669', fontWeight: fontWeight.medium },
-  qaAsk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#eff6ff', borderRadius: 10, paddingVertical: 12, marginTop: spacing.sm },
-  qaAskText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#2563eb' },
+  qaAsk: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#fff7ed', borderRadius: 10, paddingVertical: 12, marginTop: spacing.sm },
+  qaAskText: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: '#ea580c' },
   mapHead: { padding: spacing.lg, paddingBottom: spacing.sm },
   cityStrip: { alignItems: 'center', paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   cityPillRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
@@ -2662,7 +2680,7 @@ const styles = StyleSheet.create({
   cityNumText: { color: '#fff', fontSize: 11, fontWeight: fontWeight.bold },
   cityName: { fontSize: 13, fontWeight: fontWeight.medium },
   mapExpand: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12 },
-  mapExpandText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#2563eb' },
+  mapExpandText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#ea580c' },
   destRail: { gap: spacing.md, paddingTop: spacing.md },
   destCard: { width: 150, height: 112, borderRadius: 14, overflow: 'hidden', backgroundColor: colors.gray[200] },
   destMeta: { position: 'absolute', left: 10, right: 10, bottom: 9 },
@@ -2679,11 +2697,11 @@ const styles = StyleSheet.create({
   diyHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: spacing.lg },
   diyHeaderIcon: { width: 36, height: 36, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.18)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', alignItems: 'center', justifyContent: 'center' },
   diyHeaderTitle: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
-  diyHeaderSub: { color: '#dbeafe', fontSize: 11, marginTop: 1 },
+  diyHeaderSub: { color: '#ffedd5', fontSize: 11, marginTop: 1 },
   diyColHead: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth },
   diyColH: { fontSize: 10, fontWeight: fontWeight.bold, letterSpacing: 0.7 },
   diyItemRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: spacing.lg, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
-  diyIcon: { width: 24, height: 24, borderRadius: 8, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
+  diyIcon: { width: 24, height: 24, borderRadius: 8, backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center' },
   diyLabel: { flex: 1, fontSize: 12 },
   diyAmount: { fontSize: 12, fontWeight: fontWeight.semibold, textAlign: 'right' },
   diyCheck: { width: 20, height: 20, borderRadius: 10, backgroundColor: '#d1fae5', alignItems: 'center', justifyContent: 'center' },
@@ -2702,8 +2720,8 @@ const styles = StyleSheet.create({
   schedHeadRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.lg, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   schedH: { fontSize: 10, fontWeight: fontWeight.bold, letterSpacing: 0.7 },
   schedRow: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: spacing.lg, paddingVertical: 12, borderTopWidth: StyleSheet.hairlineWidth },
-  schedDay: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#eff6ff', alignItems: 'center', justifyContent: 'center' },
-  schedDayText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#2563eb' },
+  schedDay: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#fff7ed', alignItems: 'center', justifyContent: 'center' },
+  schedDayText: { fontSize: 13, fontWeight: fontWeight.bold, color: '#ea580c' },
   schedRoute: { fontSize: 13, fontWeight: fontWeight.semibold, lineHeight: 18 },
   schedFlight: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
   schedFlightText: { flex: 1, fontSize: 11, fontWeight: fontWeight.medium },
@@ -2750,9 +2768,9 @@ const styles = StyleSheet.create({
   refundText: { flex: 1, fontSize: 13 },
   refundPct: { fontSize: 13, fontWeight: fontWeight.bold },
   bookBtn: {
-    backgroundColor: '#2563eb', borderRadius: 12,
+    backgroundColor: '#ea580c', borderRadius: 12,
     paddingHorizontal: 28, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#2563eb', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+    shadowColor: '#ea580c', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 4,
   },
   bookBtnText: { color: '#fff', fontSize: fontSize.sm, fontWeight: fontWeight.bold },
   spreadTrack: { height: 4, borderRadius: 2, backgroundColor: '#f3f4f6', marginTop: 6, overflow: 'hidden' },
@@ -2771,12 +2789,12 @@ const styles = StyleSheet.create({
   vHighlights: { marginTop: 8, gap: 4 },
   vHiRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   vHiText: { flex: 1, fontSize: 11 },
-  popularBadge: { position: 'absolute', top: -9, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#2563eb', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  popularBadge: { position: 'absolute', top: -9, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#ea580c', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
   popularText: { color: '#fff', fontSize: 8, fontWeight: '800', letterSpacing: 0.5 },
   variantName: { fontSize: 11, fontWeight: fontWeight.semibold, letterSpacing: 0.5, marginTop: 4 },
   variantPrice: { fontSize: fontSize.xl, fontWeight: fontWeight.bold },
   variantPer: { fontSize: 11, fontWeight: fontWeight.normal, color: '#9ca3af' },
-  variantOnReq: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#2563eb' },
+  variantOnReq: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: '#ea580c' },
   variantFeat: { fontSize: 11 },
   variantSelect: { marginTop: 6, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(148,163,184,0.18)', alignItems: 'center' },
   variantSelectText: { fontSize: 12, fontWeight: fontWeight.bold },
@@ -2813,8 +2831,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dayBadgeOpen: { backgroundColor: '#2563eb' },
-  dayBadgeClosed: { backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe' },
+  dayBadgeOpen: { backgroundColor: '#ea580c' },
+  dayBadgeClosed: { backgroundColor: '#fff7ed', borderWidth: 1, borderColor: '#fed7aa' },
   dayBadgeText: {
     fontWeight: fontWeight.bold,
     fontSize: 11,
@@ -2837,10 +2855,10 @@ const styles = StyleSheet.create({
   actThumbPh: { alignItems: 'center', justifyContent: 'center' },
   actTitle: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold },
   actTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
-  actTitleLink: { color: '#2563eb' },
-  whyBlock: { borderLeftWidth: 2, borderLeftColor: '#60a5fa', paddingLeft: 8, marginTop: 4 },
+  actTitleLink: { color: '#ea580c' },
+  whyBlock: { borderLeftWidth: 2, borderLeftColor: '#fb923c', paddingLeft: 8, marginTop: 4 },
   whyText: { fontSize: 13, lineHeight: 18 },
-  whyLabel: { fontWeight: fontWeight.bold, color: '#2563eb' },
+  whyLabel: { fontWeight: fontWeight.bold, color: '#ea580c' },
   gtkText: { fontSize: 12, lineHeight: 17, marginTop: 4 },
   gtkLabel: { fontWeight: fontWeight.bold },
   hotelRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.sm },

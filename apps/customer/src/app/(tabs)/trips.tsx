@@ -30,6 +30,7 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { createTripAPI, makeAPICall } from '@prayana/shared-services';
+import { UpcomingBookings } from '../../components/trips/UpcomingBookings';
 import { TripPass, NewTripTile, tripDays, tripSpots, tripPlaces, DEFAULT_TRIP_IMAGES } from '../../components/trips/TripPass';
 import { RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, TWO_UP_W, usePairSnap } from '../../lib/railLayout';
 import { useAuth } from '@prayana/shared-hooks';
@@ -440,8 +441,10 @@ export default function TripsScreen() {
     fetchTrips();
   }, [fetchTrips]);
 
+  const [bookingsKey, setBookingsKey] = useState(0);
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
+    setBookingsKey((k) => k + 1);
     await fetchTrips();
     setRefreshing(false);
   }, [fetchTrips]);
@@ -645,10 +648,11 @@ export default function TripsScreen() {
           fallbackImage={DEFAULT_TRIP_IMAGES[index % DEFAULT_TRIP_IMAGES.length]}
           onOpen={() => handleTripPress(trip)}
           shared={isShared ? { isOwner, role: isOwner ? 'owner' : mine?.role === 'editor' ? 'editor' : 'viewer' } : null}
+          ownerName={user?.displayName}
         />
       );
     },
-    [handleTripPress, imageFor, user?.uid]
+    [handleTripPress, imageFor, user?.uid, user?.displayName]
   );
 
   // ============================================================
@@ -700,6 +704,9 @@ export default function TripsScreen() {
               </View>
             ) : null}
           </View>
+
+          {/* Paid-for treks and packages first: people look for them here. */}
+          {user && user.uid !== 'guest-user' ? <UpcomingBookings refreshKey={bookingsKey} /> : null}
 
           {/* ======= FILTER TABS ======= */}
           {/* Only once there's something to filter; on an empty account the

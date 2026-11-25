@@ -7,6 +7,7 @@ import {
   Pressable,
   Dimensions,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,12 +28,12 @@ const TEMPLATES = [
   {
     id: 'weekend', name: 'Weekend Getaway', duration: '2 days', budget: 'budget', tripType: 'leisure',
     description: 'A quick escape', icon: 'sunny' as const,
-    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=640&q=80',
+    image: 'https://prayanaai.com/images/place-names/radhanagar-beach-andaman/radhanagar-beach-andaman/img-1_google_places_a27f543b.jpg',
   },
   {
     id: 'week-adventure', name: 'Week-long Adventure', duration: '7 days', budget: 'moderate', tripType: 'adventure',
     description: 'A full week of exploring', icon: 'compass' as const,
-    image: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=640&q=80',
+    image: 'https://prayanaai.com/images/place-names/pangong-lake-ladakh/pangong-lake-ladakh/img-1_google_places_ffc2c9f2.jpg',
   },
   {
     id: 'luxury', name: 'Luxury Escape', duration: '5 days', budget: 'luxury', tripType: 'leisure',
@@ -52,7 +53,7 @@ const ORANGE = '#f97316';
 export default function CreateTripScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { themeColors } = useTheme();
+  const { themeColors, isDarkMode } = useTheme();
   const resetTrip = useCreateTripStore((s: any) => s.resetTrip);
 
   const [recentDrafts, setRecentDrafts] = useState<any[]>([]);
@@ -166,6 +167,24 @@ export default function CreateTripScreen() {
           ))}
         </View>
 
+        {/* Not everyone knows where to go yet: Isha can suggest and plan it. */}
+        <TouchableOpacity
+          onPress={() => router.push('/chat' as any)}
+          activeOpacity={0.8}
+          style={[styles.isha, { backgroundColor: isDarkMode ? 'rgba(13,148,136,0.16)' : '#ECFDF5', borderColor: isDarkMode ? 'rgba(13,148,136,0.4)' : '#A7F3D0' }]}
+          accessibilityRole="button"
+          accessibilityLabel="Ask Isha to plan your trip"
+        >
+          <View style={styles.ishaIcon}>
+            <Ionicons name="chatbubbles" size={18} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.ishaTitle, { color: themeColors.text }]}>Not sure where to go?</Text>
+            <Text style={[styles.ishaSub, { color: themeColors.textSecondary }]}>Chat with Isha, our AI travel buddy</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#0D9488" />
+        </TouchableOpacity>
+
         {/* ======= CONTINUE PLANNING ======= */}
         {loadingDrafts ? (
           <View style={styles.draftLoader}>
@@ -194,13 +213,13 @@ export default function CreateTripScreen() {
                       cachePolicy="memory-disk"
                     />
                     <View style={styles.draftInfo}>
-                      <Text style={[styles.draftName, { color: themeColors.text }]} numberOfLines={1}>{tripTitle(draft)}</Text>
+                      <Text style={[styles.draftName, { color: themeColors.text }]} numberOfLines={1}>{tripTitle(draft, user?.displayName)}</Text>
                       <Text style={[styles.draftMeta, { color: themeColors.textTertiary }]} numberOfLines={1}>
                         {[days ? `${days} day${days === 1 ? '' : 's'}` : null, spots ? `${spots} spots` : null, edited ? `edited ${edited}` : null].filter(Boolean).join(' · ') || 'Just started'}
                       </Text>
                     </View>
-                    <View style={[styles.resume, { backgroundColor: themeColors.text }]}>
-                      <Text style={[styles.resumeText, { color: themeColors.background }]}>Resume</Text>
+                    <View style={[styles.resume, { backgroundColor: '#f97316' }]}>
+                      <Text style={[styles.resumeText, { color: '#fff' }]}>Resume</Text>
                     </View>
                   </Pressable>
                 );
@@ -267,6 +286,10 @@ export default function CreateTripScreen() {
 const TEMPLATE_CARD_WIDTH = (SCREEN_WIDTH - 16 * 2 - 12) / 2;
 
 const styles = StyleSheet.create({
+  isha: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 18, padding: 14, borderRadius: 16, borderWidth: 1 },
+  ishaIcon: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#0D9488', alignItems: 'center', justifyContent: 'center' },
+  ishaTitle: { fontSize: 15, fontWeight: '800' },
+  ishaSub: { fontSize: 12.5, marginTop: 2 },
   container: { flex: 1, backgroundColor: colors.background },
   scrollContent: { paddingBottom: spacing['3xl'] },
 

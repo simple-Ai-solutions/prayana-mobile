@@ -12,15 +12,17 @@ import { useTheme } from '@prayana/shared-ui';
 import { TripExtras } from './TripExtras';
 
 // The web's stock trip photos (MyTripsPage DEFAULT_TRIP_IMAGES), the last resort.
+// Indian places from our own CDN: the old stock set (US desert, Cappadocia
+// balloons) looked odd on trips to Goa and Manali.
 export const DEFAULT_TRIP_IMAGES = [
-  'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
-  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-  'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80',
-  'https://images.unsplash.com/photo-1530789253388-582c481c54b0?w=800&q=80',
-  'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
-  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?w=800&q=80',
-  'https://images.unsplash.com/photo-1503220317375-aaad61436b1b?w=800&q=80',
-  'https://images.unsplash.com/photo-1528127269322-539801943592?w=800&q=80',
+  'https://prayanaai.com/images/place-names/munnar-tea-gardens/munnar-tea-gardens/img-1_google_places_8fdbe5b7.jpg',
+  'https://prayanaai.com/images/place-names/radhanagar-beach-andaman/radhanagar-beach-andaman/img-1_google_places_a27f543b.jpg',
+  'https://prayanaai.com/images/place-names/pangong-lake-ladakh/pangong-lake-ladakh/img-1_google_places_ffc2c9f2.jpg',
+  'https://prayanaai.com/images/place-names/hampi-vijayanagara/hampi-vijayanagara/img-1_google_places_b3ad6f06.jpg',
+  'https://prayanaai.com/images/place-names/shimla-mall-road/shimla-mall-road/img-1_google_places_fc10ac43.jpg',
+  'https://prayanaai.com/images/place-names/couple-lake-pichola-udaipur-sunset/couple-lake-pichola-udaipur-sunset/img-1_google_places_00e1e970.jpg',
+  'https://prayanaai.com/images/place-names/pondicherry-french-quarter/pondicherry-french-quarter/img-1_google_places_7337f475.jpg',
+  'https://prayanaai.com/images/place-names/couple-coorg-coffee-plantation/couple-coorg-coffee-plantation/img-1_google_places_d7e1988e.jpg',
 ];
 
 const RED = '#E61417';
@@ -31,14 +33,45 @@ export const tripSpots = (t: any) => (t?.days || []).reduce((n: number, d: any) 
 export const tripPlaces = (t: any): string[] =>
   (t?.destinations || []).map((d: any) => (typeof d === 'string' ? d : d?.name || d?.city || '')).filter(Boolean);
 
-/** The trip's own name, or "Manali trip" when it was saved under the default. */
-export function tripTitle(t: any) {
+/**
+ * The trip's own name, or one made from its places ("Darjeeling & Gangtok")
+ * when it was saved under a default — "My Trip", "Untitled trip", or the
+ * traveller's own name, which the planner used to put there.
+ */
+export function tripTitle(t: any, ownerName?: string | null) {
   const name = String(t?.name || '').trim();
   const places = tripPlaces(t);
-  if ((!name || /^(my|untitled)\s+trip$/i.test(name)) && places.length) {
-    return places.length > 1 ? `${places[0]} & ${places.length - 1} more` : `${places[0]} trip`;
+  const owner = String(ownerName || '').trim().toLowerCase();
+  const isOwnerName = !!owner && (name.toLowerCase() === owner || name.toLowerCase() === owner.split(/\s+/)[0]);
+  if ((!name || /^(my|untitled|new)\s+trip$/i.test(name) || isOwnerName) && places.length) {
+    if (places.length === 1) return `${places[0]} trip`;
+    if (places.length === 2) return `${places[0]} & ${places[1]}`;
+    return `${places[0]}, ${places[1]} + ${places.length - 2} more`;
   }
-  return name || 'Untitled trip';
+  // A default-named draft with no places yet: two of them both read "My Trip".
+  if (!name || /^(my|untitled|new)\s+trip$/i.test(name) || isOwnerName) {
+    const raw = t?.createdAt || t?.updatedAt;
+    const d = raw ? new Date(raw?._seconds ? raw._seconds * 1000 : raw) : null;
+    if (d && !Number.isNaN(d.getTime())) return `Draft from ${d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`;
+    return 'Untitled trip';
+  }
+  return name;
+}
+
+/** "12 – 15 Dec" / "28 Dec – 2 Jan", or null without a start date. */
+export function tripDates(t: any): string | null {
+  const start = tripStart(t);
+  if (!start) return null;
+  const raw = t?.endDate;
+  let end = raw ? new Date(raw?._seconds ? raw._seconds * 1000 : raw) : null;
+  if (!end || Number.isNaN(end.getTime())) {
+    const len = tripDays(t);
+    end = len > 1 ? new Date(start.getTime() + (len - 1) * 86400000) : null;
+  }
+  const dm = (d: Date) => d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  if (!end || end.getTime() === start.getTime()) return dm(start);
+  if (end.getMonth() === start.getMonth()) return `${start.getDate()} – ${dm(end)}`;
+  return `${dm(start)} – ${dm(end)}`;
 }
 
 export function editedAgo(value: any) {
@@ -111,8 +144,10 @@ function LiveDot() {
   );
 }
 
-export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
+export function TripPass({ trip, image, fallbackImage, onOpen, shared, ownerName }: {
   trip: any;
+  /** The signed-in traveller's name, so a trip saved under it gets a real title. */
+  ownerName?: string | null;
   image?: string | null;
   /** Shown if `image` fails to load. */
   fallbackImage?: string;
@@ -131,6 +166,8 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
   const isDraft = !spots && !places.length;
   const crew: any[] = trip.collaborators || [];
   const countdown = tripCountdown(trip);
+  const dates = tripDates(trip);
+  const title = tripTitle(trip, ownerName);
   const role = shared
     ? ({ owner: { icon: 'person' as const, label: 'Owner', bg: '#f97316', fg: '#fff' },
         editor: { icon: 'create' as const, label: 'Editor', bg: '#10b981', fg: '#fff' },
@@ -141,7 +178,7 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
     <Pressable
       onPress={onOpen}
       accessibilityRole="button"
-      accessibilityLabel={`Open ${tripTitle(trip)}`}
+      accessibilityLabel={`Open ${title}`}
       style={({ pressed }) => [
         s.card,
         { backgroundColor: themeColors.surface, borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.06)' },
@@ -189,7 +226,7 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
         )}
 
         <View style={s.caption}>
-          <Text style={s.name} numberOfLines={2}>{tripTitle(trip)}</Text>
+          <Text style={s.name} numberOfLines={2}>{title}</Text>
           {places.length ? (
             <View style={s.placesRow}>
               <Ionicons name="location" size={13} color="#fdba74" />
@@ -231,15 +268,26 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
           </View>
         ) : (
           <View style={s.facts}>
-            <View>
-              <Text style={[s.label, { color: themeColors.textTertiary }]}>SPOTS</Text>
-              <Text style={[s.value, { color: themeColors.text }]}>{spots || '—'}</Text>
-            </View>
-            <View>
-              <Text style={[s.label, { color: themeColors.textTertiary }]}>DAYS</Text>
-              <Text style={[s.value, { color: themeColors.text }]}>{days || '—'}</Text>
-            </View>
-            {edited ? (
+            {/* When the trip is matters more than when it was edited. */}
+            {dates ? (
+              <View style={{ flexShrink: 1 }}>
+                <Text style={[s.label, { color: themeColors.textTertiary }]}>DATES</Text>
+                <Text style={[s.value, { color: themeColors.text }]} numberOfLines={1}>{dates}</Text>
+              </View>
+            ) : null}
+            {spots > 0 ? (
+              <View>
+                <Text style={[s.label, { color: themeColors.textTertiary }]}>SPOTS</Text>
+                <Text style={[s.value, { color: themeColors.text }]}>{spots}</Text>
+              </View>
+            ) : null}
+            {days > 0 && !dates ? (
+              <View>
+                <Text style={[s.label, { color: themeColors.textTertiary }]}>DAYS</Text>
+                <Text style={[s.value, { color: themeColors.text }]}>{days}</Text>
+              </View>
+            ) : null}
+            {edited && !dates ? (
               <View style={{ flexShrink: 1 }}>
                 <Text style={[s.label, { color: themeColors.textTertiary }]}>EDITED</Text>
                 <Text style={[s.edited, { color: themeColors.textSecondary }]} numberOfLines={1}>{edited}</Text>
@@ -247,9 +295,9 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared }: {
             ) : null}
           </View>
         )}
-        <View style={[s.open, { backgroundColor: isDarkMode ? '#fff' : '#111827' }]}>
-          <Text style={[s.openText, { color: isDarkMode ? '#111827' : '#fff' }]}>Open</Text>
-          <Ionicons name="arrow-forward" size={14} color={isDarkMode ? '#111827' : '#fff'} />
+        <View style={[s.open, { backgroundColor: '#f97316' }]}>
+          <Text style={[s.openText, { color: '#fff' }]}>Open</Text>
+          <Ionicons name="arrow-forward" size={14} color="#fff" />
         </View>
       </View>
     </Pressable>
@@ -289,10 +337,10 @@ const s = StyleSheet.create({
   liveHalo: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' },
   card: {
-    borderRadius: 22, borderWidth: 1, overflow: 'hidden',
+    borderRadius: 20, borderWidth: 1, overflow: 'hidden',
     shadowColor: '#0f172a', shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
-  top: { aspectRatio: 16 / 10, overflow: 'hidden' },
+  top: { aspectRatio: 2, overflow: 'hidden' }, // shorter than 16:10: more trips per screen
   noPhoto: { alignItems: 'center', justifyContent: 'center' },
   chips: { position: 'absolute', top: 12, left: 12, right: 12, flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 },

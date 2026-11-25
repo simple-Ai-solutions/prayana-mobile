@@ -20,7 +20,7 @@ import { useTheme } from '@prayana/shared-ui';
 import { sharePackagePdf, shareSchedulePdf } from '../../utils/packagePdf';
 import { cleanPhone } from '../../lib/phoneInput';
 
-const BLUE = '#2563eb';
+const BLUE = '#ea580c';
 
 // ─── Weather ─────────────────────────────────────────────────────────────
 
@@ -454,7 +454,7 @@ export function LanguageButton({ packageId, onTranslated }: {
                 key={l.code}
                 onPress={() => pick(l.code)}
                 disabled={!!busy}
-                style={[s.langItem, { borderColor: on ? BLUE : themeColors.border }, on && { backgroundColor: '#eff6ff' }]}
+                style={[s.langItem, { borderColor: on ? BLUE : themeColors.border }, on && { backgroundColor: '#fff7ed' }]}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
               >

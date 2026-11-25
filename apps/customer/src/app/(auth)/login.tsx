@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { setPostAuthRedirect, postAuthRoute } from '../../lib/authRedirect';
 import {
   View,
   Text,
@@ -14,7 +15,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
@@ -80,6 +81,10 @@ function AppleA() {
 }
 
 export default function LoginScreen() {
+  // Where the user was heading (e.g. a booking checkout): every sign-in path
+  // below returns there instead of the home tab.
+  const { redirectTo } = useLocalSearchParams<{ redirectTo?: string }>();
+  useEffect(() => { setPostAuthRedirect(redirectTo); }, [redirectTo]);
   const { setUser, setIsAuthenticated, syncWithBackend } = useAuth();
 
   // Phone is the primary path — it leads the screen, entered inline here and
@@ -169,7 +174,7 @@ export default function LoginScreen() {
           // Truecaller normally supplies the name; if it didn't (or it failed
           // validation) the user is asked for it, same as after OTP.
           router.replace(
-            isPlaceholderName(result.user?.name) ? ('/complete-profile' as never) : '/(tabs)',
+            isPlaceholderName(result.user?.name) ? ('/complete-profile' as never) : (postAuthRoute() as never),
           );
         } catch {
           setError('Truecaller sign-in failed. Please continue with your phone number.');
@@ -238,7 +243,7 @@ export default function LoginScreen() {
       setIsAuthenticated(true);
       try { await syncWithBackend(userCredential.user, 'google'); } catch {}
       await resetGuestUsage();
-      router.replace('/(tabs)');
+      router.replace(postAuthRoute() as never);
     } catch (err: any) {
       let msg = 'Google Sign-In failed. Please try again.';
       if (err.code === 'auth/account-exists-with-different-credential') msg = 'An account already exists with this email using a different sign-in method.';
@@ -339,7 +344,7 @@ export default function LoginScreen() {
       // 'email' (the web sends 'apple').
       try { await syncWithBackend(userCredential.user, 'email'); } catch {}
       await resetGuestUsage();
-      router.replace('/(tabs)');
+      router.replace(postAuthRoute() as never);
     } catch (err: any) {
       if (err?.code === 'ERR_REQUEST_CANCELED') return; // user dismissed — stay quiet
       let msg = 'Apple Sign-In failed. Please try again.';
@@ -374,7 +379,7 @@ export default function LoginScreen() {
       setIsAuthenticated(true);
       try { await syncWithBackend(userCredential.user, 'email'); } catch {}
       await resetGuestUsage();
-      router.replace('/(tabs)');
+      router.replace(postAuthRoute() as never);
     } catch (err: any) {
       let msg = 'An unexpected error occurred. Please try again.';
       switch (err.code) {

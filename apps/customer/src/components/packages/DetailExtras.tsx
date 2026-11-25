@@ -14,7 +14,7 @@ import { Card, StarRating, spacing, fontSize, fontWeight, useTheme } from '@pray
 import type { FaqItem } from '../../lib/packageFaq';
 
 const SERIF = Platform.select({ ios: 'Georgia', default: 'serif' });
-const BLUE = '#2563eb';
+const BLUE = '#ea580c';
 export const YATRA_EXPERT_PHONE = '+919449753920';
 
 /** The blue accent bar + title every section on this page starts with. */
@@ -248,7 +248,7 @@ export function ReviewsCard({ rating, reviews, cardStyle }: {
               return (
                 <View key={r._id || i} style={[s.review, { borderColor: themeColors.border }]}>
                   <View style={s.reviewHead}>
-                    <LinearGradient colors={['#3b82f6', '#4f46e5']} style={s.avatar}>
+                    <LinearGradient colors={['#f97316', '#4f46e5']} style={s.avatar}>
                       <Text style={s.avatarText}>{who[0]?.toUpperCase()}</Text>
                     </LinearGradient>
                     <View style={{ flex: 1 }}>
@@ -282,7 +282,7 @@ export function ReviewsCard({ rating, reviews, cardStyle }: {
 
 const s = StyleSheet.create({
   headRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  accent: { width: 4, height: 20, borderRadius: 2, backgroundColor: '#3b82f6' },
+  accent: { width: 4, height: 20, borderRadius: 2, backgroundColor: '#f97316' },
   headTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold },
   headSub: { fontSize: 12, marginTop: 2, marginLeft: 12 },
   small: { fontSize: 13 },

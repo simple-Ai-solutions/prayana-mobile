@@ -47,6 +47,7 @@ import {
   isAcceptanceComplete,
 } from '../../../components/common/LegalAcceptanceBlock';
 import { AcceptedLegalDoc } from '../../../lib/legalRegistry';
+import { isPlaceholderName } from '../../../lib/userName';
 import { ENV } from '../../../config/env';
 import { DeparturePicker } from '../../../components/experiences/DeparturePicker';
 import { phoneChange } from '../../../lib/phoneInput';
@@ -651,8 +652,9 @@ export default function BookingFlowScreen() {
   // Pre-fill contact from user profile
   useEffect(() => {
     if (user) {
-      setName(user.displayName || '');
-      setEmail(user.email || '');
+      // "Guest" / "User 1234" would end up as the name on the booking.
+      setName(isPlaceholderName(user.displayName) ? '' : user.displayName || '');
+      setEmail(user.email && user.email !== 'guest@prayana.ai' ? user.email : '');
       setPhone(user.phoneNumber || '');
     }
   }, [user]);

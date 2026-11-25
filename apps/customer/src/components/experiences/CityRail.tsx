@@ -58,7 +58,9 @@ export const CityRail: React.FC<Props> = ({ group, onPressExperience, onSeeAll }
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.rail}
       >
-        {group.items.map((e) => (
+        {/* Eight per city: the page stacks ten of these rails, and all twenty
+            cards each was 200 photo cards drawn at once. "See all" has the rest. */}
+        {group.items.slice(0, 8).map((e) => (
           <ExperienceCard key={e._id} experience={e} width={230} onPress={onPressExperience} />
         ))}
       </ScrollView>

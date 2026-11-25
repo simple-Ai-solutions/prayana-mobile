@@ -2,28 +2,27 @@
 // in at either edge, smaller and dimmed. A swipe settles the next card into the
 // centre; dots underneath show where you are and jump to a card on tap.
 //
-// It loops both ways. The cards are laid out three times over and the
-// carousel opens on the middle copy, so there's a card on each side from the
-// first frame. Once a swipe settles outside the middle copy it jumps, without
-// animating, to the same card in the middle copy — the cards are identical, so
-// the jump can't be seen, and the user can keep swiping either way for ever.
+// It loops both ways without ever jumping. The old loop laid the cards out
+// three times and, after a swipe, jumped invisibly back to the middle copy;
+// on Android that jump could land mid-snap and leave the rail stuck and deaf
+// to swipes. Now the cards repeat LOOPS times in a virtualised list that opens
+// in the middle: only the few cards near the screen are ever drawn, and with
+// hundreds of cards each way no one reaches an end, so no jump is needed.
 //
-// Scale and fade run on the native driver, so they track the finger without
-// touching JS. Snapping is done by hand (usePairSnap) rather than with
+// Only the dots re-render as the active card changes; scale and fade run on
+// the native driver. Snapping is done by hand rather than with
 // snapToInterval, which on Android makes the vertical page jump while a rail
 // loads.
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, FlatList, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useTheme } from '@prayana/shared-ui';
-import { usePairSnap } from '../../lib/railLayout';
 
 const SIDE_SCALE = 0.86;
 const SIDE_OPACITY = 0.55;
 const MAX_DOTS = 12; // beyond this the dots stop being readable
-const COPIES = 3;
-// How long the rail must sit still before we recentre on the middle copy.
-// Long enough that a snap animation has finished, short enough that the user
-// can't swipe again first.
+const LOOPS = 200; // copies of the card list; the rail opens on the middle one
+// A swipe that ends without a fling and without the momentum event (Android
+// sometimes skips it) is settled after the rail has been still this long.
 const SETTLE_MS = 160;
 
 export function SpotlightCarousel<T>({
@@ -39,145 +38,159 @@ export function SpotlightCarousel<T>({
   accent?: string;
 }) {
   const { width: screenW } = useWindowDimensions();
-  const { isDarkMode } = useTheme();
   const n = data.length;
+  const loops = n > 1 ? LOOPS : 1;
   const step = itemWidth + gap;
   const sidePad = Math.max(0, (screenW - itemWidth) / 2);
-  // A single card has nothing to loop through.
-  const copies = n > 1 ? COPIES : 1;
-  const startX = n > 1 ? n * step : 0; // first card of the middle copy
+  const startIndex = n > 1 ? n * Math.floor(LOOPS / 2) : 0;
 
-  const scrollX = useRef(new Animated.Value(startX)).current;
-  const snap = usePairSnap(step);
-  const [active, setActive] = useState(0);
+  const listRef = useRef<FlatList<number> | null>(null);
+  const scrollX = useRef(new Animated.Value(startIndex * step)).current;
+  const xRef = useRef(startIndex * step);
   const activeRef = useRef(0);
+  const setDot = useRef<((i: number) => void) | null>(null);
   const settleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const placed = useRef(false);
-  // One object for the life of the carousel. A fresh literal on every render
-  // made Android re-apply the offset each time the active dot changed, which
-  // threw a swipe back to the first card.
-  const initialOffset = useRef({ x: startX, y: 0 }).current;
+
+  // The parent passes renderItem/keyExtractor as inline arrows; read them from
+  // refs so cards don't rebuild on every parent render.
+  const renderRef = useRef(renderItem);
+  renderRef.current = renderItem;
+  const keyRef = useRef(keyExtractor);
+  keyRef.current = keyExtractor;
 
   useEffect(() => () => { if (settleTimer.current) clearTimeout(settleTimer.current); }, []);
 
-  // Open on the middle copy. contentOffset covers the first frame; the
-  // scrollTo is the fallback for platforms that ignore it.
-  const placeAtStart = () => {
-    if (placed.current || n < 2) return;
-    placed.current = true;
-    snap.ref.current?.scrollTo({ x: startX, animated: false });
-  };
+  const slots = useMemo(() => Array.from({ length: n * loops }, (_, s) => s), [n, loops]);
 
-  const dragging = useRef(false);
+  const settle = useCallback((x: number) => {
+    const target = Math.round(x / step) * step;
+    if (Math.abs(target - x) > 1) listRef.current?.scrollToOffset({ offset: target, animated: true });
+  }, [step]);
 
-  const recentre = (x: number) => {
-    if (dragging.current) return; // finger still down; let the user hold
-    const slot = Math.round(x / step);
-    if (Math.abs(slot * step - x) > 1) {
-      // Stopped between two cards: Android sometimes ends a swipe without
-      // the momentum event the snap waits for. Settle it here instead.
-      snap.ref.current?.scrollTo({ x: slot * step, animated: true });
-      return;
-    }
-    if (slot >= n && slot < 2 * n) return; // already in the middle copy
-    const target = (((slot % n) + n) % n) + n;
-    snap.ref.current?.scrollTo({ x: target * step, animated: false });
-  };
-
-  const onScroll = Animated.event(
-    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-    {
-      useNativeDriver: true,
-      listener: (e: any) => {
-        const x = e.nativeEvent.contentOffset.x;
-        const i = ((Math.round(x / step) % n) + n) % n;
-        if (i !== activeRef.current) {
-          activeRef.current = i;
-          setActive(i);
-        }
-        if (n < 2) return;
-        if (settleTimer.current) clearTimeout(settleTimer.current);
-        settleTimer.current = setTimeout(() => recentre(x), SETTLE_MS);
-      },
-    },
+  const onScroll = useMemo(
+    () =>
+      Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+        useNativeDriver: true,
+        listener: (e: any) => {
+          const x = e.nativeEvent.contentOffset.x;
+          xRef.current = x;
+          const i = ((Math.round(x / step) % n) + n) % n;
+          if (i !== activeRef.current) {
+            activeRef.current = i;
+            setDot.current?.(i);
+          }
+        },
+      }),
+    [scrollX, step, n],
   );
 
-  // Dots jump within the middle copy, the way that's always in reach.
-  const goTo = (i: number) => snap.ref.current?.scrollTo({ x: (i + (n > 1 ? n : 0)) * step, animated: true });
+  const renderSlot = useCallback(
+    ({ item: s }: { item: number }) => {
+      const i = s % n;
+      const range = [(s - 1) * step, s * step, (s + 1) * step];
+      const scale = scrollX.interpolate({ inputRange: range, outputRange: [SIDE_SCALE, 1, SIDE_SCALE], extrapolate: 'clamp' });
+      const opacity = scrollX.interpolate({ inputRange: range, outputRange: [SIDE_OPACITY, 1, SIDE_OPACITY], extrapolate: 'clamp' });
+      return (
+        <View style={{ width: step }}>
+          <Animated.View style={{ width: itemWidth, opacity, transform: [{ scale }] }}>
+            {renderRef.current(data[i], i, itemWidth)}
+          </Animated.View>
+        </View>
+      );
+    },
+    [data, n, step, itemWidth, scrollX],
+  );
 
-  const slots = Array.from({ length: n * copies }, (_, s) => s);
+  // Offsets leave out the side-padding header on purpose: initialScrollIndex
+  // scrolls to this offset, and card s is centred at exactly s * step. The
+  // render window is then off by under a card, which windowSize covers.
+  const getItemLayout = useCallback(
+    (_: unknown, index: number) => ({ length: step, offset: index * step, index }),
+    [step],
+  );
+
+  // A dot moves to that card within the loop the user is in now.
+  const goTo = (i: number) => {
+    const cur = Math.round(xRef.current / step);
+    const base = cur - (((cur % n) + n) % n);
+    listRef.current?.scrollToOffset({ offset: (base + i) * step, animated: true });
+  };
+
+  if (n === 0) return null;
 
   return (
     <View>
-      <Animated.ScrollView
-        ref={snap.setRef as any}
+      <Animated.FlatList
+        ref={listRef as any}
+        data={slots}
+        keyExtractor={(s: number) => `${keyRef.current(data[s % n], s % n)}:${Math.floor(s / n)}`}
+        renderItem={renderSlot}
         horizontal
         showsHorizontalScrollIndicator={false}
+        getItemLayout={getItemLayout}
+        initialScrollIndex={startIndex}
+        ListHeaderComponent={<View style={{ width: sidePad }} />}
+        ListFooterComponent={<View style={{ width: Math.max(0, sidePad - gap) }} />}
+        initialNumToRender={3}
+        maxToRenderPerBatch={2}
+        windowSize={3}
         decelerationRate="fast"
         scrollEventThrottle={16}
         onScroll={onScroll}
-        contentOffset={initialOffset}
-        onContentSizeChange={placeAtStart}
-        {...snap.props}
-        onScrollBeginDrag={() => { dragging.current = true; }}
+        onScrollBeginDrag={() => { if (settleTimer.current) clearTimeout(settleTimer.current); }}
         onScrollEndDrag={(e: any) => {
-          dragging.current = false;
-          snap.props.onScrollEndDrag(e);
-          // If the finger was held still, no further scroll event will come
-          // to arm the settle timer, so arm it here.
           const x = e.nativeEvent.contentOffset.x;
+          const v = e.nativeEvent.velocity?.x ?? 0;
+          if (Math.abs(v) < 0.1) settle(x);
           if (settleTimer.current) clearTimeout(settleTimer.current);
-          settleTimer.current = setTimeout(() => recentre(x), SETTLE_MS);
+          settleTimer.current = setTimeout(() => settle(xRef.current), SETTLE_MS);
         }}
-        contentContainerStyle={{ paddingHorizontal: sidePad, alignItems: 'center' }}
-      >
-        {slots.map((s) => {
-          const i = s % n;
-          const item = data[i];
-          const range = [(s - 1) * step, s * step, (s + 1) * step];
-          const scale = scrollX.interpolate({
-            inputRange: range, outputRange: [SIDE_SCALE, 1, SIDE_SCALE], extrapolate: 'clamp',
-          });
-          const opacity = scrollX.interpolate({
-            inputRange: range, outputRange: [SIDE_OPACITY, 1, SIDE_OPACITY], extrapolate: 'clamp',
-          });
-          return (
-            <Animated.View
-              key={`${keyExtractor(item, i)}:${Math.floor(s / n)}`}
-              style={{
-                width: itemWidth,
-                marginRight: s < slots.length - 1 ? gap : 0,
-                opacity,
-                transform: [{ scale }],
-              }}
-            >
-              {renderItem(item, i, itemWidth)}
-            </Animated.View>
-          );
-        })}
-      </Animated.ScrollView>
+        onMomentumScrollBegin={() => { if (settleTimer.current) clearTimeout(settleTimer.current); }}
+        onMomentumScrollEnd={(e: any) => settle(e.nativeEvent.contentOffset.x)}
+        contentContainerStyle={{ alignItems: 'center' }}
+      />
 
       {n > 1 && n <= MAX_DOTS && (
-        <View style={styles.dots}>
-          {data.map((item, i) => (
-            <Pressable
-              key={keyExtractor(item, i)}
-              hitSlop={8}
-              onPress={() => goTo(i)}
-              accessibilityRole="button"
-              accessibilityLabel={`Show card ${i + 1} of ${n}`}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(17,24,39,0.18)' },
-                  i === active && [styles.dotOn, { backgroundColor: accent }],
-                ]}
-              />
-            </Pressable>
-          ))}
-        </View>
+        <Dots data={data} keyExtractor={keyExtractor} accent={accent} onPress={goTo} setterRef={setDot} />
       )}
+    </View>
+  );
+}
+
+// The dots hold the active index themselves, so a swipe re-renders them alone.
+function Dots<T>({ data, keyExtractor, accent, onPress, setterRef }: {
+  data: T[];
+  keyExtractor: (item: T, index: number) => string;
+  accent: string;
+  onPress: (i: number) => void;
+  setterRef: React.MutableRefObject<((i: number) => void) | null>;
+}) {
+  const { isDarkMode } = useTheme();
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    setterRef.current = setActive;
+    return () => { setterRef.current = null; };
+  }, [setterRef]);
+  const n = data.length;
+  return (
+    <View style={styles.dots}>
+      {data.map((item, i) => (
+        <Pressable
+          key={keyExtractor(item, i)}
+          hitSlop={8}
+          onPress={() => onPress(i)}
+          accessibilityRole="button"
+          accessibilityLabel={`Show card ${i + 1} of ${n}`}
+        >
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(17,24,39,0.18)' },
+              i === active && [styles.dotOn, { backgroundColor: accent }],
+            ]}
+          />
+        </Pressable>
+      ))}
     </View>
   );
 }

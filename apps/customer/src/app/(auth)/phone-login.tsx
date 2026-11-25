@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { postAuthRoute } from '../../lib/authRedirect';
 import {
   View,
   Text,
@@ -210,7 +211,7 @@ export default function PhoneLoginScreen() {
           // rather than flashing the home tab before NameGate redirects. If the
           // sync failed we don't know, so go home and let NameGate decide.
           router.replace(
-            syncedUser && isPlaceholderName(syncedUser.name) ? ('/complete-profile' as never) : '/(tabs)',
+            syncedUser && isPlaceholderName(syncedUser.name) ? ('/complete-profile' as never) : (postAuthRoute() as never),
           );
           return;
         } catch (firebaseErr: any) {
@@ -230,7 +231,7 @@ export default function PhoneLoginScreen() {
           getIdToken: async () => 'phone-verified-token',
         } as any);
         setIsAuthenticated(true);
-        router.replace('/(tabs)');
+        router.replace(postAuthRoute() as never);
       } else {
         Alert.alert('Error', 'Verification succeeded but failed to create session.');
       }
