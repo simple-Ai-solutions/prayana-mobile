@@ -2,7 +2,9 @@
 // Shared by Global Experiences, India Experiences, and the destination
 // Activities tab. Mirrors the PWA ActivityCard.
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Star, MapPin, Zap, Clock } from 'lucide-react-native';
 import { router } from 'expo-router';
 import {
@@ -17,6 +19,11 @@ import {
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 import { useAppStore } from '@prayana/shared-stores';
 import { useExchangeRates, convertCurrency } from '../../lib/exchangeRates';
+import { cardTitle } from '../../lib/cardTitle';
+import { sizedImageUrl } from '../../lib/imageUrl';
+
+/** "KODACHADRI TREK" → "Kodachadri Trek". */
+const tidy = (t: string) => (t && t === t.toUpperCase() ? t.toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : t);
 
 interface Props {
   activity: any;
@@ -70,94 +77,86 @@ export const GlobalActivityCard: React.FC<Props> = ({ activity: a, width = '48%'
   const reviewLabel =
     reviews >= 1000 ? `${(reviews / 1000).toFixed(reviews >= 10000 ? 0 : 1)}k` : `${reviews}`;
 
+  const title = tidy(cardTitle(a.name || a.title || ''));
+  const meta = [city, duration].filter(Boolean).join(' · ');
+
+  // A photo poster: title, place and price over a dark fade, like the Explore
+  // cards — the old white box under a short photo read as a plain list.
   return (
-    <TouchableOpacity
-      style={[styles.card, shadow.sm, { width: width as any, backgroundColor: themeColors.surface }]}
-      activeOpacity={0.85}
+    <Pressable
+      style={({ pressed }) => [styles.card, shadow.sm, { width: width as any }, pressed && { transform: [{ scale: 0.97 }] }]}
       onPress={() => a._id && router.push(`/activity/${a._id}` as any)}
+      accessibilityRole="button"
+      accessibilityLabel={title}
     >
-      <View>
-        {img ? (
-          <Image source={{ uri: img }} style={styles.img} />
-        ) : (
-          <View style={[styles.img, { backgroundColor: colors.primary[100] }]} />
-        )}
-        {instant && (
-          <View style={styles.instantBadge}>
-            <Zap size={10} color="#fff" fill="#fff" />
-            <Text style={styles.instantText}>Instant</Text>
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.gray[300] }]} />
+      {img ? (
+        <Image source={{ uri: sizedImageUrl(img, 200) }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
+      ) : null}
+      <LinearGradient
+        colors={['rgba(0,0,0,0.35)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.88)']}
+        locations={[0, 0.25, 0.5, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
+      <View style={styles.top}>
+        {instant ? (
+          <View style={styles.chip}>
+            <Zap size={10} color="#111827" fill="#111827" />
+            <Text style={styles.chipText}>Instant</Text>
           </View>
-        )}
+        ) : <View />}
+        {rating > 0 ? (
+          <View style={[styles.chip, styles.chipDark]}>
+            <Star size={10} color="#fbbf24" fill="#fbbf24" />
+            <Text style={[styles.chipText, { color: '#fff' }]}>
+              {Number(rating).toFixed(1)}{reviews > 0 ? ` (${reviewLabel})` : ''}
+            </Text>
+          </View>
+        ) : null}
       </View>
-      <View style={styles.body}>
-        <Text style={[styles.title, { color: themeColors.text }]} numberOfLines={2}>
-          {a.name || a.title}
-        </Text>
-        {!!city && (
-          <View style={styles.cityRow}>
-            <MapPin size={11} color={themeColors.textTertiary} />
-            <Text style={[styles.city, { color: themeColors.textTertiary }]} numberOfLines={1}>
-              {city}
-            </Text>
+
+      <View style={styles.foot}>
+        <Text style={styles.title} numberOfLines={2}>{title}</Text>
+        {!!meta && (
+          <View style={styles.metaRow}>
+            <MapPin size={11} color="#fdba74" />
+            <Text style={styles.meta} numberOfLines={1}>{meta}</Text>
           </View>
         )}
-        {!!duration && (
-          <View style={styles.cityRow}>
-            <Clock size={11} color={themeColors.textTertiary} />
-            <Text style={[styles.city, { color: themeColors.textTertiary }]} numberOfLines={1}>
-              {duration}
-            </Text>
-          </View>
-        )}
-        <View style={styles.metaRow}>
-          {rating > 0 && (
-            <View style={styles.ratingRow}>
-              <Star size={12} color="#fbbf24" fill="#fbbf24" />
-              <Text style={[styles.ratingText, { color: themeColors.textSecondary }]}>
-                {Number(rating).toFixed(1)}
-                {reviews > 0 ? ` (${reviewLabel})` : ''}
-              </Text>
-            </View>
-          )}
-          {price != null && (
+        {price != null && (
+          <View style={styles.pricePill}>
             <Text style={styles.price}>
-              {currency}
-              {Math.round(Number(shownPrice)).toLocaleString(priceLocale)}
+              {currency}{Math.round(Number(shownPrice)).toLocaleString(priceLocale)}
             </Text>
-          )}
-        </View>
+            <Text style={styles.per}> /person</Text>
+          </View>
+        )}
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { borderRadius: borderRadius.lg, overflow: 'hidden', marginBottom: spacing.md },
-  img: { width: '100%', height: 120, backgroundColor: colors.gray[200] },
-  instantBadge: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: colors.success,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: borderRadius.full,
+  card: { height: 250, borderRadius: 18, overflow: 'hidden', marginBottom: spacing.md, justifyContent: 'space-between' },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: 'rgba(255,255,255,0.95)', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 999,
   },
-  instantText: { color: '#fff', fontSize: 10, fontWeight: fontWeight.semibold },
-  body: { padding: spacing.md, gap: spacing.xs },
-  title: { fontSize: fontSize.sm, fontWeight: fontWeight.semibold, lineHeight: 18 },
-  cityRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  city: { fontSize: fontSize.xs },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 2,
+  chipDark: { backgroundColor: 'rgba(0,0,0,0.55)' },
+  chipText: { color: '#111827', fontSize: 10.5, fontWeight: '800' },
+  foot: { padding: 12, gap: 4 },
+  title: {
+    color: '#fff', fontSize: 15, fontWeight: '800', lineHeight: 19, letterSpacing: -0.2,
+    textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 },
   },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingText: { fontSize: fontSize.xs, fontWeight: fontWeight.medium },
-  price: { fontSize: fontSize.sm, fontWeight: fontWeight.bold, color: colors.primary[600] },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  meta: { flexShrink: 1, color: 'rgba(255,255,255,0.9)', fontSize: 11.5, fontWeight: '600' },
+  pricePill: {
+    flexDirection: 'row', alignItems: 'baseline', alignSelf: 'flex-start',
+    backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 9, paddingVertical: 4, marginTop: 4,
+  },
+  price: { color: '#111827', fontSize: 14, fontWeight: '900' },
+  per: { color: '#6B7280', fontSize: 10.5, fontWeight: '600' },
 });
