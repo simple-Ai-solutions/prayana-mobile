@@ -8,6 +8,7 @@
 // matching activities from /activities/global, and renders a themed hero +
 // sub-category chips (groups) + a results grid with load-more.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useExchangeRates } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,6 +36,8 @@ const isTrek = (a: any) =>
 
 export default function ExperienceCategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
+  // Re-render when exchange rates arrive, so partner prices show in rupees.
+  useExchangeRates();
   const { themeColors } = useTheme();
 
   const resolved = useMemo(() => (slug ? resolveExperienceSlug(String(slug)) : null), [slug]);

@@ -4,6 +4,7 @@
 // rated market tours and the rest as a poster grid. Light surface on purpose:
 // this is a daytime, colourful page (Nightlife is the dark one).
 import React, { useMemo, useState } from 'react';
+import { listingPriceNow } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Image, Pressable, Dimensions, ActivityIndicator } from 'react-native';
 import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
@@ -29,7 +30,7 @@ const priceText = (a: any): string | null => {
   const p = a.platformSellingPrice ?? a.pricing?.basePrice ?? a.price ?? null;
   if (p == null || !(Number(p) > 0)) return null;
   const code = String(a.pricing?.currency || a.currency || 'INR').toUpperCase();
-  return `${SYMBOLS[code] ?? `${code} `}${Math.round(Number(p)).toLocaleString(code === 'INR' ? 'en-IN' : 'en-US')}`;
+  return listingPriceNow(Number(p), a);
 };
 const imgOf = (a: any): string | null => a.images?.[0]?.url || a.images?.[0] || a.heroImage || null;
 const cityOf = (a: any): string => a.location?.city || a.externalData?.city?.name || '';
