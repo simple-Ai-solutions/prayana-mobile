@@ -7,6 +7,7 @@
 // Prices: the platform's own selling price / MRP / discount where set (what
 // the checkout charges), else pricing.startingFrom.
 import React, { useState } from 'react';
+import { CARD_TITLE } from '../../lib/typeScale';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -279,7 +280,7 @@ const s = StyleSheet.create({
   cardPlacesText: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 6 },
   cardBody: { padding: 14, gap: 12 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  cardTitle: { flex: 1, fontSize: 17, fontWeight: '800', lineHeight: 22, letterSpacing: -0.2 },
+  cardTitle: { ...CARD_TITLE, flex: 1 },
   rate: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#16a34a', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginTop: 2 },
   rateText: { color: '#fff', fontSize: 12, fontWeight: '800' },
   perks: { flexDirection: 'row', gap: 14 },

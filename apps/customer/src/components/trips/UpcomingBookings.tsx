@@ -10,6 +10,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@prayana/shared-ui';
 import { bookingAPI, holidayPackagesAPI } from '@prayana/shared-services';
 import { normalizeImageUrl } from '../../lib/imageUrl';
+import { SECTION_TITLE } from '../../lib/typeScale';
 
 const MAX_SHOWN = 3;
 const ACTIVITY_LIVE = new Set(['pending', 'pending_capture', 'payment_pending', 'confirmed']);
@@ -72,7 +73,7 @@ export function UpcomingBookings({ refreshKey = 0 }: { refreshKey?: number }) {
   return (
     <View style={s.section}>
       <View style={s.head}>
-        <Text style={[s.label, { color: themeColors.textSecondary }]}>BOOKED TRIPS</Text>
+        <Text style={[s.label, { color: themeColors.text }]}>Booked trips</Text>
         <Pressable onPress={() => router.push('/bookings?tab=upcoming' as any)} hitSlop={10}>
           <Text style={s.seeAll}>See all</Text>
         </Pressable>
@@ -126,7 +127,7 @@ export function UpcomingBookings({ refreshKey = 0 }: { refreshKey?: number }) {
 const s = StyleSheet.create({
   section: { marginTop: 18, paddingHorizontal: 16, gap: 10 },
   head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 12, fontWeight: '800', letterSpacing: 1.2 },
+  label: { ...SECTION_TITLE },
   seeAll: { color: '#EA580C', fontWeight: '700', fontSize: 13 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: 16, borderWidth: 1 },
   thumb: { width: 64, height: 64, borderRadius: 12 },
