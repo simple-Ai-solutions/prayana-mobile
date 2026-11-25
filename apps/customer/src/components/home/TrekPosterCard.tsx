@@ -203,9 +203,9 @@ export function TrekPosterCard({ activity, video, onPress, width = POSTER_CARD_W
                 <Text style={[styles.price, isDarkMode && { color: '#fff' }]}>₹{inr(price)}</Text>
               </Text>
             </View>
-            <View style={[styles.view, isDarkMode && { backgroundColor: '#fff' }]}>
-              <Text style={[styles.viewText, isDarkMode && { color: '#111827' }]}>View</Text>
-              <ArrowRight size={14} color={isDarkMode ? '#111827' : '#fff'} />
+            <View style={styles.view}>
+              <Text style={styles.viewText}>View</Text>
+              <ArrowRight size={14} color="#fff" />
             </View>
           </View>
         )}
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   per: { color: '#6B7280', fontSize: 11 },
   view: {
     flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999,
-    backgroundColor: '#111827', paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: '#f97316', paddingHorizontal: 10, paddingVertical: 6,
   },
   viewText: { color: '#fff', fontSize: 11.5, fontWeight: '600' },
 });

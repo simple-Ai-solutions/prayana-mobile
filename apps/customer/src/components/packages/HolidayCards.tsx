@@ -138,7 +138,7 @@ export function DealTile({ pkg, onPress }: { pkg: any; onPress: () => void }) {
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pkg.title}
       style={({ pressed }) => [s.tile, { backgroundColor: themeColors.surface, borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)' }, pressed && { transform: [{ scale: 0.98 }] }]}>
       <View style={s.tileImg}>
-        <LinearGradient colors={['#93c5fd', BLUE]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#fdba74', BLUE]} style={StyleSheet.absoluteFill} />
         {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" /> : null}
         {off > 0 ? (
           <LinearGradient colors={['#ef4444', '#b91c1c']} style={s.tileOff}><Text style={s.tileOffText}>{off}% OFF</Text></LinearGradient>
@@ -173,7 +173,7 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pkg.title}
       style={({ pressed }) => [s.card, { backgroundColor: themeColors.surface, borderColor: line }, pressed && { transform: [{ scale: 0.99 }] }]}>
       <View style={s.cardImg}>
-        <LinearGradient colors={['#93c5fd', BLUE]} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#fdba74', BLUE]} style={StyleSheet.absoluteFill} />
         {img ? <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={250} cachePolicy="memory-disk" onError={() => own && setFailed(own)} /> : null}
         <LinearGradient colors={['rgba(0,0,0,0.25)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']} locations={[0, 0.4, 1]} style={StyleSheet.absoluteFill} />
         <View style={s.cardTop}>
@@ -199,7 +199,7 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
           <View style={s.perks}>
             {perks.map((p) => (
               <View key={p.label} style={s.perk}>
-                <View style={[s.perkIcon, { backgroundColor: isDarkMode ? 'rgba(0,140,255,0.15)' : '#eff6ff' }]}>
+                <View style={[s.perkIcon, { backgroundColor: isDarkMode ? 'rgba(0,140,255,0.15)' : '#fff7ed' }]}>
                   <Ionicons name={p.icon} size={14} color={BLUE} />
                 </View>
                 <Text style={[s.perkText, { color: themeColors.textSecondary }]}>{p.label}</Text>

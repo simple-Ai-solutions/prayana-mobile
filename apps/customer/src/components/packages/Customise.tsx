@@ -15,7 +15,7 @@ import { makeAPICall } from '@prayana/shared-services';
 import { useTheme } from '@prayana/shared-ui';
 import { useTripRequests, requestCount, type MealKey } from '../../lib/tripRequests';
 
-const BLUE = '#2563eb';
+const BLUE = '#ea580c';
 const PURPLE = '#7c3aed';
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
@@ -78,7 +78,7 @@ function HotelSheet({ visible, onClose, variants, current, onPick }: {
           <Pressable
             key={v.name}
             onPress={() => { onPick(v.name); onClose(); }}
-            style={[s.option, { borderColor: on ? BLUE : themeColors.border }, on && { backgroundColor: '#eff6ff' }]}
+            style={[s.option, { borderColor: on ? BLUE : themeColors.border }, on && { backgroundColor: '#fff7ed' }]}
             accessibilityRole="button"
             accessibilityState={{ selected: on }}
           >
@@ -375,7 +375,7 @@ const s = StyleSheet.create({
   actImg: { width: 58, height: 58, borderRadius: 10 },
   actTitle: { fontSize: 13.5, fontWeight: '700', lineHeight: 18 },
   actMeta: { fontSize: 11.5, marginTop: 3 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderColor: '#bfdbfe', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, borderWidth: 1, borderColor: '#fed7aa', borderRadius: 999, paddingHorizontal: 11, paddingVertical: 6 },
   addText: { fontSize: 12, fontWeight: '700', color: BLUE },
 
   mealRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, padding: 12, marginBottom: 8 },
@@ -387,10 +387,10 @@ const s = StyleSheet.create({
   dayBar: { marginTop: 12, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
   dayBtns: { gap: 8 },
   dayBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7 },
-  dayBtnDashed: { borderStyle: 'dashed', borderColor: '#93c5fd', backgroundColor: '#eff6ff' },
+  dayBtnDashed: { borderStyle: 'dashed', borderColor: '#fdba74', backgroundColor: '#fff7ed' },
   dayBtnText: { fontSize: 12.5, fontWeight: '700', color: PURPLE },
-  addedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, backgroundColor: '#eff6ff', paddingHorizontal: 10, paddingVertical: 8 },
-  addedText: { flex: 1, fontSize: 12.5, fontWeight: '600', color: '#1e3a8a' },
+  addedRow: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, backgroundColor: '#fff7ed', paddingHorizontal: 10, paddingVertical: 8 },
+  addedText: { flex: 1, fontSize: 12.5, fontWeight: '600', color: '#7c2d12' },
   addedTag: { fontSize: 9, fontWeight: '800', letterSpacing: 0.8, color: '#b45309' },
 
   summary: { borderWidth: 1, borderColor: '#fcd34d' },

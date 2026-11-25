@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   tagline: { fontSize: 12, lineHeight: 16, minHeight: 32 },
   footRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   count: { fontSize: 11.5, fontWeight: '700' },
-  use: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#111827', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
+  use: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#f97316', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   useText: { color: '#fff', fontSize: 11.5, fontWeight: '800' },
 });
 

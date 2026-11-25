@@ -178,11 +178,11 @@ function DepartureCard({
                   <TouchableOpacity
                     key={d._id}
                     onPress={() => onPickDate(localISO(new Date(d.startDate)))}
-                    style={[styles.chip, { borderColor: colors.accent[300] }]}
+                    style={[styles.chip, { borderColor: colors.primary[300] }]}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.chipDay, { color: colors.accent[700] }]}>{day}</Text>
-                    <Text style={[styles.chipMon, { color: colors.accent[600] }]}>{mon}</Text>
+                    <Text style={[styles.chipDay, { color: colors.primary[700] }]}>{day}</Text>
+                    <Text style={[styles.chipMon, { color: colors.primary[600] }]}>{mon}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -200,14 +200,14 @@ function DepartureCard({
         <View style={styles.priceRow}>
           <View>
             <Text style={[styles.fromLabel, { color: themeColors.textTertiary }]}>From</Text>
-            <Text style={[styles.price, { color: colors.accent[600] }]}>
+            <Text style={[styles.price, { color: colors.primary[600] }]}>
               ₹{(price || 0).toLocaleString('en-IN')}
               <Text style={[styles.perPerson, { color: themeColors.textTertiary }]}> / person</Text>
             </Text>
           </View>
           <View style={styles.viewDates}>
-            <Text style={[styles.viewDatesText, { color: colors.accent[600] }]}>View dates</Text>
-            <Ionicons name="arrow-forward" size={13} color={colors.accent[600]} />
+            <Text style={[styles.viewDatesText, { color: colors.primary[600] }]}>View dates</Text>
+            <Ionicons name="arrow-forward" size={13} color={colors.primary[600]} />
           </View>
         </View>
       </View>
@@ -256,7 +256,7 @@ export function GroupDeparturesTab({
   if (loading) {
     return (
       <View style={styles.centre}>
-        <ActivityIndicator size="large" color={colors.accent[500]} />
+        <ActivityIndicator size="large" color={colors.primary[500]} />
       </View>
     );
   }
@@ -292,7 +292,7 @@ export function GroupDeparturesTab({
               <TouchableOpacity
                 key={key}
                 onPress={() => setScope(key)}
-                style={[styles.scopeBtn, active && { backgroundColor: colors.accent[500] }]}
+                style={[styles.scopeBtn, active && { backgroundColor: colors.primary[500] }]}
                 activeOpacity={0.85}
               >
                 <Text

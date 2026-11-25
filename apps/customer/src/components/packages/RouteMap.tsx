@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@prayana/shared-ui';
 import type { RouteLegs } from './DetailActions';
 
-const ACCENT = '#2563eb';
+const ACCENT = '#ea580c';
 const END_COLOR = '#0f172a';
 const MAP_H = 260;
 

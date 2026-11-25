@@ -39,7 +39,8 @@ import { FULL_W, RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, usePairSnap } from '../../lib/
 // holiday-package flow reads as its own product. Aliased once here: every
 // `packageColors.primary[n]` below resolves to accent[n] via this object, which keeps
 // the shade ramp (50..900) and the rest of the palette untouched.
-const packageColors = { ...colors, primary: colors.accent };
+// One accent across the app: packages used to be themed blue.
+const packageColors = colors;
 
 
 // The `category` param is CASE-SENSITIVE server-side: category=honeymoon returns

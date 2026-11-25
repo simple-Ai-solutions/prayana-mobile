@@ -185,10 +185,10 @@ export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
             </Text>
           ) : null}
         </View>
-        <LinearGradient colors={[ORANGE, RED]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={s.book}>
+        <View style={[s.book, { backgroundColor: ORANGE }]}>
           <Text style={s.bookText}>View</Text>
           <Ionicons name="arrow-forward" size={14} color="#fff" />
-        </LinearGradient>
+        </View>
       </View>
     </Pressable>
   );
@@ -196,7 +196,7 @@ export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
 
 const s = StyleSheet.create({
   feat: {
-    width: FULL_W, height: 250, borderRadius: 26, overflow: 'hidden', justifyContent: 'space-between',
+    width: FULL_W, height: 250, borderRadius: 20, overflow: 'hidden', justifyContent: 'space-between',
     shadowColor: '#0f172a', shadowOpacity: 0.25, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
   },
   featTop: { flexDirection: 'row', gap: 6, padding: 14 },
@@ -218,7 +218,7 @@ const s = StyleSheet.create({
   factText: { color: 'rgba(255,255,255,0.9)', fontSize: 12.5, fontWeight: '600' },
 
   card: {
-    borderRadius: 24, borderWidth: 1, overflow: 'hidden',
+    borderRadius: 20, borderWidth: 1, overflow: 'hidden',
     shadowColor: '#0f172a', shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
   photo: { aspectRatio: 16 / 10, justifyContent: 'space-between' },

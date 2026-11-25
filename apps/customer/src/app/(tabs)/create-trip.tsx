@@ -218,8 +218,8 @@ export default function CreateTripScreen() {
                         {[days ? `${days} day${days === 1 ? '' : 's'}` : null, spots ? `${spots} spots` : null, edited ? `edited ${edited}` : null].filter(Boolean).join(' · ') || 'Just started'}
                       </Text>
                     </View>
-                    <View style={[styles.resume, { backgroundColor: themeColors.text }]}>
-                      <Text style={[styles.resumeText, { color: themeColors.background }]}>Resume</Text>
+                    <View style={[styles.resume, { backgroundColor: '#f97316' }]}>
+                      <Text style={[styles.resumeText, { color: '#fff' }]}>Resume</Text>
                     </View>
                   </Pressable>
                 );

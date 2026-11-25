@@ -295,9 +295,9 @@ export function TripPass({ trip, image, fallbackImage, onOpen, shared, ownerName
             ) : null}
           </View>
         )}
-        <View style={[s.open, { backgroundColor: isDarkMode ? '#fff' : '#111827' }]}>
-          <Text style={[s.openText, { color: isDarkMode ? '#111827' : '#fff' }]}>Open</Text>
-          <Ionicons name="arrow-forward" size={14} color={isDarkMode ? '#111827' : '#fff'} />
+        <View style={[s.open, { backgroundColor: '#f97316' }]}>
+          <Text style={[s.openText, { color: '#fff' }]}>Open</Text>
+          <Ionicons name="arrow-forward" size={14} color="#fff" />
         </View>
       </View>
     </Pressable>
@@ -337,7 +337,7 @@ const s = StyleSheet.create({
   liveHalo: { position: 'absolute', width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff' },
   liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' },
   card: {
-    borderRadius: 22, borderWidth: 1, overflow: 'hidden',
+    borderRadius: 20, borderWidth: 1, overflow: 'hidden',
     shadowColor: '#0f172a', shadowOpacity: 0.1, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
   top: { aspectRatio: 2, overflow: 'hidden' }, // shorter than 16:10: more trips per screen
