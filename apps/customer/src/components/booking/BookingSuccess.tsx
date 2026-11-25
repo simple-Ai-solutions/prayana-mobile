@@ -99,7 +99,7 @@ function calendarUrl(title: string, date: Date, place?: string, ref?: string | n
 
 export function BookingSuccess({
   title, image, place, date, dateLabel, timeLabel, guestsLabel, totalLabel, bookingRef, instant, payAtVenue,
-  onViewBookings, onBackToActivity,
+  onViewBookings, onBackToActivity, backLabel = 'Back to activity',
 }: {
   title: string;
   image?: string | null;
@@ -114,6 +114,8 @@ export function BookingSuccess({
   payAtVenue?: boolean;
   onViewBookings: () => void;
   onBackToActivity: () => void;
+  /** The secondary link; packages say "Back to package". */
+  backLabel?: string;
 }) {
   const { themeColors, isDarkMode } = useTheme();
   const pop = useRef(new Animated.Value(0)).current;
@@ -251,7 +253,7 @@ export function BookingSuccess({
         <Text style={styles.primaryText}>View My Bookings</Text>
       </PressableScale>
       <Pressable onPress={onBackToActivity} hitSlop={10} style={styles.secondary} accessibilityRole="button">
-        <Text style={[styles.secondaryText, { color: themeColors.textSecondary }]}>Back to activity</Text>
+        <Text style={[styles.secondaryText, { color: themeColors.textSecondary }]}>{backLabel}</Text>
       </Pressable>
     </View>
   );
