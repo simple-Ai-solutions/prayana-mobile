@@ -552,8 +552,11 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={m.label}
               >
-                <View style={[styles.wayCircle, { backgroundColor: isDarkMode ? m.darkBg : m.bg }, isDarkMode && { borderWidth: 1, borderColor: `${m.tagColor}40` }]}>
+                {/* Rounded-square tiles with the label inside: the row of pale
+                    circles sat over the Hotspots circles and nothing stood out. */}
+                <View style={[styles.wayCircle, { backgroundColor: isDarkMode ? m.darkBg : m.bg, borderColor: `${m.tagColor}${isDarkMode ? '55' : '33'}` }]}>
                   <Image source={m.icon} style={styles.wayIcon} resizeMode="contain" />
+                  <Text style={[styles.wayLabel, { color: themeColors.text }]} numberOfLines={2}>{m.label}</Text>
                   {/* One badge in the row: four (NEW, NEW, DEALS, NEW) read as noise. */}
                   {m.tag === 'DEALS' ? (
                     <View style={[styles.wayTag, { backgroundColor: m.tagColor, borderColor: themeColors.background }]}>
@@ -561,7 +564,6 @@ export default function HomeScreen() {
                     </View>
                   ) : null}
                 </View>
-                <Text style={[styles.wayLabel, { color: themeColors.text }]} numberOfLines={2}>{m.label}</Text>
               </PressableScale>
             ))}
           </View>
@@ -1089,16 +1091,19 @@ const styles = StyleSheet.create({
   },
   wayItem: { width: MORE_WAYS_CARD_W, alignItems: 'center' },
   wayCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: '100%',
+    height: 92,
+    borderRadius: 18,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: 4,
+    gap: 6,
   },
   wayTag: {
     position: 'absolute',
-    top: -6,
-    right: -10,
+    top: -7,
+    right: -4,
     borderRadius: 999,
     borderWidth: 2,
     paddingHorizontal: 5,
@@ -1111,13 +1116,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   wayIcon: {
-    width: 36,
-    height: 36,
+    width: 40,
+    height: 40,
   },
   wayLabel: {
-    marginTop: 8,
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     lineHeight: 15,
     textAlign: 'center',
   },
