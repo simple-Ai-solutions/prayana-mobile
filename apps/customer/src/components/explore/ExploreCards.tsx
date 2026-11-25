@@ -12,6 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '@prayana/shared-ui';
 import { trekArtFor } from '../../lib/trekArt';
 import { cardTitle } from '../../lib/cardTitle';
+import { useListingPrice } from '../../lib/exchangeRates';
 import { FULL_W } from '../../lib/railLayout';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
@@ -42,7 +43,6 @@ function nextRun(a: any): string | null {
 }
 
 const priceOf = (a: any) => a?.pricing?.basePrice ?? a?.basePrice ?? a?.price ?? 0;
-const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
 function Facts({ a }: { a: any }) {
   const city = a?.location?.city || a?.city || a?.destination || '';
@@ -86,6 +86,7 @@ function SaveHeart({ id }: { id?: string }) {
 export function FeaturedPoster({ a, onPress }: { a: any; onPress: () => void }) {
   const img = activityImage(a) || fallbackPhoto(a);
   const price = priceOf(a);
+  const money = useListingPrice();
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={a.title} style={({ pressed }) => [s.feat, pressed && { transform: [{ scale: 0.985 }] }]}>
       <LinearGradient colors={['#1f2937', '#0b0b0b']} style={StyleSheet.absoluteFill} />
@@ -108,7 +109,7 @@ export function FeaturedPoster({ a, onPress }: { a: any; onPress: () => void }) 
         {price > 0 ? (
           <View style={s.featPrice}>
             <Text style={s.featFrom}>FROM</Text>
-            <Text style={s.featAmount}>{inr(price)}</Text>
+            <Text style={s.featAmount}>{money(price, a)}</Text>
           </View>
         ) : null}
       </View>
@@ -124,6 +125,7 @@ export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
   const [failed, setFailed] = useState<string | null>(null);
   const img = own && own !== failed ? own : fallbackPhoto(a);
   const price = priceOf(a);
+  const money = useListingPrice();
   // One tag: three identical ones on every card were noise, not a reason to pick.
   const tags = activityTags(a).slice(0, 1);
   const next = nextRun(a);
@@ -182,7 +184,7 @@ export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
           ) : null}
           {price > 0 ? (
             <Text style={[s.price, { color: themeColors.text }]}>
-              {inr(price)}<Text style={[s.per, { color: themeColors.textTertiary }]}> / person + taxes</Text>
+              {money(price, a)}<Text style={[s.per, { color: themeColors.textTertiary }]}> / person + taxes</Text>
             </Text>
           ) : null}
         </View>

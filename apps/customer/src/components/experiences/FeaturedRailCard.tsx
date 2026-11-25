@@ -3,10 +3,11 @@
 // dark bottom scrim, an Editor's-pick / Traveler-favorite flag, city/duration
 // chips, title and a "From ₹…" price with a Book-Now pill.
 import React from 'react';
+import { useListingPrice } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Experience, imageOf, priceOf, formatPrice, ratingOf } from '../../lib/experiences';
+import { Experience, imageOf, priceOf, ratingOf } from '../../lib/experiences';
 
 interface Props {
   experience: Experience;
@@ -17,6 +18,7 @@ interface Props {
 export const FeaturedRailCard: React.FC<Props> = ({ experience, width = 280, onPress }) => {
   const img = imageOf(experience);
   const price = priceOf(experience);
+  const money = useListingPrice();
   const rating = ratingOf(experience);
   const city = experience.location?.city;
   const duration = experience.duration?.label;
@@ -94,7 +96,7 @@ export const FeaturedRailCard: React.FC<Props> = ({ experience, width = 280, onP
               <Text style={styles.fromLabel}>FROM</Text>
               {price ? (
                 <Text style={styles.price}>
-                  {formatPrice(price)}
+                  {money(price, experience)}
                   <Text style={styles.per}> /{perLabel}</Text>
                 </Text>
               ) : (

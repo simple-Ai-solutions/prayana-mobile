@@ -9,13 +9,13 @@
 // there is no "Bestseller" ribbon and no multi-provider badge. A badge the data
 // cannot support is a lie, however good it looks.
 import React from 'react';
+import { useListingPrice } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, colors, spacing, fontWeight } from '@prayana/shared-ui';
 import {
   Experience,
-  formatPrice,
   imageOf,
   isInstant,
   priceOf,
@@ -44,6 +44,7 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
 
   const img = imageOf(experience) || fallbackPhoto(experience);
   const price = priceOf(experience);
+  const money = useListingPrice();
   const rating = ratingOf(experience);
   const provider = providerLabel(experience);
   const city = experience.location?.city;
@@ -113,7 +114,7 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
         )}
         {price ? (
           <Text style={[styles.price, { color: themeColors.text }]}>
-            {formatPrice(price)}
+            {money(price, experience)}
             {experience.pricing?.priceType === 'per_person' && (
               <Text style={[styles.per, { color: themeColors.textSecondary }]}> / person</Text>
             )}
