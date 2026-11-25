@@ -301,10 +301,8 @@ export default function HomeScreen() {
 
   // Typewriter: see lib/typedCity — only the two words below re-render per letter.
 
-  // Ken Burns (slow zoom + drift), eyebrow shimmer sweep, CTA halo pulse,
-  // Sparkles spin, blinking caret — all looping Animated values.
+  // The only looping animation up top: a slow Ken Burns drift on the hero photo.
   const kenBurns = useRef(new Animated.Value(0)).current;
-  const caret = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     if (reduceMotion) return;
@@ -315,16 +313,10 @@ export default function HomeScreen() {
           Animated.timing(kenBurns, { toValue: 0, duration: 26000, useNativeDriver: true }),
         ])
       ),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(caret, { toValue: 0, duration: 550, useNativeDriver: true }),
-          Animated.timing(caret, { toValue: 1, duration: 550, useNativeDriver: true }),
-        ])
-      ),
     ];
     loops.forEach((l) => l.start());
     return () => loops.forEach((l) => l.stop());
-  }, [reduceMotion, kenBurns, caret]);
+  }, [reduceMotion, kenBurns]);
 
   const kenScale = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
   const kenX = kenBurns.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
@@ -495,12 +487,14 @@ export default function HomeScreen() {
           {/* Greeting + live weather for the detected city. */}
           <HomeGreeting />
 
-          {/* Headline — script + serif, typed destination in teal + blinking caret */}
+          {/* Headline — script + serif, typed destination in teal */}
           <Text style={styles.heroScript}>Plan your</Text>
           <Text style={styles.heroSerif}>
             perfect escape to{' '}
+            {/* The typed city is the one moving thing up here; the blinking
+                caret beside it, and the same city typing in the search bar,
+                made the top of home busy. */}
             <TypedCity style={styles.heroSerifAccent} still={reduceMotion} />
-            <Animated.Text style={[styles.heroCaret, { opacity: caret }]}>|</Animated.Text>
           </Text>
 
           {/* Primary CTA — red→orange logo gradient pill, pulsing halo + spinning sparkles */}
@@ -531,7 +525,7 @@ export default function HomeScreen() {
             accessibilityRole="search"
           >
             <Ionicons name="search-outline" size={20} color="#71717A" />
-            <TypedCity style={styles.searchPlaceholder} prefix="Search for " still={reduceMotion} />
+            <Text style={styles.searchPlaceholder} numberOfLines={1}>Search treks, places, deals</Text>
             <View style={styles.searchSparkle}>
               <Ionicons name="sparkles" size={16} color="#71717A" />
             </View>
@@ -560,9 +554,12 @@ export default function HomeScreen() {
               >
                 <View style={[styles.wayCircle, { backgroundColor: isDarkMode ? m.darkBg : m.bg }, isDarkMode && { borderWidth: 1, borderColor: `${m.tagColor}40` }]}>
                   <Image source={m.icon} style={styles.wayIcon} resizeMode="contain" />
-                  <View style={[styles.wayTag, { backgroundColor: m.tagColor, borderColor: themeColors.background }]}>
-                    <Text style={styles.wayTagText}>{m.tag}</Text>
-                  </View>
+                  {/* One badge in the row: four (NEW, NEW, DEALS, NEW) read as noise. */}
+                  {m.tag === 'DEALS' ? (
+                    <View style={[styles.wayTag, { backgroundColor: m.tagColor, borderColor: themeColors.background }]}>
+                      <Text style={styles.wayTagText}>{m.tag}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text style={[styles.wayLabel, { color: themeColors.text }]} numberOfLines={2}>{m.label}</Text>
               </PressableScale>

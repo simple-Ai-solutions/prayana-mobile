@@ -9,13 +9,13 @@
 //                 in the bottom-right corner (District's "What's the mood?")
 //   PlaceCard     a tall destination card with the name set on the photo
 import React from 'react';
+import { useListingPrice } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@prayana/shared-ui';
 import {
-  Experience, imageOf, priceOf, ratingOf, providerLabel, formatPrice,
-} from '../../lib/experiences';
+  Experience, imageOf, priceOf, ratingOf, providerLabel, } from '../../lib/experiences';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
 export const ACCENT = '#FF5A5F';
@@ -44,6 +44,7 @@ export function PosterCard({
   const { isDarkMode } = useTheme();
   const img = imageOf(experience) || fallbackPhoto(experience);
   const price = priceOf(experience);
+  const money = useListingPrice();
   const rating = ratingOf(experience);
   const provider = providerLabel(experience);
   const city = experience.location?.city;
@@ -54,7 +55,7 @@ export function PosterCard({
     <Pressable
       onPress={() => onPress(experience)}
       accessibilityRole="button"
-      accessibilityLabel={[experience.title, city, duration, price ? `from ${formatPrice(price)}` : '']
+      accessibilityLabel={[experience.title, city, duration, price ? `from ${money(price, experience)}` : '']
         .filter(Boolean).join(', ')}
       style={({ pressed }) => [
         styles.poster,
@@ -98,7 +99,7 @@ export function PosterCard({
         <View style={styles.priceRow}>
           {price ? (
             <Text style={styles.price}>
-              {formatPrice(price)}
+              {money(price, experience)}
               <Text style={styles.onwards}>  onwards</Text>
             </Text>
           ) : <View />}

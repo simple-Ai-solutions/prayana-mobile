@@ -4,6 +4,7 @@
 // Each is fetched fresh; one the server no longer has is dropped from the list.
 // Not Favorites (saved places, profile/favorites).
 import React, { useCallback, useEffect, useState } from 'react';
+import { CARD_TITLE } from '../lib/typeScale';
 import {
   View, Text, FlatList, StyleSheet, Pressable, RefreshControl, Alert, useWindowDimensions, Platform,
 } from 'react-native';
@@ -318,7 +319,7 @@ const s = StyleSheet.create({
   city: { flexDirection: 'row', alignItems: 'center', gap: 4, padding: 10 },
   cityText: { flex: 1, color: '#fff', fontSize: 12, fontWeight: '700' },
   cardBody: { padding: 11, paddingTop: 10, gap: 6, flex: 1, justifyContent: 'space-between' },
-  cardTitle: { fontSize: 14, fontWeight: '800', lineHeight: 18.5, letterSpacing: -0.1 },
+  cardTitle: { ...CARD_TITLE },
   price: { fontSize: 15, fontWeight: '900', letterSpacing: -0.2 },
   from: { fontSize: 11.5, fontWeight: '600' },
 

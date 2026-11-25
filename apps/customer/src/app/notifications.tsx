@@ -3,6 +3,7 @@
 // expense updates, booking updates and announcements. New ones are marked;
 // tapping one opens what it is about and marks it read.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { PAGE_TITLE } from '../lib/typeScale';
 import { View, Text, StyleSheet, Pressable, FlatList, RefreshControl, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter } from 'expo-router';
@@ -252,7 +253,7 @@ const s = StyleSheet.create({
   head: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 6, gap: 14 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   round: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 26, fontWeight: '900', letterSpacing: -0.6 },
+  title: { ...PAGE_TITLE },
   sub: { fontSize: 13, marginTop: 1 },
   markAll: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   markAllText: { fontSize: 12.5, fontWeight: '700' },

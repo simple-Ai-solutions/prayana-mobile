@@ -12,14 +12,12 @@ import { PressableScale } from '../ui/PressableScale';
 import { SectionHeader, SECTION_PAD } from './SectionHeader';
 import { getRecentlyViewed, RecentActivity } from '../../lib/recentlyViewedActivities';
 import { handOffPhoto } from '../../lib/photoHandoff';
+import { useListingPrice } from '../../lib/exchangeRates';
 import { normalizeImageUrl, sizedImageUrl } from '../../lib/imageUrl';
 
 const CARD_W = 248;
 const PHOTO = 68;
 
-function inr(n?: number | null) {
-  return typeof n === 'number' && n > 0 ? `₹${Math.round(n).toLocaleString('en-IN')}` : null;
-}
 
 /** Tidies ALL-CAPS names ("KODACHADRI TREK" → "Kodachadri Trek"). */
 function cleanTitle(t: string) {
@@ -40,6 +38,7 @@ function viewedLabel(at?: number) {
 }
 
 export function RecentlyViewedRail() {
+  const money = useListingPrice();
   const { themeColors, isDarkMode } = useTheme();
   const [items, setItems] = useState<RecentActivity[]>([]);
 
@@ -62,7 +61,9 @@ export function RecentlyViewedRail() {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
         {items.map((a) => {
           const photo = a.image ? sizedImageUrl(normalizeImageUrl(a.image) || a.image, PHOTO) : null;
-          const price = inr(a.sellingPrice ?? a.price);
+          // Partner listings are saved in their own currency (Pena Palace: €16).
+          const amount = a.sellingPrice ?? a.price;
+          const price = typeof amount === 'number' && amount > 0 ? money(amount, a) : null;
           const seen = viewedLabel(a.viewedAt);
           const meta = a.city || '';
           return (

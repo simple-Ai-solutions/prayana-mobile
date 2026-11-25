@@ -7,6 +7,7 @@
 //
 // The commissioned clip plays over the poster on Wi-Fi only.
 import React from 'react';
+import { CARD_TITLE } from '../../lib/typeScale';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { PressableScale } from '../ui/PressableScale';
 import { Ionicons } from '@expo/vector-icons';
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
   facts: { paddingHorizontal: 11, paddingTop: 10, paddingBottom: 12 },
   whenRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   when: { flexShrink: 1, color: ORANGE, fontSize: 9.5, fontWeight: '700', letterSpacing: 0.5 },
-  title: { marginTop: 4, color: '#111827', fontSize: 13.5, fontWeight: '700' },
+  title: { ...CARD_TITLE, marginTop: 4, color: '#111827' },
   regionRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 4 },
   region: { flexShrink: 1, color: '#6B7280', fontSize: 12 },
   priceRow: { marginTop: 12, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 },

@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { PAGE_TITLE, SECTION_TITLE } from '../../lib/typeScale';
 import {
   View,
   Text,
@@ -742,7 +743,7 @@ export default function TripsScreen() {
           {/* ====== MY TRIPS ====== */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Your itineraries</Text>
+              <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Your itineraries</Text>
               {myTrips.length > 0 && (
                 <View style={[styles.sectionCountBadge, { backgroundColor: themeColors.surface }]}>
                   <Text style={[styles.sectionCountText, { color: themeColors.textSecondary }]}>{myTrips.length}</Text>
@@ -797,7 +798,7 @@ export default function TripsScreen() {
                     size={18}
                     color={themeColors.textSecondary}
                   />
-                  <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Shared with Me</Text>
+                  <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Shared with Me</Text>
                 </View>
                 <View style={[styles.sectionCountBadge, { backgroundColor: themeColors.surface }]}>
                   <Text style={[styles.sectionCountText, { color: themeColors.textSecondary }]}>{sharedTrips.length}</Text>
@@ -815,7 +816,7 @@ export default function TripsScreen() {
           {/* Below your own trips: the page is about your plans first. */}
           <View style={styles.sectionContainer}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionLabel, { color: themeColors.textSecondary }]}>Travel Guides</Text>
+              <Text style={[styles.sectionLabel, { color: themeColors.text }]}>Travel Guides</Text>
             </View>
             <ScrollView
               horizontal
@@ -898,9 +899,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.8,
+    ...PAGE_TITLE,
     marginTop: 0,
     color: colors.text,
   },
@@ -960,12 +959,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
+  // Bold headings like the other tabs, not small capitals.
   sectionLabel: {
-    fontSize: fontSize.sm,
-    fontWeight: fontWeight.semibold,
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    ...SECTION_TITLE,
+    color: colors.text,
   },
   sectionCountBadge: {
     backgroundColor: colors.gray[200],

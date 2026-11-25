@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { PAGE_TITLE } from '../../lib/typeScale';
 import {
   View,
   Text,
@@ -28,7 +29,7 @@ import {
 } from '@prayana/shared-ui';
 import { useAuth } from '@prayana/shared-hooks';
 import { useAppStore } from '@prayana/shared-stores';
-import { fetchUserProfile } from '@prayana/shared-services';
+import { fetchUserProfile, createTripAPI } from '@prayana/shared-services';
 import Toast from 'react-native-toast-message';
 
 // ============================================================
@@ -191,7 +192,13 @@ export default function ProfileScreen() {
     try {
       // GET /auth/profile returns { data: { profile } } (getProfileForDisplay).
       // The old code read fields off the raw envelope, so every stat was 0.
-      const res: any = await fetchUserProfile();
+      // Planned itineraries count as trips too: tripsCompleted alone was 0 for
+      // someone with 16 planned trips, and Profile told them to plan their first.
+      const [res, tripsRes]: any[] = await Promise.all([
+        fetchUserProfile(),
+        createTripAPI.getUserTrips(user.uid).catch(() => null),
+      ]);
+      const planned = Array.isArray(tripsRes?.data) ? tripsRes.data.length : Array.isArray(tripsRes) ? tripsRes.length : 0;
       const profile = res?.data?.profile || res?.data;
       if (profile) {
         // Header reflects the backend name/email, so a name edited in
@@ -199,7 +206,7 @@ export default function ProfileScreen() {
         if (profile.name) setBackendName(profile.name);
         if (profile.email) setBackendEmail(profile.email);
         setStats({
-          totalTrips: profile.travelStats?.tripsCompleted ?? 0,
+          totalTrips: Math.max(profile.travelStats?.tripsCompleted ?? 0, planned),
           totalBookings: profile.membership?.bookingStats?.completedCount ?? 0,
           memberSince:
             profile.membership?.memberSince ??
@@ -844,8 +851,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   headerTitle: {
-    fontSize: fontSize['2xl'],
-    fontWeight: fontWeight.bold,
+    ...PAGE_TITLE,
     color: colors.text,
   },
 
