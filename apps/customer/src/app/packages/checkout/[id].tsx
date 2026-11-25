@@ -111,10 +111,13 @@ const variantPrice = (v?: Variant | null) =>
 
 export default function PackageCheckoutScreen() {
   const router = useRouter();
-  const { id, variant: variantParam, addOns: addOnsParam } = useLocalSearchParams<{
+  const { id, variant: variantParam, addOns: addOnsParam, adults: adultsParam, date: dateParam } = useLocalSearchParams<{
     id: string;
     variant?: string;
     addOns?: string;
+    /** Travellers and departure picked on the package page. */
+    adults?: string;
+    date?: string;
   }>();
   // Extras chosen on the detail screen, carried as ids only. The server
   // re-reads each one off the package and prices it, so nothing the client
@@ -161,11 +164,11 @@ export default function PackageCheckoutScreen() {
   // find(v => v.name === ...) returned the FIRST match — so picking the
   // 22,890 tier priced the 16,330 one. Track the unique _id.
   const [variantId, setVariantId] = useState<string | null>(null);
-  const [adults, setAdults] = useState(2);
+  const [adults, setAdults] = useState(() => Math.min(20, Math.max(1, Number(adultsParam) || 2)));
   const [children, setChildren] = useState(0);
 
   // Step 2: dates
-  const [startDate, setStartDate] = useState('');
+  const [startDate, setStartDate] = useState(() => (/^\d{4}-\d{2}-\d{2}$/.test(String(dateParam || '')) ? String(dateParam) : ''));
   const [endDate, setEndDate] = useState('');
 
   // The server enforces availability.advanceBookingDays and rejects the

@@ -10,7 +10,9 @@ import {
   Modal,
   Pressable,
   Share,
+  Linking,
 } from 'react-native';
+import { ENV } from '../../config/env';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { WebView } from 'react-native-webview';
@@ -304,6 +306,8 @@ const ASSURED = [
 ];
 
 // Trust badges — the web TrustStrip's four pastel pills, same colour pairs.
+const WA_NUMBER = (ENV.enquiryWhatsapp || '919449753920').replace(/\D/g, '');
+
 const TRUST_BADGES = [
   { label: 'Verified Vendor', icon: 'shield-checkmark', bg: '#f0fdf4', fg: '#15803d' },
   { label: 'Free Cancellation', icon: 'calendar-outline', bg: '#fff7ed', fg: '#c2410c' },
@@ -422,6 +426,11 @@ export default function PackageDetailScreen() {
   const [backfillImages, setBackfillImages] = useState<string[]>([]);
   const [similar, setSimilar] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
+  // Travellers and departure chosen here carry into checkout.
+  const [adults, setAdults] = useState(2);
+  const [pickedDate, setPickedDate] = useState<string | null>(null);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [allExcl, setAllExcl] = useState(false);
   const [shorts, setShorts] = useState<any[]>([]);
   const [destImages, setDestImages] = useState<Record<string, string>>({});
   const [playingShort, setPlayingShort] = useState<any | null>(null);
@@ -580,7 +589,8 @@ export default function PackageDetailScreen() {
     (async () => {
       try {
         const res: any = await holidayPackagesAPI.calculatePrice({
-          packageId: pkg._id, variantName, adults: 2, children: 0, infants: 0,
+          packageId: pkg._id, variantName, adults, children: 0, infants: 0,
+          travelDate: pickedDate || undefined,
         });
         if (alive) setLive(res?.data || null);
       } catch {
@@ -590,7 +600,7 @@ export default function PackageDetailScreen() {
       }
     })();
     return () => { alive = false; };
-  }, [pkg, variantName]);
+  }, [pkg, variantName, adults, pickedDate]);
 
   // Community Q&A. Two things matter here:
   //  * the route is /questions/by-destination — the plain /questions route
@@ -621,7 +631,14 @@ export default function PackageDetailScreen() {
             .toLowerCase();
           return cities.some((c) => hay.includes(c.split(',')[0].trim().toLowerCase()));
         });
-        setQuestions(list);
+        // The pool for many places is seeded persona questions ("…a Chennai
+        // Carnatic music enthusiast…") that read as fake on a product page:
+        // keep short practical ones, at most two.
+        const plain = list.filter((q: any) => {
+          const t = String(q?.title || '');
+          return t.length <= 80 && !/enthusiast|as an nri|my parents|metro/i.test(t);
+        });
+        setQuestions(plain.slice(0, 2));
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -913,6 +930,24 @@ export default function PackageDetailScreen() {
     return dests.length ? dests : routeStops.map((r) => ({ name: r.title, city: r.city, lat: r.lat, lng: r.lng }));
   })();
 
+  const nextDeps = (() => {
+    if (pkg.packageType !== 'fixed') return [] as { iso: string; day: string; mon: string; left: number | null }[];
+    return ((pkg as any).departures || [])
+      .filter((d: any) => d?.status !== 'closed' && d?.status !== 'cancelled' && new Date(d?.startDate).getTime() > Date.now())
+      .sort((a: any, b: any) => +new Date(a.startDate) - +new Date(b.startDate))
+      .slice(0, 6)
+      .map((d: any) => {
+        const dt = new Date(d.startDate);
+        const left = Number(d.availableSlots ?? 0) - Number(d.bookedSlots ?? 0);
+        return {
+          iso: dt.toISOString().slice(0, 10),
+          day: dt.toLocaleDateString('en-IN', { day: 'numeric' }),
+          mon: dt.toLocaleDateString('en-IN', { month: 'short', weekday: 'short' }),
+          left: left > 0 && left <= 10 ? left : null,
+        };
+      });
+  })();
+
   // Social-proof line from stats, like the web TrustStrip.
   const socialProof = (() => {
     const parts: string[] = [];
@@ -929,6 +964,7 @@ export default function PackageDetailScreen() {
     .filter((v) => !v.pricing?.isOnRequest)
     .map((v) => variantPrice(v))
     .filter((n) => n > 0);
+  const single = (pkg.variants || []).length === 1;
   const cheapestPrice = bookablePrices.length ? Math.min(...bookablePrices) : 0;
   const dearestPrice = bookablePrices.length ? Math.max(...bookablePrices) : 0;
   const spread = dearestPrice - cheapestPrice;
@@ -1121,25 +1157,63 @@ export default function PackageDetailScreen() {
               </View>
             ))}
           </View>
-          {/* Tools: price alert, itinerary PDF and language (web title card). */}
-          <View style={styles.toolRow}>
-            {ctaPrice > 0 ? (
-              <PriceAlertButton packageId={pkg._id} packageTitle={pkg.title} currentPrice={ctaPrice} />
-            ) : null}
-            <DownloadButton kind="itinerary" pkg={pkg} variant={selectedVariant} price={ctaPrice} />
-            <LanguageButton packageId={pkg._id} onTranslated={applyTranslation} />
-          </View>
+          {/* Tools behind one link: price alert, PDF and language competed with
+              the price and the trust badges for the first screen. */}
+          <TouchableOpacity onPress={() => setToolsOpen((o) => !o)} style={styles.toolsToggle} accessibilityRole="button">
+            <Ionicons name="ellipsis-horizontal-circle-outline" size={16} color={themeColors.textSecondary} />
+            <Text style={[styles.toolsToggleText, { color: themeColors.textSecondary }]}>
+              {toolsOpen ? 'Hide options' : 'Price alert · PDF · Language'}
+            </Text>
+            <Ionicons name={toolsOpen ? 'chevron-up' : 'chevron-down'} size={14} color={themeColors.textSecondary} />
+          </TouchableOpacity>
+          {toolsOpen ? (
+            <View style={styles.toolRow}>
+              {ctaPrice > 0 ? (
+                <PriceAlertButton packageId={pkg._id} packageTitle={pkg.title} currentPrice={ctaPrice} />
+              ) : null}
+              <DownloadButton kind="itinerary" pkg={pkg} variant={selectedVariant} price={ctaPrice} />
+              <LanguageButton packageId={pkg._id} onTranslated={applyTranslation} />
+            </View>
+          ) : null}
+
+          {/* Next departures, one tap to pick (fixed-date packages). */}
+          {nextDeps.length > 0 ? (
+            <View style={{ marginTop: spacing.md }}>
+              <Text style={[styles.pickLabel, { color: themeColors.textSecondary }]}>PICK A DATE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingTop: 6 }}>
+                {nextDeps.map((d: { iso: string; day: string; mon: string; left: number | null }) => {
+                  const on = pickedDate === d.iso;
+                  return (
+                    <TouchableOpacity
+                      key={d.iso}
+                      onPress={() => setPickedDate(on ? null : d.iso)}
+                      style={[styles.dateChip, { borderColor: on ? '#f97316' : themeColors.border, backgroundColor: on ? '#f97316' : themeColors.surface }]}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: on }}
+                    >
+                      <Text style={[styles.dateDay, { color: on ? '#fff' : themeColors.text }]}>{d.day}</Text>
+                      <Text style={[styles.dateMon, { color: on ? '#fff' : themeColors.textSecondary }]}>{d.mon}</Text>
+                      {d.left != null ? (
+                        <Text style={[styles.dateLeft, { color: on ? '#fff' : '#DC2626' }]}>{d.left} left</Text>
+                      ) : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
 
+        {/* One option: shown as what you get, not a choice. */}
         {/* Choose your package — variant selector + live price (web parity) */}
         {pkg.variants && pkg.variants.length > 0 ? (
           <Card style={styles.section}>
             <View style={styles.sectionAccentRow}>
               <View style={styles.sectionAccent} />
-              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>Choose your package</Text>
+              <Text style={[styles.sectionTitle, { color: themeColors.text, marginBottom: 0 }]}>{single ? "What you'll get" : 'Choose your package'}</Text>
             </View>
             <Text style={[styles.variantHint, { color: themeColors.textSecondary }]}>
-              Hotels, meals & rooms differ by option.
+              {single ? 'Hotels, meals and transport in this price.' : 'Hotels, meals & rooms differ by option.'}
             </Text>
             <ScrollView
               horizontal
@@ -1156,13 +1230,15 @@ export default function PackageDetailScreen() {
                     key={v._id || v.name}
                     style={[
                       styles.variantCard,
-                      { borderColor: active ? '#f97316' : themeColors.border, backgroundColor: active ? '#f9731620' : themeColors.surface },
+                      single
+                        ? { width: SCREEN_W - spacing.lg * 4, borderColor: themeColors.border, backgroundColor: themeColors.surface, borderWidth: 1 }
+                        : { borderColor: active ? '#f97316' : themeColors.border, backgroundColor: active ? '#f9731620' : themeColors.surface },
                     ]}
                     activeOpacity={0.85}
                     onPress={() => setVariantName(v.name)}
                   >
                     {/* One badge only: Best value (cheapest) wins over Most Popular. */}
-                    {isCheapest || v.isDefault ? (
+                    {!single && (isCheapest || v.isDefault) ? (
                       <View style={[styles.popularBadge, { backgroundColor: isCheapest ? '#059669' : '#ea580c' }]}>
                         <Ionicons name={isCheapest ? 'trending-up' : 'ribbon'} size={9} color="#fff" />
                         <Text style={styles.popularText}>{isCheapest ? 'BEST VALUE' : 'MOST POPULAR'}</Text>
@@ -1288,11 +1364,11 @@ export default function PackageDetailScreen() {
                       </View>
                     ) : null}
 
-                    <View style={[styles.variantSelect, active && { backgroundColor: '#ea580c' }]}>
+                    {single ? null : <View style={[styles.variantSelect, active && { backgroundColor: '#ea580c' }]}>
                       <Text style={[styles.variantSelectText, { color: active ? '#fff' : themeColors.textSecondary }]}>
                         {onReq ? (active ? 'Selected — ask for a quote' : 'Get a quote') : active ? 'Selected' : 'Select'}
                       </Text>
-                    </View>
+                    </View>}
                   </TouchableOpacity>
                 );
               })}
@@ -1310,7 +1386,19 @@ export default function PackageDetailScreen() {
                   <View style={styles.bdRow}><Text style={[styles.bdK, { color: themeColors.textSecondary }]}>Taxes (GST{live.taxes?.tcs ? ' + TCS' : ''})</Text><Text style={[styles.bdV, { color: themeColors.text }]}>₹{Number(live.taxes.total).toLocaleString('en-IN')}</Text></View>
                 ) : null}
                 <View style={styles.bdRow}>
-                  <Text style={[styles.bdK, { color: themeColors.text, fontWeight: fontWeight.bold }]}>Total (2 travellers)</Text>
+                  <Text style={[styles.bdK, { color: themeColors.text, fontWeight: fontWeight.bold }]}>Travellers</Text>
+                  <View style={styles.stepper}>
+                    <TouchableOpacity onPress={() => setAdults((n) => Math.max(1, n - 1))} style={[styles.stepBtn, { borderColor: themeColors.border }]} accessibilityLabel="Fewer travellers" hitSlop={8}>
+                      <Ionicons name="remove" size={16} color={adults > 1 ? '#f97316' : themeColors.textTertiary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.stepVal, { color: themeColors.text }]}>{adults}</Text>
+                    <TouchableOpacity onPress={() => setAdults((n) => Math.min(20, n + 1))} style={[styles.stepBtn, { borderColor: themeColors.border }]} accessibilityLabel="More travellers" hitSlop={8}>
+                      <Ionicons name="add" size={16} color="#f97316" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <View style={styles.bdRow}>
+                  <Text style={[styles.bdK, { color: themeColors.text, fontWeight: fontWeight.bold }]}>Total ({adults} traveller{adults === 1 ? '' : 's'})</Text>
                   <Text style={[styles.bdTotal]}>₹{Number(live.display?.finalPrice ?? live.finalPrice ?? 0).toLocaleString('en-IN')}</Text>
                 </View>
               </View>
@@ -1442,7 +1530,7 @@ export default function PackageDetailScreen() {
               <QuickFact icon="navigate-outline" tint="#faf5ff" fg="#a855f7" label="Difficulty" value={pkg.difficulty.charAt(0).toUpperCase() + pkg.difficulty.slice(1)} c={themeColors} />
             ) : null}
             {pkg.packageType ? (
-              <QuickFact icon="triangle-outline" tint="#fffbeb" fg="#f59e0b" label="Type" value={pkg.packageType.charAt(0).toUpperCase() + pkg.packageType.slice(1)} c={themeColors} />
+              <QuickFact icon="triangle-outline" tint="#fffbeb" fg="#f59e0b" label="Dates" value={pkg.packageType === 'fixed' ? 'Fixed departures' : 'Flexible dates'} c={themeColors} />
             ) : null}
           </View>
         </Card>
@@ -1521,7 +1609,7 @@ export default function PackageDetailScreen() {
                       <Text style={[styles.dayBadgeText, { color: open ? '#fff' : '#ea580c' }]}>DAY {dayNo}</Text>
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={[styles.dayTitle, { color: themeColors.text }]} numberOfLines={open ? undefined : 1}>
+                      <Text style={[styles.dayTitle, { color: themeColors.text }]} numberOfLines={open ? undefined : 2}>
                         {d.title || `Day ${dayNo}`}
                       </Text>
                       {!open && acts.length > 0 ? (
@@ -1906,7 +1994,7 @@ export default function PackageDetailScreen() {
                 <Text style={[styles.inclSub, { color: '#be123c' }]}>Plan for these separately</Text>
               </View>
             </View>
-            {pkg.exclusions.map((ex, i) => (
+            {(allExcl ? pkg.exclusions : pkg.exclusions.slice(0, 3)).map((ex, i) => (
               <View key={i} style={styles.inclRow}>
                 <View style={[styles.inclBullet, { backgroundColor: '#ffe4e6' }]}>
                   <Ionicons name="close" size={10} color="#e11d48" />
@@ -1914,6 +2002,13 @@ export default function PackageDetailScreen() {
                 <Text style={[styles.checkText, { color: themeColors.text }]}>{ex}</Text>
               </View>
             ))}
+            {pkg.exclusions.length > 3 ? (
+              <TouchableOpacity onPress={() => setAllExcl((v) => !v)} style={{ marginTop: 6 }}>
+                <Text style={{ color: '#be123c', fontWeight: '800' }}>
+                  {allExcl ? 'Show less' : `+${pkg.exclusions.length - 3} more`}
+                </Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         ) : null}
 
@@ -2399,6 +2494,15 @@ export default function PackageDetailScreen() {
             </Text>
           ) : null}
         </View>
+        {/* Questions before paying: one tap to a person on WhatsApp. */}
+        <TouchableOpacity
+          onPress={() => Linking.openURL(`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(`Hi, I have a question about "${pkg.title}"`)}`).catch(() => {})}
+          style={[styles.waBtn, { borderColor: themeColors.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Ask on WhatsApp"
+        >
+          <Ionicons name="logo-whatsapp" size={22} color="#16A34A" />
+        </TouchableOpacity>
         <TouchableOpacity
           style={styles.bookBtn}
           activeOpacity={0.9}
@@ -2413,6 +2517,8 @@ export default function PackageDetailScreen() {
             // Ids only — checkout re-reads each extra off the package and the
             // server prices it, so no client-held price travels with the link.
             if (selectedAddOnIds.length) params.set('addOns', selectedAddOnIds.join(','));
+            params.set('adults', String(adults));
+            if (pickedDate) params.set('date', pickedDate);
             const q = params.toString() ? `?${params.toString()}` : '';
             // _id, not slug: some slugs resolve to empty duplicate documents.
             const path = `/packages/checkout/${encodeURIComponent(pkg._id)}${q}`;
@@ -2504,6 +2610,17 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   tabBarRow: { paddingHorizontal: spacing.md },
+  toolsToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.sm, alignSelf: 'flex-start', paddingVertical: 4 },
+  toolsToggleText: { fontSize: 12.5, fontWeight: '700' },
+  pickLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.1 },
+  dateChip: { width: 64, borderWidth: 1.5, borderRadius: 14, paddingVertical: 8, alignItems: 'center' },
+  dateDay: { fontSize: 20, fontWeight: '900' },
+  dateMon: { fontSize: 11, fontWeight: '700' },
+  dateLeft: { fontSize: 10, fontWeight: '800', marginTop: 2 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  stepBtn: { width: 32, height: 32, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  stepVal: { fontSize: 16, fontWeight: '900', minWidth: 18, textAlign: 'center' },
+  waBtn: { width: 48, height: 48, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
   tabBack: { paddingLeft: spacing.md, paddingRight: 2, paddingVertical: 10 },
   tabItem: {
     flexDirection: 'row',
