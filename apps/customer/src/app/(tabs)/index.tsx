@@ -22,6 +22,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { MoreToExplore } from '../../components/home/MoreToExplore';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, fontSize, fontWeight, spacing, shadow, borderRadius, useTheme, PrayanaLogo } from '@prayana/shared-ui';
 import { useAuth, useAutoLocationDetection } from '@prayana/shared-hooks';
@@ -36,14 +37,9 @@ import { PressableScale } from '../../components/ui/PressableScale';
 import { PlacesStrip } from '../../components/home/PlacesStrip';
 import { HomeGreeting } from '../../components/home/HomeGreeting';
 import { RecentlyViewedRail } from '../../components/home/RecentlyViewedRail';
-import { ThingsToDoRail } from '../../components/home/ThingsToDoRail';
-import { VisaFreeRail } from '../../components/home/VisaFreeRail';
 import { AllCategoriesSheet } from '../../components/experiences/AllCategoriesSheet';
 import { TrekkingRail, ValueDealsRail } from '../../components/home/HomeRails';
-import { DiscoverByInterestRail } from '../../components/home/DiscoverByInterestRail';
 import { TopIndiaRail } from '../../components/home/TopIndiaRail';
-import { PilgrimageSection } from '../../components/home/PilgrimageRail';
-import { RegionPostcards } from '../../components/home/RegionPostcards';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 // 4 "More ways" cards fit the viewport at once (web-mobile parity): row padding
@@ -202,7 +198,7 @@ function NotificationBell({ color }: { color: string }) {
 
 /** The typed city as its own leaf, so typing never re-renders the page. */
 const FIRST_SECTIONS = 4;
-const TOTAL_SECTIONS = 10;
+const TOTAL_SECTIONS = 5;
 
 function HomeChatFAB({ setterRef }: { setterRef: React.MutableRefObject<((hidden: boolean) => void) | null> }) {
   const [hidden, setHidden] = useState(false);
@@ -600,67 +596,19 @@ export default function HomeScreen() {
         <TrekkingRail />
         <ValueDealsRail />
 
-        {/* ============================================================ */}
-        {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
-        {/* ============================================================ */}
+        {/* Top 20: the one destination rail kept on home. Pilgrimages,
+            interests, visa-free, regions and things to do moved behind
+            "More to explore" — ten photo carousels made home heavy to swipe. */}
         {shown >= 5 && <View style={[styles.section, { backgroundColor: themeColors.background }]}>
-          <SectionHeader title="Discover by Interest" />
-          {/* Same mood posters and clips as the web. */}
-          <DiscoverByInterestRail />
-        </View>}
-
-        {/* ============================================================ */}
-        {/* SACRED PILGRIMAGE SITES (arch poster rail matching web)       */}
-        {/* ============================================================ */}
-        {/* Temple band: cream backdrop, diya divider, arch posters and the
-            yatra path that tracks the scroll. */}
-        {shown >= 6 && <PilgrimageSection
-          onPlacePress={(p) => handleDestinationPress(p.name, { image: p.image, desc: p.description })}
-        />}
-
-        {/* ============================================================ */}
-        {/* TOP 20 INDIA (matching web CollectionGrid masonry)            */}
-        {/* ============================================================ */}
-        {shown >= 7 && <View style={[styles.section, { backgroundColor: themeColors.background }]}>
           <SectionHeader title="Top 20 in India" />
-          {/* Same ranked posters and photo reels as the web. */}
           <TopIndiaRail
             onPlacePress={(p) => handleDestinationPress(p.name, { image: p.image, desc: p.description })}
-          />
-        </View>}
-
-        {/* Visa-free countries for an Indian passport. */}
-        {shown >= 8 && <View style={styles.section}>
-          <SectionHeader title="Visa-free for Indians" />
-          <VisaFreeRail
-            countryCode={userPreferences.country}
-            countryName={userPreferences.countryName}
-            onCountryPress={(c) => handleDestinationPress(c.name, { image: c.images?.[0], desc: c.description })}
           />
         </View>}
         </>
         )}
 
-        {/* ============================================================ */}
-        {/* EXPLORE INDIA BY REGION (matching web IndianRegionalDest)      */}
-        {/* ============================================================ */}
-        {shown >= 9 && <LinearGradient
-          colors={isDarkMode
-            ? ['#000000', '#0a0a0a', '#000000']
-            : ['#EFF6FF', '#ffffff', '#EFF6FF']
-          }
-          style={styles.regionSection}
-        >
-          <SectionHeader title="Explore India by Region" />
-
-          {/* Same postcards, sliding tabs and Shuffle as the web. */}
-          <RegionPostcards
-            onPlacePress={(d) => handleDestinationPress(d.name, { image: d.image })}
-          />
-        </LinearGradient>}
-
-        {/* Things to do by kind: Tours, Wildlife, Food Tours… */}
-        {isIndiaUser && shown >= 10 && <ThingsToDoRail />}
+        <MoreToExplore />
         </View>
 
 
