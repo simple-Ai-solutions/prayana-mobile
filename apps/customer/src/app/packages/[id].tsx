@@ -1181,7 +1181,8 @@ export default function PackageDetailScreen() {
                     )}
 
                     {/* Price delta vs the cheapest option. */}
-                    {!onReq ? (
+                    {/* Nothing to compare with one option ("+₹0" read as an error). */}
+                    {!onReq && (isCheapest || vp > cheapestPrice) ? (
                       <Text style={[styles.variantDelta, { color: isCheapest ? '#059669' : themeColors.textTertiary }]}>
                         {isCheapest ? 'Lowest price' : `+₹${Number(vp - cheapestPrice).toLocaleString('en-IN')}`}
                       </Text>
@@ -2289,6 +2290,20 @@ export default function PackageDetailScreen() {
         onLayout={(e) => { tabBarH.current = e.nativeEvent.layout.height; }}
         style={[styles.tabBar, { top: insets.top + stripH, backgroundColor: themeColors.surface, borderBottomColor: themeColors.border }]}
       >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {/* The floating back button hides while the tabs are pinned (it sat on
+            top of "Itinerary"); this one takes its place. */}
+        {!fromDarshana ? (
+          <TouchableOpacity
+            onPress={goBackToPackages}
+            style={styles.tabBack}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 6 }}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+          >
+            <Ionicons name="chevron-back" size={22} color={themeColors.text} />
+          </TouchableOpacity>
+        ) : null}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabBarRow}>
           {SECTION_TABS.map((t) => {
             const active = activeSection === t.id;
@@ -2318,6 +2333,7 @@ export default function PackageDetailScreen() {
             );
           })}
         </ScrollView>
+        </View>
       </View>
       ) : null}
 
@@ -2335,7 +2351,7 @@ export default function PackageDetailScreen() {
       {/* Floating back button. Rendered AFTER the ScrollView so the image
           carousel cannot paint over it, and positioned against the real
           safe-area inset so it never lands in the status bar. */}
-      {!fromDarshana ? (
+      {!fromDarshana && !showTabs ? (
       <Pressable
         onPress={goBackToPackages}
         style={({ pressed }) => [
@@ -2483,6 +2499,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   tabBarRow: { paddingHorizontal: spacing.md },
+  tabBack: { paddingLeft: spacing.md, paddingRight: 2, paddingVertical: 10 },
   tabItem: {
     flexDirection: 'row',
     alignItems: 'center',

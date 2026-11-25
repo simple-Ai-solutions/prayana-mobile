@@ -8,6 +8,7 @@
 // Lives outside (auth) on purpose — AuthGuard pushes signed-in users out of
 // that group.
 import React, { useState } from 'react';
+import { postAuthRoute } from '../lib/authRedirect';
 import {
   View,
   Text,
@@ -63,7 +64,7 @@ export default function CompleteProfileScreen() {
         try { await updateProfile(auth.currentUser, { displayName: check.value }); } catch {}
       }
       if (user?.uid) markNameComplete(user.uid);
-      router.replace('/(tabs)');
+      router.replace(postAuthRoute() as never);
     } catch (err: any) {
       setError(err?.message || 'Could not save your name. Please try again.');
     } finally {

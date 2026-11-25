@@ -37,6 +37,8 @@ import { ENV } from '../../../config/env';
 import { requiredDocsFor } from '../../../lib/legalRegistry';
 import DateField from '../../../components/common/DateField';
 import { phoneChange } from '../../../lib/phoneInput';
+import { openInApp, SITE_URL } from '../../../lib/openInApp';
+import { isPlaceholderName } from '../../../lib/userName';
 
 // Packages use the theme's blue accent rather than the app-wide orange, so the
 // holiday-package flow reads as its own product. Aliased once here: every
@@ -279,8 +281,9 @@ export default function PackageCheckoutScreen() {
 
   useEffect(() => {
     if (!user) return;
-    if (!name && user.displayName) setName(user.displayName);
-    if (!email && user.email) setEmail(user.email);
+    // "Guest" / "User 1234" would end up as the name on the booking.
+    if (!name && user.displayName && !isPlaceholderName(user.displayName)) setName(user.displayName);
+    if (!email && user.email && user.email !== 'guest@prayana.ai') setEmail(user.email);
     if (!phone && user.phoneNumber) setPhone(user.phoneNumber);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
@@ -301,13 +304,14 @@ export default function PackageCheckoutScreen() {
     return perPerson * totalTravelers;
   }, [selectedVariant, pkg, totalTravelers]);
 
-  // Server-authoritative price (discounts, GST, TCS). Fetched once we reach the
-  // pay step with a variant + start date. The client estimate is only a
-  // placeholder until this lands.
+  // Server-authoritative price (discounts, GST, TCS), refreshed whenever the
+  // variant, travellers or dates change. It used to be fetched only on the pay
+  // step, so the first three steps showed a figure without GST and the total
+  // jumped at the end — the same price the package page had already shown.
   const [livePrice, setLivePrice] = useState<any>(null);
   const [pricing, setPricing] = useState(false);
   useEffect(() => {
-    if (step !== 'pay' || !pkg || !variantName) return;
+    if (!pkg || !variantName) return;
     let alive = true;
     setPricing(true);
     (async () => {
@@ -329,7 +333,7 @@ export default function PackageCheckoutScreen() {
       }
     })();
     return () => { alive = false; };
-  }, [step, pkg, variantName, adults, children, startDate, selectedAddOnPayload]);
+  }, [pkg, variantName, adults, children, startDate, selectedAddOnPayload]);
 
   // What we display + charge: server finalPrice when available, else the estimate.
   const estimatedTotal = useMemo(() => {
@@ -588,7 +592,7 @@ export default function PackageCheckoutScreen() {
               {totalTravelers === 1 ? '' : 's'}
             </Text>
             <View style={styles.summaryPriceRow}>
-              <Text style={styles.summaryLabel}>Estimated total</Text>
+              <Text style={styles.summaryLabel}>{livePrice ? 'Total incl. taxes' : 'Estimated total'}</Text>
               <Text style={styles.summaryPrice}>
                 ₹{estimatedTotal.toLocaleString('en-IN')}
               </Text>
@@ -768,9 +772,9 @@ export default function PackageCheckoutScreen() {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Review & pay</Text>
               <Card style={styles.review}>
-                <ReviewRow label="Variant" value={variantName || ''} />
-                <ReviewRow label="Travelers" value={`${adults} adults · ${children} kids`} />
-                <ReviewRow label="Travel" value={`${startDate} → ${endDate}`} />
+                <ReviewRow label="Package" value={selectedVariant?.displayName || variantName || ''} />
+                <ReviewRow label="Travelers" value={`${adults} adult${adults === 1 ? '' : 's'}${children ? ` · ${children} child${children === 1 ? '' : 'ren'}` : ''}`} />
+                <ReviewRow label="Travel" value={startDate ? `${fmtDepDate(startDate)}${endDate ? ` → ${fmtDepDate(endDate)}` : ''}` : ''} />
                 <ReviewRow label="Contact" value={`${name} · ${phone}`} />
                 <ReviewRow label="Email" value={email} />
               </Card>
@@ -848,7 +852,8 @@ export default function PackageCheckoutScreen() {
                   I agree to the{' '}
                   {PACKAGE_LEGAL_DOCS.map((d, i) => (
                     <Text key={d.slug}>
-                      <Text style={styles.legalLink}>{d.title}</Text>
+                      {/* Tappable: the terms have to be readable before agreeing. */}
+                      <Text style={styles.legalLink} onPress={() => openInApp(`${SITE_URL}${d.href}`)}>{d.title}</Text>
                       {i < PACKAGE_LEGAL_DOCS.length - 1 ? (i === PACKAGE_LEGAL_DOCS.length - 2 ? ' & ' : ', ') : ''}
                     </Text>
                   ))}
@@ -873,7 +878,9 @@ export default function PackageCheckoutScreen() {
             size="lg"
             fullWidth
             loading={submitting}
-            disabled={submitting || (step === 'pay' && !agreedLegal)}
+            // Tappable without the terms ticked: handlePay explains what's missing
+            // instead of a greyed-out button with no reason.
+            disabled={submitting}
             icon={
               <Ionicons
                 name={step === 'pay' ? 'lock-closed' : 'arrow-forward'}
