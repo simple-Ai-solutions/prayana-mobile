@@ -11,6 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@prayana/shared-ui';
 import { trekArtFor } from '../../lib/trekArt';
+import { cardTitle } from '../../lib/cardTitle';
 import { FULL_W } from '../../lib/railLayout';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 import { toggleSaved, useIsSaved } from '../../lib/savedActivities';
@@ -101,7 +102,7 @@ export function FeaturedPoster({ a, onPress }: { a: any; onPress: () => void }) 
       </View>
       <View style={s.featFoot}>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={s.featTitle} numberOfLines={2}>{a.title || 'Experience'}</Text>
+          <Text style={s.featTitle} numberOfLines={2}>{cardTitle(a.title) || 'Experience'}</Text>
           <Facts a={a} />
         </View>
         {price > 0 ? (
@@ -159,7 +160,7 @@ export function ExploreCard({ a, onPress }: { a: any; onPress: () => void }) {
               {tags.map((t) => <View key={t} style={s.tag}><Text style={s.tagText} numberOfLines={1}>{t}</Text></View>)}
             </View>
           ) : null}
-          <Text style={s.title} numberOfLines={2}>{a.title || 'Experience'}</Text>
+          <Text style={s.title} numberOfLines={2}>{cardTitle(a.title) || 'Experience'}</Text>
           <Facts a={a} />
         </View>
       </View>
