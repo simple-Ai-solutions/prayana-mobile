@@ -32,6 +32,7 @@ import {
 } from '@prayana/shared-ui';
 import { activityMarketplaceAPI, makeAPICall } from '@prayana/shared-services';
 import { Image as XImage } from 'expo-image';
+import { FiltersSheet, ExploreFilters, NO_FILTERS, filterParams, activeFilterCount } from '../../components/explore/FiltersSheet';
 import { ExploreCard, FeaturedPoster } from '../../components/explore/ExploreCards';
 import { FULL_W, RAIL_GAP, RAIL_PAD, usePairSnap } from '../../lib/railLayout';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
@@ -229,6 +230,12 @@ export default function ExploreScreen() {
   const [sortBy, setSortBy] = useState('recommended');
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [totalResults, setTotalResults] = useState(0);
+  // Read by fetchActivities through a ref, so every search / category / sort /
+  // load-more request carries the current filters.
+  const [filters, setFilters] = useState<ExploreFilters>(NO_FILTERS);
+  const filtersRef = useRef<ExploreFilters>(NO_FILTERS);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [cityOptions, setCityOptions] = useState<string[]>([]);
 
   // Debounce timer ref
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -263,6 +270,7 @@ export default function ExploreScreen() {
         if (query.trim()) filters.query = query.trim();
         if (category && category !== 'all') filters.category = category;
         if (sort && sort !== 'recommended') filters.sort = sort;
+        Object.assign(filters, filterParams(filtersRef.current));
 
         const response: any = await activityMarketplaceAPI.searchActivities(filters);
 
@@ -281,6 +289,16 @@ export default function ExploreScreen() {
           });
         } else {
           setActivities(data);
+          // Cities to filter by, from an unfiltered first page (most first).
+          if (!activeFilterCount(filtersRef.current) && !query.trim() && (!category || category === 'all')) {
+            const counts = new Map<string, number>();
+            for (const a of data) {
+              const c = String(a?.location?.city || '').trim();
+              if (c && c.length <= 24) counts.set(c, (counts.get(c) || 0) + 1);
+            }
+            const list = [...counts.entries()].sort((x, y) => y[1] - x[1]).map(([c]) => c).slice(0, 10);
+            if (list.length) setCityOptions((prev) => (prev.length ? prev : list));
+          }
         }
 
         setTotalResults(total);
@@ -378,6 +396,18 @@ export default function ExploreScreen() {
       flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
     },
     [searchQuery, selectedCategory, fetchActivities]
+  );
+
+  const handleApplyFilters = useCallback(
+    (f: ExploreFilters) => {
+      filtersRef.current = f;
+      setFilters(f);
+      setFiltersOpen(false);
+      setPage(1);
+      fetchActivities(1, searchQuery, selectedCategory, sortBy, false);
+      flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+    },
+    [searchQuery, selectedCategory, sortBy, fetchActivities]
   );
 
   // ============================================================
@@ -536,7 +566,7 @@ export default function ExploreScreen() {
 
         {/* Sort & Results Count Row */}
         <View style={styles.sortRow}>
-          <View>
+          <View style={{ flexShrink: 1 }}>
             <Text style={[styles.secTitle, { color: themeColors.text }]}>
               {searchQuery.trim() ? 'Results' : selectedCategory !== 'all' ? CATEGORIES.find((c) => c.key === selectedCategory)?.label : 'All experiences'}
             </Text>
@@ -544,15 +574,28 @@ export default function ExploreScreen() {
               {loading ? 'Searching…' : `${totalResults} to choose from`}
             </Text>
           </View>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity
+            style={styles.sortButton}
+            onPress={() => setFiltersOpen(true)}
+            activeOpacity={0.7}
+            accessibilityLabel={`Filters${activeFilterCount(filters) ? `, ${activeFilterCount(filters)} on` : ''}`}
+          >
+            <Ionicons name="options-outline" size={16} color={colors.primary[500]} />
+            <Text style={styles.sortButtonText}>
+              {activeFilterCount(filters) ? `Filters · ${activeFilterCount(filters)}` : 'Filters'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.sortButton}
             onPress={() => setSortModalVisible(true)}
             activeOpacity={0.7}
           >
             <Ionicons name="swap-vertical-outline" size={16} color={colors.primary[500]} />
-            <Text style={styles.sortButtonText}>{currentSortLabel}</Text>
+            <Text style={styles.sortButtonText} numberOfLines={1}>{sortBy === 'recommended' ? 'Sort' : currentSortLabel}</Text>
             <Ionicons name="chevron-down-outline" size={14} color={colors.primary[500]} />
           </TouchableOpacity>
+          </View>
         </View>
       </View>
     ),
@@ -561,6 +604,7 @@ export default function ExploreScreen() {
       selectedCategory,
       sortBy,
       currentSortLabel,
+      filters,
       totalResults,
       loading,
       themeColors,
@@ -654,6 +698,14 @@ export default function ExploreScreen() {
         maxToRenderPerBatch={6}
         windowSize={5}
         removeClippedSubviews={Platform.OS === 'android'}
+      />
+
+      <FiltersSheet
+        visible={filtersOpen}
+        value={filters}
+        cities={cityOptions}
+        onApply={handleApplyFilters}
+        onClose={() => setFiltersOpen(false)}
       />
 
       {/* Sort Modal */}
