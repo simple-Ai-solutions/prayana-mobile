@@ -30,6 +30,9 @@ import { ThemedCategoryView, THEMES, themeFor } from '../../components/experienc
 const ORANGE = '#F97316';
 const PAGE = 24;
 
+const isTrek = (a: any) =>
+  (Array.isArray(a?.category) ? a.category : [a?.category]).some((c: any) => /^trekking$/i.test(String(c || '')));
+
 export default function ExperienceCategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const { themeColors } = useTheme();
@@ -70,11 +73,17 @@ export default function ExperienceCategoryScreen() {
           limit: PAGE,
           skip: nextSkip,
         });
-        const data: any[] = res?.data || res?.activities || [];
+        const raw: any[] = res?.data || res?.activities || [];
+        // Treks live under Treks & Hikes only: vendors also tag them
+        // "Photography" or "Adventure", which repeated them on every other
+        // category page. (The server does the same once released; this keeps
+        // the app right until then.)
+        const wantsTreks = /(^|,)\s*trekking\s*(,|$)/i.test(String(categoryFilter || ''));
+        const data = wantsTreks ? raw : raw.filter((a) => !isTrek(a));
         setItems((prev) => (append ? [...prev, ...data] : data));
-        setTotal(Number(res?.total ?? data.length));
-        setHasMore(data.length >= PAGE);
-        setSkip(nextSkip + data.length);
+        setTotal(Math.max(0, Number(res?.total ?? raw.length) - (raw.length - data.length)));
+        setHasMore(raw.length >= PAGE);
+        setSkip(nextSkip + raw.length);
       } catch {
         if (!append) setItems([]);
       } finally {
