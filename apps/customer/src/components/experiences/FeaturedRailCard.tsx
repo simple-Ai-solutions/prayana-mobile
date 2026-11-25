@@ -4,7 +4,9 @@
 // chips, title and a "From ₹…" price with a Book-Now pill.
 import React from 'react';
 import { useListingPrice } from '../../lib/exchangeRates';
-import { View, Text, StyleSheet, Image, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+// expo-image (Glide): RN's Image left partly off-screen rail cards grey.
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Experience, imageOf, priceOf, ratingOf } from '../../lib/experiences';
@@ -34,7 +36,7 @@ export const FeaturedRailCard: React.FC<Props> = ({ experience, width = 280, onP
     >
       <View style={styles.imgWrap}>
         {img ? (
-          <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
         ) : (
           <View style={[StyleSheet.absoluteFill, styles.imgFallback]} />
         )}

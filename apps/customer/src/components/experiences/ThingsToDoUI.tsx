@@ -10,7 +10,9 @@
 //   PlaceCard     a tall destination card with the name set on the photo
 import React from 'react';
 import { useListingPrice } from '../../lib/exchangeRates';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+// expo-image (Glide): RN's Image left partly off-screen rail cards grey.
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@prayana/shared-ui';
@@ -66,7 +68,7 @@ export function PosterCard({
       ]}
     >
       {img ? (
-        <Image source={{ uri: img }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={{ uri: img }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
       ) : (
         <LinearGradient colors={['#2A2A36', '#14141C']} style={StyleSheet.absoluteFill} />
       )}
@@ -138,7 +140,7 @@ export function VibeTile({
       ]}
     >
       <View style={styles.vibeInner}>
-        <Image source={{ uri: image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        <Image source={{ uri: image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
         <LinearGradient
           colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.82)']}
           locations={[0.35, 1]}
@@ -165,7 +167,7 @@ export function PlaceCard({
       accessibilityLabel={`Experiences in ${label}`}
       style={({ pressed }) => [styles.place, { width }, pressed && { transform: [{ scale: 0.97 }] }]}
     >
-      <Image source={{ uri: image }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image source={{ uri: image }} style={StyleSheet.absoluteFill} contentFit="cover" transition={200} cachePolicy="memory-disk" />
       <LinearGradient
         colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.85)']}
         locations={[0.45, 1]}
