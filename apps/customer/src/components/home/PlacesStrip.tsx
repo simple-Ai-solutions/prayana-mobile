@@ -20,6 +20,14 @@ type Place = { city: string; state?: string; count: number; image?: string; phot
 
 const SIZE = 74; // the photo; the ring adds 3px a side
 
+// A place photo for the circle where the listing photo it would use is wrong.
+// Bhimtal's best activity (Zip Line) carries the very same image file as
+// Mussoorie's Single Zipline, so the two circles looked identical. The
+// listing keeps its own photo; only the circle changes.
+const PLACE_COVERS: Record<string, string> = {
+  bhimtal: 'https://prayanaai.com/images/destination-galleries/uttarakhand/bhimtal-lake/gallery-1_google_places_36d9154d.jpg',
+};
+
 export function PlacesStrip() {
   const { themeColors, isDarkMode } = useTheme();
   const [places, setPlaces] = useState<Place[] | null>(null);
@@ -47,7 +55,7 @@ export function PlacesStrip() {
         contentContainerStyle={styles.row}
       >
         {places.map((p) => {
-          const photo = p.image || p.photos?.[0];
+          const photo = PLACE_COVERS[p.city.trim().toLowerCase()] || p.image || p.photos?.[0];
           return (
             <PressableScale
               key={p.city}
