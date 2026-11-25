@@ -16,6 +16,7 @@ import {
   Modal,
   AccessibilityInfo,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -200,6 +201,9 @@ function NotificationBell({ color }: { color: string }) {
 }
 
 /** The typed city as its own leaf, so typing never re-renders the page. */
+const FIRST_SECTIONS = 4;
+const TOTAL_SECTIONS = 10;
+
 function HomeChatFAB({ setterRef }: { setterRef: React.MutableRefObject<((hidden: boolean) => void) | null> }) {
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
@@ -341,11 +345,27 @@ export default function HomeScreen() {
   const setFabHidden = useRef<((hidden: boolean) => void) | null>(null);
   const fabHiddenRef = useRef(false);
   const lastY = useRef(0);
+  // Sections below the first screen mount as the user nears them. Mounting all
+  // ten at once (each a photo carousel) made home slow to open and to scroll on
+  // mid-range phones; other pages only ever draw what is on screen.
+  const [shown, setShown] = useState(FIRST_SECTIONS);
+  const shownRef = useRef(FIRST_SECTIONS);
+  const contentH = useRef(0);
+  const { height: winH } = useWindowDimensions();
+  const winHRef = useRef(winH);
+  winHRef.current = winH;
+  const revealMore = (y: number) => {
+    if (shownRef.current >= TOTAL_SECTIONS || !contentH.current) return;
+    if (y + winHRef.current * 2 < contentH.current) return;
+    shownRef.current += 1;
+    setShown(shownRef.current);
+  };
   const onPageScroll = useRef(
     Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
       useNativeDriver: true,
       listener: (e: any) => {
         const y = e.nativeEvent.contentOffset.y;
+        revealMore(y);
         const dy = y - lastY.current;
         if (Math.abs(dy) < 8) return;
         lastY.current = y;
@@ -417,6 +437,7 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         onScroll={onPageScroll}
+        onContentSizeChange={(_w: number, h: number) => { contentH.current = h; revealMore(lastY.current); }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -582,48 +603,48 @@ export default function HomeScreen() {
         {/* ============================================================ */}
         {/* DISCOVER BY INTEREST (matching web DiscoverByInterest)        */}
         {/* ============================================================ */}
-        <View style={[styles.section, { backgroundColor: themeColors.background }]}>
+        {shown >= 5 && <View style={[styles.section, { backgroundColor: themeColors.background }]}>
           <SectionHeader title="Discover by Interest" />
           {/* Same mood posters and clips as the web. */}
           <DiscoverByInterestRail />
-        </View>
+        </View>}
 
         {/* ============================================================ */}
         {/* SACRED PILGRIMAGE SITES (arch poster rail matching web)       */}
         {/* ============================================================ */}
         {/* Temple band: cream backdrop, diya divider, arch posters and the
             yatra path that tracks the scroll. */}
-        <PilgrimageSection
+        {shown >= 6 && <PilgrimageSection
           onPlacePress={(p) => handleDestinationPress(p.name, { image: p.image, desc: p.description })}
-        />
+        />}
 
         {/* ============================================================ */}
         {/* TOP 20 INDIA (matching web CollectionGrid masonry)            */}
         {/* ============================================================ */}
-        <View style={[styles.section, { backgroundColor: themeColors.background }]}>
+        {shown >= 7 && <View style={[styles.section, { backgroundColor: themeColors.background }]}>
           <SectionHeader title="Top 20 in India" />
           {/* Same ranked posters and photo reels as the web. */}
           <TopIndiaRail
             onPlacePress={(p) => handleDestinationPress(p.name, { image: p.image, desc: p.description })}
           />
-        </View>
+        </View>}
 
         {/* Visa-free countries for an Indian passport. */}
-        <View style={styles.section}>
+        {shown >= 8 && <View style={styles.section}>
           <SectionHeader title="Visa-free for Indians" />
           <VisaFreeRail
             countryCode={userPreferences.country}
             countryName={userPreferences.countryName}
             onCountryPress={(c) => handleDestinationPress(c.name, { image: c.images?.[0], desc: c.description })}
           />
-        </View>
+        </View>}
         </>
         )}
 
         {/* ============================================================ */}
         {/* EXPLORE INDIA BY REGION (matching web IndianRegionalDest)      */}
         {/* ============================================================ */}
-        <LinearGradient
+        {shown >= 9 && <LinearGradient
           colors={isDarkMode
             ? ['#000000', '#0a0a0a', '#000000']
             : ['#EFF6FF', '#ffffff', '#EFF6FF']
@@ -636,10 +657,10 @@ export default function HomeScreen() {
           <RegionPostcards
             onPlacePress={(d) => handleDestinationPress(d.name, { image: d.image })}
           />
-        </LinearGradient>
+        </LinearGradient>}
 
         {/* Things to do by kind: Tours, Wildlife, Food Tours… */}
-        {isIndiaUser && <ThingsToDoRail />}
+        {isIndiaUser && shown >= 10 && <ThingsToDoRail />}
         </View>
 
 
