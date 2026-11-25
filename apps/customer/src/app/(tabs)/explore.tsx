@@ -651,6 +651,17 @@ export default function ExploreScreen() {
         />
       );
     }
+    if (activeFilterCount(filters)) {
+      return (
+        <FriendlyEmpty
+          kind="search"
+          title="No matches for these filters"
+          text="Try a wider budget, another date or a different city."
+          actionLabel="Clear filters"
+          onAction={() => handleApplyFilters(NO_FILTERS)}
+        />
+      );
+    }
     return (
       <FriendlyEmpty
         kind="search"
@@ -665,7 +676,7 @@ export default function ExploreScreen() {
         }}
       />
     );
-  }, [loading, loadError, searchQuery, selectedCategory, sortBy, themeColors, fetchActivities]);
+  }, [loading, loadError, searchQuery, selectedCategory, sortBy, themeColors, fetchActivities, filters, handleApplyFilters]);
 
   // ============================================================
   // RENDER

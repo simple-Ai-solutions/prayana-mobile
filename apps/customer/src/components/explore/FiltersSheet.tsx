@@ -1,14 +1,20 @@
-// Explore filters: budget, city and rating. All three are applied by the
-// server (/activities/search minPrice / maxPrice / city / minRating), so the
-// result count and "load more" stay right. Duration and "this weekend" need
-// server support first.
+// Explore filters: when, duration, budget, city and rating. The server applies
+// them all (/activities/search when / duration / minPrice / maxPrice / city /
+// minRating), so the result count and "load more" stay right.
 import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@prayana/shared-ui';
 
-export type ExploreFilters = { budget: string; city: string; minRating: number };
-export const NO_FILTERS: ExploreFilters = { budget: 'any', city: '', minRating: 0 };
+export type ExploreFilters = { budget: string; city: string; minRating: number; duration: string; weekend: boolean };
+export const NO_FILTERS: ExploreFilters = { budget: 'any', city: '', minRating: 0, duration: 'any', weekend: false };
+
+export const DURATIONS = [
+  { key: 'any', label: 'Any length' },
+  { key: 'short', label: 'A few hours' },
+  { key: 'day', label: 'Full day' },
+  { key: 'multi', label: '2+ days' },
+] as const;
 
 export const BUDGETS = [
   { key: 'any', label: 'Any budget' },
@@ -25,11 +31,13 @@ export function filterParams(f: ExploreFilters): Record<string, string> {
   if (b?.max) out.maxPrice = String(b.max);
   if (f.city) out.city = f.city;
   if (f.minRating) out.minRating = String(f.minRating);
+  if (f.duration !== 'any') out.duration = f.duration;
+  if (f.weekend) out.when = 'weekend';
   return out;
 }
 
 export const activeFilterCount = (f: ExploreFilters) =>
-  (f.budget !== 'any' ? 1 : 0) + (f.city ? 1 : 0) + (f.minRating ? 1 : 0);
+  (f.budget !== 'any' ? 1 : 0) + (f.city ? 1 : 0) + (f.minRating ? 1 : 0) + (f.duration !== 'any' ? 1 : 0) + (f.weekend ? 1 : 0);
 
 export function FiltersSheet({ visible, value, cities, onApply, onClose }: {
   visible: boolean;
@@ -70,6 +78,19 @@ export function FiltersSheet({ visible, value, cities, onApply, onClose }: {
           </View>
 
           <ScrollView contentContainerStyle={{ paddingBottom: 12 }}>
+            <Text style={[s.label, { color: themeColors.textSecondary }]}>WHEN</Text>
+            <View style={s.row}>
+              <Chip on={!draft.weekend} label="Any time" onPress={() => setDraft({ ...draft, weekend: false })} />
+              <Chip on={draft.weekend} label="This weekend" onPress={() => setDraft({ ...draft, weekend: true })} />
+            </View>
+
+            <Text style={[s.label, { color: themeColors.textSecondary }]}>DURATION</Text>
+            <View style={s.row}>
+              {DURATIONS.map((d) => (
+                <Chip key={d.key} on={draft.duration === d.key} label={d.label} onPress={() => setDraft({ ...draft, duration: d.key })} />
+              ))}
+            </View>
+
             <Text style={[s.label, { color: themeColors.textSecondary }]}>BUDGET PER PERSON</Text>
             <View style={s.row}>
               {BUDGETS.map((b) => (
