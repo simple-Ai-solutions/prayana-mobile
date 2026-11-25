@@ -14,7 +14,8 @@ import { TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, spacing, fontSize, fontWeight, borderRadius } from '@prayana/shared-ui';
 
-const BLUE = '#008cff';
+// The app's orange (packages used their own blue).
+const BLUE = '#f97316';
 
 export interface PackageFilters {
   minBudget?: number;

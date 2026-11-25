@@ -32,7 +32,7 @@ import { holidayPackagesAPI } from '@prayana/shared-services';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 import { GroupDeparturesTab } from '../../components/packages/GroupDeparturesTab';
-import { HolidayCard, DealPoster, DealTile, ThemeTiles, THEMES } from '../../components/packages/HolidayCards';
+import { HolidayCard, DealPoster, DealTile, ThemeTiles, THEMES, pkgPrice } from '../../components/packages/HolidayCards';
 import { FULL_W, RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, usePairSnap } from '../../lib/railLayout';
 
 // Packages use the theme's blue accent rather than the app-wide orange, so the
@@ -74,7 +74,16 @@ const SCOPES: { key: Scope; label: string }[] = [
 
 // Full-bleed hero photo — the same Himalayan landscape the PWA uses.
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80';
-const BLUE = '#008cff';
+// The app's orange (packages used their own blue).
+const BLUE = '#f97316';
+
+const QUICK = [
+  { key: 'u10', label: 'Under ₹10,000', icon: 'pricetag', filters: { maxBudget: 10000 } },
+  { key: 'u25', label: 'Under ₹25,000', icon: 'wallet', filters: { maxBudget: 25000 } },
+  { key: 'wknd', label: 'Weekend · 1–3 nights', icon: 'sunny', filters: { minNights: 1, maxNights: 3 } },
+  { key: 'week', label: 'Week-long', icon: 'airplane', filters: { minNights: 5 } },
+] as const;
+const inrText = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const PAGE_SIZE = 30;
 
 // Sort options (server keys — see /packages/search sort mapping).
@@ -235,11 +244,33 @@ export default function PackagesScreen() {
     const source = featured.length ? featured : packages.filter((p) => pkgImage(p));
     return source.filter((p) => (seen.has(p._id) ? false : (seen.add(p._id), true))).slice(0, 5);
   }, [featured, packages]);
+  const quickKey = QUICK.find((q) => JSON.stringify(q.filters) === JSON.stringify(filters))?.key ?? null;
+
+  // One tile per destination country (India: per state), its cheapest package.
+  const destinations = useMemo(() => {
+    const by = new Map<string, { name: string; from: number; image?: string }>();
+    for (const p of packages as any[]) {
+      const d = p?.destinations?.[0];
+      const name = d?.country && d.country !== 'India' ? d.country : d?.state || d?.city;
+      const { price } = pkgPrice(p);
+      if (!name || !price) continue;
+      const cur = by.get(name);
+      if (!cur || price < cur.from) by.set(name, { name, from: price, image: pkgImage(p) || cur?.image });
+    }
+    return [...by.values()].filter((x) => x.image).slice(0, 10);
+  }, [packages]);
+
   const dealList = useMemo(() => {
     const seen = new Set<string>();
     return deals.filter((p) => (seen.has(p._id) ? false : (seen.add(p._id), true)));
   }, [deals]);
   const browsing = !search.trim() && activeCategory === 'all' && scope === 'all' && activeFilterCount === 0 && sort === 'rating';
+  // The rails above already show these; don't repeat them first thing below.
+  const listPackages = useMemo(() => {
+    if (!browsing) return packages;
+    const shown = new Set([...heroFeatured, ...dealList].map((p) => p._id));
+    return packages.filter((p) => !shown.has(p._id));
+  }, [browsing, packages, heroFeatured, dealList]);
   const open = (pkg: HolidayPackage) => router.push(`/packages/${encodeURIComponent(pkg._id)}` as any);
   const featSnap = usePairSnap(FULL_W + RAIL_GAP);
   const dealSnap = usePairSnap(TWO_UP_SNAP);
@@ -314,6 +345,43 @@ export default function PackagesScreen() {
           );
         })}
       </View>
+
+      {/* One-tap budget and length: no typing, no filter sheet. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
+        {QUICK.map((q) => {
+          const on = quickKey === q.key;
+          return (
+            <TouchableOpacity
+              key={q.key}
+              onPress={() => setFilters(on ? {} : (q.filters as PackageFilters))}
+              activeOpacity={0.8}
+              style={[styles.quickChip, { borderColor: on ? BLUE : themeColors.border, backgroundColor: on ? BLUE : themeColors.surface }]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+            >
+              <Ionicons name={q.icon as any} size={14} color={on ? '#fff' : BLUE} />
+              <Text style={[styles.quickText, { color: on ? '#fff' : themeColors.text }]}>{q.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Popular destinations, cheapest price first in each */}
+      {browsing && destinations.length > 1 ? (
+        <View>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Popular destinations</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: RAIL_PAD, gap: 10 }}>
+            {destinations.map((d) => (
+              <TouchableOpacity key={d.name} activeOpacity={0.85} onPress={() => setSearch(d.name)} style={styles.destTile} accessibilityRole="button" accessibilityLabel={`${d.name} from ${inrText(d.from)}`}>
+                {d.image ? <Image source={{ uri: d.image }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} /> : null}
+                <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.8)']} locations={[0.3, 1]} style={StyleSheet.absoluteFill} />
+                <Text style={styles.destName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>{d.name}</Text>
+                <Text style={styles.destFrom}>from {inrText(d.from)}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Holidays by theme */}
       <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Holidays by theme</Text>
@@ -406,7 +474,7 @@ export default function PackagesScreen() {
         </>
       ) : (
         <FlashList
-          data={loading ? [] : packages}
+          data={loading ? [] : listPackages}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
@@ -515,10 +583,16 @@ const styles = StyleSheet.create({
   },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 14 },
   tabBtnOn: { backgroundColor: BLUE },
+  quickRow: { gap: 8, paddingHorizontal: 16, marginTop: 14 },
+  quickChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  quickText: { fontSize: 13, fontWeight: '700' },
+  destTile: { width: 132, height: 150, borderRadius: 18, overflow: 'hidden', justifyContent: 'flex-end', padding: 11, backgroundColor: '#e5e7eb' },
+  destName: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  destFrom: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '700', marginTop: 2 },
   tabText: { fontSize: 14, fontWeight: '800' },
   scopeRow: { flexDirection: 'row', marginHorizontal: 16, marginTop: 16, borderRadius: 999, borderWidth: 1, padding: 4, gap: 4 },
   scopePill: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
-  scopePillOn: { backgroundColor: 'rgba(0,140,255,0.1)' },
+  scopePillOn: { backgroundColor: 'rgba(249, 115, 22,0.1)' },
   scopePillText: { fontSize: 13, fontWeight: '800' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginTop: 26, marginBottom: 12 },
   sectionIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
