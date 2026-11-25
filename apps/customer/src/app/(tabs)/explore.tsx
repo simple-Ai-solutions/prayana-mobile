@@ -447,7 +447,7 @@ export default function ExploreScreen() {
       <View>
         {/* Hero: a soft travel-photo wash behind the title and search. */}
         <View style={styles.hero}>
-          <XImage source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} contentFit="cover" blurRadius={36} />
+          <XImage source={HERO} style={[StyleSheet.absoluteFill, { opacity: 0.9 }]} contentFit="cover" blurRadius={6} />
           <LinearGradient
             colors={isDarkMode
               ? ['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.55)', themeColors.background]
