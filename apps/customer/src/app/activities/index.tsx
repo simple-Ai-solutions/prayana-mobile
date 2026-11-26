@@ -66,8 +66,15 @@ import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
 import {
   ACCENT, PlaceCard, PosterCard, SectionLabel, TopRow, VibeTile,
 } from '../../components/experiences/ThingsToDoUI';
+import { NearYou } from '../../components/experiences/NearYou';
+import { Image as ExpoImage } from 'expo-image';
+import { imageOf } from '../../lib/experiences';
 
 const PAGE = 12;
+// The photo behind the title: the top listing's own photo, else this.
+const HERO_FALLBACK = 'https://prayanaai.com/images/place-names/pangong-lake-ladakh/pangong-lake-ladakh/img-1_google_places_ffc2c9f2.jpg';
+const HERO_H = 236;
+const NEAR_W = Math.round(Dimensions.get('window').width * 0.44);
 // Top picks spotlight: one card large in the centre, neighbours peeking.
 const SCREEN_W = Dimensions.get('window').width;
 const SPOT_W = Math.round(SCREEN_W * 0.74);
@@ -333,32 +340,38 @@ export default function ActivitiesScreen() {
         }
       >
         {/* ─── GLOW HEADER (District-style) ─── */}
-        <LinearGradient
-          colors={isDarkMode
-            ? ['rgba(255,90,95,0.38)', 'rgba(168,85,247,0.16)', 'rgba(11,11,16,0)']
-            : ['rgba(255,90,95,0.22)', 'rgba(168,85,247,0.08)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.45, 1]}
-          style={styles.glow}
-          pointerEvents="none"
-        />
+        <View style={styles.hero} pointerEvents="none">
+          <ExpoImage
+            source={{ uri: (featured[0] && imageOf(featured[0])) || HERO_FALLBACK }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={300}
+            cachePolicy="memory-disk"
+          />
+          <LinearGradient
+            colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.6)', themeColors.background]}
+            locations={[0, 0.4, 0.8, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => goBack()}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={[styles.roundBtn, { borderColor: themeColors.border, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.8)' }]}
+            style={[styles.roundBtn, { borderColor: 'rgba(255,255,255,0.35)', backgroundColor: 'rgba(0,0,0,0.3)' }]}
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={20} color={themeColors.text} />
+            <Ionicons name="chevron-back" size={20} color="#fff" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Things to do</Text>
-            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>Tours, treks &amp; experiences</Text>
+            <Text style={[styles.headerTitle, styles.onPhoto]}>Things to do</Text>
+            <Text style={[styles.headerSub, styles.onPhoto, { opacity: 0.85 }]}>Tours, treks &amp; experiences</Text>
           </View>
         </View>
 
-        <Text style={[styles.bigLine, { color: themeColors.text }]}>
-          Plans worth{'\n'}<Text style={{ color: ACCENT }}>leaving the house</Text> for.
+        <Text style={[styles.bigLine, styles.onPhoto]}>
+          Plans worth{'\n'}<Text style={{ color: '#FDBA74' }}>leaving the house</Text> for.
         </Text>
 
         <View style={[styles.searchPill, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.07)' : '#FFFFFF', borderColor: themeColors.border }]}>
@@ -463,6 +476,9 @@ export default function ActivitiesScreen() {
                 />
               </View>
             )}
+
+            {/* ─── NEAR YOU (nearest first, with distance) ─── */}
+            {!filtering && <NearYou cardWidth={NEAR_W} onPress={open} />}
 
             {/* ─── TRENDING THIS WEEK (numbered chart) ─── */}
             {!filtering && trending.length > 0 && (
@@ -576,23 +592,12 @@ export default function ActivitiesScreen() {
                     ))}
                   </View>
 
-                  {hasMore && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        !listLoading &&
-                        search({ q: query, cat: category, sortBy: sort, skip, append: true })
-                      }
-                      disabled={listLoading}
-                      style={[styles.loadMore, { borderColor: themeColors.border }]}
-                      accessibilityRole="button"
-                    >
-                      {listLoading ? (
-                        <ActivityIndicator size="small" color={ACCENT} />
-                      ) : (
-                        <Text style={[styles.loadMoreText, { color: themeColors.text }]}>Load more</Text>
-                      )}
-                    </TouchableOpacity>
-                  )}
+                  {/* More loads by itself as you scroll (see onScroll). */}
+                  {hasMore && listLoading ? (
+                    <View style={styles.moreSpinner}>
+                      <ActivityIndicator size="small" color={ACCENT} />
+                    </View>
+                  ) : null}
                 </>
               )}
             </View>
@@ -787,7 +792,9 @@ export default function ActivitiesScreen() {
 
 const styles = StyleSheet.create({
   // District-style header: a soft coral→violet glow behind the top of the page.
-  glow: { position: 'absolute', left: 0, right: 0, top: 0, height: 420 },
+  hero: { position: 'absolute', left: 0, right: 0, top: 0, height: HERO_H, overflow: 'hidden' },
+  onPhoto: { color: '#fff', textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 8 },
+  moreSpinner: { paddingVertical: 20, alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   roundBtn: {
     width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center',

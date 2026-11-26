@@ -132,7 +132,12 @@ export function PosterCard({
       </View>
 
       <View style={styles.bottom}>
-        {!!city && <Text style={styles.city} numberOfLines={1}>{city.toUpperCase()}</Text>}
+        {!!city || typeof e?.distanceKm === 'number' ? (
+          <Text style={styles.city} numberOfLines={1}>
+            {[city?.toUpperCase(), typeof e?.distanceKm === 'number' ? `${e.distanceKm < 10 ? e.distanceKm.toFixed(1) : Math.round(e.distanceKm)} KM AWAY` : null]
+              .filter(Boolean).join(' · ')}
+          </Text>
+        ) : null}
         <Text style={[styles.title, lg && styles.titleLg]} numberOfLines={2}>{title}</Text>
         {next ? (
           <View style={styles.nextRow}>
