@@ -320,6 +320,11 @@ export default function ActivitiesScreen() {
         scrollEventThrottle={32}
         onScroll={(e: any) => {
           const y = e.nativeEvent.contentOffset.y;
+          // Load the next page as the grid's end comes into view (no button to find).
+          const { layoutMeasurement, contentSize } = e.nativeEvent;
+          if (hasMore && !listLoading && items.length && y + layoutMeasurement.height > contentSize.height - 1400) {
+            search({ q: query, cat: category, sortBy: sort, skip, append: true });
+          }
           const pin = gridTop != null && y > gridTop;
           if (pin !== pinChips) setPinChips(pin);
         }}

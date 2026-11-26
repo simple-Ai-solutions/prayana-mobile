@@ -13,6 +13,7 @@ import {
   Linking,
 } from 'react-native';
 import { ENV } from '../../config/env';
+import { trackRecentPackage } from '../../lib/recentlyViewedPackages';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { WebView } from 'react-native-webview';
@@ -468,6 +469,15 @@ export default function PackageDetailScreen() {
       const res = await holidayPackagesAPI.getById(id);
       const p = res?.data || res?.package || null;
       setPkg(p);
+      if (p?._id) {
+        const img = p.images?.[0];
+        trackRecentPackage({
+          id: p._id, title: p.title,
+          image: normalizeImageUrl(typeof img === 'string' ? img : img?.url) || undefined,
+          price: Number(p.platformSellingPrice || p.pricing?.startingFrom) || undefined,
+          nights: Number(p.duration?.nights) || undefined,
+        });
+      }
       // Default to the "Most Popular" (isDefault) variant, else the first.
       const vs: PkgVariant[] = p?.variants || [];
       const def = vs.find((v) => v.isDefault) || vs[0];
@@ -2074,13 +2084,28 @@ export default function PackageDetailScreen() {
             </View>
             {(pkg.cancellationPolicy?.rules || []).length > 0 ? (
               <View style={styles.refundLadder}>
-                {(pkg.cancellationPolicy!.rules || []).map((r, i) => (
+                {/* Bands from the rules, sorted: "31+ days", "16–30 days", "Under 16 days";
+                    with a date picked, the actual last day of each band. */}
+                {[...(pkg.cancellationPolicy!.rules || [])]
+                  .sort((x, y) => y.daysBeforeTravel - x.daysBeforeTravel)
+                  .map((r, i, arr) => {
+                    const prev = arr[i - 1]?.daysBeforeTravel;
+                    const band = i === 0
+                      ? `${r.daysBeforeTravel}+ days before travel`
+                      : r.daysBeforeTravel > 0
+                        ? `${r.daysBeforeTravel}–${prev - 1} days before travel`
+                        : `Under ${prev} days before travel`;
+                    const until = pickedDate && r.daysBeforeTravel > 0
+                      ? new Date(new Date(`${pickedDate}T00:00:00`).getTime() - r.daysBeforeTravel * 86400000)
+                          .toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+                      : null;
+                    return { r, i, band, until };
+                  })
+                  .map(({ r, i, band, until }) => (
                   <View key={i} style={styles.refundRow}>
                     <View style={[styles.refundDot, { backgroundColor: r.refundPercent >= 100 ? '#10b981' : r.refundPercent > 0 ? '#f59e0b' : '#ef4444' }]} />
                     <Text style={[styles.refundText, { color: themeColors.textSecondary }]}>
-                      {r.daysBeforeTravel > 0
-                        ? `Cancel ${r.daysBeforeTravel}+ days before travel`
-                        : 'Cancel within 24 hours of travel'}
+                      {until ? `Cancel by ${until}` : band}
                     </Text>
                     <Text
                       style={[

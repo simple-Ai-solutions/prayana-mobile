@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { getRecentPackages, RecentPackage } from '../../lib/recentlyViewedPackages';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
@@ -352,6 +353,8 @@ export default function PackagesScreen() {
     </>
   );
   const sortRowY = useRef(0);
+  const [recentPkgs, setRecentPkgs] = useState<RecentPackage[]>([]);
+  useFocusEffect(useCallback(() => { getRecentPackages().then(setRecentPkgs); }, []));
   const insets = useSafeAreaInsets();
   const [pinSort, setPinSort] = useState(false);
 
@@ -390,6 +393,25 @@ export default function PackagesScreen() {
           );
         })}
       </ScrollView>
+
+      {/* Recently viewed packages: back to one in a tap. */}
+      {browsing && recentPkgs.length > 0 ? (
+        <View>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Recently viewed</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: RAIL_PAD, gap: 10 }}>
+            {recentPkgs.map((r) => (
+              <TouchableOpacity key={r.id} activeOpacity={0.85} onPress={() => router.push(`/packages/${encodeURIComponent(r.id)}` as any)}
+                style={[styles.recentPkg, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                {r.image ? <Image source={{ uri: r.image }} style={styles.recentPkgImg} contentFit="cover" cachePolicy="memory-disk" /> : <View style={styles.recentPkgImg} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.recentPkgTitle, { color: themeColors.text }]} numberOfLines={2}>{r.title.split(/\s+[—–]\s+/)[0]}</Text>
+                  {r.price ? <Text style={[styles.recentPkgPrice, { color: themeColors.text }]}>{inrText(r.price)}{r.nights ? <Text style={{ color: themeColors.textTertiary, fontWeight: '600' }}>{`  ·  ${r.nights}N`}</Text> : null}</Text> : null}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Popular destinations, cheapest price first in each */}
       {browsing && destinations.length > 1 ? (
@@ -608,6 +630,10 @@ const styles = StyleSheet.create({
   },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 14 },
   tabBtnOn: { backgroundColor: BLUE },
+  recentPkg: { width: 240, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, padding: 8 },
+  recentPkgImg: { width: 56, height: 56, borderRadius: 10, backgroundColor: '#e5e7eb' },
+  recentPkgTitle: { fontSize: 13.5, fontWeight: '800', lineHeight: 17 },
+  recentPkgPrice: { fontSize: 13, fontWeight: '900', marginTop: 3 },
   pinnedSort: { position: 'absolute', top: 0, left: 0, right: 0, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
   quickRow: { gap: 8, paddingHorizontal: 16, marginTop: 14 },
   quickChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
