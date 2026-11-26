@@ -57,6 +57,16 @@ const PACKAGE_ACCEPTANCE = PACKAGE_LEGAL_DOCS.map((d) => ({ slug: d.slug, versio
 
 type Step = 'travelers' | 'dates' | 'contact' | 'pay';
 
+type PayPlan = 'full' | 'installment_50_50' | 'installment_30_40_30';
+const PLANS: { key: PayPlan; label: string; desc: string }[] = [
+  { key: 'full', label: 'Pay in full', desc: 'Pay everything now · fastest confirmation' },
+  { key: 'installment_50_50', label: 'Split into 2', desc: '50% now, 50% a week before travel' },
+  { key: 'installment_30_40_30', label: 'Split into 3', desc: '30% now, 40% midway, 30% before travel' },
+];
+/** What's charged today — the server's installment 1 (it rounds that one up). */
+const firstPart = (total: number, plan: PayPlan) =>
+  plan === 'installment_50_50' ? Math.ceil(total * 0.5) : plan === 'installment_30_40_30' ? Math.ceil(total * 0.3) : total;
+
 type Variant = {
   // The only unique handle: `name` repeats across variants on some packages.
   _id?: string;
@@ -154,6 +164,8 @@ export default function PackageCheckoutScreen() {
   // Set once payment is verified: the screen becomes the celebration (as
   // activities have) instead of a toast and a jump to My Bookings.
   const [confirmed, setConfirmed] = useState(false);
+  // Pay in full, or split (the server builds the schedule; installment 1 is charged now).
+  const [plan, setPlan] = useState<PayPlan>('full');
 
   // Step 1: variant + travelers
   const [variantName, setVariantName] = useState<string | null>(null);
@@ -351,6 +363,11 @@ export default function PackageCheckoutScreen() {
     return typeof server === 'number' && server > 0 ? server : clientEstimate;
   }, [livePrice, clientEstimate]);
 
+  // Split only when the trip is 14+ days away: nearer, every part falls due now.
+  const daysToTrip = startDate ? Math.round((new Date(`${startDate}T00:00:00`).getTime() - Date.now()) / 86400000) : 0;
+  const canSplit = daysToTrip >= 14 && estimatedTotal > 0;
+  const payNow = firstPart(estimatedTotal, canSplit ? plan : 'full');
+
   const stepIndex = step === 'travelers' ? 0 : step === 'dates' ? 1 : step === 'contact' ? 2 : 3;
 
   const validateStep = (s: Step): boolean => {
@@ -433,6 +450,7 @@ export default function PackageCheckoutScreen() {
           // The server prices off totalTravelers.{adults,children,infants} — it
           // must be an OBJECT, not a count, or every booking is priced for 1 adult.
           totalTravelers: { adults, children, infants: 0 },
+          paymentPlan: canSplit ? plan : 'full',
           customerName: name.trim(),
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
@@ -858,9 +876,43 @@ export default function PackageCheckoutScreen() {
                 )}
               </Card>
 
+              {/* Payment plan: split is offered when travel is far enough away
+                  for the later parts to fall before the trip. */}
+              {canSplit ? (
+                <View style={{ gap: 8, marginTop: spacing.md }}>
+                  <Text style={styles.sectionTitle}>How do you want to pay?</Text>
+                  {PLANS.map((p) => {
+                    const on = plan === p.key;
+                    const now = firstPart(estimatedTotal, p.key);
+                    return (
+                      <TouchableOpacity
+                        key={p.key}
+                        onPress={() => setPlan(p.key)}
+                        activeOpacity={0.85}
+                        style={[styles.planRow, on && styles.planRowOn]}
+                        accessibilityRole="radio"
+                        accessibilityState={{ selected: on }}
+                      >
+                        <View style={[styles.radio, on && styles.radioOn]}>{on ? <View style={styles.radioDot} /> : null}</View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.planTitle}>{p.label}</Text>
+                          <Text style={styles.hint}>{p.desc}</Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={styles.planNow}>₹{now.toLocaleString('en-IN')}</Text>
+                          <Text style={styles.hint}>now</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
+
               <Text style={styles.hint}>
-                You'll be charged ₹{estimatedTotal.toLocaleString('en-IN')} now, including taxes.
-                Any extras you requested are confirmed by our team before you travel.
+                {payNow < estimatedTotal
+                  ? `You'll pay ₹${payNow.toLocaleString('en-IN')} now and the rest (₹${(estimatedTotal - payNow).toLocaleString('en-IN')}) later, no interest. Total ₹${estimatedTotal.toLocaleString('en-IN')} incl. taxes.`
+                  : `You'll be charged ₹${estimatedTotal.toLocaleString('en-IN')} now, including taxes.`}
+                {' '}Any extras you requested are confirmed by our team before you travel.
               </Text>
 
               {/* Legal acceptance — required by the server before booking */}
@@ -898,7 +950,7 @@ export default function PackageCheckoutScreen() {
       {keyboardUp ? null : (
       <View style={styles.footer}>
           <Button
-            title={step === 'pay' ? `Pay ₹${estimatedTotal.toLocaleString('en-IN')}` : 'Continue'}
+            title={step === 'pay' ? `Pay ₹${payNow.toLocaleString('en-IN')}${payNow < estimatedTotal ? ' now' : ''}` : 'Continue'}
             onPress={step === 'pay' ? handlePay : handleNext}
             variant="primary"
             size="lg"
@@ -974,6 +1026,13 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, padding: 12, backgroundColor: colors.surface },
+  planRowOn: { borderColor: '#f97316', backgroundColor: '#fff7ed' },
+  planTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.text },
+  planNow: { fontSize: fontSize.md, fontWeight: '900', color: colors.text },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: '#f97316' },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#f97316' },
   container: { flex: 1, backgroundColor: colors.backgroundSecondary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.lg, padding: spacing.lg },
   errorTitle: { fontSize: fontSize.lg, fontWeight: fontWeight.semibold, color: colors.text },

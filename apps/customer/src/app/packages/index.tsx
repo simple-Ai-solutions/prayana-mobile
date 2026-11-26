@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -330,6 +330,31 @@ export default function PackagesScreen() {
     </View>
   );
 
+  // The Filters + sort chips, shown in the list header and, once scrolled
+  // past, pinned at the top so filtering never means scrolling back up.
+  const sortChips = (
+    <>
+        <TouchableOpacity
+          onPress={() => setFilterOpen(true)}
+          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? BLUE : themeColors.border, backgroundColor: activeFilterCount ? BLUE + '18' : themeColors.surface }]}
+        >
+          <Ionicons name="options-outline" size={14} color={activeFilterCount ? BLUE : themeColors.text} />
+          <Text style={[styles.sortChipText, { color: activeFilterCount ? BLUE : themeColors.text }]}>Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
+        </TouchableOpacity>
+        {SORTS.map((so) => {
+          const active = sort === so.key;
+          return (
+            <TouchableOpacity key={so.key} onPress={() => setSort(so.key)} style={[styles.sortChip, { borderColor: active ? BLUE : themeColors.border, backgroundColor: active ? BLUE : themeColors.surface }]}>
+              <Text style={[styles.sortChipText, { color: active ? '#fff' : themeColors.textSecondary }]}>{so.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+    </>
+  );
+  const sortRowY = useRef(0);
+  const insets = useSafeAreaInsets();
+  const [pinSort, setPinSort] = useState(false);
+
   const browseHeader = (
     <View>
       {top}
@@ -437,23 +462,11 @@ export default function PackagesScreen() {
           <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>{loading ? 'Finding the best prices…' : `${total || packages.length} packages`}</Text>
         </View>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.sortRow}>
-        <TouchableOpacity
-          onPress={() => setFilterOpen(true)}
-          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? BLUE : themeColors.border, backgroundColor: activeFilterCount ? BLUE + '18' : themeColors.surface }]}
-        >
-          <Ionicons name="options-outline" size={14} color={activeFilterCount ? BLUE : themeColors.text} />
-          <Text style={[styles.sortChipText, { color: activeFilterCount ? BLUE : themeColors.text }]}>Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
-        </TouchableOpacity>
-        {SORTS.map((so) => {
-          const active = sort === so.key;
-          return (
-            <TouchableOpacity key={so.key} onPress={() => setSort(so.key)} style={[styles.sortChip, { borderColor: active ? BLUE : themeColors.border, backgroundColor: active ? BLUE : themeColors.surface }]}>
-              <Text style={[styles.sortChipText, { color: active ? '#fff' : themeColors.textSecondary }]}>{so.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <View onLayout={(e) => { sortRowY.current = e.nativeEvent.layout.y; }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.sortRow}>
+          {sortChips}
+        </ScrollView>
+      </View>
       {loading ? <View style={styles.loadingBox}><ActivityIndicator size="large" color={BLUE} /></View> : null}
     </View>
   );
@@ -483,6 +496,11 @@ export default function PackagesScreen() {
             </View>
           )}
           ListHeaderComponent={browseHeader}
+          onScroll={(e: any) => {
+            const pin = e.nativeEvent.contentOffset.y > sortRowY.current;
+            if (pin !== pinSort) setPinSort(pin);
+          }}
+          scrollEventThrottle={64}
           onEndReached={loadMore}
           onEndReachedThreshold={0.6}
           ListFooterComponent={
@@ -510,6 +528,13 @@ export default function PackagesScreen() {
         />
       )}
 
+      {pinSort && browseTab !== 'departures' ? (
+        <View style={[styles.pinnedSort, { top: insets.top, backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+            {sortChips}
+          </ScrollView>
+        </View>
+      ) : null}
       <PackageFilterSheet
         open={filterOpen}
         facets={facets}
@@ -583,6 +608,7 @@ const styles = StyleSheet.create({
   },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 14 },
   tabBtnOn: { backgroundColor: BLUE },
+  pinnedSort: { position: 'absolute', top: 0, left: 0, right: 0, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
   quickRow: { gap: 8, paddingHorizontal: 16, marginTop: 14 },
   quickChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
   quickText: { fontSize: 13, fontWeight: '700' },

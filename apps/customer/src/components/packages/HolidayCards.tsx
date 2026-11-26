@@ -280,7 +280,9 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
               </View>
             ) : null}
             <Text style={[s.price, { color: themeColors.text }]}>{inr(price)}</Text>
-            <Text style={[s.per, { color: themeColors.textTertiary }]}>per person + taxes</Text>
+            <Text style={[s.per, { color: themeColors.textTertiary }]}>
+              per person + taxes{Number(pkg?.duration?.days) > 1 ? ` · ${inr(Math.round(price / Number(pkg.duration.days)))}/day` : ''}
+            </Text>
           </View>
           <View style={[s.cta, { backgroundColor: BLUE }]}>
             <Text style={s.ctaText}>View deal</Text>
