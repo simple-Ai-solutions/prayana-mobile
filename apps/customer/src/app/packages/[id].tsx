@@ -47,6 +47,8 @@ import {
 } from '../../components/packages/DetailActions';
 import { RouteMap, type RouteStop } from '../../components/packages/RouteMap';
 import { TripGallery, type TripGalleryItem } from '../../components/packages/TripGallery';
+import { PhotoViewer } from '../../components/ui/PhotoViewer';
+import { HotelSheet, type HotelInfo } from '../../components/packages/HotelSheet';
 import { DayCustomise, SwapButton, RequestsSummary } from '../../components/packages/Customise';
 import { useTripRequests } from '../../lib/tripRequests';
 import {
@@ -421,6 +423,9 @@ export default function PackageDetailScreen() {
   const [pkg, setPkg] = useState<HolidayPackage | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImageIdx, setActiveImageIdx] = useState(0);
+  // Full-screen photos (hero carousel or a hotel photo) and the hotel sheet.
+  const [viewer, setViewer] = useState<{ images: string[]; index: number } | null>(null);
+  const [hotelOpen, setHotelOpen] = useState<HotelInfo | null>(null);
   // Backfilled gallery for packages with an empty images[] — fetched from the
   // itinerary's place names via /destinations/place-images, exactly like the
   // web PackageImageGrid. Only used when the package ships no images.
@@ -894,6 +899,22 @@ export default function PackageDetailScreen() {
   const nights = pkg.duration?.nights || Math.max(0, days - 1);
   const price = pkg.pricing?.startingFrom || 0;
   const selectedVariant = (pkg.variants || []).find((v) => v.name === variantName) || null;
+  // Hotel sheet: fill the nights and room from the itinerary days that name
+  // this hotel, so the sheet says "2 nights · Day 1, 2" from real data.
+  const openHotel = (h: PkgHotel, category?: string) => {
+    const key = h.name.trim().toLowerCase();
+    const stays = (pkg.itinerary || []).filter((d) => d.accommodation?.hotelName?.trim().toLowerCase() === key);
+    const days = stays.map((d, i) => d.day ?? d.dayNumber ?? i + 1);
+    const acc = stays[0]?.accommodation;
+    const cat = category || acc?.hotelCategory;
+    setHotelOpen({
+      ...h,
+      imageUrl: h.imageUrl ? normalizeImageUrl(h.imageUrl) : acc?.imageUrl ? normalizeImageUrl(acc.imageUrl) : undefined,
+      category: cat ? HOTEL_LABEL[cat] || cat : undefined,
+      roomType: acc?.roomType,
+      days,
+    });
+  };
   // Hotels live on the VARIANT (variants[].hotels), not at the package root —
   // reading pkg.hotels meant "Where you'll stay" never rendered. Prefer the
   // chosen variant's list, fall back to the first variant that has one, then
@@ -1063,14 +1084,20 @@ export default function PackageDetailScreen() {
           >
             {images.map((img, idx) =>
               img.url ? (
-                <Image
+                <Pressable
                   key={idx}
-                  source={{ uri: img.url }}
-                  style={styles.carouselImage}
-                  contentFit="cover"
-                  transition={200}
-                  cachePolicy="memory-disk"
-                />
+                  onPress={() => setViewer({ images: images.map((i) => i.url).filter(Boolean) as string[], index: idx })}
+                  accessibilityRole="imagebutton"
+                  accessibilityLabel={`Photo ${idx + 1} of ${images.length}, open full screen`}
+                >
+                  <Image
+                    source={{ uri: img.url }}
+                    style={styles.carouselImage}
+                    contentFit="cover"
+                    transition={200}
+                    cachePolicy="memory-disk"
+                  />
+                </Pressable>
               ) : (
                 <LinearGradient
                   key={idx}
@@ -1115,10 +1142,16 @@ export default function PackageDetailScreen() {
           {/* Photo counter — the web's "View Photos" pill is hover-only, so it
               never appears on touch. Show the count instead. */}
           {images.length > 1 && images[0].url ? (
-            <View style={styles.photoCount}>
-              <Ionicons name="images-outline" size={12} color="#374151" />
-              <Text style={styles.photoCountText}>{activeImageIdx + 1}/{images.length}</Text>
-            </View>
+            <Pressable
+              onPress={() => setViewer({ images: images.map((i) => i.url).filter(Boolean) as string[], index: activeImageIdx })}
+              style={styles.photoCount}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={`See all ${images.length} photos`}
+            >
+              <Ionicons name="expand-outline" size={12} color="#374151" />
+              <Text style={styles.photoCountText}>{activeImageIdx + 1}/{images.length} · See all</Text>
+            </Pressable>
           ) : null}
         </View>
 
@@ -1294,7 +1327,13 @@ export default function PackageDetailScreen() {
                     {hotelsByCity(v.hotels).length > 0 ? (
                       <View style={[styles.vHotels, { borderTopColor: themeColors.border }]}>
                         {hotelsByCity(v.hotels).map(([city, hs]) => (
-                          <View key={city} style={styles.vHotelRow}>
+                          <Pressable
+                            key={city}
+                            style={({ pressed }) => [styles.vHotelRow, pressed && { opacity: 0.6 }]}
+                            onPress={() => openHotel(hs[0], v.hotelCategory)}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Hotel details: ${hs[0].name}`}
+                          >
                             {hs[0].imageUrl ? (
                               <Image
                                 source={{ uri: normalizeImageUrl(hs[0].imageUrl) }}
@@ -1325,7 +1364,8 @@ export default function PackageDetailScreen() {
                                 </View>
                               ) : null}
                             </View>
-                          </View>
+                            <Ionicons name="chevron-forward" size={14} color="#9ca3af" style={{ marginTop: 2 }} />
+                          </Pressable>
                         ))}
                       </View>
                     ) : null}
@@ -1637,7 +1677,12 @@ export default function PackageDetailScreen() {
                         <Text style={[styles.bodyText, { color: themeColors.textSecondary }]}>{d.description}</Text>
                       ) : null}
                       {d.accommodation?.hotelName ? (
-                        <View style={styles.stayRow}>
+                        <Pressable
+                          style={({ pressed }) => [styles.stayRow, pressed && { opacity: 0.6 }]}
+                          onPress={() => openHotel({ name: d.accommodation!.hotelName!, imageUrl: d.accommodation!.imageUrl }, d.accommodation!.hotelCategory)}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Hotel details: ${d.accommodation.hotelName}`}
+                        >
                           {d.accommodation.imageUrl ? (
                             <Image
                               source={{ uri: normalizeImageUrl(d.accommodation.imageUrl) }}
@@ -1662,7 +1707,8 @@ export default function PackageDetailScreen() {
                               </Text>
                             ) : null}
                           </View>
-                        </View>
+                          <Ionicons name="chevron-forward" size={16} color="#9ca3af" />
+                        </Pressable>
                       ) : null}
                       {acts.length > 0 ? (
                         <View style={{ marginTop: 8, gap: 12 }}>
@@ -2614,6 +2660,14 @@ export default function PackageDetailScreen() {
           ) : null}
         </SafeAreaView>
       </Modal>
+      <HotelSheet
+        hotel={hotelOpen}
+        onClose={() => setHotelOpen(null)}
+        onPhoto={(uri) => { setHotelOpen(null); setViewer({ images: [uri], index: 0 }); }}
+      />
+      {viewer ? (
+        <PhotoViewer visible images={viewer.images} initialIndex={viewer.index} onClose={() => setViewer(null)} />
+      ) : null}
     </SafeAreaView>
   );
 }

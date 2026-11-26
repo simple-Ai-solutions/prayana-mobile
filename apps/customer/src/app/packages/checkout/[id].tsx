@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Keyboard,
   Platform,
+  TextInput as RNTextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -166,6 +167,9 @@ export default function PackageCheckoutScreen() {
   const [confirmed, setConfirmed] = useState(false);
   // Pay in full, or split (the server builds the schedule; installment 1 is charged now).
   const [plan, setPlan] = useState<PayPlan>('full');
+  // Promo code: typed, then sent with the quote; the server says if it applies.
+  const [couponInput, setCouponInput] = useState('');
+  const [couponCode, setCouponCode] = useState('');
 
   // Step 1: variant + travelers
   const [variantName, setVariantName] = useState<string | null>(null);
@@ -346,6 +350,7 @@ export default function PackageCheckoutScreen() {
           infants: 0,
           travelDate: startDate || undefined,
           selectedAddOns: selectedAddOnPayload,
+          couponCode: couponCode || undefined,
         });
         if (alive) setLivePrice(res?.data || null);
       } catch {
@@ -355,7 +360,7 @@ export default function PackageCheckoutScreen() {
       }
     })();
     return () => { alive = false; };
-  }, [pkg, variantName, adults, children, startDate, selectedAddOnPayload]);
+  }, [pkg, variantName, adults, children, startDate, selectedAddOnPayload, couponCode]);
 
   // What we display + charge: server finalPrice when available, else the estimate.
   const estimatedTotal = useMemo(() => {
@@ -451,6 +456,7 @@ export default function PackageCheckoutScreen() {
           // must be an OBJECT, not a count, or every booking is priced for 1 adult.
           totalTravelers: { adults, children, infants: 0 },
           paymentPlan: canSplit ? plan : 'full',
+          ...(livePrice?.coupon?.applied ? { couponCode: livePrice.coupon.code } : {}),
           customerName: name.trim(),
           customerEmail: email.trim(),
           customerPhone: phone.trim(),
@@ -866,6 +872,9 @@ export default function PackageCheckoutScreen() {
                         value={`₹${Number(a.total ?? a.price ?? 0).toLocaleString('en-IN')}`}
                       />
                     ))}
+                    {livePrice.coupon?.applied && (
+                      <ReviewRow label={`Coupon ${livePrice.coupon.code}`} value={`−₹${Number(livePrice.coupon.discountAmount).toLocaleString('en-IN')}`} />
+                    )}
                     {!!livePrice.taxes?.total && (
                       <ReviewRow label={`Taxes (GST${livePrice.taxes?.tcs ? ' + TCS' : ''})`} value={`₹${Number(livePrice.taxes.total).toLocaleString('en-IN')}`} />
                     )}
@@ -875,6 +884,43 @@ export default function PackageCheckoutScreen() {
                   <ReviewRow label="Total" value={`₹${estimatedTotal.toLocaleString('en-IN')}`} />
                 )}
               </Card>
+
+              {/* Promo code */}
+              <View style={styles.couponRow}>
+                <Ionicons name="pricetag-outline" size={18} color="#f97316" />
+                <RNTextInput
+                  value={couponInput}
+                  onChangeText={(t) => setCouponInput(t.toUpperCase())}
+                  placeholder="Have a coupon code?"
+                  placeholderTextColor={colors.textTertiary}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  style={styles.couponInput}
+                  editable={!livePrice?.coupon?.applied}
+                />
+                {livePrice?.coupon?.applied ? (
+                  <TouchableOpacity onPress={() => { setCouponCode(''); setCouponInput(''); }} hitSlop={8}>
+                    <Text style={styles.couponAction}>Remove</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity onPress={() => setCouponCode(couponInput.trim())} disabled={!couponInput.trim()} hitSlop={8}>
+                    <Text style={[styles.couponAction, !couponInput.trim() && { opacity: 0.4 }]}>Apply</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              {livePrice?.coupon ? (
+                <Text style={[styles.hint, { color: livePrice.coupon.applied ? '#16a34a' : '#dc2626', marginTop: 4 }]}>
+                  {livePrice.coupon.applied
+                    ? `${livePrice.coupon.code} applied: you save ₹${Number(livePrice.coupon.discountAmount).toLocaleString('en-IN')}`
+                    : livePrice.coupon.reason || 'This code can\'t be used here'}
+                </Text>
+              ) : couponCode && !pricing && livePrice ? (
+                // Server answered without a coupon result (older server): say so
+                // instead of leaving the code sitting there silently.
+                <Text style={[styles.hint, { color: '#dc2626', marginTop: 4 }]}>
+                  This code can't be used here
+                </Text>
+              ) : null}
 
               {/* Payment plan: split is offered when travel is far enough away
                   for the later parts to fall before the trip. */}
@@ -1026,6 +1072,9 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
+  couponRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#fdba74', borderRadius: 14, paddingHorizontal: 12, paddingVertical: 4, marginTop: spacing.md, backgroundColor: '#fff7ed' },
+  couponInput: { flex: 1, fontSize: fontSize.md, fontWeight: '700', color: colors.text, paddingVertical: 10, letterSpacing: 1 },
+  couponAction: { color: '#ea580c', fontWeight: '800', fontSize: fontSize.md },
   planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderColor: colors.border, borderRadius: 14, padding: 12, backgroundColor: colors.surface },
   planRowOn: { borderColor: '#f97316', backgroundColor: '#fff7ed' },
   planTitle: { fontSize: fontSize.md, fontWeight: fontWeight.bold, color: colors.text },

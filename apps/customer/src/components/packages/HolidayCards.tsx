@@ -53,7 +53,7 @@ export function pkgPlaces(pkg: any): string {
  * "Thailand 3N/4D" (the nights are on the card already): when the lead is just
  * a place and a duration, show "Thailand · Pattaya & Bangkok" instead.
  */
-const shortTitle = (t?: string) => {
+export const shortTitle = (t?: string) => {
   const full = String(t || '').trim();
   const [lead, ...rest] = full.split(/\s+[—–]\s+/);
   const tail = rest.join(' — ').replace(/\s*\([^)]*\)/g, '').replace(/,?\s*\d+\s*N(ights)?\s*\/?\s*\d+\s*D(ays)?$/i, '').trim();
@@ -62,7 +62,7 @@ const shortTitle = (t?: string) => {
   return lead || full;
 };
 
-function nightsDays(pkg: any) {
+export function nightsDays(pkg: any) {
   const d = pkg?.duration?.days || 0;
   const n = pkg?.duration?.nights ?? Math.max(0, d - 1);
   return d ? `${n}N/${d}D` : '';
@@ -79,6 +79,11 @@ const PERKS: { test: RegExp; icon: keyof typeof Ionicons.glyphMap; label: string
 export function pkgPerks(pkg: any) {
   const lines: string[] = pkg?.inclusions || [];
   return PERKS.filter((p) => lines.some((l) => p.test.test(l))).slice(0, 4);
+}
+/** Every perk with whether the package's inclusions mention it (for Compare). */
+export function pkgPerkChecks(pkg: any) {
+  const lines: string[] = pkg?.inclusions || [];
+  return PERKS.map((p) => ({ ...p, has: lines.some((l) => p.test.test(l)) }));
 }
 
 /* ─── Theme tiles ─── */
@@ -214,7 +219,13 @@ export function nextDeparture(pkg: any): { label: string; seats: number | null }
 
 /* ─── List card ─── */
 
-export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void }) {
+export function HolidayCard({ pkg, onPress, compareOn, onCompare }: {
+  pkg: any;
+  onPress: () => void;
+  /** Shows a "Compare" tick on the photo when given. */
+  compareOn?: boolean;
+  onCompare?: () => void;
+}) {
   const { themeColors, isDarkMode } = useTheme();
   // Worked out on every render: the list recycles cards, so a photo held in
   // state would stay on the next package scrolled into this card.
@@ -241,6 +252,19 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
         <View style={s.cardPlaces}>
           <Ionicons name="location" size={12} color="#fff" />
           <Text style={s.cardPlacesText} numberOfLines={1}>{pkgPlaces(pkg)}</Text>
+          {onCompare ? (
+            <Pressable
+              onPress={onCompare}
+              hitSlop={8}
+              style={[s.whitePill, compareOn && { backgroundColor: BLUE }]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: !!compareOn }}
+              accessibilityLabel="Compare this package"
+            >
+              <Ionicons name={compareOn ? 'checkmark-circle' : 'git-compare-outline'} size={12} color={compareOn ? '#fff' : BLUE} />
+              <Text style={[s.whitePillText, compareOn && { color: '#fff' }]}>{compareOn ? 'Added' : 'Compare'}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 

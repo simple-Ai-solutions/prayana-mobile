@@ -8,6 +8,7 @@ import {
   TextInput as RNTextInput,
   ActivityIndicator,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -30,6 +31,8 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { holidayPackagesAPI } from '@prayana/shared-services';
+import Toast from 'react-native-toast-message';
+import { clearCompare, toggleCompare, useComparePicks, MAX_COMPARE } from '../../lib/comparePackages';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 import { GroupDeparturesTab } from '../../components/packages/GroupDeparturesTab';
@@ -273,6 +276,12 @@ export default function PackagesScreen() {
     return packages.filter((p) => !shown.has(p._id));
   }, [browsing, packages, heroFeatured, dealList]);
   const open = (pkg: HolidayPackage) => router.push(`/packages/${encodeURIComponent(pkg._id)}` as any);
+  const picks = useComparePicks();
+  const onCompare = (pkgId: string) => {
+    if (toggleCompare(pkgId) === 'full') {
+      Toast.show({ type: 'info', text1: `You can compare up to ${MAX_COMPARE} packages`, text2: 'Remove one to add another.' });
+    }
+  };
   const featSnap = usePairSnap(FULL_W + RAIL_GAP);
   const dealSnap = usePairSnap(TWO_UP_SNAP);
   const [featAt, setFeatAt] = useState(0);
@@ -510,11 +519,12 @@ export default function PackagesScreen() {
       ) : (
         <FlashList
           data={loading ? [] : listPackages}
+          extraData={picks}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               {/* Open by _id, not slug: some slugs collide with empty duplicates. */}
-              <HolidayCard pkg={item} onPress={() => open(item)} />
+              <HolidayCard pkg={item} onPress={() => open(item)} compareOn={picks.includes(item._id)} onCompare={() => onCompare(item._id)} />
             </View>
           )}
           ListHeaderComponent={browseHeader}
@@ -557,6 +567,24 @@ export default function PackagesScreen() {
           </ScrollView>
         </View>
       ) : null}
+      {picks.length > 0 && browseTab !== 'departures' ? (
+        <View style={[styles.compareBar, { bottom: insets.bottom + 12, backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <Pressable onPress={clearCompare} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear compare">
+            <Ionicons name="close-circle" size={22} color={themeColors.textTertiary} />
+          </Pressable>
+          <Text style={[styles.compareText, { color: themeColors.text }]} numberOfLines={1}>
+            {picks.length === 1 ? 'Pick one more to compare' : `${picks.length} packages picked`}
+          </Text>
+          <Pressable
+            onPress={() => router.push({ pathname: '/packages/compare', params: { ids: picks.join(',') } } as any)}
+            disabled={picks.length < 2}
+            style={[styles.compareBtn, picks.length < 2 && { opacity: 0.45 }]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.compareBtnText}>Compare</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <PackageFilterSheet
         open={filterOpen}
         facets={facets}
@@ -570,6 +598,14 @@ export default function PackagesScreen() {
 }
 
 const styles = StyleSheet.create({
+  compareBar: {
+    position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1, borderRadius: 18, paddingLeft: 14, paddingRight: 8, paddingVertical: 8,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8,
+  },
+  compareText: { flex: 1, fontSize: 14, fontWeight: '700' },
+  compareBtn: { backgroundColor: BLUE, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+  compareBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   container: { flex: 1, backgroundColor: colors.backgroundSecondary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   topBar: {
