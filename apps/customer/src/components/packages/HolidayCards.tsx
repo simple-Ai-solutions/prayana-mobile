@@ -47,7 +47,20 @@ export function pkgPlaces(pkg: any): string {
 }
 
 /** The title before its " — 5N/6D" tail, which the card already shows. */
-const shortTitle = (t?: string) => String(t || '').split(/\s+[—–]\s+/)[0] || String(t || '');
+/**
+ * The name for a card. Most titles are "Name — places", so the part before
+ * the dash is enough. But "Thailand 3N/4D — Pattaya & Bangkok" kept only
+ * "Thailand 3N/4D" (the nights are on the card already): when the lead is just
+ * a place and a duration, show "Thailand · Pattaya & Bangkok" instead.
+ */
+const shortTitle = (t?: string) => {
+  const full = String(t || '').trim();
+  const [lead, ...rest] = full.split(/\s+[—–]\s+/);
+  const tail = rest.join(' — ').replace(/\s*\([^)]*\)/g, '').replace(/,?\s*\d+\s*N(ights)?\s*\/?\s*\d+\s*D(ays)?$/i, '').trim();
+  const m = (lead || '').match(/^(.+?)\s+\d+\s*N\s*\/\s*\d+\s*D$/i);
+  if (m && tail) return `${m[1]} · ${tail}`;
+  return lead || full;
+};
 
 function nightsDays(pkg: any) {
   const d = pkg?.duration?.days || 0;
