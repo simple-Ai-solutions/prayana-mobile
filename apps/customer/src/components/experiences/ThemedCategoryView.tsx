@@ -14,6 +14,7 @@
 // Every figure on a card is the partner's own: rating, reviews, city, duration
 // and price. Quick filters match words in the listing's own title.
 import React, { useMemo, useState } from 'react';
+import { listingPriceNow } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Platform } from 'react-native';
 import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -52,7 +53,7 @@ const priceOf = (a: any): string | null => {
   const p = a.platformSellingPrice ?? a.pricing?.basePrice ?? a.price ?? null;
   if (p == null || !(Number(p) > 0)) return null;
   const code = String(a.pricing?.currency || a.currency || 'INR').toUpperCase();
-  return `${SYMBOLS[code] ?? `${code} `}${Math.round(Number(p)).toLocaleString(code === 'INR' ? 'en-IN' : 'en-US')}`;
+  return listingPriceNow(Number(p), a);
 };
 const kOf = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
 const open = (a: any) => a?._id && router.push(`/activity/${a._id}` as any);
@@ -62,7 +63,7 @@ const score = (a: any) => ratingOf(a) * Math.log10(reviewsOf(a) + 10);
 /* ─── themes ─── */
 
 export type ThemeKey = 'heritage' | 'spiritual' | 'wildlife' | 'parks' | 'action' | 'water' | 'wellness' | 'transit' | 'fresh';
-type Card = 'arch' | 'journal' | 'ticket' | 'poster' | 'wave' | 'soft' | 'board' | 'fresh';
+type Card = 'arch' | 'pass' | 'journal' | 'ticket' | 'poster' | 'wave' | 'soft' | 'board' | 'fresh';
 
 type Theme = {
   card: Card;
@@ -77,7 +78,7 @@ type Theme = {
 
 export const THEMES: Record<ThemeKey, Theme> = {
   heritage: {
-    card: 'arch', bg: '#F8F3EA', surface: '#FFFDF8', ink: '#2B1A12', muted: '#8A7360', accent: '#7A2E1D', accent2: '#C89B3C', line: 'rgba(122,46,29,0.14)',
+    card: 'pass', bg: '#F8F3EA', surface: '#FFFDF8', ink: '#2B1A12', muted: '#8A7360', accent: '#7A2E1D', accent2: '#C89B3C', line: 'rgba(122,46,29,0.14)',
     heroGrad: ['rgba(43,26,18,0.35)', 'rgba(43,26,18,0.2)', 'rgba(43,26,18,0.9)'],
     eyebrow: 'HERITAGE & HISTORY', icon: 'business', headline: ['Walk through', 'centuries'], serif: true,
     spotlight: 'Landmarks not to miss', listTitle: 'All entries & walks',
@@ -276,6 +277,49 @@ function ArchCard({ a, t }: { a: any; t: Theme }) {
   );
 }
 
+/**
+ * An entry pass: photo on the left, the place's name and the ticket details on
+ * the right, a perforated edge between them. Heritage and forts used the big
+ * arch card, one per screen; this shows three or four.
+ */
+function PassCard({ a, t }: { a: any; t: Theme }) {
+  return (
+    <Pressable
+      onPress={() => open(a)}
+      style={({ pressed }) => [s.passCard, { backgroundColor: t.surface, borderColor: t.line }, pressed && s.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={titleOf(a)}
+    >
+      <Photo a={a} style={s.passImg}>
+        {instantOf(a) ? (
+          <View style={[s.pill, s.passPill, { backgroundColor: t.accent }]}>
+            <Ionicons name="flash" size={9} color="#fff" />
+            <Text style={[s.pillText, { fontSize: 9.5 }]}>Instant</Text>
+          </View>
+        ) : null}
+      </Photo>
+      {/* The tear between photo and stub. */}
+      <View style={[s.passTear, { borderColor: t.line }]}>
+        <View style={[s.passNotch, { top: -7, backgroundColor: t.bg, borderColor: t.line }]} />
+        <View style={[s.passNotch, { bottom: -7, backgroundColor: t.bg, borderColor: t.line }]} />
+      </View>
+      <View style={s.passBody}>
+        <Text style={[s.passTitle, { color: t.ink, fontFamily: t.serif ? SERIF : undefined }]} numberOfLines={2}>{titleOf(a)}</Text>
+        <Meta a={a} t={t} />
+        <View style={s.passFoot}>
+          <Rating a={a} t={t} />
+          <View style={{ flex: 1 }} />
+          {priceOf(a) ? (
+            <Text style={[s.passPrice, { color: t.accent }]}>
+              <Text style={[s.from, { color: t.muted }]}>from </Text>{priceOf(a)}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 function JournalCard({ a, t }: { a: any; t: Theme }) {
   return (
     <Pressable onPress={() => open(a)} style={({ pressed }) => [s.journal, { backgroundColor: t.surface, borderColor: t.line }, pressed && s.pressed]} accessibilityRole="button" accessibilityLabel={titleOf(a)}>
@@ -439,7 +483,7 @@ function FreshCard({ a, t }: { a: any; t: Theme }) {
 }
 
 const CARDS: Record<Card, React.FC<{ a: any; t: Theme }>> = {
-  arch: ArchCard, journal: JournalCard, ticket: TicketCard, poster: PosterCard,
+  arch: ArchCard, pass: PassCard, journal: JournalCard, ticket: TicketCard, poster: PosterCard,
   wave: WaveCard, soft: SoftCard, board: BoardRow, fresh: FreshCard,
 };
 /** Cards that sit two across; the rest take the full width. */
@@ -586,6 +630,15 @@ export function ThemedCategoryView({
 const CELL_W = Math.floor((FULL_W - 12) / 2);
 
 const s = StyleSheet.create({
+  passCard: { flexDirection: 'row', borderRadius: 18, borderWidth: 1, overflow: 'hidden', minHeight: 128 },
+  passImg: { width: 116, alignSelf: 'stretch' },
+  passPill: { position: 'absolute', left: 8, top: 8 },
+  passTear: { width: 0, borderLeftWidth: 1.5, borderStyle: 'dashed', marginVertical: 10 },
+  passNotch: { position: 'absolute', left: -8, width: 14, height: 14, borderRadius: 7, borderWidth: 1 },
+  passBody: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, gap: 6 },
+  passTitle: { fontSize: 16, fontWeight: '800', lineHeight: 21 },
+  passFoot: { flexDirection: 'row', alignItems: 'center', marginTop: 'auto', gap: 6 },
+  passPrice: { fontSize: 16, fontWeight: '900' },
   pressed: { transform: [{ scale: 0.985 }] },
   hero: { height: 320, justifyContent: 'flex-end', backgroundColor: '#1f2937' },
   back: { position: 'absolute', top: 12, left: 16, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' },

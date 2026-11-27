@@ -17,7 +17,8 @@ import { normalizeImageUrl } from '../../lib/imageUrl';
 import { FULL_W, TWO_UP_W } from '../../lib/railLayout';
 import { fallbackPhoto } from '../../lib/fallbackPhoto';
 
-export const BLUE = '#008cff';
+export // The app's orange (packages used their own blue).
+const BLUE = '#f97316';
 const NAVY = '#0b2a4a';
 
 export function pkgImage(pkg: any): string | undefined {
@@ -46,9 +47,22 @@ export function pkgPlaces(pkg: any): string {
 }
 
 /** The title before its " — 5N/6D" tail, which the card already shows. */
-const shortTitle = (t?: string) => String(t || '').split(/\s+[—–]\s+/)[0] || String(t || '');
+/**
+ * The name for a card. Most titles are "Name — places", so the part before
+ * the dash is enough. But "Thailand 3N/4D — Pattaya & Bangkok" kept only
+ * "Thailand 3N/4D" (the nights are on the card already): when the lead is just
+ * a place and a duration, show "Thailand · Pattaya & Bangkok" instead.
+ */
+export const shortTitle = (t?: string) => {
+  const full = String(t || '').trim();
+  const [lead, ...rest] = full.split(/\s+[—–]\s+/);
+  const tail = rest.join(' — ').replace(/\s*\([^)]*\)/g, '').replace(/,?\s*\d+\s*N(ights)?\s*\/?\s*\d+\s*D(ays)?$/i, '').trim();
+  const m = (lead || '').match(/^(.+?)\s+\d+\s*N\s*\/\s*\d+\s*D$/i);
+  if (m && tail) return `${m[1]} · ${tail}`;
+  return lead || full;
+};
 
-function nightsDays(pkg: any) {
+export function nightsDays(pkg: any) {
   const d = pkg?.duration?.days || 0;
   const n = pkg?.duration?.nights ?? Math.max(0, d - 1);
   return d ? `${n}N/${d}D` : '';
@@ -66,6 +80,11 @@ export function pkgPerks(pkg: any) {
   const lines: string[] = pkg?.inclusions || [];
   return PERKS.filter((p) => lines.some((l) => p.test.test(l))).slice(0, 4);
 }
+/** Every perk with whether the package's inclusions mention it (for Compare). */
+export function pkgPerkChecks(pkg: any) {
+  const lines: string[] = pkg?.inclusions || [];
+  return PERKS.map((p) => ({ ...p, has: lines.some((l) => p.test.test(l)) }));
+}
 
 /* ─── Theme tiles ─── */
 
@@ -79,17 +98,18 @@ export const THEMES: { key: string; label: string; image: string }[] = [
 ];
 
 export function ThemeTiles({ active, onPick }: { active: string; onPick: (key: string) => void }) {
-  const { themeColors } = useTheme();
   return (
     <View style={s.themes}>
       {THEMES.map((t) => {
         const on = active === t.key;
         return (
-          <Pressable key={t.key} onPress={() => onPick(on ? 'all' : t.key)} style={s.theme} accessibilityRole="button" accessibilityState={{ selected: on }}>
-            <View style={[s.themeRing, on && { borderColor: BLUE }]}>
-              <Image source={{ uri: t.image }} style={s.themeImg} contentFit="cover" cachePolicy="memory-disk" transition={200} />
-            </View>
-            <Text style={[s.themeText, { color: on ? BLUE : themeColors.text }]} numberOfLines={1}>{t.label}</Text>
+          // Photo tiles with the name on them: the round photos looked like
+          // Home's Adventure Hotspots.
+          <Pressable key={t.key} onPress={() => onPick(on ? 'all' : t.key)} style={({ pressed }) => [s.theme, on && { borderColor: BLUE }, pressed && { transform: [{ scale: 0.97 }] }]} accessibilityRole="button" accessibilityState={{ selected: on }} accessibilityLabel={t.label}>
+            <Image source={{ uri: t.image }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} />
+            <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.75)']} locations={[0.35, 1]} style={StyleSheet.absoluteFill} />
+            {on ? <View style={s.themeCheck}><Ionicons name="checkmark" size={12} color="#fff" /></View> : null}
+            <Text style={s.themeText} numberOfLines={1}>{t.label}</Text>
           </Pressable>
         );
       })}
@@ -135,6 +155,7 @@ export function DealTile({ pkg, onPress }: { pkg: any; onPress: () => void }) {
   const { themeColors, isDarkMode } = useTheme();
   const { price, mrp, off } = pkgPrice(pkg);
   const img = pkgImage(pkg) || fallbackPhoto(pkg);
+  const leaves = leavesIn(pkg);
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pkg.title}
       style={({ pressed }) => [s.tile, { backgroundColor: themeColors.surface, borderColor: isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)' }, pressed && { transform: [{ scale: 0.98 }] }]}>
@@ -144,22 +165,67 @@ export function DealTile({ pkg, onPress }: { pkg: any; onPress: () => void }) {
         {off > 0 ? (
           <LinearGradient colors={['#ef4444', '#b91c1c']} style={s.tileOff}><Text style={s.tileOffText}>{off}% OFF</Text></LinearGradient>
         ) : null}
-        {nightsDays(pkg) ? <View style={s.tileDur}><Text style={s.tileDurText}>{nightsDays(pkg)}</Text></View> : null}
+        {/* Urgency: when it leaves, not just how long it lasts. */}
+        <View style={s.tileBadges}>
+          {leaves ? (
+            <View style={s.leaves}><Ionicons name="time" size={10} color="#fff" /><Text style={s.leavesText}>{leaves}</Text></View>
+          ) : null}
+          {nightsDays(pkg) ? <View style={s.tileDur}><Text style={s.tileDurText}>{nightsDays(pkg)}</Text></View> : null}
+        </View>
       </View>
       <View style={s.tileBody}>
         <Text style={[s.tileTitle, { color: themeColors.text }]} numberOfLines={2}>{shortTitle(pkg.title)}</Text>
         <View style={{ flex: 1 }} />
-        {mrp ? <Text style={s.tileMrp}>{inr(mrp)}</Text> : null}
+        {mrp ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 }}>
+            <Text style={[s.tileMrp, { marginTop: 0 }]}>{inr(mrp)}</Text>
+            <Text style={s.save}>Save {inr(mrp - price)}</Text>
+          </View>
+        ) : null}
         <Text style={[s.tilePrice, { color: themeColors.text }]}>{inr(price)}</Text>
-        <Text style={[s.tilePer, { color: themeColors.textTertiary }]}>per person</Text>
+        <Text style={[s.tilePer, { color: themeColors.textTertiary }]}>per person + taxes</Text>
       </View>
     </Pressable>
   );
 }
 
+/** "Leaves in 5 days" / "Leaves tomorrow" for a departure within 3 weeks. */
+function leavesIn(pkg: any): string | null {
+  const n = nextDeparture(pkg);
+  if (!n) return null;
+  const d = (Array.isArray(pkg?.departures) ? pkg.departures : [])
+    .map((x: any) => new Date(x?.startDate).getTime())
+    .filter((t: number) => t > Date.now())
+    .sort((a: number, b: number) => a - b)[0];
+  const days = Math.ceil((d - Date.now()) / 86400000);
+  if (days > 21) return null;
+  return days <= 1 ? 'Leaves tomorrow' : `Leaves in ${days} days`;
+}
+
+/** The next open departure: "Next: 12 Dec" and seats left when few. */
+export function nextDeparture(pkg: any): { label: string; seats: number | null } | null {
+  const now = Date.now();
+  const deps = (Array.isArray(pkg?.departures) ? pkg.departures : [])
+    .filter((d: any) => d?.status !== 'closed' && d?.status !== 'cancelled' && new Date(d?.startDate).getTime() > now)
+    .sort((x: any, y: any) => +new Date(x.startDate) - +new Date(y.startDate));
+  const d = deps[0];
+  if (!d) return null;
+  const left = Number(d.availableSlots ?? 0) - Number(d.bookedSlots ?? 0);
+  return {
+    label: new Date(d.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
+    seats: left > 0 && left <= 10 ? left : null,
+  };
+}
+
 /* ─── List card ─── */
 
-export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void }) {
+export function HolidayCard({ pkg, onPress, compareOn, onCompare }: {
+  pkg: any;
+  onPress: () => void;
+  /** Shows a "Compare" tick on the photo when given. */
+  compareOn?: boolean;
+  onCompare?: () => void;
+}) {
   const { themeColors, isDarkMode } = useTheme();
   // Worked out on every render: the list recycles cards, so a photo held in
   // state would stay on the next package scrolled into this card.
@@ -169,6 +235,7 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
   const { price, mrp, off } = pkgPrice(pkg);
   const perks = pkgPerks(pkg);
   const rating = pkg?.rating?.average || 0;
+  const next = nextDeparture(pkg);
   const line = isDarkMode ? 'rgba(255,255,255,0.08)' : 'rgba(15,23,42,0.07)';
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={pkg.title}
@@ -185,6 +252,19 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
         <View style={s.cardPlaces}>
           <Ionicons name="location" size={12} color="#fff" />
           <Text style={s.cardPlacesText} numberOfLines={1}>{pkgPlaces(pkg)}</Text>
+          {onCompare ? (
+            <Pressable
+              onPress={onCompare}
+              hitSlop={8}
+              style={[s.whitePill, compareOn && { backgroundColor: BLUE }]}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: !!compareOn }}
+              accessibilityLabel="Compare this package"
+            >
+              <Ionicons name={compareOn ? 'checkmark-circle' : 'git-compare-outline'} size={12} color={compareOn ? '#fff' : BLUE} />
+              <Text style={[s.whitePillText, compareOn && { color: '#fff' }]}>{compareOn ? 'Added' : 'Compare'}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -196,16 +276,22 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
           ) : null}
         </View>
 
+        {/* One row of small chips: the four big icon boxes made each card a screen tall. */}
         {perks.length ? (
           <View style={s.perks}>
             {perks.map((p) => (
-              <View key={p.label} style={s.perk}>
-                <View style={[s.perkIcon, { backgroundColor: isDarkMode ? 'rgba(0,140,255,0.15)' : '#fff7ed' }]}>
-                  <Ionicons name={p.icon} size={14} color={BLUE} />
-                </View>
+              <View key={p.label} style={[s.perk, { backgroundColor: isDarkMode ? 'rgba(249, 115, 22,0.12)' : '#fff7ed' }]}>
+                <Ionicons name={p.icon} size={11} color={BLUE} />
                 <Text style={[s.perkText, { color: themeColors.textSecondary }]}>{p.label}</Text>
               </View>
             ))}
+          </View>
+        ) : null}
+        {next ? (
+          <View style={s.nextRow}>
+            <Ionicons name="calendar" size={12} color={BLUE} />
+            <Text style={[s.nextText, { color: themeColors.text }]}>Next: {next.label}</Text>
+            {next.seats ? <Text style={s.seats}>· Only {next.seats} seats left</Text> : null}
           </View>
         ) : null}
 
@@ -217,11 +303,14 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
                 <Text style={s.save}>Save {inr(mrp - price)}</Text>
               </View>
             ) : null}
-            <Text style={[s.price, { color: themeColors.text }]}>{inr(price)}<Text style={[s.per, { color: themeColors.textTertiary }]}> per person</Text></Text>
+            <Text style={[s.price, { color: themeColors.text }]}>{inr(price)}</Text>
+            <Text style={[s.per, { color: themeColors.textTertiary }]}>
+              per person + taxes{Number(pkg?.duration?.days) > 1 ? ` · ${inr(Math.round(price / Number(pkg.duration.days)))}/day` : ''}
+            </Text>
           </View>
-          <LinearGradient colors={['#2b9cff', BLUE, '#0066cc']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.cta}>
+          <View style={[s.cta, { backgroundColor: BLUE }]}>
             <Text style={s.ctaText}>View deal</Text>
-          </LinearGradient>
+          </View>
         </View>
       </View>
     </Pressable>
@@ -230,10 +319,11 @@ export function HolidayCard({ pkg, onPress }: { pkg: any; onPress: () => void })
 
 const s = StyleSheet.create({
   themes: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14, paddingHorizontal: 16 },
-  theme: { width: '31%', alignItems: 'center', gap: 6 },
+  theme: { width: '31.5%', height: 96, borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: 'transparent', justifyContent: 'flex-end', padding: 9 },
+  themeCheck: { position: 'absolute', top: 7, right: 7, width: 20, height: 20, borderRadius: 10, backgroundColor: BLUE, alignItems: 'center', justifyContent: 'center' },
   themeRing: { width: 74, height: 74, borderRadius: 37, padding: 3, borderWidth: 2, borderColor: 'transparent' },
   themeImg: { flex: 1, borderRadius: 34 },
-  themeText: { fontSize: 12.5, fontWeight: '700' },
+  themeText: { color: '#fff', fontSize: 13, fontWeight: '800' },
 
   poster: {
     width: FULL_W, height: 270, borderRadius: 24, overflow: 'hidden', justifyContent: 'space-between',
@@ -262,7 +352,10 @@ const s = StyleSheet.create({
   tileImg: { height: Math.round(TWO_UP_W * 0.78) },
   tileOff: { position: 'absolute', top: 0, left: 0, borderBottomRightRadius: 12, paddingHorizontal: 9, paddingVertical: 5 },
   tileOffText: { color: '#fff', fontSize: 11, fontWeight: '900' },
-  tileDur: { position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  tileBadges: { position: 'absolute', bottom: 8, left: 8, right: 8, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  leaves: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#DC2626', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
+  leavesText: { color: '#fff', fontSize: 10.5, fontWeight: '800' },
+  tileDur: { backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 },
   tileDurText: { color: '#fff', fontSize: 10.5, fontWeight: '800' },
   tileBody: { padding: 11, minHeight: 112 },
   tileTitle: { fontSize: 13.5, fontWeight: '800', lineHeight: 17 },
@@ -274,25 +367,28 @@ const s = StyleSheet.create({
     borderRadius: 22, borderWidth: 1, overflow: 'hidden',
     shadowColor: '#0f172a', shadowOpacity: 0.09, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3,
   },
-  cardImg: { aspectRatio: 16 / 9, justifyContent: 'space-between' },
+  cardImg: { aspectRatio: 2.2, justifyContent: 'space-between' },
   cardTop: { flexDirection: 'row', gap: 6, padding: 12 },
   cardPlaces: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 14, paddingBottom: 12 },
   cardPlacesText: { flex: 1, color: '#fff', fontSize: 13, fontWeight: '700', textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 6 },
-  cardBody: { padding: 14, gap: 12 },
+  cardBody: { padding: 14, gap: 9 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   cardTitle: { ...CARD_TITLE, flex: 1 },
   rate: { flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: '#16a34a', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginTop: 2 },
   rateText: { color: '#fff', fontSize: 12, fontWeight: '800' },
-  perks: { flexDirection: 'row', gap: 14 },
-  perk: { alignItems: 'center', gap: 4 },
+  perks: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  perk: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4 },
   perkIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  perkText: { fontSize: 10.5, fontWeight: '600' },
-  priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12 },
+  perkText: { fontSize: 11, fontWeight: '700' },
+  nextRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  nextText: { fontSize: 12.5, fontWeight: '700' },
+  seats: { color: '#DC2626', fontSize: 12, fontWeight: '800' },
+  priceRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10 },
   mrpRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   mrp: { color: '#9ca3af', fontSize: 12, textDecorationLine: 'line-through' },
   save: { color: '#16a34a', fontSize: 11.5, fontWeight: '800' },
   price: { fontSize: 22, fontWeight: '900', letterSpacing: -0.4 },
-  per: { fontSize: 12, fontWeight: '600' },
+  per: { fontSize: 11.5, fontWeight: '600', marginTop: 1 },
   cta: { borderRadius: 14, paddingHorizontal: 18, paddingVertical: 12 },
   ctaText: { color: '#fff', fontSize: 14, fontWeight: '800' },
 });

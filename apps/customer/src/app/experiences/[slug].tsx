@@ -8,6 +8,7 @@
 // matching activities from /activities/global, and renders a themed hero +
 // sub-category chips (groups) + a results grid with load-more.
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useExchangeRates } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import { ScrollView, TouchableOpacity } from 'react-native-gesture-handler';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -30,8 +31,13 @@ import { ThemedCategoryView, THEMES, themeFor } from '../../components/experienc
 const ORANGE = '#F97316';
 const PAGE = 24;
 
+const isTrek = (a: any) =>
+  (Array.isArray(a?.category) ? a.category : [a?.category]).some((c: any) => /^trekking$/i.test(String(c || '')));
+
 export default function ExperienceCategoryScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
+  // Re-render when exchange rates arrive, so partner prices show in rupees.
+  useExchangeRates();
   const { themeColors } = useTheme();
 
   const resolved = useMemo(() => (slug ? resolveExperienceSlug(String(slug)) : null), [slug]);
@@ -70,11 +76,17 @@ export default function ExperienceCategoryScreen() {
           limit: PAGE,
           skip: nextSkip,
         });
-        const data: any[] = res?.data || res?.activities || [];
+        const raw: any[] = res?.data || res?.activities || [];
+        // Treks live under Treks & Hikes only: vendors also tag them
+        // "Photography" or "Adventure", which repeated them on every other
+        // category page. (The server does the same once released; this keeps
+        // the app right until then.)
+        const wantsTreks = /(^|,)\s*trekking\s*(,|$)/i.test(String(categoryFilter || ''));
+        const data = wantsTreks ? raw : raw.filter((a) => !isTrek(a));
         setItems((prev) => (append ? [...prev, ...data] : data));
-        setTotal(Number(res?.total ?? data.length));
-        setHasMore(data.length >= PAGE);
-        setSkip(nextSkip + data.length);
+        setTotal(Math.max(0, Number(res?.total ?? raw.length) - (raw.length - data.length)));
+        setHasMore(raw.length >= PAGE);
+        setSkip(nextSkip + raw.length);
       } catch {
         if (!append) setItems([]);
       } finally {

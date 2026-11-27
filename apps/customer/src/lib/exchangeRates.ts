@@ -95,3 +95,14 @@ export function useListingPrice(): (amount: number, a: any) => string {
     return inr != null ? formatMoney(inr, 'INR') : formatMoney(amount, from);
   };
 }
+
+/**
+ * Same as useListingPrice, for code outside a component: uses the rates
+ * already loaded (call useExchangeRates in the screen so it re-renders when
+ * they arrive), else the listing's own currency.
+ */
+export function listingPriceNow(amount: number, a: any): string {
+  const from = listingCurrency(a);
+  const inr = convertCurrency(amount, from, 'INR', memory);
+  return inr != null ? formatMoney(inr, 'INR') : formatMoney(amount, from);
+}

@@ -45,10 +45,10 @@ const THEMES = [
   },
   {
     id: 'spiritual', title: 'Spiritual Journeys', Icon: Church, color: '#8B5CF6',
-    image: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=800',
+    image: 'https://images.unsplash.com/photo-1706186829065-ede677efe384?w=800',
     items: [
-      { name: 'Varanasi Pilgrimage', destination: 'Varanasi', days: 3, rating: 4.7, image: 'https://images.unsplash.com/photo-1561361513-2d000a50f0dc?w=600' },
-      { name: 'Rishikesh Retreat', destination: 'Rishikesh', days: 4, rating: 4.8, image: 'https://images.unsplash.com/photo-1591018533299-9c6a3a96d3e3?w=600' },
+      { name: 'Varanasi Pilgrimage', destination: 'Varanasi', days: 3, rating: 4.7, image: 'https://images.unsplash.com/photo-1706186829065-ede677efe384?w=600' },
+      { name: 'Rishikesh Retreat', destination: 'Rishikesh', days: 4, rating: 4.8, image: 'https://images.unsplash.com/photo-1712510817140-917938f92e5b?w=600' },
     ],
   },
   {
@@ -72,7 +72,7 @@ const THEMES = [
     image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=800',
     items: [
       { name: 'Golden Triangle', destination: 'Delhi Agra Jaipur', days: 6, rating: 4.8, image: 'https://images.unsplash.com/photo-1564507592333-c60657eea523?w=600' },
-      { name: 'Hampi Heritage', destination: 'Hampi', days: 3, rating: 4.8, image: 'https://images.unsplash.com/photo-1600100397608-f010fbdb3a6a?w=600' },
+      { name: 'Hampi Heritage', destination: 'Hampi', days: 3, rating: 4.8, image: 'https://prayanaai.com/images/place-names/hampi-vijayanagara/hampi-vijayanagara/img-1_google_places_b3ad6f06.jpg' },
     ],
   },
 ];

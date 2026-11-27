@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   TextInput as RNTextInput,
   ActivityIndicator,
   RefreshControl,
+  Pressable,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getRecentPackages, RecentPackage } from '../../lib/recentlyViewedPackages';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FlashList } from '@shopify/flash-list';
@@ -29,10 +31,12 @@ import {
   useTheme,
 } from '@prayana/shared-ui';
 import { holidayPackagesAPI } from '@prayana/shared-services';
+import Toast from 'react-native-toast-message';
+import { clearCompare, toggleCompare, useComparePicks, MAX_COMPARE } from '../../lib/comparePackages';
 import { PackageFilterSheet, PackageFilters } from '../../components/packages/PackageFilterSheet';
 import { normalizeImageUrl } from '../../lib/imageUrl';
 import { GroupDeparturesTab } from '../../components/packages/GroupDeparturesTab';
-import { HolidayCard, DealPoster, DealTile, ThemeTiles, THEMES } from '../../components/packages/HolidayCards';
+import { HolidayCard, DealPoster, DealTile, ThemeTiles, THEMES, pkgPrice } from '../../components/packages/HolidayCards';
 import { FULL_W, RAIL_GAP, RAIL_PAD, TWO_UP_SNAP, usePairSnap } from '../../lib/railLayout';
 
 // Packages use the theme's blue accent rather than the app-wide orange, so the
@@ -74,7 +78,16 @@ const SCOPES: { key: Scope; label: string }[] = [
 
 // Full-bleed hero photo — the same Himalayan landscape the PWA uses.
 const HERO_IMAGE = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80';
-const BLUE = '#008cff';
+// The app's orange (packages used their own blue).
+const BLUE = '#f97316';
+
+const QUICK = [
+  { key: 'u10', label: 'Under ₹10,000', icon: 'pricetag', filters: { maxBudget: 10000 } },
+  { key: 'u25', label: 'Under ₹25,000', icon: 'wallet', filters: { maxBudget: 25000 } },
+  { key: 'wknd', label: 'Weekend · 1–3 nights', icon: 'sunny', filters: { minNights: 1, maxNights: 3 } },
+  { key: 'week', label: 'Week-long', icon: 'airplane', filters: { minNights: 5 } },
+] as const;
+const inrText = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const PAGE_SIZE = 30;
 
 // Sort options (server keys — see /packages/search sort mapping).
@@ -235,12 +248,40 @@ export default function PackagesScreen() {
     const source = featured.length ? featured : packages.filter((p) => pkgImage(p));
     return source.filter((p) => (seen.has(p._id) ? false : (seen.add(p._id), true))).slice(0, 5);
   }, [featured, packages]);
+  const quickKey = QUICK.find((q) => JSON.stringify(q.filters) === JSON.stringify(filters))?.key ?? null;
+
+  // One tile per destination country (India: per state), its cheapest package.
+  const destinations = useMemo(() => {
+    const by = new Map<string, { name: string; from: number; image?: string }>();
+    for (const p of packages as any[]) {
+      const d = p?.destinations?.[0];
+      const name = d?.country && d.country !== 'India' ? d.country : d?.state || d?.city;
+      const { price } = pkgPrice(p);
+      if (!name || !price) continue;
+      const cur = by.get(name);
+      if (!cur || price < cur.from) by.set(name, { name, from: price, image: pkgImage(p) || cur?.image });
+    }
+    return [...by.values()].filter((x) => x.image).slice(0, 10);
+  }, [packages]);
+
   const dealList = useMemo(() => {
     const seen = new Set<string>();
     return deals.filter((p) => (seen.has(p._id) ? false : (seen.add(p._id), true)));
   }, [deals]);
   const browsing = !search.trim() && activeCategory === 'all' && scope === 'all' && activeFilterCount === 0 && sort === 'rating';
+  // The rails above already show these; don't repeat them first thing below.
+  const listPackages = useMemo(() => {
+    if (!browsing) return packages;
+    const shown = new Set([...heroFeatured, ...dealList].map((p) => p._id));
+    return packages.filter((p) => !shown.has(p._id));
+  }, [browsing, packages, heroFeatured, dealList]);
   const open = (pkg: HolidayPackage) => router.push(`/packages/${encodeURIComponent(pkg._id)}` as any);
+  const picks = useComparePicks();
+  const onCompare = (pkgId: string) => {
+    if (toggleCompare(pkgId) === 'full') {
+      Toast.show({ type: 'info', text1: `You can compare up to ${MAX_COMPARE} packages`, text2: 'Remove one to add another.' });
+    }
+  };
   const featSnap = usePairSnap(FULL_W + RAIL_GAP);
   const dealSnap = usePairSnap(TWO_UP_SNAP);
   const [featAt, setFeatAt] = useState(0);
@@ -299,6 +340,33 @@ export default function PackagesScreen() {
     </View>
   );
 
+  // The Filters + sort chips, shown in the list header and, once scrolled
+  // past, pinned at the top so filtering never means scrolling back up.
+  const sortChips = (
+    <>
+        <TouchableOpacity
+          onPress={() => setFilterOpen(true)}
+          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? BLUE : themeColors.border, backgroundColor: activeFilterCount ? BLUE + '18' : themeColors.surface }]}
+        >
+          <Ionicons name="options-outline" size={14} color={activeFilterCount ? BLUE : themeColors.text} />
+          <Text style={[styles.sortChipText, { color: activeFilterCount ? BLUE : themeColors.text }]}>Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
+        </TouchableOpacity>
+        {SORTS.map((so) => {
+          const active = sort === so.key;
+          return (
+            <TouchableOpacity key={so.key} onPress={() => setSort(so.key)} style={[styles.sortChip, { borderColor: active ? BLUE : themeColors.border, backgroundColor: active ? BLUE : themeColors.surface }]}>
+              <Text style={[styles.sortChipText, { color: active ? '#fff' : themeColors.textSecondary }]}>{so.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+    </>
+  );
+  const sortRowY = useRef(0);
+  const [recentPkgs, setRecentPkgs] = useState<RecentPackage[]>([]);
+  useFocusEffect(useCallback(() => { getRecentPackages().then(setRecentPkgs); }, []));
+  const insets = useSafeAreaInsets();
+  const [pinSort, setPinSort] = useState(false);
+
   const browseHeader = (
     <View>
       {top}
@@ -314,6 +382,62 @@ export default function PackagesScreen() {
           );
         })}
       </View>
+
+      {/* One-tap budget and length: no typing, no filter sheet. */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
+        {QUICK.map((q) => {
+          const on = quickKey === q.key;
+          return (
+            <TouchableOpacity
+              key={q.key}
+              onPress={() => setFilters(on ? {} : (q.filters as PackageFilters))}
+              activeOpacity={0.8}
+              style={[styles.quickChip, { borderColor: on ? BLUE : themeColors.border, backgroundColor: on ? BLUE : themeColors.surface }]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+            >
+              <Ionicons name={q.icon as any} size={14} color={on ? '#fff' : BLUE} />
+              <Text style={[styles.quickText, { color: on ? '#fff' : themeColors.text }]}>{q.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
+      {/* Recently viewed packages: back to one in a tap. */}
+      {browsing && recentPkgs.length > 0 ? (
+        <View>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Recently viewed</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: RAIL_PAD, gap: 10 }}>
+            {recentPkgs.map((r) => (
+              <TouchableOpacity key={r.id} activeOpacity={0.85} onPress={() => router.push(`/packages/${encodeURIComponent(r.id)}` as any)}
+                style={[styles.recentPkg, { backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+                {r.image ? <Image source={{ uri: r.image }} style={styles.recentPkgImg} contentFit="cover" cachePolicy="memory-disk" /> : <View style={styles.recentPkgImg} />}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.recentPkgTitle, { color: themeColors.text }]} numberOfLines={2}>{r.title.split(/\s+[—–]\s+/)[0]}</Text>
+                  {r.price ? <Text style={[styles.recentPkgPrice, { color: themeColors.text }]}>{inrText(r.price)}{r.nights ? <Text style={{ color: themeColors.textTertiary, fontWeight: '600' }}>{`  ·  ${r.nights}N`}</Text> : null}</Text> : null}
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
+
+      {/* Popular destinations, cheapest price first in each */}
+      {browsing && destinations.length > 1 ? (
+        <View>
+          <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Popular destinations</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: RAIL_PAD, gap: 10 }}>
+            {destinations.map((d) => (
+              <TouchableOpacity key={d.name} activeOpacity={0.85} onPress={() => setSearch(d.name)} style={styles.destTile} accessibilityRole="button" accessibilityLabel={`${d.name} from ${inrText(d.from)}`}>
+                {d.image ? <Image source={{ uri: d.image }} style={StyleSheet.absoluteFill} contentFit="cover" cachePolicy="memory-disk" transition={200} /> : null}
+                <LinearGradient colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.8)']} locations={[0.3, 1]} style={StyleSheet.absoluteFill} />
+                <Text style={styles.destName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>{d.name}</Text>
+                <Text style={styles.destFrom}>from {inrText(d.from)}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Holidays by theme */}
       <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Holidays by theme</Text>
@@ -369,23 +493,11 @@ export default function PackagesScreen() {
           <Text style={[styles.sectionSub, { color: themeColors.textSecondary }]}>{loading ? 'Finding the best prices…' : `${total || packages.length} packages`}</Text>
         </View>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.sortRow}>
-        <TouchableOpacity
-          onPress={() => setFilterOpen(true)}
-          style={[styles.sortChip, styles.filterChip, { borderColor: activeFilterCount ? BLUE : themeColors.border, backgroundColor: activeFilterCount ? BLUE + '18' : themeColors.surface }]}
-        >
-          <Ionicons name="options-outline" size={14} color={activeFilterCount ? BLUE : themeColors.text} />
-          <Text style={[styles.sortChipText, { color: activeFilterCount ? BLUE : themeColors.text }]}>Filters{activeFilterCount ? ` · ${activeFilterCount}` : ''}</Text>
-        </TouchableOpacity>
-        {SORTS.map((so) => {
-          const active = sort === so.key;
-          return (
-            <TouchableOpacity key={so.key} onPress={() => setSort(so.key)} style={[styles.sortChip, { borderColor: active ? BLUE : themeColors.border, backgroundColor: active ? BLUE : themeColors.surface }]}>
-              <Text style={[styles.sortChipText, { color: active ? '#fff' : themeColors.textSecondary }]}>{so.label}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      <View onLayout={(e) => { sortRowY.current = e.nativeEvent.layout.y; }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipRail} contentContainerStyle={styles.sortRow}>
+          {sortChips}
+        </ScrollView>
+      </View>
       {loading ? <View style={styles.loadingBox}><ActivityIndicator size="large" color={BLUE} /></View> : null}
     </View>
   );
@@ -406,15 +518,21 @@ export default function PackagesScreen() {
         </>
       ) : (
         <FlashList
-          data={loading ? [] : packages}
+          data={loading ? [] : listPackages}
+          extraData={picks}
           keyExtractor={(item) => item._id}
           renderItem={({ item }) => (
             <View style={{ paddingHorizontal: 16, paddingBottom: 16 }}>
               {/* Open by _id, not slug: some slugs collide with empty duplicates. */}
-              <HolidayCard pkg={item} onPress={() => open(item)} />
+              <HolidayCard pkg={item} onPress={() => open(item)} compareOn={picks.includes(item._id)} onCompare={() => onCompare(item._id)} />
             </View>
           )}
           ListHeaderComponent={browseHeader}
+          onScroll={(e: any) => {
+            const pin = e.nativeEvent.contentOffset.y > sortRowY.current;
+            if (pin !== pinSort) setPinSort(pin);
+          }}
+          scrollEventThrottle={64}
           onEndReached={loadMore}
           onEndReachedThreshold={0.6}
           ListFooterComponent={
@@ -442,6 +560,31 @@ export default function PackagesScreen() {
         />
       )}
 
+      {pinSort && browseTab !== 'departures' ? (
+        <View style={[styles.pinnedSort, { top: insets.top, backgroundColor: themeColors.background, borderBottomColor: themeColors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortRow}>
+            {sortChips}
+          </ScrollView>
+        </View>
+      ) : null}
+      {picks.length > 0 && browseTab !== 'departures' ? (
+        <View style={[styles.compareBar, { bottom: insets.bottom + 12, backgroundColor: themeColors.surface, borderColor: themeColors.border }]}>
+          <Pressable onPress={clearCompare} hitSlop={8} accessibilityRole="button" accessibilityLabel="Clear compare">
+            <Ionicons name="close-circle" size={22} color={themeColors.textTertiary} />
+          </Pressable>
+          <Text style={[styles.compareText, { color: themeColors.text }]} numberOfLines={1}>
+            {picks.length === 1 ? 'Pick one more to compare' : `${picks.length} packages picked`}
+          </Text>
+          <Pressable
+            onPress={() => router.push({ pathname: '/packages/compare', params: { ids: picks.join(',') } } as any)}
+            disabled={picks.length < 2}
+            style={[styles.compareBtn, picks.length < 2 && { opacity: 0.45 }]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.compareBtnText}>Compare</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <PackageFilterSheet
         open={filterOpen}
         facets={facets}
@@ -455,6 +598,14 @@ export default function PackagesScreen() {
 }
 
 const styles = StyleSheet.create({
+  compareBar: {
+    position: 'absolute', left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 10,
+    borderWidth: 1, borderRadius: 18, paddingLeft: 14, paddingRight: 8, paddingVertical: 8,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8,
+  },
+  compareText: { flex: 1, fontSize: 14, fontWeight: '700' },
+  compareBtn: { backgroundColor: BLUE, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 },
+  compareBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
   container: { flex: 1, backgroundColor: colors.backgroundSecondary },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   topBar: {
@@ -515,10 +666,21 @@ const styles = StyleSheet.create({
   },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 14 },
   tabBtnOn: { backgroundColor: BLUE },
+  recentPkg: { width: 240, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, padding: 8 },
+  recentPkgImg: { width: 56, height: 56, borderRadius: 10, backgroundColor: '#e5e7eb' },
+  recentPkgTitle: { fontSize: 13.5, fontWeight: '800', lineHeight: 17 },
+  recentPkgPrice: { fontSize: 13, fontWeight: '900', marginTop: 3 },
+  pinnedSort: { position: 'absolute', top: 0, left: 0, right: 0, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth, elevation: 4, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } },
+  quickRow: { gap: 8, paddingHorizontal: 16, marginTop: 14 },
+  quickChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  quickText: { fontSize: 13, fontWeight: '700' },
+  destTile: { width: 132, height: 150, borderRadius: 18, overflow: 'hidden', justifyContent: 'flex-end', padding: 11, backgroundColor: '#e5e7eb' },
+  destName: { color: '#fff', fontSize: 16, fontWeight: '900' },
+  destFrom: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '700', marginTop: 2 },
   tabText: { fontSize: 14, fontWeight: '800' },
   scopeRow: { flexDirection: 'row', marginHorizontal: 16, marginTop: 16, borderRadius: 999, borderWidth: 1, padding: 4, gap: 4 },
   scopePill: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 999 },
-  scopePillOn: { backgroundColor: 'rgba(0,140,255,0.1)' },
+  scopePillOn: { backgroundColor: 'rgba(249, 115, 22,0.1)' },
   scopePillText: { fontSize: 13, fontWeight: '800' },
   sectionHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, marginTop: 26, marginBottom: 12 },
   sectionIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },

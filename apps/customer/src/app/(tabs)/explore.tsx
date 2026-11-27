@@ -274,7 +274,11 @@ export default function ExploreScreen() {
 
         const response: any = await activityMarketplaceAPI.searchActivities(filters);
 
-        const data = response?.data || response?.activities || [];
+        const rawData = response?.data || response?.activities || [];
+        // Treks show under the Trekking chip only (see experiences/[slug]).
+        const data = category && category !== 'all' && !/^trekking$/i.test(category)
+          ? rawData.filter((a: any) => !(Array.isArray(a?.category) ? a.category : [a?.category]).some((c: any) => /^trekking$/i.test(String(c || ''))))
+          : rawData;
         const pagination = response?.pagination || {};
         const total = pagination.total || response?.total || 0;
         const serverHasMore =
@@ -302,7 +306,7 @@ export default function ExploreScreen() {
         }
 
         setTotalResults(total);
-        setHasMore(data.length >= PAGE_SIZE && serverHasMore);
+        setHasMore(rawData.length >= PAGE_SIZE && serverHasMore);
         setPage(pageNum);
       } catch (err: any) {
         console.warn('[Explore] Failed to fetch activities:', err.message);
@@ -651,6 +655,17 @@ export default function ExploreScreen() {
         />
       );
     }
+    if (activeFilterCount(filters)) {
+      return (
+        <FriendlyEmpty
+          kind="search"
+          title="No matches for these filters"
+          text="Try a wider budget, another date or a different city."
+          actionLabel="Clear filters"
+          onAction={() => handleApplyFilters(NO_FILTERS)}
+        />
+      );
+    }
     return (
       <FriendlyEmpty
         kind="search"
@@ -665,7 +680,7 @@ export default function ExploreScreen() {
         }}
       />
     );
-  }, [loading, loadError, searchQuery, selectedCategory, sortBy, themeColors, fetchActivities]);
+  }, [loading, loadError, searchQuery, selectedCategory, sortBy, themeColors, fetchActivities, filters, handleApplyFilters]);
 
   // ============================================================
   // RENDER

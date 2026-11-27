@@ -64,14 +64,20 @@ import { ExperienceCard } from '../../components/experiences/ExperienceCard';
 import { FeaturedRailCard } from '../../components/experiences/FeaturedRailCard';
 import { SpotlightCarousel } from '../../components/home/SpotlightCarousel';
 import {
-  ACCENT, PlaceCard, PosterCard, SectionLabel, VibeTile,
+  ACCENT, PlaceCard, PosterCard, SectionLabel, TopRow, VibeTile,
 } from '../../components/experiences/ThingsToDoUI';
+import { NearYou } from '../../components/experiences/NearYou';
+import { Image as ExpoImage } from 'expo-image';
+import { imageOf } from '../../lib/experiences';
 
 const PAGE = 12;
+// The photo behind the title: the top listing's own photo, else this.
+const HERO_FALLBACK = 'https://prayanaai.com/images/place-names/pangong-lake-ladakh/pangong-lake-ladakh/img-1_google_places_ffc2c9f2.jpg';
+const HERO_H = 236;
+const NEAR_W = Math.round(Dimensions.get('window').width * 0.44);
 // Top picks spotlight: one card large in the centre, neighbours peeking.
 const SCREEN_W = Dimensions.get('window').width;
 const SPOT_W = Math.round(SCREEN_W * 0.74);
-const TREND_W = Math.round(SCREEN_W * 0.46);
 const PLACE_W = Math.round(SCREEN_W * 0.34);
 // One row of photo tiles: three across with the fourth peeking.
 const VIBE_W = Math.floor((SCREEN_W - 16 - 10 * 3) / 3.35);
@@ -79,6 +85,61 @@ const TEAL = '#4AC0CC';
 
 const readList = (res: any): Experience[] =>
   Array.isArray(res?.data) ? res.data : Array.isArray(res?.data?.activities) ? res.data.activities : [];
+
+// One-tap filters under search: no typing to narrow the list.
+const QUICK = [
+  { key: 'weekend', label: 'This weekend', icon: 'calendar', params: { when: 'weekend' } },
+  { key: 'u1k', label: 'Under ₹1,000', icon: 'pricetag', params: { maxPrice: 1000 } },
+  { key: 'short', label: 'A few hours', icon: 'time', params: { duration: 'short' } },
+  { key: 'multi', label: '2+ day trips', icon: 'moon', params: { duration: 'multi' } },
+] as const;
+type QuickKey = (typeof QUICK)[number]['key'];
+
+// Colour + icon per "Explore more" collection.
+const COLLECTION_LOOK: Record<string, { icon: keyof typeof Ionicons.glyphMap; colors: [string, string] }> = {
+  adventure: { icon: 'flash', colors: ['#F97316', '#C2410C'] },
+  'heritage-culture': { icon: 'library', colors: ['#B45309', '#78350F'] },
+  'water-cruises': { icon: 'boat', colors: ['#0EA5E9', '#0369A1'] },
+  'wellness-spa': { icon: 'leaf', colors: ['#10B981', '#047857'] },
+  'temples-retreats': { icon: 'flame', colors: ['#E38B29', '#9A3412'] },
+  'food-dining': { icon: 'restaurant', colors: ['#EF4444', '#B91C1C'] },
+  tours: { icon: 'bus', colors: ['#6366F1', '#4338CA'] },
+  'wildlife-safari': { icon: 'paw', colors: ['#65A30D', '#3F6212'] },
+  'photo-tours': { icon: 'camera', colors: ['#EC4899', '#BE185D'] },
+  'forts-monuments': { icon: 'business', colors: ['#A16207', '#713F12'] },
+  nightlife: { icon: 'moon', colors: ['#7C3AED', '#4C1D95'] },
+  'markets-shopping': { icon: 'bag-handle', colors: ['#14B8A6', '#0F766E'] },
+};
+
+const isTrekItem = (a: any) =>
+  (Array.isArray(a?.category) ? a.category : [a?.category]).some((c: any) => /^trekking$/i.test(String(c || ''))) ||
+  /\btrek/i.test(String(a?.title || ''));
+// Treks vs. everything else (bungee, rafting, zipline, safari, tours…): vendors
+// tag treks "Adventure" and "Wildlife" too, so the category can't tell them apart.
+const kindOf = (a: any) => (isTrekItem(a) ? 'trek' : 'other');
+
+/**
+ * Re-orders a list so kinds take turns (a trek, a bungee, a safari…): our
+ * catalogue is mostly treks, and every rail came out as a wall of treks that
+ * Treks & Hikes already shows.
+ */
+function mixKinds<T>(list: T[]): T[] {
+  const groups = new Map<string, T[]>();
+  for (const a of list) {
+    const k = kindOf(a);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(a);
+  }
+  const queues = [...groups.values()];
+  const out: T[] = [];
+  while (queues.some((q) => q.length)) for (const q of queues) if (q.length) out.push(q.shift()!);
+  return out;
+}
+
+const uniqById = <T extends { _id?: string }>(list: T[]) => {
+  const seen = new Set<string>();
+  return list.filter((a) => (a?._id && !seen.has(String(a._id)) ? (seen.add(String(a._id)), true) : false));
+};
 
 export default function ActivitiesScreen() {
   const { themeColors, isDarkMode } = useTheme();
@@ -89,6 +150,8 @@ export default function ActivitiesScreen() {
   const [recent, setRecent] = useState<RecentActivity[]>([]);
 
   const [items, setItems] = useState<Experience[]>([]);
+  // Non-trek activities, interleaved into the unfiltered grid's first page.
+  const extrasRef = useRef<Experience[]>([]);
   const [loading, setLoading] = useState(true);
   const [listLoading, setListLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -99,6 +162,8 @@ export default function ActivitiesScreen() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const [sort, setSort] = useState<ActivitySort>('recommended');
+  const [quick, setQuick] = useState<QuickKey | null>(null);
+  const quickRef = useRef<QuickKey | null>(null);
   const [sortOpen, setSortOpen] = useState(false);
   // The "All experiences" chip bar pins to the top once the grid is reached.
   const [gridTop, setGridTop] = useState<number | null>(null);
@@ -115,7 +180,11 @@ export default function ActivitiesScreen() {
           category: opts.cat !== 'All' ? opts.cat : undefined,
           sort: opts.sortBy,
           limit: PAGE,
+          // /activities/search pages by `page`; `skip` alone was ignored, so
+          // "Load more" fetched the first page again.
+          page: Math.floor(opts.skip / PAGE) + 1,
           skip: opts.skip,
+          ...(QUICK.find((x) => x.key === quickRef.current)?.params || {}),
         });
         // Same envelope the featured/trending/collection calls use — the API
         // may return either `{data:[…]}` or `{data:{activities:[…]}}`. Reading
@@ -126,7 +195,10 @@ export default function ActivitiesScreen() {
           : Array.isArray(res?.activities)
             ? res.activities
             : [];
-        setItems((prev) => (opts.append ? [...prev, ...data] : data));
+        // Unfiltered browse: kinds take turns within each page.
+        const browsing = opts.cat === 'All' && !opts.q.trim() && !quickRef.current && opts.sortBy === 'recommended';
+        const shown = browsing ? mixKinds(uniqById(opts.skip === 0 ? [...data, ...extrasRef.current.slice(0, PAGE)] : data)) : data;
+        setItems((prev) => (opts.append ? uniqById([...prev, ...shown]) : shown));
         setHasMore(data.length >= PAGE);
         setSkip(opts.skip + data.length);
       } catch {
@@ -141,6 +213,8 @@ export default function ActivitiesScreen() {
   const loadAll = useCallback(async () => {
     setError('');
     try {
+      const poolRes = await activityMarketplaceAPI.searchActivities({ sort: 'rating', limit: 60, duration: 'short' }).catch(() => null);
+      extrasRef.current = readList(poolRes).filter((a: any) => !isTrekItem(a));
       const [feat, trend, recents] = await Promise.all([
         activityMarketplaceAPI.getFeaturedActivities(10).catch(() => null),
         // No dedicated trending endpoint on mobile — mirror the web's search
@@ -149,8 +223,12 @@ export default function ActivitiesScreen() {
           .searchActivities({ placement: 'trending', sort: 'rating', limit: 10 })
           .catch(() => null),
         getRecentlyViewed(),
+        // A wider pool (top-rated across every kind) to mix into the rails.
         search({ q: '', cat: 'All', sortBy: 'recommended', skip: 0, append: false }),
       ]);
+      // Short activities (bungee, zipline, rafting…) to mix in; the server
+      // ignores `duration` until its filter is released, so keep non-treks.
+      const pool = extrasRef.current;
       // De-dupe featured across Prayana rows (same title+city or external id).
       const featList = readList(feat);
       const seen = new Set<string>();
@@ -162,8 +240,10 @@ export default function ActivitiesScreen() {
         seen.add(key);
         return true;
       });
-      setFeatured(dedupedFeatured.slice(0, 10));
-      setTrending(readList(trend).slice(0, 10));
+      const limelight = mixKinds(uniqById([...dedupedFeatured, ...pool])).slice(0, 10);
+      const taken = new Set(limelight.slice(0, 4).map((a) => String(a._id)));
+      setFeatured(limelight);
+      setTrending(mixKinds(uniqById([...readList(trend), ...pool])).filter((a) => !taken.has(String(a._id))).slice(0, 5));
       setRecent(recents);
     } catch {
       setError("Couldn't load activities. Please try again.");
@@ -224,7 +304,18 @@ export default function ActivitiesScreen() {
     [sort],
   );
 
-  const filtering = category !== 'All' || !!query.trim();
+  const filtering = category !== 'All' || !!query.trim() || !!quick;
+
+  const toggleQuick = useCallback(
+    (k: QuickKey) => {
+      const next = quickRef.current === k ? null : k;
+      quickRef.current = next;
+      setQuick(next);
+      setSkip(0);
+      search({ q: query, cat: category, sortBy: sort, skip: 0, append: false });
+    },
+    [search, query, category, sort],
+  );
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: themeColors.background }]} edges={['top']}>
@@ -236,6 +327,11 @@ export default function ActivitiesScreen() {
         scrollEventThrottle={32}
         onScroll={(e: any) => {
           const y = e.nativeEvent.contentOffset.y;
+          // Load the next page as the grid's end comes into view (no button to find).
+          const { layoutMeasurement, contentSize } = e.nativeEvent;
+          if (hasMore && !listLoading && items.length && y + layoutMeasurement.height > contentSize.height - 1400) {
+            search({ q: query, cat: category, sortBy: sort, skip, append: true });
+          }
           const pin = gridTop != null && y > gridTop;
           if (pin !== pinChips) setPinChips(pin);
         }}
@@ -244,32 +340,38 @@ export default function ActivitiesScreen() {
         }
       >
         {/* ─── GLOW HEADER (District-style) ─── */}
-        <LinearGradient
-          colors={isDarkMode
-            ? ['rgba(255,90,95,0.38)', 'rgba(168,85,247,0.16)', 'rgba(11,11,16,0)']
-            : ['rgba(255,90,95,0.22)', 'rgba(168,85,247,0.08)', 'rgba(255,255,255,0)']}
-          locations={[0, 0.45, 1]}
-          style={styles.glow}
-          pointerEvents="none"
-        />
+        <View style={styles.hero} pointerEvents="none">
+          <ExpoImage
+            source={{ uri: (featured[0] && imageOf(featured[0])) || HERO_FALLBACK }}
+            style={StyleSheet.absoluteFill}
+            contentFit="cover"
+            transition={300}
+            cachePolicy="memory-disk"
+          />
+          <LinearGradient
+            colors={['rgba(0,0,0,0.45)', 'rgba(0,0,0,0.35)', 'rgba(0,0,0,0.6)', themeColors.background]}
+            locations={[0, 0.4, 0.8, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
         <View style={styles.header}>
           <TouchableOpacity
             onPress={() => goBack()}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={[styles.roundBtn, { borderColor: themeColors.border, backgroundColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.8)' }]}
+            style={[styles.roundBtn, { borderColor: 'rgba(255,255,255,0.35)', backgroundColor: 'rgba(0,0,0,0.3)' }]}
             accessibilityRole="button"
             accessibilityLabel="Go back"
           >
-            <Ionicons name="chevron-back" size={20} color={themeColors.text} />
+            <Ionicons name="chevron-back" size={20} color="#fff" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.headerTitle, { color: themeColors.text }]}>Things to do</Text>
-            <Text style={[styles.headerSub, { color: themeColors.textSecondary }]}>Tours, treks &amp; experiences</Text>
+            <Text style={[styles.headerTitle, styles.onPhoto]}>Things to do</Text>
+            <Text style={[styles.headerSub, styles.onPhoto, { opacity: 0.85 }]}>Tours, treks &amp; experiences</Text>
           </View>
         </View>
 
-        <Text style={[styles.bigLine, { color: themeColors.text }]}>
-          Plans worth{'\n'}<Text style={{ color: ACCENT }}>leaving the house</Text> for.
+        <Text style={[styles.bigLine, styles.onPhoto]}>
+          Plans worth{'\n'}<Text style={{ color: '#FDBA74' }}>leaving the house</Text> for.
         </Text>
 
         <View style={[styles.searchPill, { backgroundColor: isDarkMode ? 'rgba(255,255,255,0.07)' : '#FFFFFF', borderColor: themeColors.border }]}>
@@ -293,6 +395,30 @@ export default function ActivitiesScreen() {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* ─── ONE-TAP FILTERS ─── */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
+          {QUICK.map((q) => {
+            const on = quick === q.key;
+            return (
+              <TouchableOpacity
+                key={q.key}
+                onPress={() => toggleQuick(q.key)}
+                activeOpacity={0.8}
+                style={[
+                  styles.quickChip,
+                  { borderColor: on ? ACCENT : themeColors.border, backgroundColor: on ? ACCENT : (isDarkMode ? 'rgba(255,255,255,0.06)' : '#fff') },
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+              >
+                <Ionicons name={q.icon as any} size={14} color={on ? '#fff' : ACCENT} />
+                <Text style={[styles.quickText, { color: on ? '#fff' : themeColors.text }]}>{q.label}</Text>
+                {on ? <Ionicons name="close" size={13} color="#fff" /> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
         {/* ─── WHAT'S THE VIBE? (category tiles, two rows) ─── */}
         <View style={styles.block}>
@@ -351,15 +477,18 @@ export default function ActivitiesScreen() {
               </View>
             )}
 
+            {/* ─── NEAR YOU (nearest first, with distance) ─── */}
+            {!filtering && <NearYou cardWidth={NEAR_W} onPress={open} />}
+
             {/* ─── TRENDING THIS WEEK (numbered chart) ─── */}
             {!filtering && trending.length > 0 && (
               <View style={styles.block}>
-                <SectionLabel label="Trending this week" style={styles.padded} />
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.railPad}>
-                  {trending.map((a) => (
-                    <PosterCard key={a._id} experience={a} width={TREND_W} onPress={open} />
+                <SectionLabel label="Top 5 this week" style={styles.padded} />
+                <View style={styles.topList}>
+                  {trending.map((a, i) => (
+                    <TopRow key={a._id} a={a} rank={i + 1} onPress={open} />
                   ))}
-                </ScrollView>
+                </View>
               </View>
             )}
 
@@ -463,23 +592,12 @@ export default function ActivitiesScreen() {
                     ))}
                   </View>
 
-                  {hasMore && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        !listLoading &&
-                        search({ q: query, cat: category, sortBy: sort, skip, append: true })
-                      }
-                      disabled={listLoading}
-                      style={[styles.loadMore, { borderColor: themeColors.border }]}
-                      accessibilityRole="button"
-                    >
-                      {listLoading ? (
-                        <ActivityIndicator size="small" color={ACCENT} />
-                      ) : (
-                        <Text style={[styles.loadMoreText, { color: themeColors.text }]}>Load more</Text>
-                      )}
-                    </TouchableOpacity>
-                  )}
+                  {/* More loads by itself as you scroll (see onScroll). */}
+                  {hasMore && listLoading ? (
+                    <View style={styles.moreSpinner}>
+                      <ActivityIndicator size="small" color={ACCENT} />
+                    </View>
+                  ) : null}
                 </>
               )}
             </View>
@@ -554,7 +672,7 @@ export default function ActivitiesScreen() {
                           )}
                           {price > 0 && (
                             <Text style={[styles.recentPrice, { color: themeColors.text }]}>
-                              ₹{price.toLocaleString('en-IN')}
+                              ₹{Math.round(price).toLocaleString('en-IN')}
                             </Text>
                           )}
                           <Text style={styles.recentViewed}>Viewed {timeAgo(r.viewedAt)}</Text>
@@ -571,39 +689,40 @@ export default function ActivitiesScreen() {
               <View style={styles.section}>
                 <Text style={[styles.sectionTitle, { color: themeColors.text }]}>Explore more</Text>
 
-                <Text style={[styles.chipGroupTitle, { color: themeColors.text }]}>Popular experiences</Text>
-                <View style={styles.chipWrap}>
-                  {POPULAR_EXPERIENCES.map((e, i) => (
-                    <TouchableOpacity
-                      key={e.slug}
-                      style={[styles.chip, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
-                      onPress={() => router.push(`/experiences/${e.slug}` as any)}
-                      accessibilityRole="button"
-                    >
-                      <View style={styles.chipNum}>
-                        <Text style={styles.chipNumText}>{i + 1}</Text>
-                      </View>
-                      <Text style={[styles.chipLabel, { color: themeColors.text }]} numberOfLines={1}>
-                        {e.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <Text style={[styles.chipGroupTitle, { color: themeColors.text }]}>Browse by kind</Text>
+                <View style={styles.tileGrid}>
+                  {POPULAR_EXPERIENCES.map((e) => {
+                    const look = COLLECTION_LOOK[e.slug] || { icon: 'compass' as const, colors: ['#64748B', '#334155'] as [string, string] };
+                    return (
+                      <TouchableOpacity
+                        key={e.slug}
+                        activeOpacity={0.85}
+                        style={styles.tile}
+                        onPress={() => router.push(`/experiences/${e.slug}` as any)}
+                        accessibilityRole="button"
+                        accessibilityLabel={e.label}
+                      >
+                        <LinearGradient colors={look.colors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />
+                        <Ionicons name={look.icon} size={54} color="rgba(255,255,255,0.14)" style={styles.tileBgIcon} />
+                        <Ionicons name={look.icon} size={20} color="#fff" />
+                        <Text style={styles.tileText} numberOfLines={2}>{e.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
-                <Text style={[styles.chipGroupTitle, { color: themeColors.text }]}>Trending destinations</Text>
+                <Text style={[styles.chipGroupTitle, { color: themeColors.text }]}>Popular places</Text>
                 <View style={styles.chipWrap}>
-                  {TRENDING_DESTINATIONS.map((d, i) => (
+                  {TRENDING_DESTINATIONS.map((d) => (
                     <TouchableOpacity
                       key={d.city}
                       style={[styles.chip, { borderColor: themeColors.border, backgroundColor: themeColors.surface }]}
                       onPress={() => openDestination(d.param, d.city)}
                       accessibilityRole="button"
                     >
-                      <View style={styles.chipNum}>
-                        <Text style={styles.chipNumText}>{i + 1}</Text>
-                      </View>
+                      <Ionicons name="location" size={14} color={ACCENT} />
                       <Text style={[styles.chipLabel, { color: themeColors.text }]} numberOfLines={1}>
-                        {d.city} Activities
+                        {d.city}
                       </Text>
                     </TouchableOpacity>
                   ))}
@@ -673,7 +792,9 @@ export default function ActivitiesScreen() {
 
 const styles = StyleSheet.create({
   // District-style header: a soft coral→violet glow behind the top of the page.
-  glow: { position: 'absolute', left: 0, right: 0, top: 0, height: 420 },
+  hero: { position: 'absolute', left: 0, right: 0, top: 0, height: HERO_H, overflow: 'hidden' },
+  onPhoto: { color: '#fff', textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 8 },
+  moreSpinner: { paddingVertical: 20, alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.lg, paddingTop: spacing.md },
   roundBtn: {
     width: 40, height: 40, borderRadius: 20, borderWidth: 1, alignItems: 'center', justifyContent: 'center',
@@ -685,6 +806,14 @@ const styles = StyleSheet.create({
     fontWeight: '900', letterSpacing: -1.2,
   },
   block: { marginTop: 30 },
+  quickRow: { gap: 8, paddingHorizontal: spacing.lg, marginTop: 12 },
+  quickChip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1.5, borderRadius: 999, paddingHorizontal: 13, paddingVertical: 8 },
+  quickText: { fontSize: 13, fontWeight: '700' },
+  topList: { paddingHorizontal: spacing.lg, gap: 10 },
+  tileGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  tile: { width: Math.floor((SCREEN_W - spacing.lg * 2 - 20) / 3), height: 92, borderRadius: 16, overflow: 'hidden', padding: 10, justifyContent: 'space-between' },
+  tileBgIcon: { position: 'absolute', right: -8, bottom: -8 },
+  tileText: { color: '#fff', fontSize: 12.5, fontWeight: '800', lineHeight: 15 },
   padded: { paddingHorizontal: spacing.lg },
   railPad: { gap: 12, paddingHorizontal: spacing.lg },
   vibeRail: { gap: 10, paddingHorizontal: spacing.lg },
@@ -779,7 +908,8 @@ const styles = StyleSheet.create({
   sortItemText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
-  gridCell: { width: '47.5%', flexGrow: 1 },
+  // Exact half width: flexGrow made an odd last card fill the whole row.
+  gridCell: { width: (SCREEN_W - spacing.lg * 2 - spacing.md) / 2 },
 
   loadMore: {
     marginTop: spacing.lg,

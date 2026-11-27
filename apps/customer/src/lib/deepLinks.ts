@@ -66,7 +66,8 @@ export function resolveDeepLink(url: string | null | undefined): DeepLinkResult 
       const path = `/${u.host}${u.pathname}`.replace(/\/+/g, '/');
       const mapped = mapWebPath(path);
       if (mapped) return mapped;
-      return path && path !== '/' ? path : '/';
+      // Keep the query (?adults=3&date=…) so prefilled screens get it.
+      return path && path !== '/' ? `${path}${u.search || ''}` : '/';
     }
 
     if ((u.protocol === 'https:' || u.protocol === 'http:') && APP_HOSTS.includes(u.host)) {

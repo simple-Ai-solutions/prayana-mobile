@@ -5,6 +5,7 @@
 // rating, the city and duration, the title, and "From €28 per person".
 // Every figure is the partner's own (rating, review count, duration, price).
 import React, { useMemo, useState } from 'react';
+import { listingPriceNow } from '../../lib/exchangeRates';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { SkeletonCardGrid } from '../ui/Skeleton';
 import { ScrollView } from 'react-native-gesture-handler';
@@ -43,7 +44,7 @@ const priceOf = (a: any): string | null => {
   const p = a.platformSellingPrice ?? a.pricing?.basePrice ?? a.price ?? null;
   if (p == null || !(Number(p) > 0)) return null;
   const code = String(a.pricing?.currency || a.currency || 'INR').toUpperCase();
-  return `${SYMBOLS[code] ?? `${code} `}${Math.round(Number(p)).toLocaleString(code === 'INR' ? 'en-IN' : 'en-US')}`;
+  return listingPriceNow(Number(p), a);
 };
 const kOf = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k` : `${n}`);
 const open = (a: any) => a?._id && router.push(`/activity/${a._id}` as any);

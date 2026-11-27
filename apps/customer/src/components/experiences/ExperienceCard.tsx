@@ -10,7 +10,9 @@
 // cannot support is a lie, however good it looks.
 import React from 'react';
 import { useListingPrice } from '../../lib/exchangeRates';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
+// expo-image (Glide): RN's Image left partly off-screen rail cards grey.
+import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme, colors, spacing, fontWeight } from '@prayana/shared-ui';
@@ -60,7 +62,7 @@ export const ExperienceCard: React.FC<Props> = ({ experience, width, onPress }) 
     >
       <View style={[styles.imgWrap, { backgroundColor: themeColors.backgroundSecondary }]}>
         {img ? (
-          <Image source={{ uri: img }} style={styles.img} resizeMode="cover" />
+          <Image source={{ uri: img }} style={styles.img} contentFit="cover" transition={200} cachePolicy="memory-disk" />
         ) : (
           <View style={styles.img}>
             <Ionicons name="image-outline" size={26} color={themeColors.textTertiary} />
