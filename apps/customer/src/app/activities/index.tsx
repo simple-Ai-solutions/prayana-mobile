@@ -908,7 +908,8 @@ const styles = StyleSheet.create({
   sortItemText: { fontSize: fontSize.sm, fontWeight: fontWeight.medium },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md, marginTop: spacing.md },
-  gridCell: { width: '47.5%', flexGrow: 1 },
+  // Exact half width: flexGrow made an odd last card fill the whole row.
+  gridCell: { width: (SCREEN_W - spacing.lg * 2 - spacing.md) / 2 },
 
   loadMore: {
     marginTop: spacing.lg,
